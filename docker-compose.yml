@@ -1,0 +1,44 @@
+version: '3.8' # กำหนดเวอร์ชันของ Docker Compose file format
+
+services:
+  # === Service สำหรับ Web Server (PHP และ Apache) ===
+  web:
+    build:
+      context: . # บอก Docker Compose ให้ Build Image จาก Dockerfile ใน Directory ปัจจุบัน
+      dockerfile: Dockerfile # ระบุชื่อ Dockerfile ที่จะใช้ (ซึ่งเราสร้างไว้ในขั้นตอนที่ 1)
+    ports:
+      - "80:80" # Map Port 80 ของ Host Machine (เครื่องของคุณ) ไปยัง Port 80 ของ Container
+                # หมายความว่าเมื่อคุณเข้า http://localhost:80 คุณจะเห็นเว็บไซต์ของคุณ
+    volumes:
+      - .:/var/www/html # Mount โค้ดโปรเจกต์ปัจจุบันของคุณไปยัง /var/www/html ภายใน Container
+                        # ข้อดีคือ เมื่อคุณแก้ไขโค้ดบนเครื่องของคุณ การเปลี่ยนแปลงจะสะท้อนใน Container ทันที (บางครั้งอาจต้อง Restart Apache หรือ Container)
+    depends_on:
+      - db # กำหนด Dependency ว่า Service 'web' นี้จะเริ่มทำงานหลังจาก Service 'db' เริ่มทำงานแล้ว
+    environment:
+      # ตั้งค่า Environment Variables ที่ PHP Application ของคุณจะใช้ในการเชื่อมต่อฐานข้อมูล
+      # ชื่อ Host ของ Database Service คือ 'db' ตามชื่อ Service ที่เรากำหนดไว้ด้านล่าง
+      MYSQL_HOST: db
+      MYSQL_DATABASE: macfix
+      MYSQL_USER: root
+      MYSQL_PASSWORD: 27455236 # <<<<< สำคัญมาก: เปลี่ยนรหัสผ่านนี้เป็นรหัสผ่านที่ปลอดภัยของคุณ!
+      # ตรวจสอบโค้ด PHP ของคุณใน includes/db.php ว่าใช้ตัวแปรเหล่านี้หรือไม่ และปรับให้ตรงกัน
+
+  # === Service สำหรับ Database (MySQL/MariaDB) ===
+  db:
+    image: mysql:8.0 # ใช้ Docker Image ของ MySQL เวอร์ชัน 8.0 จาก Docker Hub
+                     # คุณสามารถเปลี่ยนเป็น mariadb:latest ถ้าต้องการ MariaDB
+    environment:
+      # ตั้งค่า Environment Variables สำหรับ MySQL/MariaDB
+      MYSQL_ROOT_PASSWORD: 27455236 # <<<<< สำคัญมาก: ต้องตรงกับ MYSQL_PASSWORD ใน Service 'web'
+      MYSQL_DATABASE: macfix # ชื่อ Database ที่จะถูกสร้างขึ้นอัตโนมัติเมื่อ Container เริ่มทำงาน
+    volumes:
+      # Persistent Data สำหรับ Database: ข้อมูลในฐานข้อมูลจะยังคงอยู่แม้ Container จะถูกลบไปแล้ว
+      # Docker จะสร้าง Volume ชื่อ 'db_data' ขึ้นมาจัดการให้
+      - db_data:/var/lib/mysql
+      # Copy ไฟล์ SQL ของคุณไปยัง Directory ที่ Docker จะรันเมื่อ Container เริ่มต้น (Entrypoint)
+      # ซึ่งจะใช้ในการ Initial Database ของคุณ (สร้าง Tables, ใส่ข้อมูลเริ่มต้น)
+      - ./db/macfix.sql:/docker-entrypoint-initdb.d/init.sql
+
+# === กำหนด Docker Volumes ===
+volumes:
+  db_data: # Define Volume ชื่อ 'db_data' ที่ใช้สำหรับ Persistent Data ของ Database
