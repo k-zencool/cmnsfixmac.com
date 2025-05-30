@@ -1,0 +1,15 @@
+# ไม่ track โฟลเดอร์ uploads
+uploads/
+
+# ไม่ track ฐานข้อมูล
+db/
+
+# ไม่ track ไฟล์ config
+.env
+
+# ไฟล์ระบบ macOS / Windows
+.DS_Store
+Thumbs.db
+
+# VSCode settings (ถ้าไม่แชร์กับทีม)
+.vscode/
