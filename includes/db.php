@@ -2,8 +2,8 @@
 // ⚙️ ตั้งค่าการเชื่อมต่อฐานข้อมูล (ใช้กับ MAMP)
 $host = 'localhost';
 $db   = 'cmnsfixmac_db';
-$user = 'cmnsfixmac_db';
-$pass = 'pwdFWeLg6ML8AzeK5B3J'; // ถ้าใช้ MAMP ปกติคือ root
+$user = 'root';
+$pass = 'root'; // ถ้าใช้ MAMP ปกติคือ root
 
 try {
     $pdo = new PDO("mysql:host=$host;dbname=$db;charset=utf8mb4", $user, $pass);
