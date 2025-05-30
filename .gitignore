@@ -4,6 +4,8 @@ uploads/
 # ไม่ track ฐานข้อมูล
 db/
 
+includes/db.php
+
 # ไม่ track ไฟล์ config
 .env
 
