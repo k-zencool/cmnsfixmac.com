@@ -1,0 +1,172 @@
+.monitor-tester * {
+  box-sizing: border-box;
+}
+
+.monitor-tester body {
+  margin: 0;
+  font-family: sans-serif;
+  background-color: #ffffff;
+  color: #333;
+  padding: 0;
+  text-align: left;
+}
+
+.monitor-tester body.fullscreen {
+  display: block !important;
+  align-items: unset !important;
+  justify-content: unset !important;
+}
+
+/* ยินดีต้อนรับ */
+.monitor-tester #welcome {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+  margin-top: 7rem;
+  max-width: 100%;
+}
+
+/* กล่องหลัก */
+.monitor-tester .main-container {
+  width: 100%;
+  max-width: 900px;
+  margin: 5rem auto 2rem auto;
+  padding: 2rem 1.5rem;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 120px);
+}
+
+/* ข้อความ */
+.monitor-tester h1 {
+  font-size: 1.8rem;
+  color: #fc7404;
+  margin-bottom: 0.5rem;
+}
+
+.monitor-tester p {
+  font-size: 1rem;
+  color: #444;
+  margin: 0 0 1rem 0;
+  line-height: 1.6;
+}
+
+/* ปุ่มทั่วไป */
+.monitor-tester button {
+  background-color: #fc7404;
+  color: white;
+  border: none;
+  padding: 0.8rem 2rem;
+  font-size: 1.1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+}
+.monitor-tester button:hover {
+  opacity: 0.9;
+}
+
+/* ป้ายชื่อโหมด */
+.monitor-tester #modeLabel {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  font-size: 2rem;
+  font-weight: bold;
+  background-color: rgba(0, 0, 0, 0.7);
+  color: white;
+  padding: 1rem 2rem;
+  border-radius: 12px;
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.monitor-tester #modeLabel.show {
+  opacity: 1;
+}
+
+/* ปุ่มกลับ */
+.monitor-tester #backButton {
+  position: fixed;
+  bottom: 1rem;
+  left: 1rem;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  border: none;
+  padding: 0.6rem 1rem;
+  border-radius: 6px;
+  font-size: 1rem;
+  cursor: pointer;
+  z-index: 9999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+.monitor-tester #backButton.show {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* ปุ่มเปลี่ยนภาษา */
+.monitor-tester .lang-btn {
+  background-color: #fc7404;
+  color: white;
+  border: none;
+  padding: 0.6rem 1.2rem;
+  font-size: 1rem;
+  border-radius: 12px;
+  display: inline-flex;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: opacity 0.3s ease;
+  line-height: 1.2;
+  margin-bottom: 1.5rem;
+}
+.monitor-tester .lang-btn:hover {
+  opacity: 0.9;
+}
+
+/* ไอคอนภาษา */
+.monitor-tester .material-symbols-outlined {
+  font-size: 1.2em;
+  display: inline-block;
+  vertical-align: middle;
+  line-height: 1;
+}
+
+/* ซ่อน header เวลาทดสอบ */
+.monitor-tester .hidden-header {
+  display: none !important;
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .monitor-tester .main-container {
+    padding: 1.5rem 1rem;
+    border-radius: 12px;
+  }
+
+  .monitor-tester h1 {
+    font-size: 1.4rem;
+  }
+
+  .monitor-tester p {
+    font-size: 0.95rem;
+  }
+
+  .monitor-tester .lang-btn {
+    font-size: 0.95rem;
+    padding: 0.5rem 1rem;
+  }
+}
+.hidden-header {
+  display: none !important;
+}

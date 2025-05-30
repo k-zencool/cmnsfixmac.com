@@ -1,0 +1,45 @@
+body {
+    margin: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background: #f6f7fb;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+  }
+  
+  .logout-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+  }
+  
+  .logout-box {
+    background: white;
+    padding: 40px;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    width: 100%;
+    max-width: 380px;
+    text-align: center;
+    animation: fadein 1s ease;
+  }
+  
+  .logout-box h1 {
+    margin-bottom: 20px;
+    font-size: 24px;
+    color: #374151;
+  }
+  
+  .logout-box p {
+    color: #6b7280;
+    font-size: 16px;
+  }
+  
+  /* Animation ลื่นๆ ตอนแสดงหน้า */
+  @keyframes fadein {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  

@@ -1,0 +1,769 @@
+/* Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body {
+  font-family: 'Sarabun', sans-serif;
+  background-color: #f4f6f9;
+  color: #333;
+  line-height: 1.6;
+}
+
+/* Layout */
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+}
+.main {
+  flex-grow: 1;
+  padding: 30px;
+  background-color: #f9fbfc;
+  transition: all 0.3s ease;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 240px;
+  background-color: #fff;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
+  position: relative;
+  z-index: 10;
+}
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+}
+.sidebar nav a {
+  padding: 12px 20px;
+  color: #333;
+  text-decoration: none;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+.sidebar nav a:hover,
+.sidebar nav a.active {
+  background-color: #e5f0ff;
+  color: #1d4ed8;
+}
+
+/* Topbar */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #fff;
+  padding: 18px 25px;
+  border-bottom: 1px solid #eee;
+  font-size: 16px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+.menu-btn {
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+}
+.view-site {
+  text-decoration: none;
+  color: #1d4ed8;
+  font-weight: bold;
+}
+
+/* Cards */
+.dashboard-cards {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 30px;
+}
+.card {
+  background-color: #fff;
+  border-radius: 16px;
+  padding: 25px 30px;
+  flex: 1 1 260px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-4px);
+}
+.card h2 {
+  font-size: 28px;
+  margin: 10px 0;
+  color: #111;
+}
+.card p {
+  color: #777;
+}
+
+/* Chart Section */
+canvas {
+  margin-top: 20px;
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .admin-layout {
+    flex-direction: column;
+  }
+  .sidebar {
+    width: 100%;
+    box-shadow: none;
+    border-bottom: 1px solid #eee;
+  }
+  .main {
+    padding: 20px;
+  }
+  .dashboard-cards {
+    flex-direction: column;
+  }
+}
+
+
+/* sidebar */
+
+/* รีเซ็ตเบื้องต้น */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Sarabun', sans-serif;
+  background-color: #f6f7fb;
+  color: #333;
+}
+
+/* โครงสร้าง Sidebar */
+.sidebar {
+  width: 260px;
+  height: 100vh;
+  background-color: #ffffff;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  transition: transform 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.logo-icon {
+  font-size: 28px;
+  margin-right: 10px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  display: none;
+}
+
+/* ลิงก์เมนู */
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 15px 20px;
+}
+
+.sidebar-nav a {
+  text-decoration: none;
+  color: #333;
+  padding: 12px;
+  margin-bottom: 6px;
+  border-radius: 8px;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.sidebar-nav a:hover {
+  background-color: #f1f5f9;
+  color: #2563eb;
+  transform: translateX(4px);
+}
+
+.sidebar-nav a span {
+  font-size: 20px;
+  margin-right: 10px;
+}
+
+/* main layout ด้านขวา */
+.main {
+  margin-left: 260px;
+  padding: 20px;
+  transition: all 0.3s ease;
+}
+
+/* ปรับสำหรับมือถือ */
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+  }
+
+  .sidebar.show {
+    transform: translateX(0);
+  }
+
+  .close-btn {
+    display: inline;
+  }
+
+  .main {
+    margin-left: 0;
+  }
+
+  #overlay {
+    display: none;
+  }
+
+  #overlay.show {
+    display: block;
+    position: fixed;
+    background: rgba(0,0,0,0.4);
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    z-index: 900;
+  }
+}
+
+/* ปุ่มเปิด Sidebar */
+.menu-btn {
+  font-size: 24px;
+  background: #f1f5f9;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .menu-btn {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+  }
+}
+
+
+
+/* ===============================
+   PRODUCT TABLE STYLES
+   =============================== */
+
+.table-container {
+  overflow-x: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  margin-top: 20px;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px;
+}
+
+.data-table th, .data-table td {
+  padding: 15px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+  font-size: 15px;
+}
+
+.data-table th {
+  background: #f2f4f7;
+  font-weight: bold;
+  color: #333;
+}
+
+.data-table tr:hover {
+  background: #f9fcff;
+}
+
+.data-table img.thumb {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+/* ===============================
+   BUTTON STYLES
+   =============================== */
+
+.btn-primary {
+  background-color: #2563eb;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 15px;
+  transition: background 0.2s ease;
+}
+.btn-primary:hover {
+  background-color: #1e40af;
+}
+
+.btn-edit {
+  background-color: #4ade80;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 14px;
+  margin-right: 5px;
+}
+.btn-edit:hover {
+  background-color: #22c55e;
+}
+
+.btn-delete {
+  background-color: #f87171;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 14px;
+}
+.btn-delete:hover {
+  background-color: #dc2626;
+}
+
+/* ===============================
+   SECTION HEADER
+   =============================== */
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  margin-top: 20px;
+
+
+}
+.section-header h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #111;
+}
+
+/* ===============================
+   RESPONSIVE DESIGN FOR MOBILE & TABLET
+   =============================== */
+
+@media (max-width: 768px) {
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .section-header h2 {
+    font-size: 18px;
+  }
+
+  .btn-primary {
+    width: 100%;
+    text-align: center;
+    font-size: 16px;
+    padding: 12px;
+  }
+
+  .data-table {
+    min-width: 700px; /* ทำให้ตารางเลื่อนในมือถือ */
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 12px;
+    font-size: 14px;
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+/* addproduct */
+.form-section {
+  background: #fff;
+  padding: 30px 40px;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  width: 100%;
+  max-width: 100%;
+  margin-top: 20px;
+  box-sizing: border-box;
+}
+
+.form-section label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: #333;
+  margin-top: 20px;
+}
+
+.form-section input,
+.form-section textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 15px;
+}
+
+.form-section button[type="submit"] {
+  background-color: #2563eb;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  margin-top: 20px;
+}
+
+.form-section button[type="submit"]:hover {
+  background-color: #1e40af;
+}
+
+.form-section .back-link {
+  margin-left: 15px;
+  text-decoration: none;
+  color: #666;
+  font-size: 14px;
+}
+
+#mainImagePreview img,
+#additionalImagesPreview img {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  margin-top: 10px;
+  border-radius: 8px;
+}
+
+#additionalImagesPreview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.image-wrapper {
+  display: inline-block;
+  position: relative;
+  margin-right: 10px;
+}
+
+.remove-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background-color: red;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.form-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+  line-height: 1;
+}
+
+.form-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #2563eb;
+  vertical-align: middle;
+}
+
+.form-checkbox label {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+  padding: 0;
+}
+
+/* ✅ Responsive: มือถือและ iPad */
+@media (max-width: 768px) {
+  .form-section {
+    padding: 20px;
+  }
+
+  .form-section input,
+  .form-section textarea {
+    font-size: 16px;
+  }
+
+  .form-section button[type="submit"] {
+    width: 100%;
+  }
+}
+.preview-thumb {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+/* กรณีจัดหลายรูป */
+#additionalImagesPreview,
+.image-wrapper-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.image-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.remove-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background-color: red;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.form-actions {
+  margin-top: 40px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 20px;
+}
+
+.badge-success {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.badge-danger {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.upload-card {
+  background: #f9fafb;
+  border: 1px dashed #ccc;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.upload-card input[type="file"] {
+  display: none;
+}
+
+.upload-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #2563eb;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s ease;
+}
+
+.upload-label:hover {
+  background-color: #1e40af;
+}
+
+.upload-label span {
+  font-size: 20px;
+}
+
+.preview-area {
+  margin-top: 15px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.preview-area img {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  position: relative;
+}
+
+.image-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.remove-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background-color: red;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 18px;
+  text-align: center;
+}
+.data-table td {
+  vertical-align: middle;
+}
+
+/* ปรับปุ่มให้วางแนวนอนและแยก */
+.data-table td a.btn-edit,
+.data-table td a.btn-delete {
+  display: inline-block;
+  margin: 0 4px 4px 0;
+  white-space: nowrap;
+}
+
+/* กล่องชุดรูปภาพ */
+.additional-image-group {
+  background: #f9fafb;
+  border: 1px solid #ddd;
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  position: relative;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+
+/* รูป Preview */
+.additional-image-group img {
+  width: 120px;
+  height: auto;
+  object-fit: cover;
+  border-radius: 10px;
+  margin-top: 10px;
+  display: block;
+}
+
+/* ปุ่มลบ */
+.remove-image-btn {
+  background-color: #ef4444;
+  color: #fff;
+  border: none;
+  padding: 6px 14px;
+  border-radius: 8px;
+  margin-top: 10px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s ease;
+}
+.remove-image-btn:hover {
+  background-color: #dc2626;
+}
+
+/* ปุ่มเพิ่ม */
+#additional-container + button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #f3f4f6;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+#additional-container + button:hover {
+  background-color: #e5e7eb;
+}
+.form-group select {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 15px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background-color: #fff;
+  color: #111;
+  appearance: none; /* ลบ dropdown default (บางเบราว์เซอร์) */
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 5'%3E%3Cpath fill='%23333' d='M2 0L0 2h4L2 0z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px;
+  transition: border 0.2s ease;
+}
+
+.form-group select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.youtube-embed iframe {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background: #000;
+}

@@ -1,0 +1,903 @@
+/* ==== GLOBAL ==== */
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: #f5f5f5;
+  color: #111;
+}
+
+
+
+/* ==== HERO ==== */
+.hero {
+  height: 100vh;
+  background: url('../img/hero.webp') center/cover no-repeat;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  color: white;
+}
+.hero h1 {
+  font-size: 3rem;
+  margin: 0;
+}
+.hero p {
+  font-size: 1.2rem;
+}
+.btn {
+  margin-top: 20px;
+  padding: 12px 24px;
+  background: black;
+  color: white;
+  text-decoration: none;
+  border-radius: 10px;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+.btn:hover {
+  background: #222;
+}
+
+@media screen and (max-width: 768px) {
+  .hero h1 {
+    font-size: 2rem;
+  }
+
+  .hero h2 {
+    font-size: 1.2rem;
+  }
+
+  .hero p {
+    font-size: 1rem;
+  }
+
+  .hero .btn {
+    padding: 10px 20px;
+    font-size: 0.95rem;
+  }
+
+  .hero-content {
+    padding: 16px;
+  }
+}
+
+
+/* ==== SECTION: WORK ==== */
+.section-work {
+  padding: 60px 20px;
+  background: #fff;
+  text-align: center;
+}
+.section-work h2 {
+  font-size: 2rem;
+  margin-bottom: 30px;
+}
+.work-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+.work-card {
+  background: #f9f9f9;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+  transition: transform 0.2s ease;
+}
+.work-card:hover {
+  transform: translateY(-5px);
+}
+.work-card img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+.work-card h3 {
+  margin-top: 10px;
+  font-size: 1.1rem;
+}
+
+/* ==== ADMIN FORM ==== */
+.admin-container {
+  max-width: 600px;
+  margin: 100px auto;
+  background: #fff;
+  padding: 30px;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+}
+.admin-container input,
+.admin-container textarea {
+  width: 100%;
+  padding: 10px;
+  margin-bottom: 12px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+}
+.admin-container button {
+  background: #000;
+  color: #fff;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+
+
+/* ==== MAP ==== */
+.map-section {
+  padding: 60px 20px;
+  background: #f9f9f9;
+  text-align: center;
+}
+.map-section h2 {
+  font-size: 1.8rem;
+  margin-bottom: 20px;
+}
+.map-container iframe {
+  width: 100%;
+  max-width: 900px;
+  height: 300px;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+/* ==== SECTION TEAM (ทีมช่าง) ==== */
+.section-team {
+  padding: 60px 20px;
+  text-align: center;
+  background: #fff;
+  color: #111;
+}
+
+.section-team h2 {
+  font-size: 2rem;
+  margin-bottom: 40px;
+  font-weight: 600;
+  color: #000;
+}
+
+.team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 30px;
+  justify-items: center;
+  margin-bottom: 30px;
+}
+
+.team-member {
+  background: #f9f9f9;
+  padding: 20px;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  width: 100%;
+  max-width: 280px;
+}
+
+.team-member:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+}
+
+.team-member img {
+  width: 100%;
+  height: auto;
+  border-radius: 12px;
+  margin-bottom: 15px;
+}
+
+.team-member h3 {
+  margin: 10px 0 5px;
+  font-size: 1.2rem;
+  color: #111;
+}
+
+.team-member p {
+  font-size: 0.95rem;
+  color: #555;
+}
+
+/* ปุ่มแสดงทีมช่างทั้งหมด */
+.btn.show-more-team {
+  padding: 10px 24px;
+  font-size: 1rem;
+  background: #000;
+  color: #fff;
+  border: none;
+  border-radius: 24px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+}
+
+.btn.show-more-team:hover {
+  background: #444;
+}
+
+/* ซ่อนส่วน team-more ตอนเริ่มต้น */
+.team-more {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.6s ease;
+}
+
+/* แสดง team-more เมื่อเพิ่ม class .active */
+.team-more.active {
+  max-height: 500px; /* ปรับตามจำนวนสมาชิก */
+}
+.team-more.active {
+  max-height: 1200px; /* ขยายให้เพียงพอ */
+}
+.team-member img {
+  width: 100%;
+  height: 240px;
+  object-fit: cover;
+  border-radius: 12px;
+  background-color: #eee;
+}
+
+.img-hover-wrap {
+  position: relative;
+  width: 100%;
+  height: 240px;
+  overflow: hidden;
+  border-radius: 12px;
+  background-color: #eee;
+}
+
+.img-hover-wrap img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity 0.4s ease;
+  border-radius: 12px;
+}
+
+/* รูปหลักแสดงก่อน */
+.default-img {
+  opacity: 1;
+  z-index: 1;
+}
+
+/* รูป hover ซ่อนไว้ก่อน */
+.hover-img {
+  opacity: 0;
+  z-index: 2;
+}
+
+/* เมื่อเมาส์ชี้ที่กล่องภาพ */
+.img-hover-wrap:hover .default-img {
+  opacity: 0;
+}
+
+.img-hover-wrap:hover .hover-img {
+  opacity: 1;
+}
+
+
+
+
+/* ///////////////////// */
+
+/* ตรวจเช็คอาการเบื้องต้น */
+.section-diagnose {
+  padding: 60px 20px;
+  background: #f9f9f9;
+  text-align: center;
+}
+
+.section-diagnose h2 {
+  font-size: 2rem;
+  margin-bottom: 10px;
+}
+
+.section-diagnose p {
+  font-size: 1rem;
+  color: #555;
+  margin-bottom: 20px;
+}
+
+.diagnose-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  justify-content: center;
+}
+
+.diagnose-buttons .btn {
+  background: #000;
+  color: white;
+  padding: 12px 24px;
+  text-decoration: none;
+  border-radius: 10px;
+  font-weight: bold;
+  transition: background 0.3s ease;
+}
+
+.diagnose-buttons .btn:hover {
+  background: #333;
+}
+.material-symbols-rounded {
+  font-family: 'Material Symbols Rounded';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 22px;              /* ขนาดไอคอน */
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  direction: ltr;
+  vertical-align: middle;
+  margin-right: 8px;            /* ระยะห่างจากข้อความ */
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+  transition: color 0.3s ease;
+}
+
+.hidden {
+  display: none;
+}
+
+.toggle-btn {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background: #111;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 1.5s;
+}
+.toggle-btn:hover {
+  background: #333;
+}
+
+.diagnose-wrapper {
+  overflow: hidden;
+  transition: max-height 1s ease;
+  max-height: 0;
+}
+
+.diagnose-wrapper.show {
+  max-height: 1000px; /* ให้พอสำหรับทั้งหมด */
+}
+
+.toggle-btn {
+  margin-top: 20px;
+  padding: 10px 20px;
+  background: #111;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+.toggle-btn:hover {
+  background: #333;
+}
+
+
+/* ปุ่มแสดงเฉพาะมือถือ */
+.mobile-only {
+  display: none;
+}
+
+/* ปุ่มแสดงเฉพาะเดสก์ท็อป */
+.desktop-only {
+  display: inline-block;
+}
+
+@media screen and (max-width: 768px) {
+  .mobile-only {
+    display: inline-block;
+  }
+  .desktop-only {
+    display: none;
+  }
+}
+
+/* ปุ่มลิสต์แบบแถวเดียวในมือถือ */
+@media screen and (max-width: 768px) {
+  .diagnose-buttons {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .diagnose-buttons .btn {
+    width: 100%;
+    max-width: 280px;
+  }
+}
+
+/* ปรับขนาดหัวข้อในหน้าจอมือถือ */
+@media screen and (max-width: 480px) {
+  .section-diagnose h2 {
+    font-size: 1.6rem;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+}
+
+/* มือถือ: ปรับบริการให้แสดงแบบ slide แนวนอน */
+@media screen and (max-width: 768px) {
+  .services-grid {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    gap: 16px;
+    padding-bottom: 10px;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .service-card {
+    flex: 0 0 80%;
+    scroll-snap-align: center;
+    min-width: 250px;
+  }
+}
+/* style slide ร้าน */
+
+.section-atmosphere {
+  padding: 60px 20px;
+  text-align: center;
+  background: #fff;
+}
+
+.section-atmosphere h2 {
+  font-size: 2rem;
+  margin-bottom: 30px;
+}
+
+.atmosphereSwiper .swiper-slide {
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.atmosphereSwiper img {
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  display: block;
+}
+
+/* === ปรับรีวิว Swiper ให้พอดีจอบนมือถือ === */
+.section-review {
+  background: #fff;
+  padding: 60px 20px;
+  text-align: center;
+}
+
+.section-review h2 {
+  font-size: 2rem;
+  margin-bottom: 40px;
+  color: #111;
+  font-weight: 600;
+}
+
+/* ปรับขนาดรีวิว (ขึ้นอยู่กับ Elfsight เอง) */
+.elfsight-app {
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+/* Responsive fix */
+@media screen and (max-width: 768px) {
+  .section-review {
+    padding: 40px 15px;
+  }
+
+  .section-review h2 {
+    font-size: 1.5rem;
+  }
+}
+
+
+
+.menu a {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px; /* ระยะห่างระหว่างไอคอนกับข้อความ */
+}
+
+.menu .material-symbols-rounded {
+  font-size: 20px; /* ขนาดไอคอน */
+  color: inherit;
+}
+
+.menu a:hover .material-symbols-rounded {
+  color: hsl(0, 0%, 100%); /* หรือสีเขียว Apple: #00c300 */
+}
+
+/* แสดงบริการ 4 กล่อง  */
+.feature-highlight-floating {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 20px;
+  padding: 20px;
+  max-width: 1000px;
+  margin: -80px auto 40px auto; /* ลอยขึ้น */
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.1);
+  position: relative;
+  z-index: 10;
+}
+
+.feature-box {
+  text-align: center;
+  padding: 20px;
+}
+
+.feature-box .material-symbols-rounded {
+  font-size: 36px;
+  color: #002d69;
+  margin-bottom: 8px;
+  display: inline-block;
+}
+
+.feature-box h3 {
+  font-size: 1.05rem;
+  margin-bottom: 6px;
+  color: #002d69;
+}
+
+.feature-box p {
+  font-size: 0.9rem;
+  color: #666;
+}
+@media (max-width: 768px) {
+  .feature-highlight-floating {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    padding: 14px 8px;
+    margin: -40px 10px 40px 10px;
+  }
+
+  .feature-box {
+    padding: 8px;
+  }
+
+  .feature-box .material-symbols-rounded {
+    font-size: 30px;  /* 🔻 ไอคอนเล็กลง */
+    margin-bottom: 4px;
+  }
+
+  .feature-box h3 {
+    font-size: 0.45rem;  /* 🔻 หัวข้อเล็กลง */
+    margin-bottom: 4px;
+  }
+
+  .feature-box p {
+    font-size: 0.5rem;  /* 🔻 ข้อความเล็กลง */
+    line-height: 1.1;
+  }
+}
+
+
+@media (min-width: 1024px) {
+  .atmosphereSwiper {
+    max-width: 960px;          /* ความกว้างสูงสุด */
+    height: 400px;             /* ความสูงของกล่อง */
+    margin: 40px auto;         /* จัดกึ่งกลางจอ */
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+  }
+
+  .atmosphereSwiper .swiper-slide img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;         /* ทำให้ภาพครอบเต็มกล่อง */
+    display: block;
+  }
+
+  .atmosphereSwiper .swiper-pagination {
+    bottom: 10px;
+  }
+}
+
+
+/* ////////// */
+body {
+  font-family: 'Sarabun', sans-serif;
+  margin: 0;
+  background: #ffffff;
+  color: #000;
+}
+
+.service-highlight {
+  padding: 60px 20px;
+  background-color: #f9f9f9;
+  text-align: center;
+}
+
+.service-highlight h2 {
+  font-size: 2.4em;
+  margin-bottom: 40px;
+}
+
+.services-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 30px;
+  max-width: 1200px;
+  margin: auto;
+}
+
+.service-box {
+  background: #fff;
+  padding: 30px 20px;
+  border-radius: 20px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+  opacity: 0;
+  transform: translateY(30px);
+  transition: all 0.6s ease;
+}
+
+.service-box.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.service-box span {
+  font-size: 48px;
+  color: #000;
+  margin-bottom: 15px;
+  display: block;
+}
+
+.service-box {
+  background: #fff;
+  padding: 30px 20px;
+  border-radius: 20px;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.05);
+  opacity: 0;
+  transform: translateY(30px);
+  transition: all 0.4s ease, transform 0.4s ease, background-color 0.4s ease;
+}
+
+.service-box.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* เอฟเฟกต์ตอน hover */
+.service-box:hover {
+  transform: translateY(-10px) scale(1.02);
+  background-color: #f2f2f2;
+  box-shadow: 0 12px 24px rgba(0,0,0,0.1);
+}
+
+#toggleBtn {
+  margin-top: 30px;
+  padding: 10px 30px;
+  font-size: 16px;
+  border: none;
+  background-color: #000;
+  color: #fff;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: background 0.3s ease;
+  display: none; /* เริ่มต้นซ่อนไว้ */
+}
+
+#toggleBtn:hover {
+  background-color: #444;
+}
+
+@media (max-width: 768px) {
+  .service-box.extra {
+    display: none;
+  }
+
+  #toggleBtn {
+    display: inline-block;
+  }
+}
+
+.service-box img {
+  width: 70px;
+  height: auto;
+  object-fit: contain;
+  margin-bottom: 20px;
+  filter: brightness(0) saturate(100%); /* แปลงรูปให้เป็นสีดำ */
+}
+
+/* Dashboard Responsive สำหรับมือถือ */
+@media (max-width: 768px) {
+  .dashboard-cards {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .card {
+    width: 100%;
+    max-width: 100%;
+    flex: none;
+  }
+
+  canvas#repairsChart {
+    width: 100% !important;
+    height: auto !important;
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
+ /* //เหตุผลที่ควรซ่อมกับเรา// */
+ .section-reasons {
+  padding: 60px 20px;
+  background: #fafafa;
+  text-align: center;
+}
+
+.section-reasons h2 {
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 40px;
+  color: #000;
+}
+
+.reasons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 30px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.reason-box {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.05);
+  transition: transform 0.3s ease;
+}
+
+.reason-box:hover {
+  transform: translateY(-5px);
+}
+
+.reason-box span {
+  font-size: 40px;
+  color: #000;
+  margin-bottom: 16px;
+  display: inline-block;
+}
+
+.reason-box h3 {
+  font-size: 1.2rem;
+  margin: 10px 0;
+  color: #111;
+}
+
+.reason-box p {
+  font-size: 0.95rem;
+  color: #555;
+}
+
+/* YouTube */
+.video-section {
+  max-width: 1200px;
+  margin: 40px auto;
+  padding: 0 20px;
+}
+.video-section h2 {
+  text-align: center;
+  font-size: 28px;
+  margin-bottom: 30px;
+}
+.video-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 30px;
+}
+.video-card {
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+}
+.video-card iframe {
+  width: 100%;
+  height: 180px;
+  border-radius: 8px;
+  margin-bottom: 15px;
+}
+.video-card h3 {
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+.video-card p {
+  font-size: 14px;
+  color: #555;
+}
+
+.menu {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.menu a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  color: #111;
+  font-weight: 500;
+  transition: color 0.3s;
+}
+.menu a:hover {
+  color: #f87004; /* สีฟ้าแบบ Apple */
+}
+
+.menu .material-symbols-rounded {
+  font-size: 20px;
+  color: inherit;
+}
+
+.menu a:hover .material-symbols-rounded {
+  color: #f87004;
+}
+
+
+.youtube-lazy {
+  position: relative;
+  cursor: pointer;
+  aspect-ratio: 16 / 9;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #000;
+}
+
+.youtube-lazy img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.youtube-lazy .play-button {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 68px;
+  height: 48px;
+  background: url('https://img.icons8.com/ios-filled/50/ffffff/play-button-circled.png') no-repeat center;
+  background-size: contain;
+  pointer-events: none;
+}
+
+@media screen and (min-width: 769px) {
+  .diagnose-wrapper {
+    max-height: 1000px !important;
+    overflow: visible !important;
+  }
+
+  .toggle-btn {
+    display: none !important;
+  }
+}

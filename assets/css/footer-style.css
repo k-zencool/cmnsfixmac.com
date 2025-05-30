@@ -1,0 +1,230 @@
+/* ===== GLOBAL FOOTER ===== */
+.footer {
+  background: #111;
+  color: #fff;
+  padding: 60px 20px 30px;
+  font-size: 0.95rem;
+  text-align: center;
+  position: relative;
+  z-index: 1;
+}
+
+/* ===== GRID CONTAINER ===== */
+.footer-container {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 40px;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+/* ===== HEADING ===== */
+.footer h3 {
+  font-size: 1.2rem;
+  margin-bottom: 16px;
+  color: #00c300;
+}
+
+/* ===== CONTACT INFO ===== */
+.footer-info {
+  align-self: start;
+}
+.footer-info ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  line-height: 1.7;
+}
+.footer-info li {
+  margin-bottom: 12px;
+  color: #eee;
+}
+.footer-info .material-symbols-rounded {
+  vertical-align: middle;
+  font-size: 20px;
+  margin-right: 8px;
+  color: #00c300;
+}
+.footer-info a {
+  color: #00c300;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+.footer-info a:hover {
+  color: #fff;
+}
+
+/* ===== SOCIAL MEDIA ===== */
+.footer-social {
+  align-self: start;
+}
+.footer-social .social-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  align-items: flex-start;
+}
+.footer-social .social-list li a {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  font-size: 1rem;
+  transition: transform 0.3s ease;
+}
+.footer-social .social-list img {
+  width: 28px;
+  height: 28px;
+  display: inline-block;
+}
+.footer-social a.facebook { color: #1877f2; }
+.footer-social a.tiktok { color: #ff0050; }
+.footer-social a.youtube { color: #ff0000; }
+.footer-social a:hover {
+  transform: scale(1.05);
+}
+
+/* ===== QR CODE ===== */
+.footer-qr {
+  text-align: center;
+}
+.footer-qr img {
+  max-width: 180px;
+  width: 100%;
+  margin-top: 12px;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+.footer-qr a {
+  display: inline-block;
+  margin-top: 8px;
+  color: #00c300;
+  text-decoration: none;
+}
+.footer-qr a:hover {
+  color: #fff;
+}
+
+/* ===== COPYRIGHT ===== */
+.footer-bottom {
+  margin-top: 40px;
+  font-size: 0.85rem;
+  color: #aaa;
+  text-align: center;
+}
+.footer-credit {
+  margin-top: 6px;
+}
+.footer-credit a {
+  color: #00c300;
+  text-decoration: none;
+}
+.footer-credit a:hover {
+  text-decoration: underline;
+}
+
+/* ===== DESKTOP (>=768px) ===== */
+@media (min-width: 768px) {
+  .footer-container {
+    grid-template-columns: repeat(3, 1fr);
+    align-items: start;
+    text-align: left;
+  }
+
+  .footer-info,
+  .footer-social {
+    align-self: start;
+  }
+
+  .footer-social .social-list {
+    align-items: flex-start;
+  }
+
+  .footer-qr {
+    align-self: end;         /* ✅ ดันให้ QR อยู่ล่าง */
+    justify-self: end;       /* ✅ ชิดขวาคอลัมน์ */
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+  }
+}
+
+/* ===== MOBILE (<768px) ===== */
+@media (max-width: 767px) {
+  .footer-container {
+    text-align: center;
+  }
+
+  .footer-info,
+  .footer-social,
+  .footer-qr {
+    align-self: center;
+  }
+
+  .footer-social .social-list {
+    align-items: center;
+  }
+
+  .footer-qr {
+    align-items: center;
+    text-align: center;
+  }
+
+  .footer-qr img {
+    margin-left: auto;
+    margin-right: auto;
+  }
+}
+@media (min-width: 768px) {
+  .footer-qr {
+    align-self: end;
+    justify-self: end;
+    text-align: right;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    height: 100%;
+    justify-content: flex-end; /* ✅ ให้ชิดล่างคอลัมน์ */
+  }
+}
+
+
+.footer-bottom {
+  margin-top: 40px;
+  font-size: 0.85rem;
+  color: #aaa;
+  text-align: center;
+}
+.footer-credit {
+  margin-top: 6px;
+}
+
+@media (min-width: 768px) {
+  .footer-container {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    align-items: center; /* ✅ ให้ทุกคอลัมน์กึ่งกลางแนวตั้ง */
+    text-align: center;   /* ✅ ข้อความในคอลัมน์กลาง */
+  }
+
+  .footer-info,
+  .footer-social,
+  .footer-qr {
+    align-self: center;     /* ✅ จัดตำแหน่งในแต่ละ grid cell */
+    justify-self: center;   /* ✅ จัดชิดกลางแนวนอนในแต่ละช่อง */
+  }
+
+  .footer-social .social-list {
+    align-items: center;
+  }
+
+  .footer-qr {
+    text-align: center;
+    align-items: center;
+  }
+}

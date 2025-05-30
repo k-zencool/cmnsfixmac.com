@@ -1,0 +1,126 @@
+
+/* ==== Page Container ==== */
+.page-container {
+  max-width: 1200px;
+  margin: 60px auto;
+  padding: 0 20px;
+  text-align: center;
+}
+.page-container h1 {
+  font-size: 2.5rem;
+  margin-bottom: 20px;
+}
+form {
+  margin-bottom: 30px;
+  text-align: center;
+}
+form input, form select {
+  padding: 8px;
+  margin: 5px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+form button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 6px;
+  background: black;
+  color: white;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+/* ==== Work Grid ==== */
+.work-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
+}
+.work-card-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+.work-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+  transition: transform 0.3s ease;
+  cursor: pointer;
+}
+.work-card:hover {
+  transform: translateY(-4px);
+}
+.work-card img {
+  width: 100%;
+  height: auto;
+  max-height: 200px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+.work-card h3 {
+  margin-top: 12px;
+  font-size: 1.1rem;
+}
+.work-card p {
+  font-size: 0.95rem;
+  color: #555;
+}
+
+/* ==== Results Count ==== */
+.results-count {
+  text-align: center;
+  font-size: 0.95rem;
+  color: #666;
+  margin: 10px 0 24px;
+}
+
+/* ==== Pagination ==== */
+.pagination {
+  margin-top: 30px;
+  text-align: center;
+  font-size: 0.95rem;
+}
+.pagination a,
+.pagination .arrow {
+  display: inline-block;
+  margin: 0 4px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background-color: #f1f1f1;
+  color: #333;
+  text-decoration: none;
+  font-weight: bold;
+  transition: 0.2s;
+}
+.pagination a.active,
+.pagination a:hover,
+.pagination .arrow:hover {
+  background-color: black;
+  color: white;
+}
+.pagination .dots {
+  display: inline-block;
+  padding: 6px 8px;
+  color: #999;
+}
+
+/* ==== Back Link ==== */
+.back-link {
+  display: inline-block;
+  margin-top: 40px;
+  color: #000;
+  text-decoration: none;
+  font-weight: bold;
+  border-bottom: 2px solid transparent;
+  transition: border 0.2s;
+}
+.back-link:hover {
+  border-bottom: 2px solid #000;
+}
+.views {
+  font-size: 0.85rem;
+  color: #888;
+  margin-top: 6px;
+}

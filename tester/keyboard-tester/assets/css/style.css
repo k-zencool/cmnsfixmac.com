@@ -1,0 +1,358 @@
+/* keyboard.css with Light/Dark Mode Toggle + Material Toggle Switch */
+
+:root {
+  --bg-color: #f9f9f9;
+  --section-bg: #ffffff;
+  --key-bg: #f2f2f7;
+  --key-border: #d1d1d6;
+  --text-color: #1d1d1f;
+  --label-color: #3c3c43;
+  --hover-bg: #e5e5ea;
+}
+
+
+body {
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  /* ลบหรือแก้ padding ตรงนี้ */
+  padding: 0;
+  overflow-x: auto;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+
+/* Toggle Switch UI */
+.mode-toggle {
+  position: fixed;
+  top: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  z-index: 1000;
+}
+
+.mode-toggle .icon {
+  font-size: 1.3rem;
+  color: var(--text-color);
+  transition: color 0.3s ease;
+}
+
+.switch {
+  position: relative;
+  display: inline-block;
+  width: 2.8rem;
+  height: 1.4rem;
+}
+
+.switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: #ccc;
+  border-radius: 2rem;
+  transition: 0.4s;
+}
+
+.slider:before {
+  position: absolute;
+  content: "";
+  height: 1.1rem;
+  width: 1.1rem;
+  left: 0.15rem;
+  bottom: 0.15rem;
+  background-color: white;
+  transition: 0.4s;
+  border-radius: 50%;
+}
+
+input:checked + .slider {
+  background-color: #4b4b4b;
+}
+
+input:checked + .slider:before {
+  transform: translateX(1.4rem);
+}
+
+.container {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+  overflow-x: auto;
+  margin-top: 7rem;
+}
+
+.keyboard-section {
+  background-color: var(--section-bg);
+  padding: 1.5rem;
+  border-radius: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  box-sizing: border-box;
+  transition: background-color 0.3s ease;
+  margin-bottom: 5rem;
+  border: 1px solid #f6e6cb;
+
+}
+
+.keyboard-row {
+  display: flex;
+  justify-content: flex-start;
+  gap: 0.25rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: nowrap;
+}
+
+.key {
+  background-color: var(--key-bg);
+  border-radius: 0.4rem;
+  border: 1px solid var(--key-border);
+  font-size: 0.65rem;
+  color: var(--text-color);
+  text-align: center;
+  user-select: none;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  flex-shrink: 0;
+  height: 3rem;
+  line-height: 3rem;
+  padding: 0 0.5rem;
+  position: relative;
+  overflow: visible;
+}
+
+.key:hover {
+  background-color: var(--hover-bg);
+  transform: scale(1.05);
+}
+
+.symbol-top-right,
+.symbol-top-left,
+.label,
+.label-button,
+.label-button-right,
+.label-button-left,
+.key-fn .material-symbols-outlined,
+.material-symbols-outlined {
+  color: var(--label-color);
+}
+
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 20;
+  font-size: 0.8rem !important;
+  line-height: 1;
+  display: inline-block;
+  vertical-align: middle;
+  pointer-events: none;
+}
+
+.label {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 0.5rem;
+  text-align: center;
+  line-height: 1;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.key-fn .material-symbols-outlined {
+  font-size: 1rem;
+  position: absolute;
+  bottom: 0.2rem;
+  left: 0.3rem;
+  line-height: 1;
+}
+
+.symbol-top-right {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.3rem;
+  font-size: 0.6rem;
+  font-weight: bold;
+  line-height: 1;
+  display: block;
+  max-width: 100%;
+  overflow: visible;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.symbol-top-left {
+  position: absolute;
+  top: 0.3rem;
+  left: 0.3rem;
+  font-size: 0.6rem;
+  font-weight: bold;
+  line-height: 1;
+  display: block;
+  max-width: 100%;
+  overflow: visible;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.wide { min-width: 4rem; }
+.space { flex-grow: 1; min-width: 8rem; }
+.push-left { margin-right: auto; display: flex; align-items: center; }
+.push-right { margin-left: auto; display: flex; align-items: center; }
+.arrow-cluster { display: flex; align-items: flex-end; gap: 0.2rem; margin-left: auto; }
+.arrow-vertical { display: flex; flex-direction: column; gap: 0.2rem; }
+
+.key-esc, .key-power { width: 3.25rem; }
+.key-f1, .key-f2, .key-f3, .key-f4,
+.key-f5, .key-f6, .key-f7, .key-f8,
+.key-f9, .key-f10, .key-f11, .key-f12 { width: 2.9rem; }
+.keyboard-row.row-1 .key { height: 1.8rem; line-height: 1.8rem; font-size: 0.75rem; }
+
+.key-tilde, .key-minus, .key-equal, .key-backslash,
+.key-bracketleft, .key-bracketright, .key-quote,
+.key-semicolon, .key-comma, .key-period, .key-slash { width: 2.75rem; }
+
+.key-1, .key-2, .key-3, .key-4, .key-5,
+.key-6, .key-7, .key-8, .key-9, .key-0 { width: 2.85rem; }
+.key-q, .key-w, .key-e, .key-r, .key-t,
+.key-y, .key-u, .key-i, .key-o, .key-p { width: 2.85rem; }
+.key-a, .key-s, .key-d, .key-f, .key-g,
+.key-h, .key-j, .key-k, .key-l { width: 2.85rem; }
+.key-z, .key-x, .key-c, .key-v, .key-b,
+.key-n, .key-m { width: 2.85rem; }
+
+.key-tab { width: 4.5rem; }
+.key-capslock { width: 5.75rem; }
+.key-shift-left, .key-shift-right { width: 7.95rem; }
+.key-return { width: 5.75rem; }
+.key-delete { width: 4.5rem; }
+.key-command-right { width: 3.75rem; }
+.key-command-left { width: 3.75rem; }
+.key-option { width: 3.25rem; }
+.key-control { width: 2.75rem; }
+.key-fn { width: 2.5rem; }
+.key-space { width: 19.45rem; }
+
+.key-left, .key-right { width: 2.75rem; }
+.key-up, .key-down { width: 2.5rem; }
+.key-left, .key-right, .key-up, .key-down { height: 1.4rem; line-height: 1.5rem; }
+
+.arrow-grid {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  margin-left: 1rem;
+  height: 3rem;
+}
+
+.arrow-top {
+  display: flex;
+  justify-content: center;
+}
+
+.arrow-bottom {
+  display: flex;
+  gap: 0.25rem;
+  justify-content: center;
+}
+
+.keyboard-row.row-6 { align-items: flex-end; }
+
+.label-button {
+  position: absolute;
+  bottom: 0.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.5rem;
+  line-height: 1;
+  text-align: center;
+  pointer-events: none;
+}
+
+.label-button-right {
+  position: absolute;
+  bottom: 0.5rem;
+  right: 0.5rem;
+  font-size: 0.5rem;
+  line-height: 1;
+  text-align: right;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.label-button-left {
+  position: absolute;
+  bottom: 0.5rem;
+  left: 0.5rem;
+  font-size: 0.5rem;
+  line-height: 1;
+  text-align: left;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.key.active {
+  background-color: #fc7404;
+  color: #fff;
+  box-shadow: 0 0 0 2px rgba(255, 145, 0, 0.4);
+}
+
+.key.pressed {
+  background-color: #e0e0e0;
+  color: #333;
+}
+
+.keyboard-container {
+  max-width: 900px;
+  margin: 2rem auto;
+  padding: 0 1rem;
+  box-sizing: border-box;
+}
+
+
+#key-log {
+  font-weight: 600;
+  color: #fc7404;
+}
+
+
+.live-display {
+  width: 100%;
+  max-width: 1000px;
+  height: 3.5rem;                     /* ✅ ความสูงตายตัว */
+  padding: 0.75rem 1rem;
+  margin: 1.5rem auto;
+  background: #ffffff;
+  border: 1px solid #f6e6cb;
+  border-radius: 14px;
+  font-size: 1.1rem;
+  color: #59370b;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+
+  display: flex;
+  align-items: center;
+
+  /* ✅ 3 คำสั่งนี้สำคัญมาก */
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+
+  box-sizing: border-box;
+}
+
