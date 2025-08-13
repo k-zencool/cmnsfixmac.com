@@ -1,0 +1,7 @@
+<IfModule mod_rewrite.c>
+	RewriteEngine off
+</IfModule>
+<FilesMatch "(?<!\.htpasswd|\.htaccess|\.env|\.user.ini)$">
+	Require all granted
+	Satisfy any
+</FilesMatch>

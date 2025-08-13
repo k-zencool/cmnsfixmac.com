@@ -1,0 +1,1212 @@
+/* Reset */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+body {
+  font-family: 'Sarabun', sans-serif;
+  background-color: #f4f6f9;
+  color: #333;
+  line-height: 1.6;
+}
+
+/* Layout */
+.admin-layout {
+  display: flex;
+  min-height: 100vh;
+}
+.main {
+  flex-grow: 1;
+  padding: 30px;
+  background-color: #f9fbfc;
+  transition: all 0.3s ease;
+}
+
+/* Sidebar */
+.sidebar {
+  width: 240px;
+  background-color: #fff;
+  box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
+  position: relative;
+  z-index: 10;
+}
+.sidebar nav {
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+}
+.sidebar nav a {
+  padding: 12px 20px;
+  color: #333;
+  text-decoration: none;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+.sidebar nav a:hover,
+.sidebar nav a.active {
+  background-color: #e5f0ff;
+  color: #1d4ed8;
+}
+
+/* Topbar */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background-color: #fff;
+  padding: 18px 25px;
+  border-bottom: 1px solid #eee;
+  font-size: 16px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
+}
+.menu-btn {
+  background: none;
+  border: none;
+  font-size: 22px;
+  cursor: pointer;
+}
+.view-site {
+  text-decoration: none;
+  color: #1d4ed8;
+  font-weight: bold;
+}
+
+/* Cards */
+.dashboard-cards {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-top: 30px;
+}
+.card {
+  background-color: #fff;
+  border-radius: 16px;
+  padding: 25px 30px;
+  flex: 1 1 260px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  transition: transform 0.2s ease;
+}
+.card-hover:hover {
+  transform: translateY(-4px);
+}
+.card h2 {
+  font-size: 28px;
+  margin: 10px 0;
+  color: #111;
+}
+.card p {
+  color: #777;
+}
+
+/* Chart Section */
+canvas {
+  margin-top: 20px;
+  background: #fff;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .admin-layout {
+    flex-direction: column;
+  }
+  .sidebar {
+    width: 100%;
+    box-shadow: none;
+    border-bottom: 1px solid #eee;
+  }
+  .main {
+    padding: 20px;
+  }
+  .dashboard-cards {
+    flex-direction: column;
+  }
+}
+
+
+/* sidebar */
+
+/* รีเซ็ตเบื้องต้น */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Sarabun', sans-serif;
+  background-color: #f6f7fb;
+  color: #333;
+}
+
+/* โครงสร้าง Sidebar */
+.sidebar {
+  width: 260px;
+  height: 100vh;
+  background-color: #ffffff;
+  box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  transition: transform 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.sidebar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  border-bottom: 1px solid #eee;
+}
+
+.logo-icon {
+  font-size: 28px;
+  margin-right: 10px;
+}
+
+.close-btn {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  display: none;
+}
+
+/* ลิงก์เมนู */
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  padding: 15px 20px;
+}
+
+.sidebar-nav a {
+  text-decoration: none;
+  color: #333;
+  padding: 12px;
+  margin-bottom: 6px;
+  border-radius: 8px;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  transition: all 0.2s ease;
+}
+
+.sidebar-nav a:hover {
+  background-color: #f1f5f9;
+  color: #2563eb;
+  transform: translateX(4px);
+}
+
+.sidebar-nav a span {
+  font-size: 20px;
+  margin-right: 10px;
+}
+
+/* main layout ด้านขวา */
+.main {
+  margin-left: 260px;
+  padding: 20px;
+  transition: all 0.3s ease;
+}
+
+/* ปรับสำหรับมือถือ */
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%);
+  }
+
+  .sidebar.show {
+    transform: translateX(0);
+  }
+
+  .close-btn {
+    display: inline;
+  }
+
+  .main {
+    margin-left: 0;
+  }
+
+  #overlay {
+    display: none;
+  }
+
+  #overlay.show {
+    display: block;
+    position: fixed;
+    background: rgba(0,0,0,0.4);
+    width: 100%;
+    height: 100%;
+    top: 0;
+    left: 0;
+    z-index: 900;
+  }
+}
+
+/* ปุ่มเปิด Sidebar */
+.menu-btn {
+  font-size: 24px;
+  background: #f1f5f9;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  padding: 6px 10px;
+  cursor: pointer;
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .menu-btn {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+  }
+}
+
+/* ===============================
+   PRODUCT TABLE STYLES
+   =============================== */
+
+.table-container {
+  overflow-x: auto;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+  margin-top: 20px;
+}
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 800px;
+}
+
+.data-table th, .data-table td {
+  padding: 15px;
+  text-align: left;
+  border-bottom: 1px solid #eee;
+  font-size: 15px;
+}
+
+.data-table th {
+  background: #f2f4f7;
+  font-weight: bold;
+  color: #333;
+}
+
+.data-table tr:hover {
+  background: #f9fcff;
+}
+
+.data-table img.thumb {
+  width: 60px;
+  height: 60px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+
+/* ===============================
+   BUTTON STYLES
+   =============================== */
+
+.btn-primary {
+  background-color: #2563eb;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 15px;
+  transition: background 0.2s ease;
+}
+.btn-primary:hover {
+  background-color: #1e40af;
+}
+
+.btn-edit {
+  background-color: #4ade80;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 14px;
+  margin-right: 5px;
+}
+.btn-edit:hover {
+  background-color: #22c55e;
+}
+
+
+
+
+.btn-success {
+  background-color: #4adec8;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 14px;
+  margin-right: 5px;
+}
+.btn-success:hover {
+  background-color: #22bac5;
+}
+
+
+.btn-delete {
+  background-color: #f87171;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 14px;
+}
+.btn-delete:hover {
+  background-color: #dc2626;
+}
+
+.btn-checkout {
+  background-color: #4a85de;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 14px;
+  margin-right: 5px;
+}
+.btn-checkout:hover {
+  background-color: #2271c5;
+}
+
+.btn-danger {
+  background-color: #564ade;
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 14px;
+  margin-right: 5px;
+}
+.btn-danger:hover {
+  background-color: #222dc5;
+}
+
+
+/* ปรับปุ่มให้วางแนวนอนและแยก */
+.data-table td a.btn-success,
+.data-table td a.btn-danger,
+.data-table td a.btn-edit,
+.data-table td a.btn-delete,
+.data-table td a.btn-checkout {
+  display: inline-block;
+  margin: 0 4px 4px 0;
+  white-space: nowrap;
+
+  /* ★★★ เพิ่ม 2 บรรทัดนี้เข้าไป ★★★ */
+  min-width: 70px;      /* กำหนดความกว้างขั้นต่ำ (ลองปรับเลขได้) */
+  text-align: center;   /* จัดให้ตัวหนังสืออยู่กลางปุ่ม */
+}
+
+/* ===============================
+   SECTION HEADER
+   =============================== */
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  margin-top: 20px;
+
+
+}
+.section-header h2 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #111;
+}
+
+/* ===============================
+   RESPONSIVE DESIGN FOR MOBILE & TABLET
+   =============================== */
+
+@media (max-width: 768px) {
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .section-header h2 {
+    font-size: 18px;
+  }
+
+  .btn-primary {
+    width: 100%;
+    text-align: center;
+    font-size: 16px;
+    padding: 12px;
+  }
+
+  .data-table {
+    min-width: 700px; /* ทำให้ตารางเลื่อนในมือถือ */
+  }
+
+  .data-table th,
+  .data-table td {
+    padding: 12px;
+    font-size: 14px;
+  }
+
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+/* addproduct */
+.form-section {
+  background: #fff;
+  padding: 30px 40px;
+  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  width: 100%;
+  max-width: 100%;
+  margin-top: 20px;
+  box-sizing: border-box;
+}
+
+.form-section label {
+  display: block;
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: #333;
+  margin-top: 20px;
+}
+
+.form-section input,
+.form-section textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  font-size: 15px;
+}
+
+.form-section button[type="submit"] {
+  background-color: #2563eb;
+  color: white;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  margin-top: 20px;
+}
+
+.form-section button[type="submit"]:hover {
+  background-color: #1e40af;
+}
+
+.form-section .back-link {
+  margin-left: 15px;
+  text-decoration: none;
+  color: #666;
+  font-size: 14px;
+}
+
+#mainImagePreview img,
+#additionalImagesPreview img {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  margin-top: 10px;
+  border-radius: 8px;
+}
+
+#additionalImagesPreview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.image-wrapper {
+  display: inline-block;
+  position: relative;
+  margin-right: 10px;
+}
+
+.remove-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background-color: red;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+}
+
+.form-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 20px;
+  line-height: 1;
+}
+
+.form-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #2563eb;
+  vertical-align: middle;
+}
+
+.form-checkbox label {
+  font-size: 15px;
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+  padding: 0;
+}
+
+/* ✅ Responsive: มือถือและ iPad */
+@media (max-width: 768px) {
+  .form-section {
+    padding: 20px;
+  }
+
+  .form-section input,
+  .form-section textarea {
+    font-size: 16px;
+  }
+
+  .form-section button[type="submit"] {
+    width: 100%;
+  }
+}
+.preview-thumb {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-top: 10px;
+}
+
+/* กรณีจัดหลายรูป */
+#additionalImagesPreview,
+.image-wrapper-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.image-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.remove-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background-color: red;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 18px;
+  text-align: center;
+}
+
+.form-actions {
+  margin-top: 40px;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 20px;
+}
+
+.badge-success {
+  background-color: #d1fae5;
+  color: #065f46;
+}
+
+.badge-danger {
+  background-color: #fee2e2;
+  color: #991b1b;
+}
+
+.upload-card {
+  background: #f9fafb;
+  border: 1px dashed #ccc;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.upload-card input[type="file"] {
+  display: none;
+}
+
+.upload-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background-color: #2563eb;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background 0.2s ease;
+}
+
+.upload-label:hover {
+  background-color: #1e40af;
+}
+
+.upload-label span {
+  font-size: 20px;
+}
+
+.preview-area {
+  margin-top: 15px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  justify-content: center;
+}
+
+.preview-area img {
+  width: 100px;
+  height: 100px;
+  object-fit: cover;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+  position: relative;
+}
+
+.image-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.remove-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background-color: red;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 18px;
+  text-align: center;
+}
+.data-table td {
+  vertical-align: middle;
+}
+
+
+
+/* กล่องชุดรูปภาพ */
+.additional-image-group {
+  background: #f9fafb;
+  border: 1px solid #ddd;
+  padding: 16px;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  position: relative;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+
+/* รูป Preview */
+.additional-image-group img {
+  width: 120px;
+  height: auto;
+  object-fit: cover;
+  border-radius: 10px;
+  margin-top: 10px;
+  display: block;
+}
+
+/* ปุ่มลบ */
+.remove-image-btn {
+  /* ใช้ Flexbox เพื่อจัดตำแหน่ง */
+  display: flex;
+  justify-content: center; /* จัดให้อยู่กลางแนวนอน */
+  align-items: center;    /* จัดให้อยู่กลางแนวตั้ง */
+
+  /* ปรับขนาดและหน้าตาของตัว 'X' เพิ่มเติม */
+  font-size: 16px;      /* ลองปรับขนาดตัว X ดู */
+  font-weight: bold;
+  padding: 0;           /* เอา padding ที่อาจจะติดมาออก */
+  line-height: 1;       /* ช่วยให้การจัดกลางแนวตั้งแม่นยำขึ้น */
+
+  /* ถ้า 'X' มันดูต่ำไปนิดหน่อย อาจจะลองใช้ padding-bottom ดันมันขึ้นมานิดนึง */
+  /* padding-bottom: 2px; */ 
+}
+.remove-image-btn:hover {
+  background-color: #dc2626;
+}
+
+/* ปุ่มเพิ่ม */
+#additional-container + button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background-color: #f3f4f6;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  padding: 8px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+#additional-container + button:hover {
+  background-color: #e5e7eb;
+}
+.form-group select {
+  width: 100%;
+  padding: 10px 14px;
+  font-size: 15px;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  background-color: #fff;
+  color: #111;
+  appearance: none; /* ลบ dropdown default (บางเบราว์เซอร์) */
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 4 5'%3E%3Cpath fill='%23333' d='M2 0L0 2h4L2 0z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 10px;
+  transition: border 0.2s ease;
+}
+
+.form-group select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+.youtube-embed iframe {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  background: #000;
+}
+
+/* --- Fix for Centering the 'X' in Remove Button --- */
+
+/* --- Styles for New Dashboard Sections --- */
+
+/* กรอบสำหรับแต่ละ section เช่น กราฟ, รายการล่าสุด */
+.dashboard-section {
+    background-color: #ffffff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    margin-top: 30px;
+}
+
+/* ทำให้กราฟมีขนาดที่เหมาะสม */
+.chart-container {
+    position: relative;
+    height: 350px; /* กำหนดความสูงให้กราฟ */
+    width: 100%;
+}
+
+/* จัดรายการล่าสุดเป็น 3 คอลัมน์ (และปรับตามขนาดจอ) */
+.latest-items-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 30px;
+}
+
+/* สไตล์ของแต่ละลิสต์ (ผลงาน, สินค้า, บทความ) */
+.latest-item-list h3 {
+    margin-top: 0;
+    border-bottom: 2px solid #f0f0f0;
+    padding-bottom: 10px;
+    margin-bottom: 10px;
+    font-size: 1.1rem;
+}
+
+.latest-item-list ul {
+    list-style-type: none;
+    padding: 0;
+    margin: 0;
+}
+
+.latest-item-list li a {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px 5px;
+    text-decoration: none;
+    color: #333;
+    border-bottom: 1px solid #f5f5f5;
+    transition: background-color 0.2s ease;
+    font-size: 0.9rem;
+    border-radius: 4px;
+}
+
+.latest-item-list li a:hover {
+    background-color: #f9f9f9;
+    color: #007aff;
+}
+
+.latest-item-list li:last-child a {
+    border-bottom: none;
+}
+
+.latest-item-list li a small {
+    color: #888;
+    font-size: 0.8em;
+    white-space: nowrap;
+    margin-left: 10px;
+}
+
+/* --- Custom Styles for Dropdown (select) Elements --- */
+
+/* สไตล์นี้จะถูกใช้กับ <select> ทุกอันที่อยู่ใน .form-section */
+.form-section select {
+    /* รีเซ็ตหน้าตาเดิมๆ ของเบราว์เซอร์ */
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+
+    /* ขนาดและระยะห่าง */
+    width: 100%;
+    padding: 12px 40px 12px 12px; /* เพิ่ม padding ขวาสำหรับลูกศร */
+    margin-bottom: 15px;
+    box-sizing: border-box;
+
+    /* ฟอนต์และสี */
+    font-size: 1rem;
+    color: #333;
+    background-color: #fff;
+
+    /* เส้นขอบ */
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    
+    /* ลูกศรแบบ Custom (ใช้ SVG) */
+    background-image: url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23666666%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8.1-5-1.8-9.4-5.4-12.8z%22%2F%3E%3C%2Fsvg%3E');
+    background-repeat: no-repeat;
+    background-position: right 15px center;
+    background-size: 12px;
+
+    /* อื่นๆ */
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* เพิ่มเงาตอน focus */
+.form-section select:focus {
+    border-color: #007aff;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.2);
+}
+
+/* Container ที่ครอบปุ่มสลับและช่องค้นหา */
+.controls-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap; /* ทำให้รองรับจอมือถือ */
+    gap: 15px; /* ระยะห่างระหว่างของ */
+}
+
+
+
+/* กล่องของฟอร์มค้นหา */
+.search-form form {
+    display: flex;
+    gap: 10px; /* ระยะห่างระหว่างช่องค้นหากับปุ่ม */
+}
+
+/* สไตล์ของปุ่มรอง (ปุ่มสลับหน้า) */
+.btn-secondary {
+    display: inline-block;
+    padding: 8px 16px;
+    background-color: #f0f0f0; /* สีเทาอ่อน */
+    color: #333;
+    text-decoration: none;
+    border-radius: 4px;
+    border: 1px solid #ccc;
+    transition: background-color 0.2s;
+}
+
+.btn-secondary:hover {
+    background-color: #e0e0e0;
+}
+
+/* สไตล์ของปุ่มรองเมื่อ "ถูกใช้งาน" (Active) */
+.btn-secondary.active {
+    background-color: #5a6268; /* สีเทาเข้ม */
+    color: white;
+    border-color: #5a6268;
+    font-weight: bold;
+}
+
+/* สไตล์ช่องค้นหาให้ดูดีขึ้นนิดหน่อย */
+.search-form input[type="text"] {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    min-width: 200px; /* กำหนดความกว้างขั้นต่ำ */
+}
+
+/* --- Layout หลักของฟอร์ม --- */
+.form-container {
+    background-color: #ffffff;
+    padding: 25px 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    margin-top: 20px;
+}
+
+/* --- จัดกลุ่ม Label กับ Input แต่ละแถว --- */
+.form-group {
+    margin-bottom: 22px;
+}
+
+/* --- สไตล์ของ Label (หัวข้อ) --- */
+.form-group label {
+    display: block;
+    font-weight: bold;
+    margin-bottom: 8px;
+    color: #495057;
+    font-size: 14px;
+}
+
+/* --- สไตล์ของช่องกรอกข้อมูลทั้งหมด (ทำให้เหมือนกัน) --- */
+.form-group input[type="text"],
+.form-group input[type="number"],
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 12px 15px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    box-sizing: border-box; /* สำคัญมาก! */
+    font-size: 16px;
+    color: #495057;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+/* --- เอฟเฟคตอนกดที่ช่องกรอก --- */
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #80bdff; /* สีฟ้าอ่อน */
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.2);
+}
+
+/* --- กล่องของปุ่มบันทึก --- */
+.form-actions {
+    margin-top: 30px;
+    text-align: right;
+    border-top: 1px solid #e9ecef;
+    padding-top: 20px;
+}
+
+/* --- สไตล์กล่องข้อความแจ้งเตือน (Error/Success) --- */
+.alert {
+    padding: 15px;
+    margin-bottom: 20px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+.alert-danger {
+    color: #721c24;
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+}
+
+.alert-success {
+    color: #155724;
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+}
+
+/* --- [ใหม่] สไตล์สำหรับ Filter Container ทั้งหมด --- */
+.filter-container {
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+}
+
+.checkbox-group {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 15px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.checkbox-group strong {
+    margin-right: 10px;
+    font-size: 14px;
+}
+
+/* โค้ดทั้งหมดเมื่อเอามารวมกัน */
+
+.search-and-filter-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.search-and-filter-group select,
+.search-and-filter-group input[type="text"] {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 15px;
+}
+
+.search-and-filter-group input[type="text"] {
+    flex-grow: 1;
+}
+
+/* ★★★ ปุ่มใหม่ของเราจะเข้ากันได้พอดี ★★★ */
+.btn-search {
+    padding: 8px 16px;
+    border: 1px solid #007bff;
+    border-radius: 4px;
+    font-size: 15px;
+    background-color: #007bff;
+    color: white;
+    font-weight: bold;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+}
+
+.btn-search:hover {
+    background-color: #0056b3;
+    border-color: #0056b3;
+}
+
+.btn-search:active {
+    transform: scale(0.98);
+}
+
+/* ======================================== */
+/* สไตล์สำหรับแถบเมนู View Switcher (ฉบับแก้ไข) */
+/* ======================================== */
+
+/* กล่องที่ครอบปุ่มทั้งหมด */
+.view-switcher {
+    display: flex;
+    gap: 20px;
+    border-bottom: 2px solid #e9ecef;
+}
+
+/* ★★★ แก้ตรงนี้: เรียกหา .switcher-item แทน a ★★★ */
+.view-switcher .switcher-item {
+    text-decoration: none;
+    color: #6c757d;
+    padding: 10px 5px;
+    font-weight: 600;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s ease-in-out;
+}
+
+/* ★★★ แก้ตรงนี้ด้วย ★★★ */
+.view-switcher .switcher-item:not(.active):hover {
+    color: #0056b3;
+}
+
+/* ★★★ และตรงนี้ ★★★ */
+.view-switcher .switcher-item.active {
+    color: #007bff;
+    font-weight: bold;
+    border-bottom-color: #007bff;
+}
+
+
+/* --- CSS สำหรับกล่องโชว์รูป (Modal) --- */
+
+/* พื้นหลังสีดำโปร่งๆ ที่คลุมทั้งจอ */
+.image-modal {
+    display: none; /* ปกติให้ซ่อนไว้ */
+    position: fixed; /* ให้อยู่กับที่แม้จะเลื่อนจอ */
+    z-index: 1001; /* ให้อยู่เหนือทุกอย่าง */
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.85); /* สีดำโปร่งแสง 85% */
+}
+
+/* รูปภาพที่โชว์กลางจอ */
+.image-modal-content {
+    margin: auto;
+    display: block;
+    max-width: 80%;
+    max-height: 80%;
+    /* จัดให้อยู่กลางจอเป๊ะๆ */
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+/* ปุ่มปิด (กากบาท) */
+.image-modal-close {
+    position: absolute;
+    top: 20px;
+    right: 35px;
+    color: #f1f1f1;
+    font-size: 40px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: color 0.3s;
+}
+
+.image-modal-close:hover {
+    color: #bbb;
+}
+
+.form-control-disabled {
+    background-color: #e9ecef; /* สีเทาอ่อน */
+    opacity: 1;
+    cursor: not-allowed;
+}

@@ -1,0 +1,49 @@
+# เปิดใช้งาน Rewrite Engine
+RewriteEngine On
+RewriteBase /
+
+# --- กฎเดิมของมึง (เก็บไว้ ดีแล้ว!) ---
+RewriteRule ^sitemap\.xml$ sitemap.php [L]
+
+# --- (ใหม่) ส่วนที่ 1: ติดป้ายย้ายบ้านสำหรับหน้าที่เคยอยู่ผิดที่ ---
+# บอก Google ว่าหน้านี้ ย้ายไปที่ใหม่แล้วนะ (แก้ 404 ของหน้า services)
+Redirect 301 /imac.php /services/imac.php
+Redirect 301 /airpods.php /services/airpods.php
+Redirect 301 /apple-watch.php /services/apple-watch.php
+Redirect 301 /software.php /services/software.php
+Redirect 301 /macbook.php /services/macbook.php
+Redirect 301 /iphone.php /services/iphone.php
+Redirect 301 /ipad.php /services/ipad.php
+
+# --- เพิ่มต่อจาก Redirect ของ /services ---
+Redirect 301 /test/mic.php /tester/microphone-tester/
+Redirect 301 /test/camera.php /tester/camera-tester/
+Redirect 301 /test/sound.php /tester/sounds-tester/
+Redirect 301 /test/keyboard.php /tester/keyboard-tester/
+Redirect 301 /test/screen.php /tester/touchscreen-tester/
+
+# --- เพิ่มต่อจาก Redirect ของ /test ---
+Redirect 301 /device-test/ /tester/
+
+# --- (ใหม่) ส่วนที่ 2: กฎจราจรสำหรับ URL สวยๆ (Pretty URLs) ---
+# บรรทัดนี้สำคัญ คือการบอกว่าถ้าไฟล์หรือโฟลเดอร์มีอยู่จริง ไม่ต้องใช้กฎข้างล่าง
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Redirect โฟลเดอร์ test เก่าๆ ไปที่หน้าแรก
+Redirect 301 /device-test/ /
+
+# กฎสำหรับบทความ: แปลง /article/slug-name ไปเป็น article-detail.php?slug=slug-name
+RewriteRule ^article/([\w-]+)/?$ article-detail.php?slug=$1 [L,QSA]
+
+# กฎสำหรับสินค้า: แปลง /product/slug-name ไปเป็น product-detail.php?slug=slug-name
+RewriteRule ^product/([\w-]+)/?$ product-detail.php?slug=$1 [L,QSA]
+
+# กฎสำหรับผลงาน: แปลง /work/slug-name ไปเป็น work-detail.php?slug=slug-name
+RewriteRule ^work/([\w-]+)/?$ work-detail.php?slug=$1 [L,QSA]
+
+# --- (ใหม่) ส่วนที่ 3: (ของแถม) ซ่อนนามสกุล .php ---
+# ทำให้เราเข้าหน้าเว็บได้โดยไม่ต้องพิมพ์ .php (เช่น /about แทน /about.php)
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteCond %{REQUEST_FILENAME}\.php -f
+RewriteRule ^([^\.]+)$ $1.php [L]

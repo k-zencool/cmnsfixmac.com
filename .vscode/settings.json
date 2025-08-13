@@ -1,0 +1,20 @@
+{
+    "favorites.resources": [
+        {
+            "filePath": "products",
+            "group": "Default"
+        },
+        {
+            "filePath": "buyback",
+            "group": "Default"
+        },
+        {
+            "filePath": "articles",
+            "group": "Default"
+        },
+        {
+            "filePath": "works",
+            "group": "Default"
+        }
+    ]
+}

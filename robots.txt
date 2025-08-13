@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+Disallow: /includes/
+
+Sitemap: https://cmnsfixmac.com/sitemap.xml

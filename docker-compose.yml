@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  # เว็บเซิร์ฟเวอร์ (สร้างจาก Dockerfile ของเรา)
+  web:
+    build: .
+    container_name: cmns-web
+    ports:
+      - "8000:80"
+    volumes:
+      - ./:/var/www/html/
+    depends_on:
+      - db
+
+  # Database Server (MySQL)
+  db:
+    image: mysql:8.0
+    container_name: cmns-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: cmnsfixmac_db
+      MYSQL_USER: cmns_user
+      MYSQL_PASSWORD: cmns_password
+    volumes:
+      - db_data:/var/lib/mysql
+      - ./database:/docker-entrypoint-initdb.d
+
+  # phpMyAdmin
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: cmns-pma
+    ports:
+      - "8081:80"
+    environment:
+      PMA_HOST: db
+    depends_on:
+      - db
+
+volumes:
+  db_data:

@@ -1,0 +1,482 @@
+/* === LAYOUT หลัก & TYPOGRAPHY === */
+body {
+  font-family: 'Prompt', sans-serif;
+  margin: 0;
+  background-color: #fff; 
+  color: #333;
+  line-height: 1.7;
+}
+
+/* Container หลักที่ใช้ควบคุม Layout ทั้งหมด */
+main.article-detail.container {
+  max-width: 900px;
+  margin: 125px auto; /* <== แก้ตัวเลข 50px ตรงนี้เลยเพื่อน */
+  padding: 0 20px;
+}
+
+.article-detail h1 {
+  font-size: 28px;
+  margin-top: 80px;
+  margin-bottom: 10px;
+}
+
+.article-detail .date,
+.article-detail .views {
+  font-size: 14px;
+  color: #6b7280;
+  margin-bottom: 20px;
+}
+
+
+/* === รูปภาพและวิดีโอ === */
+.main-image {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 12px;
+  margin-bottom: 30px;
+}
+
+.article-content {
+  font-size: 16px;
+  line-height: 1.8;
+}
+
+/* รูปภาพที่แทรกในเนื้อหาบทความ */
+.article-content img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+  margin: 20px 0;
+}
+
+.gallery-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 20px;
+}
+
+.gallery-grid figure {
+  margin: 0;
+  width: 100%;
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+}
+
+.gallery-grid img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.gallery-grid figcaption {
+  padding: 16px 20px;
+  font-size: 15px;
+  color: #374151;
+  background: #f9fafb;
+}
+
+.article-video {
+  margin-top: 20px;
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 */
+  height: 0;
+  overflow: hidden;
+  border-radius: 12px;
+}
+
+.article-video iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* === อื่นๆ === */
+.breadcrumb-bar {
+  font-size: 14px;
+  margin: 20px 0;
+  color: #4b5563;
+}
+
+.article-nav {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 3rem;
+  border-top: 1px solid #eee;
+  padding-top: 1.5rem;
+}
+
+/* === ปุ่มแชร์และ Action อื่นๆ === */
+.article-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-bottom: 2rem;
+  justify-content: center;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 2rem;
+}
+
+/* สไตล์พื้นฐานของปุ่ม (ฉบับบังคับจัดกลาง) */
+.share-btn {
+  /* --- ใช้ !important เพื่อบังคับให้สไตล์นี้ทำงานเสมอ --- */
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important; /* << ตัวนี้สำคัญที่สุด */
+
+  /* --- สไตล์อื่นๆ ที่ปรับให้สวยงาม --- */
+  gap: 10px;
+  padding: 10px 16px;       /* ปรับ padding ให้พอดีๆ */
+  border-radius: 10px;      /* ทำให้ขอบมนแบบแคปซูล */
+  font-size: 0.9rem;
+  font-weight: 600;
+  
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s;
+  user-select: none;
+}
+
+/* ทำให้ปุ่มสีเทามีเส้นขอบนิดๆ จะได้ดูชัดขึ้น */
+.share-btn.copy {
+  background-color: #e5e7eb;
+  color: #111827;
+  border: 1px solid #d1d5db; /* เพิ่มเส้นขอบ */
+}
+.share-btn:hover {
+  transform: scale(1.05);
+}
+
+/* จัดการไอคอนโดยตรง */
+.share-btn img {
+  /* --- จุดแก้ไขขนาดไอคอน --- */
+  width: 28px;              /* << แก้ไข: เพิ่มขนาดไอคอนให้ใหญ่ขึ้น */
+  height: 28px;             /* << แก้ไข: เพิ่มขนาดไอคอนให้ใหญ่ขึ้น */
+  /* --- สิ้นสุดการแก้ไข --- */
+  flex-shrink: 0; 
+}
+
+/* จัดการข้อความในปุ่ม (ส่วนนี้ดีอยู่แล้ว) */
+.share-btn span {
+  line-height: 1; 
+}
+
+/* === สไตล์เฉพาะของแต่ละปุ่ม (เหมือนเดิม) === */
+.share-btn.facebook {
+  background-color: #1877f2;
+  color: white;
+}
+.share-btn.facebook:hover {
+  background-color: #166fe5;
+}
+
+.share-btn.line {
+  background-color: #06c755;
+  color: white;
+}
+.share-btn.line:hover {
+  background-color: #05b24c;
+}
+
+.share-btn.copy {
+  background-color: #e5e7eb;
+  color: #111827;
+}
+.share-btn.copy:hover {
+  background-color: #d1d5db;
+}
+
+@media (min-width: 768px) {
+  .desktop-only {
+    display: inline-flex;
+  }
+}
+
+/* === ซ่อนปุ่มแชร์เฉพาะบนมือถือ (ฉบับแก้ไข) === */
+@media (max-width: 767px) {
+  .share-btn.facebook,
+  .share-btn.line,.share-btn.copy {
+    display: none !important; /* <--- เพิ่ม !important ตรงนี้ */
+  }
+}
+
+.breadcrumb-home {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+/* =================================================================== */
+/* === CSS สำหรับ Section บทความที่เกี่ยวข้อง (Responsive) === */
+/* =================================================================== */
+
+/* Section หลัก */
+.related-articles {
+  max-width: 1200px; /* กำหนดความกว้างสูงสุดของ section */
+  margin: 60px auto; /* จัดให้อยู่กึ่งกลางและมีระยะห่างบน-ล่าง */
+  padding: 0 20px;   /* มีช่องว่างซ้ายขวาเล็กน้อย */
+  border-top: 1px solid #e5e7eb; /* เส้นคั่นด้านบน */
+  padding-top: 40px;
+}
+
+/* หัวข้อ "บทความที่เกี่ยวข้อง" */
+.related-articles h2 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 30px;
+  text-align: center;
+}
+
+/* === Grid Layout (ส่วนสำคัญที่สุดสำหรับ Responsive) === */
+.related-list {
+  display: grid;
+  gap: 20px; /* ระยะห่างระหว่างการ์ด */
+
+  /* สำหรับ PC (ค่าเริ่มต้น): แสดงผล 4 คอลัมน์ */
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* === สไตล์ของการ์ดแต่ละใบ === */
+.related-item {
+  display: flex; /* ใช้ Flexbox เพื่อจัดเรียงแนวตั้ง */
+  flex-direction: column;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 0; /* ไม่มี padding เพื่อให้รูปภาพชิดขอบ */
+  text-decoration: none;
+  color: #333;
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  overflow: hidden; /* สำคัญมาก! ทำให้ขอบรูปมนตามการ์ด */
+}
+
+.related-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* รูปภาพในการ์ด */
+.related-item img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 12px;
+  margin-bottom: 30px;
+}
+
+/* ส่วนเนื้อหาในการ์ด */
+.related-item .related-item-content {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1; /* ทำให้กล่องเนื้อหานี้ยืดเต็มพื้นที่ที่เหลือ */
+}
+
+/* หัวข้อในการ์ด */
+.related-item .related-item-content h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 0;
+  margin-bottom: 8px;
+  color: #111827;
+}
+
+/* เนื้อหาย่อในการ์ด */
+.related-item .related-item-content p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #6b7280;
+  margin-bottom: 0;
+  flex-grow: 1; /* ทำให้ยืดเต็มเพื่อดันให้หัวข้ออยู่บนสุดเสมอ */
+}
+
+
+/* === Media Queries สำหรับ Tablet และ Mobile === */
+
+
+
+/* =================================================================== */
+/* === CSS สำหรับ Section บทความที่เกี่ยวข้อง (populer) === */
+/* =================================================================== */
+/* Section หลัก */
+.popular-articles {
+  max-width: 1200px; /* กำหนดความกว้างสูงสุดของ section */
+  margin: 60px auto; /* จัดให้อยู่กึ่งกลางและมีระยะห่างบน-ล่าง */
+  padding: 0 20px;   /* มีช่องว่างซ้ายขวาเล็กน้อย */
+  border-top: 1px solid #e5e7eb; /* เส้นคั่นด้านบน */
+  padding-top: 40px;
+}
+
+/* หัวข้อ "บทความที่เกี่ยวข้อง" */
+.popular-articles h2 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #111827;
+  margin-bottom: 30px;
+  text-align: center;
+}
+/* === Grid Layout (ส่วนสำคัญที่สุดสำหรับ Responsive) === */
+.popular-list {
+  display: grid;
+  gap: 20px; /* ระยะห่างระหว่างการ์ด */
+
+  /* สำหรับ PC (ค่าเริ่มต้น): แสดงผล 4 คอลัมน์ */
+  grid-template-columns: repeat(4, 1fr);
+}
+/* === สไตล์ของการ์ดแต่ละใบ === */
+.popular-item {
+  display: flex; /* ใช้ Flexbox เพื่อจัดเรียงแนวตั้ง */
+  flex-direction: column;
+  background-color: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 0; /* ไม่มี padding เพื่อให้รูปภาพชิดขอบ */
+  text-decoration: none;
+  color: #333;
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  overflow: hidden; /* สำคัญมาก! ทำให้ขอบรูปมนตามการ์ด */
+}
+
+.popular-item:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.08);
+}
+
+/* รูปภาพในการ์ด */
+.popular-item img {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 12px;
+  margin-bottom: 30px;
+}
+
+/* ส่วนเนื้อหาในการ์ด */
+.popular-item .popular-item-content {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1; /* ทำให้กล่องเนื้อหานี้ยืดเต็มพื้นที่ที่เหลือ */
+}
+
+/* หัวข้อในการ์ด */
+.popular-item .popular-item-content h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 0;
+  margin-bottom: 8px;
+  color: #111827;
+}
+
+/* เนื้อหาย่อในการ์ด */
+.popular-item .popular-item-content p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #6b7280;
+  margin-bottom: 0;
+  flex-grow: 1; /* ทำให้ยืดเต็มเพื่อดันให้หัวข้ออยู่บนสุดเสมอ */
+}
+/* ส่วนเนื้อหาในการ์ด */
+.related-item .popular-item-content {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1; /* ทำให้กล่องเนื้อหานี้ยืดเต็มพื้นที่ที่เหลือ */
+}
+
+/* หัวข้อในการ์ด */
+.related-item .popular-item-content h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-top: 0;
+  margin-bottom: 8px;
+  color: #111827;
+}
+
+/* เนื้อหาย่อในการ์ด */
+.related-item .popular-item-content p {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #6b7280;
+  margin-bottom: 0;
+  flex-grow: 1; /* ทำให้ยืดเต็มเพื่อดันให้หัวข้ออยู่บนสุดเสมอ */
+}
+
+
+/* ========================= */
+
+
+/* === Container หลัก (ใช้สไตล์เดิมบางส่วน) === */
+.article-nav {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 3rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+/* === สไตล์หลักของลิงก์ (หัวใจของดีไซน์) === */
+.article-nav a {
+  position: relative; /* สำคัญมาก สำหรับการจัดวาง ::before */
+  display: inline-block;
+  padding: 10px 0;
+  color: #6b7280; /* สีเทาเริ่มต้น */
+  text-decoration: none;
+  font-size: 1.1rem;
+  font-weight: 500;
+  overflow: hidden; /* ซ่อนข้อความที่ล้นออกไป */
+  transition: color 0.4s ease;
+}
+
+/* ทำให้ข้อความ "ก่อนหน้า / ถัดไป" ขยับได้ */
+.article-nav a span {
+  display: inline-block;
+  transition: transform 0.4s cubic-bezier(0.2, 1, 0.3, 1); /* เอฟเฟกต์การสไลด์ */
+}
+
+/* ซ่อนชื่อบทความไว้ก่อน โดยใช้ ::before */
+.article-nav a::before {
+  content: attr(data-title); /* ดึงข้อความจาก data-title ใน HTML */
+  position: absolute;
+  top: 50%;
+  width: 100%;
+  color: #111827; /* สีของชื่อบทความ */
+  font-weight: 600;
+  transition: transform 0.4s cubic-bezier(0.2, 1, 0.3, 1);
+}
+
+/* จัดตำแหน่งเริ่มต้นของชื่อบทความที่ซ่อนไว้ */
+.prev-article::before {
+  transform: translate(105%, -50%); /* ซ่อนไว้ทางขวา */
+}
+.next-article::before {
+  transform: translate(-105%, -50%); /* ซ่อนไว้ทางซ้าย */
+}
+
+/* === เอฟเฟกต์ตอน Hover === */
+.article-nav a:hover {
+  color: #111827; /* เปลี่ยนสีลิงก์หลักเป็นสีเข้ม */
+}
+
+/* สำหรับ Tablet (หน้าจอกว้างไม่เกิน 1024px) */
+@media (max-width: 1024px) {
+  .related-list,.popular-list {
+    grid-template-columns: repeat(2, 1fr); /* เปลี่ยนเป็น 2 คอลัมน์ */
+  }
+}
+
+/* สำหรับ Mobile (หน้าจอกว้างไม่เกิน 600px) */
+@media (max-width: 600px) {
+  .related-list,.popular-list {
+    grid-template-columns: 1fr; /* เปลี่ยนเป็น 1 คอลัมน์ */
+  }
+}

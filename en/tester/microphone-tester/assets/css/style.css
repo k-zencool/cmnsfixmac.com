@@ -1,0 +1,173 @@
+/* ==== GLOBAL ==== */
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', sans-serif;
+  background-color: #f8f8f8;
+  color: #111;
+}
+
+.main-container {
+  max-width: 500px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  text-align: center;
+  position: relative;
+  margin-top: 7rem;
+}
+
+h1 {
+  font-size: 1.8rem;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+}
+
+label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  text-align: left;
+}
+
+select {
+  width: 100%;
+  padding: 0.6rem;
+  font-size: 1rem;
+  border-radius: 8px;
+  border: 1px solid #ccc;
+  margin-bottom: 1.5rem;
+}
+
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+button:hover {
+  opacity: 0.9;
+}
+
+#start-btn {
+  background-color: #fc7404;
+  color: white;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+#stop-btn {
+  background-color: #dc3545;
+  color: white;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
+#record-controls button {
+  background-color: white;
+  color: #fc7404;
+  border: 2px solid #fc7404;
+  width: 100%;
+  margin: 0.3rem 0;
+}
+
+#record-controls button:hover {
+  background-color: #fc7404;
+  color: white;
+}
+
+#lang-toggle {
+  background-color: #fdd9b5;
+  border: none;
+  padding: 0.5rem 1rem;
+  font-weight: 600;
+  border-radius: 8px;
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  white-space: nowrap;
+  width: 200px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  margin-top: 0;
+  z-index: 10;
+}
+
+.main-container h1 {
+  margin-top: 4rem;
+}
+
+.mic-level {
+  background-color: #ddd;
+  border-radius: 20px;
+  height: 16px;
+  margin: 1.5rem 0;
+  overflow: hidden;
+}
+
+.mic-bar {
+  background: linear-gradient(to right, #00c853, #b2ff59);
+  height: 100%;
+  width: 0%;
+  transition: width 0.1s ease-out;
+}
+
+#mic-percent {
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+}
+
+#waveform {
+  height: 100px;
+  background: #fff;
+  border: 1px solid #eee;
+  margin-bottom: 1.5rem;
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#waveform canvas {
+  width: 100% !important;
+  height: 100% !important;
+  display: block;
+}
+
+#recording-status {
+  color: red;
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+#recording-status .dot {
+  width: 10px;
+  height: 10px;
+  background-color: red;
+  border-radius: 50%;
+  animation: blink 1s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}

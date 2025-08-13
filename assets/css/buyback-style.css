@@ -1,0 +1,358 @@
+/* --- CSS สไตล์ Apple (แนวทางเริ่มต้น) by เพื่อน AI ของมึง --- */
+
+/* 1. Reset & Basic Setup (แบบง่ายๆ) */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; /* ฟอนต์สไตล์ Apple/System */
+    line-height: 1.6;
+    color: #1d1d1f; /* สีเทาเข้มเกือบดำของ Apple */
+    background-color: #ffffff; /* พื้นหลังขาวสะอาด */
+    -webkit-font-smoothing: antialiased; /* ทำให้ฟอนต์คมขึ้นบน Mac */
+    -moz-osx-font-smoothing: grayscale;
+}
+
+.container {
+    max-width: 1000px; /* ลองปรับขนาดดู */
+    margin: 0 auto;
+    padding: 0 20px;
+    width: 90%;
+}
+
+/* 2. Typography (ตัวหนังสือ) */
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 600; /* Apple มักจะใช้ฟอนต์ไม่หนามาก แต่คมชัด */
+    color: #1d1d1f;
+    margin-bottom: 0.75em; /* ระยะห่างด้านล่าง */
+}
+
+h1 {
+    font-size: 2.8em; /* หรือ 40px, 48px */
+    letter-spacing: -0.02em;
+    margin-bottom: 0.5em;
+}
+
+h2 {
+    font-size: 2em; /* หรือ 32px */
+    letter-spacing: -0.01em;
+    margin-bottom: 1em;
+    text-align: center; /* หัวข้อ section ส่วนใหญ่จะกลาง */
+}
+
+h3 {
+    font-size: 1.5em; /* หรือ 24px */
+    color: #1d1d1f;
+}
+
+p {
+    font-size: 1.05em; /* หรือ 17px, 18px */
+    color: #333333; /* เทาเข้มกว่านิดหน่อยสำหรับเนื้อหาทั่วไป */
+    margin-bottom: 1.25em;
+}
+
+a {
+    color: #F97103; 
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+/* 3. Header / Hero Section */
+.hero-buyback {
+    background-color: #f5f5f7; /* สีเทาอ่อนๆ ของ Apple */
+    padding: 80px 0;
+    text-align: center;
+    margin-top: 7rem;
+}
+
+.hero-buyback h1 {
+    color: #1d1d1f;
+}
+
+.hero-buyback p {
+    font-size: 1.25em; /* หรือ 20px */
+    color: #555555;
+    max-width: 680px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 30px;
+}
+
+.btn-line { /* ปุ่ม LINE มึงอาจจะคงสีเขียวไว้ หรือเปลี่ยนเป็นฟ้าก็ได้ */
+    display: inline-block;
+    background: #00B900; /* สีเขียว LINE */
+    /* background: #007aff; */ /* หรือสีฟ้าแบบ Apple */
+    color: #ffffff;
+    padding: 15px 30px;
+    border-radius: 8px; /* ความโค้งมนของ Apple */
+    font-size: 1.1em;
+    font-weight: 500;
+    text-decoration: none;
+    transition: background-color 0.2s ease;
+}
+
+.btn-line:hover {
+    background-color: #00a300; /* เข้มขึ้นนิดนึง */
+    /* background-color: #0071e3; */ /* ถ้าใช้สีฟ้า */
+    text-decoration: none;
+}
+
+.hero-buyback p[style*="font-size: 0.9em"] { /* ประโยคเล็กๆ ใต้ปุ่ม */
+    font-size: 0.9em !important;
+    color: #6e6e73;
+}
+
+/* 4. Navigation (แถบนำทาง) */
+.nav-top {
+    background-color: #ffffff;
+    border-bottom: 1px solid #d2d2d7; /* เส้นแบ่งบางๆ */
+    padding: 20px 0;
+    text-align: center;
+    position: sticky; /* ทำให้มันติดหนึบด้านบน */
+    top: 0;
+    z-index: 999;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+}
+
+.nav-top a {
+    color: #555555; /* สีเทาสำหรับลิงก์ */
+    margin: 0 18px;
+    font-size: 0.95em; /* หรือ 15px */
+    font-weight: 500;
+    transition: color 0.2s ease;
+}
+
+.nav-top a:hover {
+    color: #F97103; 
+    text-decoration: none;
+}
+
+/* 5. Sections ทั่วไป */
+section {
+    padding: 60px 0;
+}
+
+section:nth-of-type(even) { /* สลับสีพื้นหลัง section (ถ้าอยากได้) */
+    /* background-color: #f5f5f7; */ /* เทาอ่อนๆ */
+}
+
+/* 6. "Why Us" Section (.about) */
+.about ul {
+    list-style: none;
+    padding: 0;
+    max-width: 700px; /* ทำให้ข้อความไม่ยาวเกินไป อ่านง่าย */
+    margin: 0 auto;
+}
+
+.about ul li {
+    font-size: 1.1em;
+    margin-bottom: 15px;
+    display: flex; /* จัดไอคอนกับข้อความ */
+    align-items: flex-start;
+}
+
+.about ul li .material-symbols-rounded {
+    color: #F97103; 
+    margin-right: 12px;
+    margin-top: 2px; /* จัดตำแหน่งไอคอนนิดหน่อย */
+}
+
+/* 7. Device Section */
+.device-section .device-item {
+    margin-bottom: 50px;
+    padding: 30px;
+    background-color: #f9f9f9; /* พื้นหลังการ์ดสีเทาอ่อนกว่า section */
+    border-radius: 18px; /* ความโค้งของการ์ดแบบ Apple */
+    text-align: center;
+    /* box-shadow: 0 4px 12px rgba(0,0,0,0.05); */ /* เงาบางๆ (ถ้าอยากได้) */
+}
+
+.device-section .device-item h3 {
+    margin-top: 0;
+    margin-bottom: 10px;
+}
+.device-section .device-item p {
+    font-size: 1em;
+    color: #555;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+.device-section .device-item img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px; /* รูปในส่วนนี้ก็โค้งมน */
+    margin-top: 20px;
+    max-height: 220px; /* ปรับขนาดรูปเอาเองนะ */
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* 8. Gallery Section (Splide) */
+.gallery {
+    background-color: #f5f5f7; /* เทาอ่อน */
+}
+.gallery .splide__slide {
+    padding: 10px;
+}
+.gallery .splide__slide img {
+    width: 100%;
+    height: auto;
+    border-radius: 12px;
+    object-fit: cover; /* ทำให้รูปเต็มกรอบ */
+    max-height: 250px; /* ปรับขนาดรูป */
+}
+
+.gallery .splide-caption {
+    text-align: center;
+    font-size: 0.9em;
+    color: #555;
+    margin-top: 8px;
+}
+
+/* 9. Steps Section */
+.steps ol {
+    list-style: none;
+    padding: 0;
+    counter-reset: step-counter;
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+.steps ol li {
+    background: #ffffff;
+    border: 1px solid #e3e3e3; /* เส้นขอบบางๆ */
+    margin-bottom: 20px;
+    padding: 20px 25px;
+    border-radius: 12px;
+    position: relative;
+    padding-left: 65px; /* เพิ่มพื้นที่ให้ตัวเลข */
+    font-size: 1.05em;
+}
+
+.steps ol li::before {
+    counter-increment: step-counter;
+    content: counter(step-counter);
+    background: #F97103; 
+    color: white;
+    border-radius: 50%;
+    width: 35px;
+    height: 35px;
+    font-size: 1.1em;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: absolute;
+    left: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/* 10. FAQ Section */
+.faq h3 {
+    font-size: 1.2em;
+    color: #1d1d1f; /* สีเข้ม */
+    margin-top: 25px;
+    margin-bottom: 5px;
+}
+.faq p {
+    margin-left: 0; /* หรือจะใส่ margin-left ถ้าอยากให้เยื้อง */
+    color: #333;
+    font-size: 1em;
+}
+
+/* 11. Counter Section */
+.counter-section {
+    background-color: #1d1d1f; /* พื้นหลังสีเข้มของ Apple */
+    color: #ffffff;
+    text-align: center;
+    padding: 60px 0;
+}
+.counter-section h2 { color: #fff; }
+.counter-section p { color: #a1a1a6; }
+.counter-section .counter {
+    font-size: 3.5em; /* หรือ 56px */
+    font-weight: 600;
+    color: #ffffff;
+    margin: 10px 0;
+}
+
+/* 12. Map Section */
+.map iframe { /* หรือ selector อื่นที่มึงใช้กับ iframe แผนที่ */
+    display: block;     /* สั่งให้มันเป็น block element */
+    margin-left: auto;  /* สั่งให้ระยะห่างทางซ้ายเป็น auto */
+    margin-right: auto; /* สั่งให้ระยะห่างทางขวาเป็น auto */
+    max-width: 100%;    /* อันนี้ใส่เผื่อไว้ ให้มันย่อได้ถ้าจอเล็กกว่า width ที่ตั้งไว้ */
+    /* width: 600px; */ /* มึงตั้ง width ใน HTML attribute ไว้แล้ว (600px) ก็โอเค หรือจะมาคุมใน CSS ก็ได้ */
+    /* height: 450px; */ /* มึงตั้ง height ใน HTML attribute ไว้แล้ว */
+    border-radius: 12px; /* ทำให้ขอบโค้งมนหน่อยก็สวย (อันนี้แล้วแต่ชอบ) */
+    border: 0; /* เอาเส้นขอบออก (ปกติ style="border:0;" ใน HTML ก็ทำได้แล้ว) */
+}
+.map p { text-align: center; }
+
+/* 13. Footer */
+footer {
+    background: #f5f5f7; /* สีเทาอ่อนๆ */
+    color: #6e6e73; /* สีเทาของ Apple สำหรับข้อความรอง */
+    text-align: center;
+    padding: 30px 0;
+    font-size: 0.85em; /* หรือ 14px */
+    border-top: 1px solid #d2d2d7;
+}
+footer p {
+    margin-bottom: 5px;
+    color: #6e6e73;
+}
+
+/* 14. Floating Buttons (LINE & Scroll to Top) */
+.floating-line {
+    background-color: #00B900; /* เขียว LINE */
+    /* background-color: #007aff; */ /* หรือฟ้า Apple */
+    color: white;
+    width: 56px; /* ปรับขนาดให้พอดี */
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    transition: transform 0.2s ease;
+}
+.floating-line:hover {
+    transform: scale(1.1);
+}
+
+#topBtn {
+    background-color: rgba(0, 0, 0, 0.6); /* สีเทาเข้ม โปร่งแสงนิดๆ */
+    color: white;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    font-size: 24px; /* ขนาดลูกศร */
+    display: none; /* JS จะเป็นตัวควบคุมการแสดงผล */
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+#topBtn:hover {
+    background-color: rgba(0, 0, 0, 0.8);
+}
+
+/* Icons */
+.material-symbols-rounded {
+    font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; /* ลองปรับ wght ให้บางลง */
+    vertical-align: middle; /* จัดตำแหน่งให้ดีขึ้น */
+}
+
+/* --- สิ้นสุด CSS สไตล์ Apple --- */
