@@ -1,24 +1,25 @@
 <?php
 /********************************************************************
- * admin/parts/form_used.php
- * ใช้หน้าเดียว:
- *  - เพิ่มชิ้นมือ 2 (ไม่มี ?id)
- *  - แก้ไขรายละเอียดชิ้นมือ 2 (?id=...)
- *  - เปลี่ยนสถานะ (เบิก/จ่าย consumed, จอง reserved, ชำรุด defect)
- *  - ลบชิ้นมือ 2 (delete)
+ * admin/parts/form_used.php  (FULL)
+ *
+ * หน้านี้ทำทุกอย่างของ "อะไหล่มือ 2" ในไฟล์เดียว:
+ *  - เพิ่มชิ้น (ไม่มี ?id)
+ *  - แก้ไขชิ้น (?id=...)
+ *  - เปลี่ยนสถานะ (consumed / reserved / defect) พร้อมบันทึก History
+ *  - ลบชิ้น (รองรับทั้ง GET: ?op=delete&id=... และ POST: action=delete_item)
  *
  * ตารางที่ใช้:
- *   - parts_used(id, part_code, part_name, part_number, device_models, category,
- *                image_url, serial_no, status, remarks, created_at, updated_at)
- *   - parts_new (เก็บหัวชนิด/เมทาดาต้า ถ้ายังไม่มีจะสร้างให้อัตโนมัติ)
- *   - parts_docs(doc_id, doc_type, ref_no, remarks, user_id, created_at)
- *   - parts_doc_lines(line_id, doc_id, part_code, qty, location_from, location_to, unit_cost)
+ *   parts_used(id, part_code, part_name, part_number, device_models, category,
+ *              image_url, serial_no, status, remarks, created_at, updated_at)
+ *   parts_new (หัวชนิด, auto-create ถ้าไม่มี)
+ *   parts_docs(doc_id, doc_type, ref_no, remarks, user_id, created_at)
+ *   parts_doc_lines(line_id, doc_id, part_code, qty, location_from, location_to, unit_cost)
  *
- * หมายเหตุเรื่อง history:
- *   - เพิ่มชิ้นมือ 2: บันทึก IN, qty=1, location_to='used'
- *   - เปลี่ยนสถานะเป็น consumed: บันทึก CONSUME, qty=1, location_from='used'
- *   - เปลี่ยนสถานะเป็น reserved/defect: บันทึก ADJUST, qty=0 (แค่ log เหตุการณ์)
- *   - ลบชิ้น: บันทึก ADJUST, qty=-1, location_from='used'
+ * หมายเหตุ History:
+ *   - เพิ่มชิ้นใหม่:        IN,        qty=+1, location_to='used'
+ *   - เปลี่ยนสถานะ consumed: CONSUME,   qty=+1 จาก 'used'
+ *   - reserved/defect:       ADJUST,    qty=0  (log เหตุการณ์)
+ *   - ลบชิ้น:                ADJUST,    qty=-1, location_from='used'
  ********************************************************************/
 
 // =============== [SETUP & AUTH] ===============
@@ -28,7 +29,24 @@ require_once __DIR__ . '/../../includes/auth.php';
 require_role(['super_admin', 'manager']);
 
 $pageTitle = "ชิ้นอะไหล่มือ 2";
-$user_id = $_SESSION['user']['id'] ?? null; // ให้แสดงชื่อใน history ได้
+$user_id   = $_SESSION['user']['id'] ?? null; // ใช้แปะชื่อใน History
+
+// =============== [UPLOAD CONFIG] ===============
+define('PARTS_UPLOAD_DIR', __DIR__ . '/../../uploads/parts'); // พาธจริง
+define('PARTS_UPLOAD_URL', '../../uploads/parts');            // พาธสำหรับ <img src>
+
+if (!is_dir(PARTS_UPLOAD_DIR)) {
+  @mkdir(PARTS_UPLOAD_DIR, 0775, true);
+}
+$allowExt  = ['jpg','jpeg','png','webp'];
+$allowMime = ['image/jpeg','image/png','image/webp'];
+function genSafeName($orig) {
+  $ext  = strtolower(pathinfo($orig, PATHINFO_EXTENSION));
+  $base = preg_replace('/[^a-z0-9\-_]+/i','-', pathinfo($orig, PATHINFO_FILENAME));
+  $base = trim($base,'-');
+  if ($base==='') $base = 'part';
+  return $base . '-' . date('Ymd-His') . '-' . substr(sha1(random_bytes(8)),0,6) . '.' . $ext;
+}
 
 // =============== [HELPERS] ====================
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
@@ -43,6 +61,7 @@ function redirect_used($qs=''){
 // =============== [LOAD DATA IF EDIT] =========
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
+// ค่าเริ่มต้นของฟิลด์
 $defaults = [
   'part_code'     => '',
   'part_name'     => '',
@@ -56,26 +75,80 @@ $defaults = [
 ];
 
 $item = $defaults;
+
+// ถ้ามี id แปลว่าโหมดแก้ไข ดึงข้อมูลก่อน
 if ($id) {
   $st = $pdo->prepare("SELECT * FROM parts_used WHERE id=?");
   $st->execute([$id]);
   $row = $st->fetch(PDO::FETCH_ASSOC);
-  if (!$row) {
-    redirect_used('err=ไม่พบข้อมูล');
-  }
+  if (!$row) redirect_used('err=ไม่พบข้อมูล');
   $item = array_merge($item, $row);
 }
 
-// =============== [ACTIONS] ====================
-// 1) บันทึกข้อมูลหลัก (เพิ่มใหม่ หรือ อัปเดต)
-if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['action']) && $_POST['action']==='save_core') {
-  $id            = (int)($_POST['id'] ?? 0);
+/* ===================================================================
+ * 3) ลบชิ้น (รองรับทั้ง GET และ POST)
+ *    - GET:  form_used.php?op=delete&id=123  (ใช้กับลิงก์ <a>)
+ *    - POST: action=delete_item (ใช้กับปุ่มฟอร์มดั้งเดิม)
+ *    หมายเหตุ: ลบผ่าน GET เสี่ยงโดนบอทกด ให้คง confirm() ฝั่ง UI ไว้
+ * =================================================================== */
+$wantDeleteByGet  = ($_SERVER['REQUEST_METHOD']==='GET'  && val($_GET,'op')==='delete');
+$wantDeleteByPost = ($_SERVER['REQUEST_METHOD']==='POST' && val($_POST,'action')==='delete_item');
+
+if ($wantDeleteByGet || $wantDeleteByPost) {
+  $delete_id = (int)($wantDeleteByGet ? ($_GET['id'] ?? 0) : ($_POST['id'] ?? 0));
+  if ($delete_id <= 0) redirect_used('err=คำขอไม่ถูกต้อง');
+
+  $st = $pdo->prepare("SELECT * FROM parts_used WHERE id=?");
+  $st->execute([$delete_id]);
+  $cur = $st->fetch(PDO::FETCH_ASSOC);
+  if (!$cur) redirect_used('err=ไม่พบข้อมูล');
+
+  try {
+    $pdo->beginTransaction();
+
+    // เขียนประวัติ ADJUST qty=-1 ออกจาก 'used'
+    $pdo->prepare("
+      INSERT INTO parts_docs (doc_type, ref_no, remarks, user_id, created_at)
+      VALUES ('ADJUST', '', 'ลบชิ้นมือ 2 ออกจากระบบ', ?, NOW())
+    ")->execute([$user_id]);
+    $doc_id = $pdo->lastInsertId();
+
+    $pdo->prepare("
+      INSERT INTO parts_doc_lines (doc_id, part_code, qty, location_from, location_to, unit_cost)
+      VALUES (?, ?, -1, 'used', NULL, NULL)
+    ")->execute([$doc_id, $cur['part_code']]);
+
+    // ลบจริง
+    $pdo->prepare("DELETE FROM parts_used WHERE id=?")->execute([$delete_id]);
+
+    $pdo->commit();
+    redirect_used('msg=ลบเรียบร้อย');
+  } catch (Throwable $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    redirect_used('err='.urlencode($e->getMessage()));
+  }
+}
+
+/* ===================================================================
+ * 1) บันทึกข้อมูลหลัก (เพิ่มใหม่ หรือ อัปเดต)
+ *    รวมอัปโหลดรูป + ลบรูปเดิม และเลือกหมวดแบบ select/พิมพ์เอง
+ * =================================================================== */
+if ($_SERVER['REQUEST_METHOD']==='POST' && val($_POST,'action')==='save_core') {
+  $form_id       = (int)($_POST['id'] ?? 0);
   $part_code     = val($_POST,'part_code');
   $part_name     = val($_POST,'part_name');
   $part_number   = val($_POST,'part_number');
   $device_models = val($_POST,'device_models');
-  $category      = val($_POST,'category');
-  $image_url     = val($_POST,'image_url');
+
+  // หมวด: เลือกจาก select หรือพิมพ์เองถ้าเลือก other
+  $category_sel  = val($_POST,'category_select');
+  $category_cus  = val($_POST,'category_custom');
+  $category      = $category_sel === 'other' ? $category_cus : $category_sel;
+
+  // รูป: รองรับทั้งอัปโหลดไฟล์ และวาง URL
+  $image_url     = val($_POST,'image_url'); // เก็บชื่อไฟล์หรือ URL
+  $remove_image  = isset($_POST['remove_image']);
+
   $serial_no     = val($_POST,'serial_no');
   $status        = val($_POST,'status','in_stock');
   $remarks       = val($_POST,'remarks');
@@ -83,64 +156,91 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['action']) && $_POST['ac
   $errors = [];
   if ($part_code==='') $errors[] = "กรุณากรอก Part Code";
   if ($part_name==='') $errors[] = "กรุณากรอกชื่ออะไหล่";
+  if ($category==='')  $errors[] = "กรุณาเลือกหมวด";
+
+  // ข้อมูลรูปเดิมกรณีแก้ไข
+  $old = null;
+  if ($form_id) {
+    $q = $pdo->prepare("SELECT image_url FROM parts_used WHERE id=?");
+    $q->execute([$form_id]);
+    $old = $q->fetch(PDO::FETCH_ASSOC);
+  }
+
+  // ถ้ามีอัปโหลดไฟล์
+  if (!empty($_FILES['image_file']) && is_uploaded_file($_FILES['image_file']['tmp_name'])) {
+    $f    = $_FILES['image_file'];
+    $ext  = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
+    $mime = mime_content_type($f['tmp_name']) ?: '';
+    if (!in_array($ext, $allowExt, true) || !in_array($mime, $allowMime, true)) {
+      $errors[] = "ไฟล์รูปต้องเป็น JPG/PNG/WEBP เท่านั้น";
+    } else {
+      $newName = genSafeName($f['name']);
+      if (!move_uploaded_file($f['tmp_name'], PARTS_UPLOAD_DIR . '/' . $newName)) {
+        $errors[] = "อัปโหลดรูปไม่สำเร็จ";
+      } else {
+        $image_url = $newName; // เก็บชื่อไฟล์เท่านั้น
+      }
+    }
+  }
+
+  // ลบรูปเดิมถ้าติ๊ก และรูปเดิมเป็นไฟล์ในระบบ (ไม่ใช่ URL)
+  if ($remove_image && !empty($old['image_url']) && strpos($old['image_url'], '://') === false) {
+    @unlink(PARTS_UPLOAD_DIR . '/' . $old['image_url']);
+    if (empty($_FILES['image_file']['tmp_name'])) {
+      $image_url = ''; // ถ้าไม่ได้อัปใหม่ทับ ให้เคลียร์ค่ารูป
+    }
+  }
 
   if ($errors) {
     $_SESSION['form_errors'] = $errors;
     $_SESSION['form_keep']   = $_POST;
-    if ($id) {
-      header("Location: form_used.php?id=".$id);
-    } else {
-      header("Location: form_used.php");
-    }
+    header("Location: form_used.php".($form_id ? "?id=".$form_id : ""));
     exit;
   }
 
   try {
     $pdo->beginTransaction();
 
-    // สร้างหัวชนิดใน parts_new ถ้ายังไม่มี part_code นี้
-    $q = $pdo->prepare("SELECT 1 FROM parts_new WHERE part_code=? LIMIT 1");
-    $q->execute([$part_code]);
-    if (!$q->fetchColumn()) {
-      $insHead = $pdo->prepare("
+    // parts_new: auto-create ถ้าไม่มีหัว part_code
+    $chk = $pdo->prepare("SELECT 1 FROM parts_new WHERE part_code=? LIMIT 1");
+    $chk->execute([$part_code]);
+    if (!$chk->fetchColumn()) {
+      $pdo->prepare("
         INSERT INTO parts_new
-        (part_code, part_name, part_number, device_models, category, image_url,
-         min_stock, is_active, location, quantity)
+          (part_code, part_name, part_number, device_models, category, image_url,
+           min_stock, is_active, location, quantity)
         VALUES (?,?,?,?,?,?, 0, 1, 'used', 0)
-      ");
-      $insHead->execute([
-        $part_code, $part_name, $part_number, $device_models, $category, $image_url
-      ]);
+      ")->execute([$part_code,$part_name,$part_number,$device_models,$category,$image_url]);
     }
 
-    if ($id) {
-      // update ข้อมูลชิ้น
-      $upd = $pdo->prepare("
+    if ($form_id) {
+      // อัปเดตของเดิม
+      $pdo->prepare("
         UPDATE parts_used
         SET part_code=?, part_name=?, part_number=?, device_models=?, category=?,
             image_url=?, serial_no=?, status=?, remarks=?, updated_at=NOW()
         WHERE id=?
-      ");
-      $upd->execute([
+      ")->execute([
         $part_code,$part_name,$part_number,$device_models,$category,
-        $image_url,$serial_no,$status,$remarks,$id
-      ]);
-      $pdo->commit();
-      redirect_used('msg=บันทึกการแก้ไขแล้ว');
-    } else {
-      // insert ชิ้นใหม่
-      $ins = $pdo->prepare("
-        INSERT INTO parts_used
-        (part_code, part_name, part_number, device_models, category, image_url,
-         serial_no, status, remarks, created_at)
-        VALUES (?,?,?,?,?,?,?,?,?, NOW())
-      ");
-      $ins->execute([
-        $part_code,$part_name,$part_number,$device_models,$category,
-        $image_url,$serial_no, $status ?: 'in_stock', $remarks
+        $image_url,$serial_no,$status,$remarks,$form_id
       ]);
 
-      // history: IN qty=1 เข้า location 'used'
+      $pdo->commit();
+      redirect_used('msg=บันทึกการแก้ไขแล้ว');
+
+    } else {
+      // เพิ่มใหม่
+      $pdo->prepare("
+        INSERT INTO parts_used
+          (part_code, part_name, part_number, device_models, category, image_url,
+           serial_no, status, remarks, created_at)
+        VALUES (?,?,?,?,?,?,?,?,?, NOW())
+      ")->execute([
+        $part_code,$part_name,$part_number,$device_models,$category,
+        $image_url,$serial_no, ($status ?: 'in_stock'), $remarks
+      ]);
+
+      // ประวัติ IN +1 เข้า 'used'
       $pdo->prepare("
         INSERT INTO parts_docs (doc_type, ref_no, remarks, user_id, created_at)
         VALUES ('IN', '', ?, ?, NOW())
@@ -160,54 +260,52 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['action']) && $_POST['ac
     if ($pdo->inTransaction()) $pdo->rollBack();
     $_SESSION['form_errors'] = [$e->getMessage()];
     $_SESSION['form_keep']   = $_POST;
-    if ($id) {
-      header("Location: form_used.php?id=".$id);
-    } else {
-      header("Location: form_used.php");
-    }
+    header("Location: form_used.php".($form_id ? "?id=".$form_id : ""));
     exit;
   }
 }
 
-// 2) เปลี่ยนสถานะ (เบิก/จ่าย, จอง, ชำรุด)
-if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['action']) && $_POST['action']==='status_update') {
-  $id       = (int)($_POST['id'] ?? 0);
+/* ===================================================================
+ * 2) เปลี่ยนสถานะ (พร้อม History)
+ * =================================================================== */
+if ($_SERVER['REQUEST_METHOD']==='POST' && val($_POST,'action')==='status_update') {
+  $sid      = (int)($_POST['id'] ?? 0);
   $new_stat = val($_POST,'new_status');
-  $remarks  = val($_POST,'status_remarks');
+  $s_remark = val($_POST,'status_remarks');
 
-  if ($id<=0 || $new_stat==='') redirect_used('err=คำขอไม่ถูกต้อง');
+  if ($sid<=0 || $new_stat==='') redirect_used('err=คำขอไม่ถูกต้อง');
 
   $st = $pdo->prepare("SELECT * FROM parts_used WHERE id=?");
-  $st->execute([$id]);
+  $st->execute([$sid]);
   $cur = $st->fetch(PDO::FETCH_ASSOC);
   if (!$cur) redirect_used('err=ไม่พบข้อมูล');
 
   try {
     $pdo->beginTransaction();
 
-    // อัปเดตสถานะ
+    // อัปเดตสถานะในตารางหลัก
     $pdo->prepare("UPDATE parts_used SET status=?, remarks=?, updated_at=NOW() WHERE id=?")
-        ->execute([$new_stat, $remarks, $id]);
+        ->execute([$new_stat, $s_remark, $sid]);
 
-    // บันทึกประวัติ
+    // เขียนประวัติตามสถานะ
     if ($new_stat === 'consumed') {
-      // ถือว่าเป็นการตัดจ่าย 1 ชิ้นจากสต็อกมือ 2
       $pdo->prepare("
         INSERT INTO parts_docs (doc_type, ref_no, remarks, user_id, created_at)
         VALUES ('CONSUME', '', ?, ?, NOW())
-      ")->execute([$remarks ?: null, $user_id]);
+      ")->execute([$s_remark ?: null, $user_id]);
       $doc_id = $pdo->lastInsertId();
 
       $pdo->prepare("
         INSERT INTO parts_doc_lines (doc_id, part_code, qty, location_from, location_to, unit_cost)
         VALUES (?, ?, 1, 'used', NULL, NULL)
       ")->execute([$doc_id, $cur['part_code']]);
+
     } else {
-      // reserved/defect แค่ Log เหตุการณ์
+      // reserved/defect: log เหตุการณ์ qty=0
       $pdo->prepare("
         INSERT INTO parts_docs (doc_type, ref_no, remarks, user_id, created_at)
         VALUES ('ADJUST', '', ?, ?, NOW())
-      ")->execute([$remarks ?: ('สถานะใหม่: '.$new_stat), $user_id]);
+      ")->execute([$s_remark ?: ('สถานะใหม่: '.$new_stat), $user_id]);
       $doc_id = $pdo->lastInsertId();
 
       $pdo->prepare("
@@ -225,51 +323,17 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['action']) && $_POST['ac
   }
 }
 
-// 3) ลบชิ้น (พร้อม log)
-if ($_SERVER['REQUEST_METHOD']==='POST' && isset($_POST['action']) && $_POST['action']==='delete_item') {
-  $id = (int)($_POST['id'] ?? 0);
-  if ($id<=0) redirect_used('err=คำขอไม่ถูกต้อง');
-
-  $st = $pdo->prepare("SELECT * FROM parts_used WHERE id=?");
-  $st->execute([$id]);
-  $cur = $st->fetch(PDO::FETCH_ASSOC);
-  if (!$cur) redirect_used('err=ไม่พบข้อมูล');
-
-  try {
-    $pdo->beginTransaction();
-
-    // log การลบ เป็น ADJUST qty = -1 จาก used
-    $pdo->prepare("
-      INSERT INTO parts_docs (doc_type, ref_no, remarks, user_id, created_at)
-      VALUES ('ADJUST', '', 'ลบชิ้นมือ 2 ออกจากระบบ', ?, NOW())
-    ")->execute([$user_id]);
-    $doc_id = $pdo->lastInsertId();
-
-    $pdo->prepare("
-      INSERT INTO parts_doc_lines (doc_id, part_code, qty, location_from, location_to, unit_cost)
-      VALUES (?, ?, -1, 'used', NULL, NULL)
-    ")->execute([$doc_id, $cur['part_code']]);
-
-    // ลบจริง
-    $pdo->prepare("DELETE FROM parts_used WHERE id=?")->execute([$id]);
-
-    $pdo->commit();
-    redirect_used('msg=ลบเรียบร้อย');
-  } catch (Throwable $e) {
-    if ($pdo->inTransaction()) $pdo->rollBack();
-    redirect_used('err='.urlencode($e->getMessage()));
-  }
-}
-
-// =============== [RENDER FORM] ===============
-// ฟอร์มจะโชว์ค่าจาก $_SESSION['form_keep'] หากมี error กลับมา
+// ===================================================================
+// [RENDER FORM]
+// ===================================================================
 if (!empty($_SESSION['form_keep'])) {
-  $item = array_merge($item, $_SESSION['form_keep']);
+  $item = array_merge($item, $_SESSION['form_keep']); // sticky form
   unset($_SESSION['form_keep']);
 }
 $errors = $_SESSION['form_errors'] ?? [];
 unset($_SESSION['form_errors']);
 
+// เทมเพลตส่วนหัว/ข้าง
 include __DIR__ . '/../../templates/header_admin.php';
 include __DIR__ . '/../../templates/sidebar_admin.php';
 ?>
@@ -281,14 +345,12 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 
   <?php if ($errors): ?>
     <div class="alert alert-danger">
-      <?php foreach ($errors as $e): ?>
-        <div><?= h($e) ?></div>
-      <?php endforeach; ?>
+      <?php foreach ($errors as $e): ?><div><?= h($e) ?></div><?php endforeach; ?>
     </div>
   <?php endif; ?>
 
   <!-- โซน 1: ฟอร์มข้อมูลหลัก -->
-  <form method="post" class="card" style="padding:16px;border-radius:12px; margin-bottom:16px;">
+  <form method="post" enctype="multipart/form-data" class="card" style="padding:16px;border-radius:12px; margin-bottom:16px;">
     <input type="hidden" name="action" value="save_core">
     <input type="hidden" name="id" value="<?= (int)$id ?>">
 
@@ -311,14 +373,57 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
             <th>ใช้กับรุ่น</th>
             <td><input type="text" class="filter-input" name="device_models" value="<?= h($item['device_models']) ?>" placeholder="A1706, A1708 ..."></td>
           </tr>
+
+          <!-- หมวด: select + กรอกเองได้ -->
           <tr>
-            <th>หมวด</th>
-            <td><input type="text" class="filter-input" name="category" value="<?= h($item['category']) ?>" placeholder="MacBook / iPhone / ..."></td>
+            <th>หมวด *</th>
+            <td>
+              <?php
+                $catOptions = ['macbook' => 'MacBook', 'iphone' => 'iPhone', 'ipad' => 'iPad', 'imac' => 'iMac'];
+                $catCurrent = $item['category'] ?: 'macbook';
+                $catExists  = array_key_exists($catCurrent, $catOptions);
+              ?>
+              <div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+                <select name="category_select" class="filter-input" style="min-width:180px;">
+                  <?php foreach ($catOptions as $val => $label): ?>
+                    <option value="<?= h($val) ?>" <?= $catCurrent===$val?'selected':'' ?>><?= h($label) ?></option>
+                  <?php endforeach; ?>
+                  <option value="other" <?= !$catExists?'selected':'' ?>>อื่นๆ (พิมพ์เอง)</option>
+                </select>
+                <input type="text"
+                       name="category_custom"
+                       class="filter-input"
+                       placeholder="เช่น logic board / top case ฯลฯ"
+                       value="<?= !$catExists ? h($catCurrent) : '' ?>"
+                       style="flex:1; min-width:220px;">
+              </div>
+              <div class="muted" style="margin-top:4px;">ถ้าเลือก “อื่นๆ” ระบบจะใช้ค่าที่พิมพ์เอง</div>
+            </td>
           </tr>
+
+          <!-- รูปภาพ: อัปโหลดไฟล์ + พรีวิว + วาง URL ได้ -->
           <tr>
-            <th>รูปภาพ (ชื่อไฟล์หรือ URL)</th>
-            <td><input type="text" class="filter-input" name="image_url" value="<?= h($item['image_url']) ?>"></td>
+            <th>รูปภาพ</th>
+            <td>
+              <?php
+                $hasImg = trim((string)$item['image_url']) !== '';
+                $imgSrc = $hasImg
+                  ? (strpos($item['image_url'],'://')!==false ? $item['image_url'] : PARTS_UPLOAD_URL . '/' . h($item['image_url']))
+                  : '';
+              ?>
+              <?php if ($hasImg): ?>
+                <div style="display:flex; gap:12px; align-items:center; margin-bottom:8px;">
+                  <img src="<?= $imgSrc ?>" alt="" style="width:72px;height:72px;object-fit:cover;border-radius:8px;border:1px solid #eee;">
+                  <label class="checkline"><input type="checkbox" name="remove_image"> ลบรูปนี้</label>
+                </div>
+              <?php endif; ?>
+
+              <input type="file" name="image_file" accept="image/*" class="filter-input" style="max-width:320px;">
+              <div class="muted" style="margin-top:4px;">หรือวาง URL เอง (ถ้าจำเป็น):</div>
+              <input type="text" name="image_url" value="<?= h($item['image_url']) ?>" class="filter-input" placeholder="วาง URL รูป หรือเว้นว่างถ้าอัปโหลดไฟล์">
+            </td>
           </tr>
+
           <tr>
             <th>Serial</th>
             <td><input type="text" class="filter-input" name="serial_no" value="<?= h($item['serial_no']) ?>"></td>
@@ -350,7 +455,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
   </form>
 
   <?php if ($id): ?>
-    <!-- โซน 2: เปลี่ยนสถานะอย่างเร็ว (ทำ history ให้อัตโนมัติ) -->
+    <!-- โซน 2: เปลี่ยนสถานะเร็ว พร้อม History -->
     <form method="post" class="card" style="padding:16px;border-radius:12px; margin-bottom:16px;">
       <input type="hidden" name="action" value="status_update">
       <input type="hidden" name="id" value="<?= (int)$id ?>">
@@ -382,7 +487,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
       </div>
     </form>
 
-    <!-- โซน 3: ลบชิ้นนี้ -->
+    <!-- โซน 3: ลบชิ้นนี้ด้วย POST (เผื่ออยากใช้วิธีปลอดภัยกว่า GET) -->
     <form method="post" onsubmit="return confirm('ลบชิ้นนี้ถาวร ใช่ไหม? การกระทำนี้จะถูกบันทึกลงประวัติเป็น ADJUST (-1)');" class="card" style="padding:16px;border-radius:12px;">
       <input type="hidden" name="action" value="delete_item">
       <input type="hidden" name="id" value="<?= (int)$id ?>">

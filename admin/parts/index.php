@@ -629,11 +629,12 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                   <a class="btn-secondary" href="form_used.php?id=<?= (int)$u['id'] ?>&op=consume">เบิก/จ่าย</a>
                   <a class="btn-edit" href="form_used.php?id=<?= (int)$u['id'] ?>">แก้ไข</a>
 
-                  <form action="form_used.php" method="post" onsubmit="return confirm('ลบชิ้นนี้ถาวร ใช่ไหม?')" style="display:inline;">
-                    <input type="hidden" name="op" value="delete">
-                    <input type="hidden" name="id" value="<?= (int)$u['id'] ?>">
-                    <button type="submit" class="btn-delete">ลบ</button>
-                  </form>
+                  <a href="form_used.php?op=delete&id=<?= (int)$u['id'] ?>"
+                    class="btn-delete"
+                    onclick="return confirm('ลบชิ้นนี้ถาวร ใช่ไหม?')">
+                    ลบ
+                  </a>
+
 
                 </td>
               </tr>
