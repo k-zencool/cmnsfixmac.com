@@ -1,96 +1,158 @@
 <?php
-// admin/parts/restock.php
+/********************************************************************
+ * admin/parts/restock.php
+ * รับเข้า/เติมสต็อก (สร้างเอกสาร IN + เพิ่มจำนวนใน parts_new)
+ *
+ * ใช้ตาราง:
+ *   parts_new(part_code, part_name, part_number, device_models, category,
+ *             image_url, min_stock, location, quantity)
+ *   parts_docs(doc_id, doc_type, ref_no, remarks, user_id, created_at)
+ *   parts_doc_lines(line_id, doc_id, part_code, qty, location_from, location_to, unit_cost)
+ *
+ * หมายเหตุ:
+ *  - ไม่มีคอลัมน์ is_active แล้ว
+ *  - รองรับเลือกโลเคชันเดิมหรือเพิ่มใหม่ (+ เพิ่มใหม่…)
+ ********************************************************************/
+
+// ========== SETUP ==========
 session_start();
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
-require_role(['super_admin', 'manager']);
+require_role(['super_admin','manager']);
 
-$pageTitle = "เติมสต็อก (มือ 1)";
-
+$pageTitle = "รับเข้า/เติมสต็อก";
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
+function img_src($v){
+  $v = trim((string)$v);
+  if ($v==='') return '';
+  if (preg_match('~^https?://~i',$v) || $v[0]==='/') return $v;
+  return '../../uploads/parts/'.$v;
+}
 
-$errors = [];
-$msg = '';
+// ========== STATE ==========
 $code = trim($_GET['part_code'] ?? '');
+$errors = [];
 
-// โหลดสรุปอะไหล่ไว้โชว์หัวฟอร์ม ถ้ามี part_code
-$part = null;
+// โหลดเมทาดาต้าตัวแทน + คงเหลือรวม + คงเหลือตามโลเคชัน
+$meta = null;
+$locs = [];
 if ($code !== '') {
+  // summary
   $st = $pdo->prepare("
     SELECT
-      pn.part_code,
-      MAX(pn.part_name)       AS part_name,
-      MAX(pn.part_number)     AS part_number,
-      MAX(pn.device_models)   AS device_models,
-      MAX(pn.category)        AS category,
-      MAX(pn.image_url)       AS image_url,
-      MAX(pn.min_stock)       AS min_stock,
-      MAX(pn.is_active)       AS is_active,
-      SUM(pn.quantity)        AS qty
-    FROM parts_new pn
-    WHERE pn.part_code = ?
-    GROUP BY pn.part_code
+      part_code,
+      MAX(part_name)     AS part_name,
+      MAX(part_number)   AS part_number,
+      MAX(device_models) AS device_models,
+      MAX(category)      AS category,
+      MAX(image_url)     AS image_url,
+      MAX(min_stock)     AS min_stock,
+      SUM(quantity)      AS qty
+    FROM parts_new
+    WHERE part_code=?
+    GROUP BY part_code
     LIMIT 1
   ");
   $st->execute([$code]);
-  $part = $st->fetch(PDO::FETCH_ASSOC);
+  $meta = $st->fetch(PDO::FETCH_ASSOC);
+
+  // locations
+  $st2 = $pdo->prepare("
+    SELECT location, SUM(quantity) AS qty
+    FROM parts_new
+    WHERE part_code=?
+    GROUP BY location
+    ORDER BY location
+  ");
+  $st2->execute([$code]);
+  $locs = $st2->fetchAll(PDO::FETCH_ASSOC);
 }
 
-// บันทึก
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  $code      = trim($_POST['part_code'] ?? '');
-  $location  = trim($_POST['location'] ?? 'main');
-  $qty       = max(0, (int)($_POST['qty'] ?? 0));
-  $unit_cost = strlen($_POST['unit_cost'] ?? '') ? (float)$_POST['unit_cost'] : null;
-  $ref_no    = trim($_POST['ref_no'] ?? '');
-  $remarks   = trim($_POST['remarks'] ?? '');
-  $user_id   = $_SESSION['admin_id'] ?? 1;
+// ========== POST: รับเข้า ==========
+if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action'] ?? '') === 'restock') {
+  $code     = trim($_POST['part_code'] ?? '');
+  $locSel   = trim($_POST['location'] ?? '');
+  $locNew   = trim($_POST['location_new'] ?? '');
+  $location = $locSel === '_new' ? $locNew : $locSel;
 
-  // meta เฉพาะกรณี part_code ยังไม่เคยมีมาก่อนในตาราง (อนุญาตเติมครั้งแรก)
-  $part_name     = trim($_POST['part_name'] ?? '');
-  $part_number   = trim($_POST['part_number'] ?? '');
-  $device_models = trim($_POST['device_models'] ?? '');
-  $category      = trim($_POST['category'] ?? '');
+  $qty      = max(0, (int)($_POST['qty'] ?? 0));
+  $unitCost = trim($_POST['unit_cost'] ?? '');
+  $unitCost = ($unitCost === '' ? null : (float)$unitCost);
+  $ref_no   = trim($_POST['ref_no'] ?? '');
+  $remarks  = trim($_POST['remarks'] ?? '');
 
-  if ($code === '') $errors[] = "กรอกรหัสอะไหล่ (part_code)";
-  if ($qty <= 0)    $errors[] = "จำนวนต้องมากกว่า 0";
+  $user_id  = $_SESSION['admin_id'] ?? ($_SESSION['user']['id'] ?? null);
+
+  if ($code === '')      $errors[] = "กรอกรหัสอะไหล่";
+  if ($location === '')  $errors[] = "กรอก/เลือกโลเคชัน";
+  if ($qty <= 0)         $errors[] = "จำนวนต้องมากกว่า 0";
+  if (!$user_id)         $errors[] = "ไม่พบผู้ใช้งานในระบบ";
 
   if (!$errors) {
     try {
       $pdo->beginTransaction();
 
-      // เอกสารหัว
-      $pdo->prepare("INSERT INTO parts_docs (doc_type, ref_no, remarks, user_id)
-                     VALUES ('IN', ?, ?, ?)")
-          ->execute([$ref_no ?: null, $remarks !== '' ? $remarks : "receive into {$location}", $user_id]);
-      $doc_id = (int)$pdo->lastInsertId();
+      // เมทาดาต้าสำหรับคัดลอกตอนสร้างโลเคชันใหม่ (ถ้ายังไม่มี)
+      $stM = $pdo->prepare("
+        SELECT part_code, part_name, part_number, device_models, category, image_url, min_stock
+        FROM parts_new
+        WHERE part_code=?
+        ORDER BY location
+        LIMIT 1
+      ");
+      $stM->execute([$code]);
+      $m = $stM->fetch(PDO::FETCH_ASSOC);
 
-      // ไลน์เอกสาร
-      $pdo->prepare("INSERT INTO parts_doc_lines (doc_id, part_code, qty, location_to, unit_cost)
-                     VALUES (?,?,?,?,?)")
-          ->execute([$doc_id, $code, $qty, $location, $unit_cost]);
-
-      // อัปเดตคงเหลือ (ถ้ายังไม่มีแถวนี้มาก่อน ให้ใส่เมทาดาต้าตามที่ส่งมา)
-      $pdo->prepare("
-        INSERT INTO parts_new
-          (part_code, part_name, part_number, device_models, category, image_url, location, quantity, min_stock, is_active)
-        VALUES
-          (?, ?, ?, ?, ?, NULL, ?, ?, 0, 1)
-        ON DUPLICATE KEY UPDATE
-          quantity = quantity + VALUES(quantity)
-      ")->execute([$code, $part_name, $part_number, $device_models, $category, $location, $qty]);
-
-      // บันทึกประวัติอย่างง่าย ถ้าตาราง parts_history มี
-      try {
-        $pdo->prepare("INSERT INTO parts_history (event_type, part_code, ref_doc_id, payload, user_id)
-                       VALUES ('new_in', ?, ?, JSON_OBJECT('location', ?, 'qty', ?, 'unit_cost', ?), ?)")
-            ->execute([$code, $doc_id, $location, $qty, $unit_cost, $user_id]);
-      } catch (Throwable $ignore) {
-        // ถ้ายังไม่ได้สร้างตาราง history ก็ปล่อยผ่าน ไม่ใช่วันสิ้นโลก
+      if (!$m) {
+        // ยังไม่มี part_code นี้เลย – สร้างแถวตั้งต้น (main, 0)
+        $pdo->prepare("
+          INSERT INTO parts_new (part_code, part_name, part_number, device_models, category,
+                                 image_url, min_stock, location, quantity)
+          VALUES (?, '', '', '', 'Other', NULL, 0, 'main', 0)
+        ")->execute([$code]);
+        // ดึงกลับมาใช้อีกครั้ง
+        $m = [
+          'part_code'=>$code, 'part_name'=>'', 'part_number'=>'',
+          'device_models'=>'', 'category'=>'Other', 'image_url'=>null, 'min_stock'=>0
+        ];
       }
 
+      // สร้างเอกสาร IN
+      $pdo->prepare("
+        INSERT INTO parts_docs (doc_type, ref_no, remarks, user_id, created_at)
+        VALUES ('IN', ?, ?, ?, NOW())
+      ")->execute([$ref_no ?: null, $remarks !== '' ? $remarks : "restock to {$location}", $user_id]);
+      $doc_id = (int)$pdo->lastInsertId();
+
+      // เพิ่มบรรทัดเอกสาร
+      $pdo->prepare("
+        INSERT INTO parts_doc_lines (doc_id, part_code, qty, location_from, location_to, unit_cost)
+        VALUES (?, ?, ?, NULL, ?, ?)
+      ")->execute([$doc_id, $code, $qty, $location, $unitCost]);
+
+      // ให้มีแถวโลเคชันนี้ก่อน (ถ้ายังไม่มี)
+      $stC = $pdo->prepare("SELECT COUNT(*) FROM parts_new WHERE part_code=? AND location=?");
+      $stC->execute([$code, $location]);
+      if ((int)$stC->fetchColumn() === 0) {
+        $pdo->prepare("
+          INSERT INTO parts_new (part_code, part_name, part_number, device_models, category,
+                                 image_url, min_stock, location, quantity)
+          VALUES (?,?,?,?,?,?,?, ?, 0)
+        ")->execute([
+          $m['part_code'], $m['part_name'], $m['part_number'], $m['device_models'],
+          $m['category'], $m['image_url'], (int)$m['min_stock'], $location
+        ]);
+      }
+
+      // อัปเดตสต็อก
+      $pdo->prepare("
+        UPDATE parts_new
+        SET quantity = quantity + ?
+        WHERE part_code=? AND location=?
+      ")->execute([$qty, $code, $location]);
+
       $pdo->commit();
-      header("Location: index.php?tab=new&restocked=1");
+      header("Location: index.php?tab=new&msg=".urlencode("รับเข้าเรียบร้อย"));
       exit;
     } catch (Throwable $e) {
       if ($pdo->inTransaction()) $pdo->rollBack();
@@ -99,25 +161,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
 }
 
-// โหลดอีกทีหลังโพสต์พัง จะได้โชว์หัวฟอร์ม
-if ($code !== '' && !$part) {
-  $part = [
-    'part_code' => $code, 'part_name' => '', 'part_number' => '', 'device_models' => '',
-    'category' => '', 'image_url' => null, 'min_stock' => 0, 'is_active' => 1, 'qty' => 0
-  ];
-}
-
+// ========== TEMPLATE ==========
 include __DIR__ . '/../../templates/header_admin.php';
 include __DIR__ . '/../../templates/sidebar_admin.php';
 ?>
 <main class="main" id="main-content">
   <div class="topbar">
     <span><?= h($pageTitle) ?></span>
-  </div>
-
-  <div class="section-header">
-    <h2>เติมสต็อก (มือ 1)</h2>
-    <a href="index.php?tab=new" class="btn-secondary">← กลับรายการ</a>
+    <a class="btn-secondary" href="index.php?tab=new">← กลับรายการ</a>
   </div>
 
   <?php if ($errors): ?>
@@ -126,86 +177,109 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     </div>
   <?php endif; ?>
 
-  <?php if ($part): ?>
+  <?php if ($meta): ?>
     <div class="card" style="padding:12px;border-radius:10px;margin-bottom:12px;">
       <div style="display:flex;gap:12px;align-items:center;">
-        <?php if (!empty($part['image_url'])): ?>
-          <img src="../../uploads/parts/<?= h($part['image_url']) ?>" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #eee;">
+        <?php $img = img_src($meta['image_url'] ?? ''); ?>
+        <?php if ($img): ?>
+          <img src="<?= h($img) ?>" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #eee;" alt="">
         <?php else: ?>
-          <div style="width:56px;height:56px;border:1px dashed #ddd;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:12px;">
-            ไม่มีรูป
-          </div>
+          <div style="width:56px;height:56px;border:1px dashed #ddd;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:12px;">ไม่มีรูป</div>
         <?php endif; ?>
         <div>
-          <div><strong><?= h($part['part_name'] ?: '(ยังไม่ตั้งชื่อ)') ?></strong></div>
-          <div class="muted" style="font-size:12px;">รหัส: <?= h($part['part_code']) ?> | เลขอะไหล่: <?= h($part['part_number']) ?></div>
-          <div class="muted" style="font-size:12px;">รุ่น: <?= h($part['device_models']) ?> | ประเภท: <?= h($part['category']) ?></div>
-          <div class="muted" style="font-size:12px;">คงเหลือรวม: <?= (int)$part['qty'] ?></div>
+          <strong><?= h($meta['part_name'] ?: $code) ?></strong>
+          <div class="muted" style="font-size:12px;">รหัส: <?= h($code) ?> | เลข: <?= h($meta['part_number']) ?></div>
+          <div class="muted" style="font-size:12px;">รุ่น: <?= h($meta['device_models']) ?> | คงเหลือรวม: <?= (int)$meta['qty'] ?></div>
+          <?php if ($locs): ?>
+            <div class="muted" style="font-size:12px;margin-top:4px;">
+              <?php foreach ($locs as $l): ?>
+                <span class="badge" style="margin-right:6px"><?= h($l['location']) ?>: <?= (int)$l['qty'] ?></span>
+              <?php endforeach; ?>
+            </div>
+          <?php endif; ?>
         </div>
       </div>
     </div>
   <?php endif; ?>
 
-  <form method="post" class="card" style="padding:16px;border-radius:12px;max-width:720px;">
+  <form method="post" class="card" style="padding:16px;border-radius:12px;max-width:760px;">
+    <input type="hidden" name="action" value="restock">
+
     <div class="table-container">
-      <table class="data-table">
-        <tbody>
-          <tr>
-            <th style="width:220px;">รหัสอะไหล่ (part_code) *</th>
-            <td>
-              <input type="text" name="part_code" class="filter-input" required value="<?= h($code) ?>" placeholder="เช่น BAT-A1819-MAC">
-              <div class="muted" style="font-size:12px;">ต้องตรงกับรหัสที่ใช้ในหน้ารายการ</div>
-            </td>
-          </tr>
+      <table class="data-table"><tbody>
+        <tr>
+          <th style="width:220px;">รหัสอะไหล่ *</th>
+          <td><input class="filter-input" name="part_code" required value="<?= h($code) ?>"></td>
+        </tr>
 
-          <?php if (!$part || ($part && !$part['part_name'])): // เผื่อเติมครั้งแรก ยังไม่มี meta ?>
-          <tr>
-            <th>ชื่ออะไหล่ (ครั้งแรกเท่านั้น)</th>
-            <td><input type="text" name="part_name" class="filter-input" placeholder="เช่น BATTERY A1819"></td>
-          </tr>
-          <tr>
-            <th>เลขอะไหล่</th>
-            <td><input type="text" name="part_number" class="filter-input" placeholder="เช่น A1819 หรือ 661-02536"></td>
-          </tr>
-          <tr>
-            <th>ใช้กับรุ่น</th>
-            <td><input type="text" name="device_models" class="filter-input" placeholder="เช่น A1706, A1708"></td>
-          </tr>
-          <tr>
-            <th>หมวดหมู่</th>
-            <td><input type="text" name="category" class="filter-input" placeholder="เช่น MacBook, iPhone"></td>
-          </tr>
-          <?php endif; ?>
+        <tr>
+          <th>รับเข้าไปที่ *</th>
+          <td>
+            <?php if (!empty($locs)): ?>
+              <select name="location" id="location" class="filter-input" required style="max-width:260px;">
+                <?php
+                  $def='main'; $hasMain=false;
+                  foreach($locs as $l){ if($l['location']==='main') $hasMain=true; }
+                ?>
+                <?php foreach ($locs as $l): ?>
+                  <option value="<?= h($l['location']) ?>" data-qty="<?= (int)$l['qty'] ?>" <?= ($hasMain && $l['location']==='main')?'selected':'' ?>>
+                    <?= h($l['location']) ?> (คงเหลือ <?= (int)$l['qty'] ?>)
+                  </option>
+                <?php endforeach; ?>
+                <option value="_new">+ เพิ่มใหม่…</option>
+              </select>
+              <input type="text" name="location_new" id="location_new" class="filter-input" placeholder="พิมพ์โลเคชันใหม่" style="display:none;max-width:220px;">
+            <?php else: ?>
+              <input class="filter-input" name="location" required value="main" style="max-width:220px;">
+            <?php endif; ?>
+          </td>
+        </tr>
 
-          <tr>
-            <th>ที่เก็บ (location) *</th>
-            <td><input type="text" name="location" class="filter-input" required value="main"></td>
-          </tr>
-          <tr>
-            <th>จำนวนรับเข้า *</th>
-            <td><input type="number" name="qty" class="filter-input" min="1" required value="1"></td>
-          </tr>
-          <tr>
-            <th>ต้นทุนต่อหน่วย</th>
-            <td><input type="number" step="0.01" name="unit_cost" class="filter-input" placeholder="ตัวเลขทศนิยมได้"></td>
-          </tr>
-          <tr>
-            <th>เลขอ้างอิง (Ref No.)</th>
-            <td><input type="text" name="ref_no" class="filter-input" placeholder="PO-xxx, ใบเสร็จ ฯลฯ"></td>
-          </tr>
-          <tr>
-            <th>หมายเหตุ</th>
-            <td><input type="text" name="remarks" class="filter-input" placeholder="บันทึกเพิ่มเติม"></td>
-          </tr>
-        </tbody>
-      </table>
+        <tr>
+          <th>จำนวนที่รับเข้า *</th>
+          <td><input class="filter-input" type="number" min="1" name="qty" required value="1" style="max-width:160px;"></td>
+        </tr>
+
+        <tr>
+          <th>ต้นทุน/หน่วย</th>
+          <td><input class="filter-input" type="number" step="0.01" name="unit_cost" placeholder="เช่น 250.00" style="max-width:180px;"></td>
+        </tr>
+
+        <tr>
+          <th>เลขอ้างอิง</th>
+          <td><input class="filter-input" name="ref_no" placeholder="ใบงาน, เลข PO ฯลฯ"></td>
+        </tr>
+
+        <tr>
+          <th>หมายเหตุ</th>
+          <td><input class="filter-input" name="remarks" placeholder="โน้ตสั้นๆ"></td>
+        </tr>
+      </tbody></table>
     </div>
 
     <div style="display:flex;gap:10px;margin-top:14px;">
-      <button class="btn-primary" type="submit">บันทึกการเติมสต็อก</button>
+      <button class="btn-primary" type="submit">บันทึกรับเข้า</button>
       <a class="btn-secondary" href="index.php?tab=new">ยกเลิก</a>
     </div>
   </form>
 </main>
 
 <?php include __DIR__ . '/../../templates/footer_admin.php'; ?>
+
+<script>
+// toggle ช่อง "เพิ่มโลเคชันใหม่" และโชว์คงเหลือของที่เลือก
+(function(){
+  var sel = document.getElementById('location');
+  var boxNew = document.getElementById('location_new');
+  if (!sel) return;
+  function refresh(){
+    if (sel.value === '_new') {
+      if (boxNew) boxNew.style.display = '';
+    } else {
+      if (boxNew) boxNew.style.display = 'none';
+    }
+  }
+  sel.addEventListener('change', refresh);
+  refresh();
+})();
+</script>
