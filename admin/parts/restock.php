@@ -18,7 +18,10 @@
 session_start();
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
-require_role(['super_admin','manager']);
+
+require_login();                       // เข้าหน้าได้ต้องล็อกอิน
+require_perms(['parts.new.restock']);  // และต้องมีสิทธิ์เติมสต็อก
+
 
 $pageTitle = "รับเข้า/เติมสต็อก";
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }

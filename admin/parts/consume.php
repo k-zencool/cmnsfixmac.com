@@ -1,6 +1,6 @@
 <?php
 /********************************************************************
- * admin/parts/consume.php
+ * admin/parts/consume.php  (RBAC-ready)
  * เบิก/ตัดจ่ายอะไหล่:
  *   - มือ 1 (parts_new) : หักจำนวนจาก location ที่เลือก + เอกสาร CONSUME
  *   - มือ 2 (parts_used): สร้าง CONSUME (qty=1, from 'used') แล้วลบแถวออกเลย
@@ -14,9 +14,9 @@
 session_start();
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
-require_role(['super_admin','manager']);
 
-$pageTitle = "ตัดจ่าย/เบิก";
+require_login();
+
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 function img_src($v){
   $v = trim((string)$v);
@@ -30,15 +30,19 @@ function back_to($tab, $qs=''){
   header("Location: $u"); exit;
 }
 
-// ========================== [STATE] ==================================
-// รับทั้ง type และ mode (เพื่อเข้ากับลิงก์เดิมได้)
-$rawType = $_GET['type'] ?? $_GET['mode'] ?? 'new';
+// ชนิดเริ่มต้น จาก GET/POST (เพื่อ guard ให้ถูกตั้งแต่หัวไฟล์)
+$rawType = $_POST['mode'] ?? $_GET['type'] ?? $_GET['mode'] ?? 'new';
 $type    = ($rawType === 'used') ? 'used' : 'new';
 
-// id มือ 2 รองรับทั้ง used_id และ id
-$used_id = isset($_GET['used_id']) ? (int)$_GET['used_id'] : (int)($_GET['id'] ?? 0);
-// มือ 1
-$code    = trim($_GET['part_code'] ?? '');
+// บังคับสิทธิ์ตามชนิดที่เข้ามา (ดูอย่างเดียวไม่พอ เพราะมีการเขียนข้อมูล)
+if ($type === 'new')  require_perms(['parts.new.consume']);
+if ($type === 'used') require_perms(['parts.used.consume']);
+
+$pageTitle = "ตัดจ่าย/เบิก";
+
+// ========================== [STATE] ==================================
+$used_id = isset($_GET['used_id']) ? (int)$_GET['used_id'] : (int)($_GET['id'] ?? 0); // มือ 2
+$code    = trim($_GET['part_code'] ?? '');                                            // มือ 1
 
 $errors  = [];
 $msg     = '';
@@ -80,7 +84,6 @@ if ($type === 'new' && $code !== '') {
 // ========================== [LOAD: มือ 2 ITEM] =======================
 $used = null;
 if ($type === 'used' && $used_id > 0) {
-  // *** ตัด is_active ออก (ไม่มีคอลัมน์นี้แล้ว) ***
   $st = $pdo->prepare("
     SELECT id, part_code, part_name, part_number, device_models, category,
            image_url, location, remarks, created_at, updated_at
@@ -93,8 +96,11 @@ if ($type === 'used' && $used_id > 0) {
 
 // ========================== [POST: ACTION] ===========================
 if ($_SERVER['REQUEST_METHOD']==='POST') {
-  // โหมดมาจาก hidden input
   $mode = ($_POST['mode'] ?? 'new') === 'used' ? 'used' : 'new';
+
+  // กันยิง POST ตรงอีกรอบตามชนิดที่ส่งมา
+  if ($mode === 'new')  require_perms(['parts.new.consume']);
+  if ($mode === 'used') require_perms(['parts.used.consume']);
 
   // ---------- มือ 1: CONSUME จาก parts_new ----------
   if ($mode === 'new') {
@@ -146,52 +152,69 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
       }
     }
   }
+// ---------- มือ 2: CONSUME แล้วลบออกเลย ----------
+if ($mode === 'used') {
+  $used_id = (int)($_POST['used_id'] ?? 0);
+  $ref_no  = trim($_POST['ref_no'] ?? '');
+  $remarks = trim($_POST['remarks'] ?? '');
 
-  // ---------- มือ 2: CONSUME แล้วลบออกเลย ----------
-  if ($mode === 'used') {
-    $used_id = (int)($_POST['used_id'] ?? 0);
-    $ref_no  = trim($_POST['ref_no'] ?? '');
-    $remarks = trim($_POST['remarks'] ?? '');
+  if ($used_id <= 0) $errors[] = "ไม่พบรายการมือ 2 ที่จะตัดจ่าย";
+  if (!$user_id)     $errors[] = "ไม่พบผู้ใช้งานในระบบ";
 
-    if ($used_id <= 0) $errors[] = "ไม่พบรายการมือ 2 ที่จะตัดจ่าย";
-    if (!$user_id)     $errors[] = "ไม่พบผู้ใช้งานในระบบ";
+  if (!$errors) {
+    try {
+      $pdo->beginTransaction();
 
-    if (!$errors) {
-      try {
-        $pdo->beginTransaction();
+      // ล็อกแถวชิ้นมือ 2
+      $st = $pdo->prepare("SELECT * FROM parts_used WHERE id=? FOR UPDATE");
+      $st->execute([$used_id]);
+      $row = $st->fetch(PDO::FETCH_ASSOC);
+      if (!$row) throw new Exception("ไม่พบข้อมูลชิ้นมือ 2");
 
-        // ล็อกแถวชิ้นมือ 2
-        $st = $pdo->prepare("SELECT * FROM parts_used WHERE id=? FOR UPDATE");
-        $st->execute([$used_id]);
-        $row = $st->fetch(PDO::FETCH_ASSOC);
-        if (!$row) throw new Exception("ไม่พบข้อมูลชิ้นมือ 2");
+      // Header เอกสาร
+      $pdo->prepare("
+        INSERT INTO parts_docs (doc_type, ref_no, remarks, user_id, created_at)
+        VALUES ('CONSUME', ?, ?, ?, NOW())
+      ")->execute([$ref_no ?: null, $remarks !== '' ? $remarks : "consume (used item #{$used_id})", $user_id]);
+      $doc_id = (int)$pdo->lastInsertId();
 
-        // Header
-        $pdo->prepare("
-          INSERT INTO parts_docs (doc_type, ref_no, remarks, user_id, created_at)
-          VALUES ('CONSUME', ?, ?, ?, NOW())
-        ")->execute([$ref_no ?: null, $remarks !== '' ? $remarks : "consume (used item #{$used_id})", $user_id]);
-        $doc_id = (int)$pdo->lastInsertId();
+      // Line (qty=1 จาก location 'used')
+      $pdo->prepare("
+        INSERT INTO parts_doc_lines (doc_id, part_code, qty, location_from, location_to, unit_cost)
+        VALUES (?, ?, 1, 'used', NULL, NULL)
+      ")->execute([$doc_id, $row['part_code']]);
 
-        // Line (qty=1 จาก location 'used')
-        $pdo->prepare("
-          INSERT INTO parts_doc_lines (doc_id, part_code, qty, location_from, location_to, unit_cost)
-          VALUES (?, ?, 1, 'used', NULL, NULL)
-        ")->execute([$doc_id, $row['part_code']]);
+      // ✅ LOG ลง parts_used_log ก่อนลบ
+      $pdo->prepare("
+        INSERT INTO parts_used_log
+          (used_id, donor_id, part_code, part_name, part_number, device_models, category,
+           image_url, location, remarks, action, consumed_at, created_at)
+        VALUES (?,?,?,?,?,?,?,?,?,?, 'CONSUME', NOW(), NOW())
+      ")->execute([
+        $row['id'] ?? null,
+        $row['donor_id'] ?? null,
+        $row['part_code'] ?? null,
+        $row['part_name'] ?? null,
+        $row['part_number'] ?? null,
+        $row['device_models'] ?? null,
+        $row['category'] ?? null,
+        $row['image_url'] ?? null,
+        $row['location'] ?? null,
+        $row['remarks'] ?? null,
+      ]);
 
-        // ลบแถวออกจาก parts_used (ชิ้นต่อแถว => เบิกแล้วหายไป)
-        $pdo->prepare("DELETE FROM parts_used WHERE id=?")->execute([$used_id]);
+      // ลบตัวจริงออก
+      $pdo->prepare("DELETE FROM parts_used WHERE id=?")->execute([$used_id]);
 
-        $pdo->commit();
-        back_to('used','msg=ตัดจ่ายชิ้นมือ2แล้ว');
-      } catch (Throwable $e) {
-        if ($pdo->inTransaction()) $pdo->rollBack();
-        $errors[] = $e->getMessage();
-      }
+      $pdo->commit();
+      back_to('used','msg=ตัดจ่ายชิ้นมือ2แล้ว');
+    } catch (Throwable $e) {
+      if ($pdo->inTransaction()) $pdo->rollBack();
+      $errors[] = $e->getMessage();
     }
   }
 }
-
+}
 // ========================== [TEMPLATE] ===============================
 include __DIR__ . '/../../templates/header_admin.php';
 include __DIR__ . '/../../templates/sidebar_admin.php';
@@ -206,7 +229,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     <div style="display:flex; gap:8px; align-items:center;">
       <a class="btn-secondary" href="index.php?tab=<?= $type==='used' ? 'used':'new' ?>">← กลับรายการ</a>
       <?php if ($type==='new'): ?>
-        <a class="btn-secondary" href="consume.php?type=used<?= $used_id ? '&used_id='.((int)$used_id) : '' ?>">โหมดมือ 2</a>
+        <a class="btn-secondary" href="consume.php?type=used">โหมดมือ 2</a>
       <?php else: ?>
         <a class="btn-secondary" href="consume.php?type=new<?= $code ? '&part_code='.urlencode($code) : '' ?>">โหมดมือ 1</a>
       <?php endif; ?>

@@ -270,7 +270,7 @@ body {
 }
 
 /* ===============================
-   PRODUCT TABLE STYLES
+   PRODUCT TABLE STYLES (NEW)
    =============================== */
 
 .table-container {
@@ -287,11 +287,13 @@ body {
   min-width: 800px;
 }
 
-.data-table th, .data-table td {
-  padding: 15px;
-  text-align: left;
+.data-table th,
+.data-table td {
+  padding: 14px;
+  font-size: 14px;
   border-bottom: 1px solid #eee;
-  font-size: 15px;
+  vertical-align: middle;
+  text-align: center;         /* จัดกลางเป็นค่า default */
 }
 
 .data-table th {
@@ -304,12 +306,48 @@ body {
   background: #f9fcff;
 }
 
+/* ===================== รูปในตาราง ===================== */
 .data-table img.thumb {
   width: 60px;
   height: 60px;
   object-fit: cover;
   border-radius: 8px;
+  display: block;
+  margin: 0 auto;
 }
+
+/* ===================== คอลัมน์ข้อความยาว (ชิดซ้าย) ===================== */
+.data-table thead th:nth-child(3),
+.data-table tbody td:nth-child(3) { text-align: left; }  /* ชื่ออะไหล่ */
+.data-table thead th:nth-child(7),
+.data-table tbody td:nth-child(7) /* หมายเหตุ */
+
+/* ถ้าเป็นแท็บของใหม่ (NEW) ให้คอลัมน์ 7 = คงเหลือ จัดกลาง */
+.view-new .data-table thead th:nth-child(7),
+.view-new .data-table tbody td:nth-child(7) { text-align: center; }
+
+/* ===================== ความกว้างคอลัมน์ ===================== */
+.data-table thead th:nth-child(2),
+.data-table tbody td:nth-child(2) { width: 56px; }
+
+.data-table thead th:last-child,
+.data-table tbody td:last-child { min-width: 220px; white-space: nowrap; }
+
+/* ===================== ปุ่ม ===================== */
+.data-table td a.btn-success,
+.data-table td a.btn-danger,
+.data-table td a.btn-edit,
+.data-table td a.btn-delete,
+.data-table td a.btn-checkout {
+  display: inline-block;
+  margin: 0 4px 4px 0;
+  white-space: nowrap;
+  min-width: 70px;
+  text-align: center;
+}
+
+.no-wrap { white-space: nowrap; }
+
 
 /* ===============================
    BUTTON STYLES
@@ -397,21 +435,6 @@ body {
 }
 
 
-/* ปรับปุ่มให้วางแนวนอนและแยก */
-.data-table td a.btn-success,
-.data-table td a.btn-danger,
-.data-table td a.btn-edit,
-.data-table td a.btn-delete,
-.data-table td a.btn-checkout {
-  display: inline-block;
-  margin: 0 4px 4px 0;
-  white-space: nowrap;
-
-  /* ★★★ เพิ่ม 2 บรรทัดนี้เข้าไป ★★★ */
-  min-width: 70px;      /* กำหนดความกว้างขั้นต่ำ (ลองปรับเลขได้) */
-  text-align: center;   /* จัดให้ตัวหนังสืออยู่กลางปุ่ม */
-}
-
 /* ===============================
    SECTION HEADER
    =============================== */
@@ -453,15 +476,7 @@ body {
     padding: 12px;
   }
 
-  .data-table {
-    min-width: 700px; /* ทำให้ตารางเลื่อนในมือถือ */
-  }
 
-  .data-table th,
-  .data-table td {
-    padding: 12px;
-    font-size: 14px;
-  }
 
   .topbar {
     flex-direction: column;
@@ -729,9 +744,6 @@ body {
   font-size: 13px;
   line-height: 18px;
   text-align: center;
-}
-.data-table td {
-  vertical-align: middle;
 }
 
 
@@ -1161,52 +1173,427 @@ body {
     border-bottom-color: #007bff;
 }
 
+/* ===================== Thumbnail & Empty State ===================== */
 
-/* --- CSS สำหรับกล่องโชว์รูป (Modal) --- */
-
-/* พื้นหลังสีดำโปร่งๆ ที่คลุมทั้งจอ */
-.image-modal {
-    display: none; /* ปกติให้ซ่อนไว้ */
-    position: fixed; /* ให้อยู่กับที่แม้จะเลื่อนจอ */
-    z-index: 1001; /* ให้อยู่เหนือทุกอย่าง */
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.85); /* สีดำโปร่งแสง 85% */
+/* ปุ่มรูป */
+.thumb-btn {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.thumb-btn:focus {
+  outline: 2px solid #99c;
+  outline-offset: 2px;
 }
 
-/* รูปภาพที่โชว์กลางจอ */
-.image-modal-content {
-    margin: auto;
-    display: block;
-    max-width: 80%;
-    max-height: 80%;
-    /* จัดให้อยู่กลางจอเป๊ะๆ */
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+/* กรณีมีรูป */
+.thumb-btn img.thumb {
+  width: 48px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 8px;
+  display: block;
+  border: 1px solid #ddd;   /* กรอบเรียบๆ */
+  background: #fff;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.thumb-btn img.thumb:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 6px rgba(0,0,0,0.3);
 }
 
-/* ปุ่มปิด (กากบาท) */
-.image-modal-close {
-    position: absolute;
-    top: 20px;
-    right: 35px;
-    color: #f1f1f1;
-    font-size: 40px;
-    font-weight: bold;
-    cursor: pointer;
-    transition: color 0.3s;
+/* กรณีไม่มีรูป */
+.thumb {
+  width: 48px;
+  height: 48px;
+  border: 1px dashed #bbb;   /* เส้นปะเฉพาะตอนว่าง */
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #aaa;
+  font-size: 12px;
+  background: #fafafa;
+}
+.thumb::before {
+  content: "-";
+  line-height: 1;
 }
 
-.image-modal-close:hover {
-    color: #bbb;
+/* ===================== Image Preview Modal ===================== */
+
+.imgpv-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.65);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+.imgpv-overlay.show { display: flex; }
+
+.imgpv-dialog {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.form-control-disabled {
-    background-color: #e9ecef; /* สีเทาอ่อน */
-    opacity: 1;
-    cursor: not-allowed;
+.imgpv-img {
+  max-width: 90vw;
+  max-height: 85vh;
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.4);
+  background: #fff;
+  display: block;
+}
+
+.imgpv-close {
+  position: absolute;
+  top: -36px;
+  right: -6px;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font-size: 24px;
+  cursor: pointer;
+}
+@media (max-width:640px) {
+  .imgpv-close { top: -44px; right: 0; }
+}
+
+/* ===================== Tokens (สีหลัก) ===================== */
+:root {
+  --ui-bg: #ffffff;
+  --ui-border: #e6e8ec;
+  --ui-muted: #8a8f98;
+
+  --primary: #3b82f6;          /* ฟ้าอมคราม */
+  --primary-hover: #2563eb;
+  --primary-active: #1d4ed8;
+  --primary-ghost: #eef4ff;
+
+  --secondary: #f4f5f7;        /* เทาอ่อน */
+  --secondary-hover: #ebedf0;
+  --secondary-active: #e2e5e9;
+
+  --success: #22c55e;
+  --warning: #f59e0b;
+  --danger:  #ef4444;
+
+  --shadow-sm: 0 2px 10px rgba(15, 23, 42, .08);
+  --shadow-md: 0 6px 22px rgba(15, 23, 42, .10);
+  --radius: 10px;
+}
+
+/* ===================== Search & Filter Bar ===================== */
+.search-and-filter-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 10px 0 14px;
+}
+
+/* ช่องค้นหา */
+.filter-input {
+  flex: 1 1 auto;
+  min-width: 320px;
+  height: 40px;
+  padding: 8px 14px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius);
+  background: var(--ui-bg);
+  font-size: 14px;
+  transition: box-shadow .15s ease, border-color .15s ease;
+}
+.filter-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 20%, transparent);
+}
+
+/* ปุ่มพื้นฐาน */
+.btn-primary,
+.btn-secondary,
+.btn-search {
+  height: 40px;
+  padding: 0 14px;
+  border-radius: var(--radius);
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color .15s ease, box-shadow .15s ease, transform .03s ease;
+  user-select: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* ปุ่มหลัก */
+.btn-primary,
+.btn-search {
+  border: 1px solid var(--primary);
+  background: var(--primary);
+  color: #fff;
+  box-shadow: var(--shadow-sm);
+}
+.btn-primary:hover,
+.btn-search:hover { background: var(--primary-hover); }
+.btn-primary:active,
+.btn-search:active { background: var(--primary-active); transform: translateY(1px); }
+
+/* ปุ่มรอง */
+.btn-secondary {
+  border: 1px solid var(--ui-border);
+  background: var(--secondary);
+  color: #111827;
+}
+.btn-secondary:hover { background: var(--secondary-hover); }
+.btn-secondary:active { background: var(--secondary-active); transform: translateY(1px); }
+
+/* ปุ่ม disabled (ถ้า HTML ใส่ disabled มาอยู่แล้ว) */
+.btn-primary:disabled,
+.btn-secondary:disabled,
+.btn-search:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* ===================== Dropdown Trigger ===================== */
+.filter-dropdown { position: relative; display: inline-block; }
+
+/* ===================== Dropdown Panel ===================== */
+.filter-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  min-width: 320px;
+  background: var(--ui-bg);
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius);
+  padding: 12px;
+  box-shadow: var(--shadow-md);
+  z-index: 20;
+
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+  transition: opacity .15s ease, transform .15s ease;
+}
+.filter-menu.show {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+/* ===================== Sections inside dropdown ===================== */
+.filter-section {
+  padding: 10px 8px;
+  border-top: 1px dashed #eceff3;
+}
+.filter-section:first-child { border-top: 0; }
+
+.filter-title {
+  font-weight: 800;
+  font-size: 13px;
+  margin-bottom: 8px;
+  color: #111827;
+}
+
+/* Checkbox/Radio line */
+.checkline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  cursor: pointer;
+  user-select: none;
+  color: #111827;
+}
+.checkline input[type="checkbox"],
+.checkline input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+}
+
+/* ปุ่มท้ายแผงตัวกรอง */
+.filter-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 10px;
+}
+.filter-actions .btn-secondary {
+  flex: 0 0 90px;         /* แค่พอดีคำว่า ล้าง */
+}
+.filter-actions .btn-primary {
+  flex: 1 1 auto;         /* ปุ่มใช้ตัวกรองยาวหน่อย */
+}
+
+/* ===================== Extras: alignment ปุ่มให้ไปชิดขวาในแถบค้นหา ===================== */
+.search-and-filter-group > .btn-secondary,
+.search-and-filter-group > .btn-search,
+.search-and-filter-group > .filter-dropdown {
+  flex: 0 0 auto;
+}
+
+/* ===================== Responsive ===================== */
+@media (max-width: 920px) {
+  .filter-input { min-width: 260px; }
+  .filter-menu { min-width: 280px; }
+}
+@media (max-width: 640px) {
+  .search-and-filter-group { gap: 8px; }
+  .filter-input { min-width: 0; flex: 1 1 100%; }
+  .filter-menu {
+    right: 50%;
+    transform: translate(50%, -6px);
+  }
+  .filter-menu.show { transform: translate(50%, 0); }
+}
+/* ===================== Date Inputs ===================== */
+input[type="date"] {
+  height: 40px;
+  padding: 8px 12px;
+  border: 1px solid var(--ui-border);
+  border-radius: var(--radius);
+  background: var(--ui-bg);
+  font-size: 14px;
+  color: #111827;
+  transition: box-shadow .15s ease, border-color .15s ease;
+}
+
+/* hover / focus */
+input[type="date"]:hover {
+  border-color: #cbd5e1;
+}
+input[type="date"]:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 20%, transparent);
+}
+
+/* ไอคอน calendar */
+input[type="date"]::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  transition: background-color .15s ease;
+}
+input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  background-color: var(--secondary-hover);
+}
+/* ========== หมายเหตุ (inline truncate) ========== */
+.remark-inline {
+  display: inline-block;
+  max-width: 180px;       /* กำหนดความกว้างสูงสุดที่จะแสดง */
+  white-space: nowrap;    /* ไม่ตัดบรรทัด */
+  overflow: hidden;       /* ซ่อนส่วนที่เกิน */
+  text-overflow: ellipsis;/* แสดง ... */
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  color: #444;
+  text-align: left;
+}
+
+.remark-inline:hover {
+  color: #1a73e8;
+  text-decoration: underline;
+}
+
+.remark-text {
+  pointer-events: none; /* ป้องกันไม่ให้ span รับคลิกแทนปุ่ม */
+}
+
+/* ช่องหมายเหตุ */
+.data-table td.remark-cell {
+  vertical-align: middle;
+  text-align: center;
+}
+
+/* ข้อความหมายเหตุที่กดได้ */
+.remark-text {
+  display: inline-block;
+  max-width: 200px;        /* กำหนดความกว้างที่จะแสดง */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis; /* ถ้ายาวเกิน → ... */
+  cursor: pointer;
+  color: #444;
+  line-height: 1.4;
+  transition: color .2s ease;
+}
+
+.remark-text:hover {
+  color: #007bff; /* ฟ้าๆ เวลากดได้ */
+  text-decoration: underline;
+}
+
+/* ถ้าไม่มีหมายเหตุ */
+.data-table td .muted {
+  color: #aaa;
+  font-style: italic;
+}
+
+/* โมดัล */
+.remark-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 9999;
+  justify-content: center;
+  align-items: center;
+}
+
+.remark-modal.show { display: flex; }
+
+.remark-modal .modal-content {
+  background: #fff;
+  padding: 20px;
+  border-radius: 10px;
+  max-width: 600px;
+  width: 90%;
+  position: relative;
+  box-shadow: 0 5px 20px rgba(0,0,0,0.25);
+}
+
+.remark-modal .close-btn {
+  position: absolute;
+  right: 15px;
+  top: 10px;
+  font-size: 20px;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+/* FIX: ให้คลิกได้ และบอกผู้ใช้ว่าเป็นลิงก์ */
+.remark-text{
+  pointer-events: auto !important;
+  cursor: pointer;
+  color: #444;
+  text-decoration: none;
+}
+.remark-text:hover{
+  color: #007bff;
+  text-decoration: underline;
+}
+
+/* ถ้าข้อความยาวให้ตัดเป็น ... */
+.remark-cell .remark-text{
+  display: inline-block;
+  max-width: 200px;     /* ปรับตามต้องการ */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
