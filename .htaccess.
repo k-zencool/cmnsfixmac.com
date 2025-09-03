@@ -1,49 +1,81 @@
-# เปิดใช้งาน Rewrite Engine
+# ================== BASE ==================
 RewriteEngine On
 RewriteBase /
 
-# --- กฎเดิมของมึง (เก็บไว้ ดีแล้ว!) ---
+# sitemap เดิม
 RewriteRule ^sitemap\.xml$ sitemap.php [L]
 
-# --- (ใหม่) ส่วนที่ 1: ติดป้ายย้ายบ้านสำหรับหน้าที่เคยอยู่ผิดที่ ---
-# บอก Google ว่าหน้านี้ ย้ายไปที่ใหม่แล้วนะ (แก้ 404 ของหน้า services)
-Redirect 301 /imac.php /services/imac.php
-Redirect 301 /airpods.php /services/airpods.php
-Redirect 301 /apple-watch.php /services/apple-watch.php
-Redirect 301 /software.php /services/software.php
-Redirect 301 /macbook.php /services/macbook.php
-Redirect 301 /iphone.php /services/iphone.php
-Redirect 301 /ipad.php /services/ipad.php
+# ================== 301: ย้ายบ้านเพจเก่า ==================
+Redirect 301 /imac.php         /services/imac.php
+Redirect 301 /airpods.php      /services/airpods.php
+Redirect 301 /apple-watch.php  /services/apple-watch.php
+Redirect 301 /software.php     /services/software.php
+Redirect 301 /macbook.php      /services/macbook.php
+Redirect 301 /iphone.php       /services/iphone.php
+Redirect 301 /ipad.php         /services/ipad.php
 
-# --- เพิ่มต่อจาก Redirect ของ /services ---
-Redirect 301 /test/mic.php /tester/microphone-tester/
-Redirect 301 /test/camera.php /tester/camera-tester/
-Redirect 301 /test/sound.php /tester/sounds-tester/
+Redirect 301 /test/mic.php     /tester/microphone-tester/
+Redirect 301 /test/camera.php  /tester/camera-tester/
+Redirect 301 /test/sound.php   /tester/sounds-tester/
 Redirect 301 /test/keyboard.php /tester/keyboard-tester/
-Redirect 301 /test/screen.php /tester/touchscreen-tester/
+Redirect 301 /test/screen.php  /tester/touchscreen-tester/
+Redirect 301 /device-test/     /tester/
 
-# --- เพิ่มต่อจาก Redirect ของ /test ---
-Redirect 301 /device-test/ /tester/
+# หน้าไฟล์เดี่ยว
+Redirect 301 /work.php         /work
+Redirect 301 /en/work.php      /en/work
 
-# --- (ใหม่) ส่วนที่ 2: กฎจราจรสำหรับ URL สวยๆ (Pretty URLs) ---
-# บรรทัดนี้สำคัญ คือการบอกว่าถ้าไฟล์หรือโฟลเดอร์มีอยู่จริง ไม่ต้องใช้กฎข้างล่าง
+# ================== 301: จาก URL เก่าแบบมีพาราม → URL สวย ==================
+# จับเฉพาะ "การยิงตรง" เท่านั้น ป้องกันลูปด้วย THE_REQUEST
+
+# /article-detail.php?slug=foo → /article/foo
+RewriteCond %{THE_REQUEST} \s/+article-detail\.php[?\s] [NC]
+RewriteCond %{QUERY_STRING} (^|&)slug=([A-Za-z0-9\-]+)(&|$) [NC]
+RewriteRule ^article-detail\.php$ /article/%2? [R=301,L]
+
+# /en/article-detail.php?slug=foo → /en/article/foo
+RewriteCond %{THE_REQUEST} \s+/en/article-detail\.php[?\s] [NC]
+RewriteCond %{QUERY_STRING} (^|&)slug=([A-Za-z0-9\-]+)(&|$) [NC]
+RewriteRule ^en/article-detail\.php$ /en/article/%2? [R=301,L]
+
+# /product-detail.php?slug=foo → /product/foo
+RewriteCond %{THE_REQUEST} \s/+product-detail\.php[?\s] [NC]
+RewriteCond %{QUERY_STRING} (^|&)slug=([A-Za-z0-9\-]+)(&|$) [NC]
+RewriteRule ^product-detail\.php$ /product/%2? [R=301,L]
+
+# /en/product-detail.php?slug=foo → /en/product/foo
+RewriteCond %{THE_REQUEST} \s+/en/product-detail\.php[?\s] [NC]
+RewriteCond %{QUERY_STRING} (^|&)slug=([A-Za-z0-9\-]+)(&|$) [NC]
+RewriteRule ^en/product-detail\.php$ /en/product/%2? [R=301,L]
+
+# /work-detail.php?slug=foo → /work/foo
+RewriteCond %{THE_REQUEST} \s/+work-detail\.php[?\s] [NC]
+RewriteCond %{QUERY_STRING} (^|&)slug=([A-Za-z0-9\-]+)(&|$) [NC]
+RewriteRule ^work-detail\.php$ /work/%2? [R=301,L]
+
+# /en/work-detail.php?slug=foo → /en/work/foo
+RewriteCond %{THE_REQUEST} \s+/en/work-detail\.php[?\s] [NC]
+RewriteCond %{QUERY_STRING} (^|&)slug=([A-Za-z0-9\-]+)(&|$) [NC]
+RewriteRule ^en/work-detail\.php$ /en/work/%2? [R=301,L]
+
+# ================== INTERNAL REWRITE: URL สวย → ไฟล์ php ==================
+# ถ้าไฟล์/โฟลเดอร์มีอยู่จริง ให้ข้าม
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 
-# Redirect โฟลเดอร์ test เก่าๆ ไปที่หน้าแรก
-Redirect 301 /device-test/ /
+# บทความ
+RewriteRule ^article/([\w-]+)/?$           /article-detail.php?slug=$1 [L,QSA]
+RewriteRule ^en/article/([\w-]+)/?$        /en/article-detail.php?slug=$1 [L,QSA]
 
-# กฎสำหรับบทความ: แปลง /article/slug-name ไปเป็น article-detail.php?slug=slug-name
-RewriteRule ^article/([\w-]+)/?$ article-detail.php?slug=$1 [L,QSA]
+# สินค้า
+RewriteRule ^product/([\w-]+)/?$           /product-detail.php?slug=$1 [L,QSA]
+RewriteRule ^en/product/([\w-]+)/?$        /en/product-detail.php?slug=$1 [L,QSA]
 
-# กฎสำหรับสินค้า: แปลง /product/slug-name ไปเป็น product-detail.php?slug=slug-name
-RewriteRule ^product/([\w-]+)/?$ product-detail.php?slug=$1 [L,QSA]
+# ผลงาน
+RewriteRule ^work/([\w-]+)/?$              /work-detail.php?slug=$1 [L,QSA]
+RewriteRule ^en/work/([\w-]+)/?$           /en/work-detail.php?slug=$1 [L,QSA]
 
-# กฎสำหรับผลงาน: แปลง /work/slug-name ไปเป็น work-detail.php?slug=slug-name
-RewriteRule ^work/([\w-]+)/?$ work-detail.php?slug=$1 [L,QSA]
-
-# --- (ใหม่) ส่วนที่ 3: (ของแถม) ซ่อนนามสกุล .php ---
-# ทำให้เราเข้าหน้าเว็บได้โดยไม่ต้องพิมพ์ .php (เช่น /about แทน /about.php)
+# ================== ซ่อน .php (เฉพาะไฟล์ที่มีจริง) ==================
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_FILENAME}\.php -f
 RewriteRule ^([^\.]+)$ $1.php [L]

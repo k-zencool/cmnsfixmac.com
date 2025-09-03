@@ -1,13 +1,14 @@
 <?php
+
 /********************************************************************
- * admin/parts/consume.php  (RBAC-ready)
+ * admin/parts/consume.php  (RBAC-ready: มือ 1 + มือ 2)
  * เบิก/ตัดจ่ายอะไหล่:
  *   - มือ 1 (parts_new) : หักจำนวนจาก location ที่เลือก + เอกสาร CONSUME
  *   - มือ 2 (parts_used): สร้าง CONSUME (qty=1, from 'used') แล้วลบแถวออกเลย
  *
- * ใช้งาน (รองรับพารามฯ แบบเก่า/ใหม่):
- *   มือ 1: ?type=new&part_code=...   หรือ  ?mode=new&part_code=...
- *   มือ 2: ?type=used&used_id=...    หรือ  ?mode=used&id=...
+ * รองรับพารามฯ:
+ *   มือ 1: ?type=new&part_code=...
+ *   มือ 2: ?type=used&used_id=...  (หรือ ?mode=used&id=...)
  ********************************************************************/
 
 // ========================== [SETUP & GUARD] ==========================
@@ -30,38 +31,36 @@ function back_to($tab, $qs=''){
   header("Location: $u"); exit;
 }
 
-// ชนิดเริ่มต้น จาก GET/POST (เพื่อ guard ให้ถูกตั้งแต่หัวไฟล์)
+// กำหนดโหมดจาก GET/POST ก่อนเช็คสิทธิ์
 $rawType = $_POST['mode'] ?? $_GET['type'] ?? $_GET['mode'] ?? 'new';
 $type    = ($rawType === 'used') ? 'used' : 'new';
 
-// บังคับสิทธิ์ตามชนิดที่เข้ามา (ดูอย่างเดียวไม่พอ เพราะมีการเขียนข้อมูล)
+// เช็คสิทธิ์ตามโหมด
 if ($type === 'new')  require_perms(['parts.new.consume']);
 if ($type === 'used') require_perms(['parts.used.consume']);
 
 $pageTitle = "ตัดจ่าย/เบิก";
 
 // ========================== [STATE] ==================================
-$used_id = isset($_GET['used_id']) ? (int)$_GET['used_id'] : (int)($_GET['id'] ?? 0); // มือ 2
-$code    = trim($_GET['part_code'] ?? '');                                            // มือ 1
-
-$errors  = [];
-$msg     = '';
-$user_id = $_SESSION['user']['id'] ?? ($_SESSION['admin_id'] ?? null);
+$code     = trim($_GET['part_code'] ?? '');                                      // มือ 1
+$used_id  = isset($_GET['used_id']) ? (int)$_GET['used_id'] : (int)($_GET['id'] ?? 0); // มือ 2
+$errors   = [];
+$user_id  = $_SESSION['user']['id'] ?? ($_SESSION['admin_id'] ?? null);
 
 // ========================== [LOAD: มือ 1 SUMMARY + LOCATIONS] ========
 $part_new = null;  // meta + qty รวม
 $locs     = [];    // คงเหลือต่อ location
 
 if ($type === 'new' && $code !== '') {
+  // summary
   $st = $pdo->prepare("
-    SELECT
-      part_code,
-      MAX(part_name)     AS part_name,
-      MAX(part_number)   AS part_number,
-      MAX(device_models) AS device_models,
-      MAX(category)      AS category,
-      MAX(image_url)     AS image_url,
-      SUM(quantity)      AS qty
+    SELECT part_code,
+           MAX(part_name)     AS part_name,
+           MAX(part_number)   AS part_number,
+           MAX(device_models) AS device_models,
+           MAX(category)      AS category,
+           MAX(image_url)     AS image_url,
+           SUM(quantity)      AS qty
     FROM parts_new
     WHERE part_code=?
     GROUP BY part_code
@@ -70,6 +69,7 @@ if ($type === 'new' && $code !== '') {
   $st->execute([$code]);
   $part_new = $st->fetch(PDO::FETCH_ASSOC);
 
+  // locations
   $st2 = $pdo->prepare("
     SELECT location, SUM(quantity) AS qty
     FROM parts_new
@@ -98,7 +98,7 @@ if ($type === 'used' && $used_id > 0) {
 if ($_SERVER['REQUEST_METHOD']==='POST') {
   $mode = ($_POST['mode'] ?? 'new') === 'used' ? 'used' : 'new';
 
-  // กันยิง POST ตรงอีกรอบตามชนิดที่ส่งมา
+  // ย้ำสิทธิ์ตามโหมดที่ submit เข้ามา
   if ($mode === 'new')  require_perms(['parts.new.consume']);
   if ($mode === 'used') require_perms(['parts.used.consume']);
 
@@ -152,84 +152,88 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
       }
     }
   }
-// ---------- มือ 2: CONSUME แล้วลบออกเลย ----------
-if ($mode === 'used') {
-  $used_id = (int)($_POST['used_id'] ?? 0);
-  $ref_no  = trim($_POST['ref_no'] ?? '');
-  $remarks = trim($_POST['remarks'] ?? '');
 
-  if ($used_id <= 0) $errors[] = "ไม่พบรายการมือ 2 ที่จะตัดจ่าย";
-  if (!$user_id)     $errors[] = "ไม่พบผู้ใช้งานในระบบ";
+  // ---------- มือ 2: CONSUME แล้วลบออกเลย ----------
+  if ($mode === 'used') {
+    $used_id = (int)($_POST['used_id'] ?? 0);
+    $ref_no  = trim($_POST['ref_no'] ?? '');
+    $remarks = trim($_POST['remarks'] ?? '');
 
-  if (!$errors) {
-    try {
-      $pdo->beginTransaction();
+    if ($used_id <= 0) $errors[] = "ไม่พบรายการมือ 2 ที่จะตัดจ่าย";
+    if (!$user_id)     $errors[] = "ไม่พบผู้ใช้งานในระบบ";
 
-      // ล็อกแถวชิ้นมือ 2
-      $st = $pdo->prepare("SELECT * FROM parts_used WHERE id=? FOR UPDATE");
-      $st->execute([$used_id]);
-      $row = $st->fetch(PDO::FETCH_ASSOC);
-      if (!$row) throw new Exception("ไม่พบข้อมูลชิ้นมือ 2");
+    if (!$errors) {
+      try {
+        $pdo->beginTransaction();
 
-      // Header เอกสาร
-      $pdo->prepare("
-        INSERT INTO parts_docs (doc_type, ref_no, remarks, user_id, created_at)
-        VALUES ('CONSUME', ?, ?, ?, NOW())
-      ")->execute([$ref_no ?: null, $remarks !== '' ? $remarks : "consume (used item #{$used_id})", $user_id]);
-      $doc_id = (int)$pdo->lastInsertId();
+        // ล็อกแถวชิ้นมือ 2
+        $st = $pdo->prepare("SELECT * FROM parts_used WHERE id=? FOR UPDATE");
+        $st->execute([$used_id]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$row) throw new Exception("ไม่พบข้อมูลชิ้นมือ 2");
 
-      // Line (qty=1 จาก location 'used')
-      $pdo->prepare("
-        INSERT INTO parts_doc_lines (doc_id, part_code, qty, location_from, location_to, unit_cost)
-        VALUES (?, ?, 1, 'used', NULL, NULL)
-      ")->execute([$doc_id, $row['part_code']]);
+        // Header เอกสาร
+        $pdo->prepare("
+          INSERT INTO parts_docs (doc_type, ref_no, remarks, user_id, created_at)
+          VALUES ('CONSUME', ?, ?, ?, NOW())
+        ")->execute([$ref_no ?: null, $remarks !== '' ? $remarks : "consume (used item #{$used_id})", $user_id]);
+        $doc_id = (int)$pdo->lastInsertId();
 
-      // ✅ LOG ลง parts_used_log ก่อนลบ
-      $pdo->prepare("
-        INSERT INTO parts_used_log
-          (used_id, donor_id, part_code, part_name, part_number, device_models, category,
-           image_url, location, remarks, action, consumed_at, created_at)
-        VALUES (?,?,?,?,?,?,?,?,?,?, 'CONSUME', NOW(), NOW())
-      ")->execute([
-        $row['id'] ?? null,
-        $row['donor_id'] ?? null,
-        $row['part_code'] ?? null,
-        $row['part_name'] ?? null,
-        $row['part_number'] ?? null,
-        $row['device_models'] ?? null,
-        $row['category'] ?? null,
-        $row['image_url'] ?? null,
-        $row['location'] ?? null,
-        $row['remarks'] ?? null,
-      ]);
+        // Line (qty=1 จาก location 'used')
+        $pdo->prepare("
+          INSERT INTO parts_doc_lines (doc_id, part_code, qty, location_from, location_to, unit_cost)
+          VALUES (?, ?, 1, 'used', NULL, NULL)
+        ")->execute([$doc_id, $row['part_code']]);
 
-      // ลบตัวจริงออก
-      $pdo->prepare("DELETE FROM parts_used WHERE id=?")->execute([$used_id]);
+        // LOG ลง parts_used_log ก่อนลบ
+        $pdo->prepare("
+          INSERT INTO parts_used_log
+            (used_id, donor_id, part_code, part_name, part_number, device_models, category,
+             image_url, location, remarks, action, consumed_at, created_at)
+          VALUES (?,?,?,?,?,?,?,?,?,?, 'CONSUME', NOW(), NOW())
+        ")->execute([
+          $row['id'] ?? null,
+          $row['donor_id'] ?? null,
+          $row['part_code'] ?? null,
+          $row['part_name'] ?? null,
+          $row['part_number'] ?? null,
+          $row['device_models'] ?? null,
+          $row['category'] ?? null,
+          $row['image_url'] ?? null,
+          $row['location'] ?? null,
+          $row['remarks'] ?? null,
+        ]);
 
-      $pdo->commit();
-      back_to('used','msg=ตัดจ่ายชิ้นมือ2แล้ว');
-    } catch (Throwable $e) {
-      if ($pdo->inTransaction()) $pdo->rollBack();
-      $errors[] = $e->getMessage();
+        // ลบตัวจริงออก
+        $pdo->prepare("DELETE FROM parts_used WHERE id=?")->execute([$used_id]);
+
+        $pdo->commit();
+        back_to('used','msg=ตัดจ่ายชิ้นมือ2แล้ว');
+      } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        $errors[] = $e->getMessage();
+      }
     }
   }
 }
-}
+
 // ========================== [TEMPLATE] ===============================
 include __DIR__ . '/../../templates/header_admin.php';
 include __DIR__ . '/../../templates/sidebar_admin.php';
 ?>
-<main class="main" id="main-content">
+<main class="main restock-main" id="main-content">
+
   <div class="topbar">
     <span><?= h($pageTitle) ?> <?= $type==='used' ? '(มือ 2)' : '(มือ 1)' ?></span>
+    <a href="index.php?tab=<?= $type==='used' ? 'used' : 'new' ?>" class="view-site">← กลับรายการ</a>
   </div>
 
+  
   <div class="section-header">
     <h2>ตัดจ่าย/เบิก</h2>
     <div style="display:flex; gap:8px; align-items:center;">
-      <a class="btn-secondary" href="index.php?tab=<?= $type==='used' ? 'used':'new' ?>">← กลับรายการ</a>
       <?php if ($type==='new'): ?>
-        <a class="btn-secondary" href="consume.php?type=used">โหมดมือ 2</a>
+        <a class="btn-secondary" href="consume.php?type=used<?= $used_id ? '&used_id='.(int)$used_id : '' ?>">โหมดมือ 2</a>
       <?php else: ?>
         <a class="btn-secondary" href="consume.php?type=new<?= $code ? '&part_code='.urlencode($code) : '' ?>">โหมดมือ 1</a>
       <?php endif; ?>
@@ -238,133 +242,138 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 
   <?php if ($errors): ?>
     <div class="alert alert-danger">
-      <?php foreach($errors as $e): ?><div><?= h($e) ?></div><?php endforeach; ?>
+      <?php foreach ($errors as $e): ?><div><?= h($e) ?></div><?php endforeach; ?>
     </div>
   <?php endif; ?>
 
   <?php if ($type==='new'): ?>
-    <!-- ===================== [VIEW: มือ 1] ===================== -->
     <?php if ($part_new): ?>
-      <div class="card" style="padding:12px;border-radius:10px;margin-bottom:12px;">
-        <div style="display:flex;gap:12px;align-items:center;">
-          <?php $img = img_src($part_new['image_url'] ?? ''); ?>
+      <!-- สรุปสินค้า (มือ 1) : สไตล์เดียวกับ restock.php -->
+      <section class="card part-summary">
+        <?php $img = img_src($part_new['image_url'] ?? ''); ?>
+        <div class="part-summary__media">
           <?php if ($img): ?>
-            <img src="<?= h($img) ?>" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #eee;" alt="">
+            <img src="<?= h($img) ?>" class="part-summary__img" alt="">
           <?php else: ?>
-            <div style="width:56px;height:56px;border:1px dashed #ddd;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:12px;">ไม่มีรูป</div>
+            <div class="part-summary__placeholder">ไม่มีรูป</div>
           <?php endif; ?>
-          <div>
-            <strong><?= h($part_new['part_name'] ?: $code) ?></strong>
-            <div class="muted" style="font-size:12px;">รหัส: <?= h($code) ?> | เลข: <?= h($part_new['part_number']) ?></div>
-            <div class="muted" style="font-size:12px;">รุ่น: <?= h($part_new['device_models']) ?> | คงเหลือรวม: <?= (int)$part_new['qty'] ?></div>
-            <?php if ($locs): ?>
-              <div class="muted" style="font-size:12px;margin-top:4px;">
-                <?php foreach ($locs as $l): ?>
-                  <span class="badge" style="margin-right:6px"><?= h($l['location']) ?>: <?= (int)$l['qty'] ?></span>
-                <?php endforeach; ?>
-              </div>
-            <?php endif; ?>
-          </div>
         </div>
-      </div>
+        <div class="part-summary__body">
+          <strong class="part-summary__title"><?= h($part_new['part_name'] ?: $code) ?></strong>
+          <div class="muted small">รหัส: <?= h($code) ?> | เลข: <?= h($part_new['part_number']) ?></div>
+          <div class="muted small">รุ่น: <?= h($part_new['device_models']) ?> | คงเหลือรวม: <?= (int)$part_new['qty'] ?></div>
+          <?php if ($locs): ?>
+            <div class="chips" style="margin-top:6px">
+              <?php foreach ($locs as $l): ?>
+                <span class="badge"><?= h($l['location']) ?>: <?= (int)$l['qty'] ?></span>
+              <?php endforeach; ?>
+            </div>
+          <?php endif; ?>
+        </div>
+      </section>
     <?php endif; ?>
 
-    <form method="post" class="card" style="padding:16px;border-radius:12px;max-width:720px;">
+    <!-- ฟอร์มเบิก มือ 1 -->
+    <form method="post" class="card restock-form" novalidate>
       <input type="hidden" name="mode" value="new">
-      <div class="table-container">
-        <table class="data-table"><tbody>
-          <tr>
-            <th style="width:220px;">รหัสอะไหล่ *</th>
-            <td><input class="filter-input" name="part_code" required value="<?= h($code) ?>"></td>
-          </tr>
-          <tr>
-            <th>ที่เก็บ *</th>
-            <td>
-              <?php if (!empty($locs)): ?>
-                <?php $hasMain=false; foreach($locs as $l){ if(($l['location'] ?? '')==='main') $hasMain=true; } ?>
-                <select name="location" class="filter-input" required>
-                  <?php foreach ($locs as $l): ?>
-                    <option value="<?= h($l['location']) ?>" <?= ($hasMain && $l['location']==='main')?'selected':'' ?>>
-                      <?= h($l['location']) ?> (คงเหลือ <?= (int)$l['qty'] ?>)
-                    </option>
-                  <?php endforeach; ?>
-                </select>
-              <?php else: ?>
-                <input class="filter-input" name="location" required value="main">
-              <?php endif; ?>
-            </td>
-          </tr>
-          <tr>
-            <th>จำนวนที่เบิก *</th>
-            <td><input class="filter-input" type="number" min="1" name="qty" required value="1"></td>
-          </tr>
-          <tr>
-            <th>เลขอ้างอิง</th>
-            <td><input class="filter-input" name="ref_no" placeholder="ใบงาน, ชื่อช่าง ฯลฯ"></td>
-          </tr>
-          <tr>
-            <th>หมายเหตุ</th>
-            <td><input class="filter-input" name="remarks" placeholder="โน้ตสั้นๆ"></td>
-          </tr>
-        </tbody></table>
-      </div>
-      <div style="display:flex;gap:10px;margin-top:14px;">
-        <button class="btn-primary" type="submit">บันทึกการเบิก</button>
-        <a class="btn-secondary" href="index.php?tab=new">ยกเลิก</a>
+      <div class="form-grid">
+        <div class="form-item">
+          <label class="form-label" for="part_code">รหัสอะไหล่ *</label>
+          <input id="part_code" class="filter-input input" name="part_code" required value="<?= h($code) ?>">
+        </div>
+
+        <div class="form-item">
+          <label class="form-label" for="location">ที่เก็บ *</label>
+          <?php if (!empty($locs)): ?>
+            <?php $hasMain=false; foreach($locs as $l){ if(($l['location'] ?? '')==='main') $hasMain=true; } ?>
+            <select id="location" name="location" class="filter-input input" required>
+              <?php foreach ($locs as $l): ?>
+                <option value="<?= h($l['location']) ?>" <?= ($hasMain && $l['location']==='main')?'selected':'' ?>>
+                  <?= h($l['location']) ?> (คงเหลือ <?= (int)$l['qty'] ?>)
+                </option>
+              <?php endforeach; ?>
+            </select>
+          <?php else: ?>
+            <input id="location" class="filter-input input" name="location" required value="main">
+          <?php endif; ?>
+        </div>
+
+        <div class="form-item">
+          <label class="form-label" for="qty">จำนวนที่เบิก *</label>
+          <input id="qty" class="filter-input input" type="number" min="1" name="qty" required value="1">
+        </div>
+
+        <div class="form-item">
+          <label class="form-label" for="ref_no">เลขอ้างอิง</label>
+          <input id="ref_no" class="filter-input input" name="ref_no" placeholder="ใบงาน, ชื่อช่าง ฯลฯ">
+        </div>
+
+        <div class="form-item">
+          <label class="form-label" for="remarks">หมายเหตุ</label>
+          <input id="remarks" class="filter-input input" name="remarks" placeholder="โน้ตสั้นๆ">
+        </div>
+
+        <div class="form-actions">
+          <button class="btn-primary" type="submit">บันทึกการเบิก</button>
+          <a class="btn-secondary" href="index.php?tab=new">ยกเลิก</a>
+        </div>
       </div>
     </form>
 
   <?php else: ?>
-    <!-- ===================== [VIEW: มือ 2] ===================== -->
     <?php if ($used): ?>
-      <div class="card" style="padding:12px;border-radius:10px;margin-bottom:12px;">
-        <div style="display:flex;gap:12px;align-items:center;">
-          <?php $img = img_src($used['image_url'] ?? ''); ?>
+      <!-- สรุปสินค้า (มือ 2) -->
+      <section class="card part-summary">
+        <?php $img = img_src($used['image_url'] ?? ''); ?>
+        <div class="part-summary__media">
           <?php if ($img): ?>
-            <img src="<?= h($img) ?>" style="width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid #eee;" alt="">
+            <img src="<?= h($img) ?>" class="part-summary__img" alt="">
           <?php else: ?>
-            <div style="width:56px;height:56px;border:1px dashed #ddd;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#aaa;font-size:12px;">ไม่มีรูป</div>
+            <div class="part-summary__placeholder">ไม่มีรูป</div>
           <?php endif; ?>
-          <div>
-            <strong><?= h($used['part_name'] ?: $used['part_code']) ?></strong>
-            <div class="muted" style="font-size:12px;">รหัส: <?= h($used['part_code']) ?> | เลข: <?= h($used['part_number']) ?></div>
-            <div class="muted" style="font-size:12px;">รุ่น: <?= h($used['device_models']) ?> | ที่เก็บ: <?= h($used['location']) ?></div>
-            <?php if (trim((string)$used['remarks'])!==''): ?>
-              <div class="muted" style="font-size:12px;">หมายเหตุ: <?= h($used['remarks']) ?></div>
-            <?php endif; ?>
-          </div>
         </div>
-      </div>
+        <div class="part-summary__body">
+          <strong class="part-summary__title"><?= h($used['part_name'] ?: $used['part_code']) ?></strong>
+          <div class="muted small">รหัส: <?= h($used['part_code']) ?> | เลข: <?= h($used['part_number']) ?></div>
+          <div class="muted small">รุ่น: <?= h($used['device_models']) ?> | ที่เก็บ: <?= h($used['location']) ?></div>
+          <?php if (trim((string)$used['remarks'])!==''): ?>
+            <div class="muted small">หมายเหตุ: <?= h($used['remarks']) ?></div>
+          <?php endif; ?>
+        </div>
+      </section>
     <?php else: ?>
-      <div class="alert alert-info">เลือกชิ้นมือ 2 จากรายการก่อน (กด “เบิก” ที่หน้า “มือ 2”)</div>
+      <div class="alert alert-info">เลือกชิ้นมือ 2 จากหน้า “มือ 2” แล้วกลับเข้าหน้านี้</div>
     <?php endif; ?>
 
-    <form method="post" class="card" style="padding:16px;border-radius:12px;max-width:720px;">
+    <!-- ฟอร์มเบิก มือ 2 -->
+    <form method="post" class="card restock-form" novalidate>
       <input type="hidden" name="mode" value="used">
       <input type="hidden" name="used_id" value="<?= (int)$used_id ?>">
-      <div class="table-container">
-        <table class="data-table"><tbody>
-          <tr>
-            <th style="width:220px;">รายการ *</th>
-            <td><input class="filter-input" value="<?= $used ? h($used['part_code'].' — '.$used['part_name']) : '' ?>" disabled></td>
-          </tr>
-          <tr>
-            <th>จำนวน</th>
-            <td><input class="filter-input" value="1" disabled></td>
-          </tr>
-          <tr>
-            <th>เลขอ้างอิง</th>
-            <td><input class="filter-input" name="ref_no" placeholder="ใบงาน, ชื่อช่าง ฯลฯ"></td>
-          </tr>
-          <tr>
-            <th>หมายเหตุ</th>
-            <td><input class="filter-input" name="remarks" placeholder="โน้ตสั้นๆ"></td>
-          </tr>
-        </tbody></table>
-      </div>
-      <div style="display:flex;gap:10px;margin-top:14px;">
-        <button class="btn-primary" type="submit" <?= $used ? '' : 'disabled' ?>>บันทึกการเบิก</button>
-        <a class="btn-secondary" href="index.php?tab=used">ยกเลิก</a>
+      <div class="form-grid">
+        <div class="form-item">
+          <label class="form-label">รายการ *</label>
+          <input class="filter-input input" value="<?= $used ? h($used['part_code'].' — '.$used['part_name']) : '' ?>" disabled>
+        </div>
+
+        <div class="form-item">
+          <label class="form-label">จำนวน</label>
+          <input class="filter-input input" value="1" disabled>
+        </div>
+
+        <div class="form-item">
+          <label class="form-label" for="ref_no_u">เลขอ้างอิง</label>
+          <input id="ref_no_u" class="filter-input input" name="ref_no" placeholder="ใบงาน, ชื่อช่าง ฯลฯ">
+        </div>
+
+        <div class="form-item">
+          <label class="form-label" for="remarks_u">หมายเหตุ</label>
+          <input id="remarks_u" class="filter-input input" name="remarks" placeholder="โน้ตสั้นๆ">
+        </div>
+
+        <div class="form-actions">
+          <button class="btn-primary" type="submit" <?= $used ? '' : 'disabled' ?>>บันทึกการเบิก</button>
+          <a class="btn-secondary" href="index.php?tab=used">ยกเลิก</a>
+        </div>
       </div>
     </form>
   <?php endif; ?>

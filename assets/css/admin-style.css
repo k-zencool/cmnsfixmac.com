@@ -1597,3 +1597,214 @@ input[type="date"]::-webkit-calendar-picker-indicator:hover {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* ============ Restock: Part Summary (สวย สมมาตร) ============ */
+
+.part-summary{
+  display: grid;
+  grid-template-columns: 96px 1fr;   /* รูปคงที่ ข้อความยืด */
+  align-items: center;
+  gap: 16px;
+  padding: 18px 20px;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,.05);
+  margin-bottom: 24px;
+  margin-top: 24px;
+
+}
+
+.part-summary__media{ width:96px; }
+.part-summary__img{
+  width: 96px; height: 96px;
+  display: block; object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  background:#fff;
+  box-shadow: 0 2px 6px rgba(0,0,0,.06);
+}
+.part-summary__placeholder{
+  width: 96px; height: 96px;
+  border-radius: 10px;
+  border: 1px dashed #cfcfcf;
+  background: #fafafa;
+  color: #999; font-size: 12px;
+  display:flex; align-items:center; justify-content:center;
+}
+
+/* ตัวหนังสือให้ชิดซ้ายเป็นระเบียบ */
+.part-summary__body{ min-width:0; }
+.part-summary__title{
+  font-size: 1rem;
+  font-weight: 700;
+  color: #111;
+  line-height: 1.25;
+  margin-bottom: 2px;
+}
+.part-summary .small{ font-size: 13px; color:#666; }
+.part-summary .chips{ display:flex; flex-wrap:wrap; gap:6px; }
+.part-summary .badge{
+  display:inline-block;
+  padding: 2px 8px;
+  font-size: 12px;
+  border-radius: 999px;
+  background:#f2f4f7;
+  color:#374151;
+  border:1px solid #e5e7eb;
+}
+
+/* ระยะขอบด้านในให้เนียนกับตารางถัดไป */
+.part-summary + .restock-form{ margin-top: 10px; }
+
+/* Hover feedback เบาๆ เผื่อเป็นการ์ดกดได้ภายหลัง */
+.part-summary:hover{
+  box-shadow: 0 4px 14px rgba(0,0,0,.06);
+  border-color:#e9ecef;
+}
+
+/* ============ Responsive ============ */
+@media (max-width: 640px){
+  .part-summary{
+    grid-template-columns: 1fr;
+    text-align: center;
+    padding: 16px;
+  }
+  .part-summary__media{
+    width:auto; justify-self:center;
+  }
+  .part-summary .chips{
+    justify-content: center;
+  }
+}
+
+/* =========================================================
+   RESTOCK – Inline labels (ultra-minimal, clearer rows)
+   ========================================================= */
+
+/* ปรับน้ำหนักการ์ดให้เบาอีก */
+.restock-form{
+  border: 1px solid #f4f6fa;      /* เบากว่าเดิม */
+  box-shadow: 0 1px 2px rgba(0,0,0,.02);
+  border-radius: 12px;
+  background:#fff;
+  padding: 22px;
+}
+
+/* กำหนดคอลัมน์หัวข้อคงที่ */
+:root{ --restock-label-w: 200px; } /* 180–240 แล้วแต่ชอบ */
+
+/* 1 แถว = 2 คอลัมน์ */
+.restock-form .form-grid{ display:grid; row-gap:0; }
+
+/* แถวแบบ no-box + เส้นคั่นบางมาก */
+.restock-form .form-item{
+  display:grid;
+  grid-template-columns: var(--restock-label-w) minmax(0,1fr);
+  align-items:center;
+  column-gap:16px;
+  padding:12px 0;                 /* ระยะหายใจ */
+  background:transparent;
+  border:0;
+}
+.restock-form .form-item + .form-item{
+  border-top:1px solid #f1f3f7;   /* เส้นแบ่งแถวเบาๆ */
+}
+
+/* เน้นโฟกัสแถวที่กำลังพิมพ์แบบไม่ต้องมีกล่อง */
+.restock-form .form-item:focus-within{
+  background: linear-gradient(#f9fbff,#f9fbff) padding-box;
+}
+
+/* ป้ายกำกับซ้าย */
+.restock-form .form-label{
+  margin:0;
+  font-weight:700;
+  font-size:14px;
+  color:#25324a;
+}
+
+/* ช่องกรอกขวา: เส้นเดียว พื้นขาวนวล */
+.restock-form .input,
+.restock-form .filter-input{
+  height:42px;
+  padding:10px 14px;
+  border:1px solid #dfe4ec;       /* เส้นเดียวจริงๆ */
+  border-radius:8px !important;   /* มุมเล็กลงให้ดูแพง */
+  background:#fff;
+  font-size:15px;
+  width:100%;
+  max-width:100%;
+  transition:border-color .15s, box-shadow .15s, background-color .15s;
+}
+.restock-form .input:hover,
+.restock-form .filter-input:hover{ border-color:#cfd6e2; }
+.restock-form .input:focus,
+.restock-form .filter-input:focus{
+  outline:none;
+  border-color:#3b82f6;
+  box-shadow:0 0 0 3px rgba(59,130,246,.18);
+}
+
+/* placeholder ให้จางลงอีก จะได้ไม่รู้สึกรก */
+.restock-form ::placeholder{ color:#a3adbb; }
+
+/* select: ลูกศรเรียบ ๆ ไม่หนา */
+.restock-form select.input,
+.restock-form select.filter-input{
+  appearance:none; -webkit-appearance:none; -moz-appearance:none;
+  padding-right:38px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #7a8596 50%),
+    linear-gradient(135deg, #7a8596 50%, transparent 50%);
+  background-position:
+    calc(100% - 20px) calc(50% - 2px),
+    calc(100% - 14px) calc(50% - 2px);
+  background-size:6px 6px,6px 6px;
+  background-repeat:no-repeat;
+}
+
+/* number: ไม่เอาปุ่มหมุน, ชิดซ้าย */
+.restock-form input[type="number"]{
+  -moz-appearance:textfield; text-align:left;
+}
+.restock-form input[type="number"]::-webkit-outer-spin-button,
+.restock-form input[type="number"]::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+
+/* ช่องเพิ่มโลเคชันใหม่อยู่คอลัมน์ขวาเหมือนเดิม */
+#location_new{ grid-column:2/3; }
+
+/* แถวปุ่ม: เรียบ, ไม่มีกรอบล่างซ้ำ */
+.restock-form .form-actions{
+  display:flex; gap:10px; flex-wrap:wrap;
+  margin-top:14px; padding-top:12px;
+  border-top:1px solid #f1f3f7;
+  margin-left:var(--restock-label-w);
+}
+@media (max-width:700px){
+  .restock-form{ padding:18px; }
+  .restock-form .form-item{
+    grid-template-columns:1fr; row-gap:6px; padding:12px 0;
+  }
+  .restock-form .form-actions{ margin-left:0; }
+  .restock-form .btn-primary,.restock-form .btn-secondary{ width:100%; }
+}
+
+/* กันสไตล์เก่ามาป่วน */
+.restock-form .form-item:nth-child(even){ background:transparent; }
+.restock-form .filter-input{ width:100% !important; max-width:100% !important; min-width:0 !important; }
+
+
+.badge{
+  display:inline-block;
+  font-size:12px; line-height:1; padding:6px 8px; border-radius:999px;
+  border:1px solid rgba(0,0,0,.06);
+  background:#f8fafc; color:#334155; white-space:nowrap;
+}
+.badge-green { background:#ecfdf5; color:#065f46; border-color:#a7f3d0; }
+.badge-amber { background:#fffbeb; color:#92400e; border-color:#fde68a; }
+.badge-blue  { background:#eff6ff; color:#1e3a8a; border-color:#bfdbfe; }
+.badge-gray  { background:#f3f4f6; color:#374151; border-color:#e5e7eb; }
+
+
+
