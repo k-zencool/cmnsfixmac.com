@@ -1,26 +1,24 @@
 <?php
-
 /********************************************************************
- * admin/parts/index.php  (RBAC-ready)
+ * admin/parts/index.php  (RBAC-ready + Pagination)
  *
- * Tabs:
- *  - new    : อะไหล่มือ 1   — เติมสต็อก / เบิก / แก้ไข (summary by part_code)
- *  - used   : อะไหล่มือ 2   — (#, รูป, ชื่ออะไหล่, เลขอะไหล่, รุ่น, หมวด, หมายเหตุ, จัดการ)
- *  - donor  : เครื่องซาก    — รายการ/ค้นหา/แยกอะไหล่ (status='stripped' = แยกแล้ว)
- *  - history: เอกสาร IN/CONSUME/MOVE/ADJUST/DONOR
+ * หน้านี้รวม 4 แท็บ:
+ *  - new    : อะไหล่มือ 1   — สรุปตาม part_code (GROUP BY) + แบ่งหน้า
+ *  - used   : อะไหล่มือ 2   — แบ่งหน้า
+ *  - donor  : เครื่องซาก    — แบ่งหน้า
+ *  - history: เอกสาร IN/CONSUME/MOVE/ADJUST/DONOR  — (คง LIMIT 200 ไว้)
  *
- * Tables (ตามโปรเจกต์):
- *  - parts_new, parts_used, parts_donors
- *  - parts_docs, parts_doc_lines, admin_users
+ * NOTE:
+ *  - ใช้ RBAC ผ่านฟังก์ชัน can(), require_perms(), require_login()
+ *  - ตัวแบ่งหน้าปรับด้วย ?page= และ ?per= (default 20/หน้า)
+ *  - CSS ปุ่มแบ่งหน้าใส่เป็น inline <style> ด้านล่าง (ย้ายไปไฟล์ css กลางได้)
  ********************************************************************/
 
 // =========================[ 0) SETUP & GUARD ]========================
 session_start();
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
-
-// เข้าหน้าได้เฉพาะคนที่ล็อกอิน ส่วนสิทธิ์ลึกคุมรายแท็บด้านล่าง
-require_login();
+require_login(); // ให้เข้าได้เฉพาะผู้ล็อกอิน
 
 $pageTitle = "จัดการอะไหล่";
 
@@ -54,55 +52,40 @@ $KIND_KEYWORDS = [
 ];
 
 // =========================[ 2) HELPERS ]==============================
-function h($s)
-{
-  return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8');
-}
-function getv($k, $d = null)
-{
-  return isset($_GET[$k]) ? trim($_GET[$k]) : $d;
-}
-function getvArray($key, array $allow): array
-{
+function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
+function getv($k, $d = null){ return isset($_GET[$k]) ? trim($_GET[$k]) : $d; }
+function getvArray($key, array $allow): array{
   $v = isset($_GET[$key]) ? (array)$_GET[$key] : [];
   return array_values(array_intersect($v, array_keys($allow)));
 }
-function img_src($v)
-{
+function img_src($v){
   $v = trim((string)$v);
   if ($v === '') return '';
   if (preg_match('~^https?://~i', $v)) return $v;
   if ($v[0] === '/') return $v;
-  return '/uploads/parts/' . $v;
+  return '/uploads/parts/' . $v; // ใช้ path จาก root ให้แน่นอน
 }
-function doc_label($t)
-{
+function doc_label($t){
   return $t === 'IN' ? 'รับเข้า'
     : ($t === 'CONSUME' ? 'เบิก'
       : ($t === 'MOVE' ? 'ย้าย'
         : ($t === 'ADJUST' ? 'ปรับยอด'
           : ($t === 'DONOR' ? 'เครื่องซาก' : $t))));
 }
-function qty_fmt($t, $q)
-{
+function qty_fmt($t, $q){
   if ($q === null) return '';   // ไม่มีบรรทัด หรือ DONOR แบบไม่ใช่ create/delete
   $q = (int)$q;
-
   if ($t === 'IN')        return '+' . $q;
   if ($t === 'CONSUME')   return '-' . $q;
   if ($t === 'USED')      return '+' . $q;                     // เพิ่มชิ้นมือ 2
   if ($t === 'DONOR')     return ($q > 0 ? '+' : '') . $q;     // +1 ตอนเพิ่ม, -1 ตอนลบ
-
   return (string)$q;
 }
 
-
-
-function whereSearch(string $q, array $cols, array &$params, string $pfx): ?string
-{
+// ----- ตัวช่วยสร้าง WHERE แบบยืดหยุ่น -----
+function whereSearch(string $q, array $cols, array &$params, string $pfx): ?string{
   if ($q === '') return null;
-  $ors = [];
-  $i = 0;
+  $ors = []; $i = 0;
   foreach ($cols as $c) {
     $ph = ":{$pfx}{$i}";
     $ors[] = "$c LIKE $ph";
@@ -111,14 +94,12 @@ function whereSearch(string $q, array $cols, array &$params, string $pfx): ?stri
   }
   return '(' . implode(' OR ', $ors) . ')';
 }
-function whereDevices(array $devices, array $cols, array &$params, string $pfx): ?string
-{
+function whereDevices(array $devices, array $cols, array &$params, string $pfx): ?string{
   if (!$devices) return null;
   $map = ['macbook' => 'MacBook', 'iphone' => 'iPhone', 'ipad' => 'iPad', 'imac' => 'iMac'];
-  $ors = [];
-  $i = 0;
+  $ors = []; $i = 0;
   foreach ($devices as $d) {
-    $kw = $map[$d] ?? $d;
+    $kw = $map[$d] ?? $d;  // แปลงเป็นคีย์เวิร์ดที่เจอในชื่อรุ่น/หมวด
     $ph = ":{$pfx}{$i}";
     $params[$ph] = "%{$kw}%";
     $inner = [];
@@ -128,11 +109,9 @@ function whereDevices(array $devices, array $cols, array &$params, string $pfx):
   }
   return '(' . implode(' OR ', $ors) . ')';
 }
-function whereKinds(array $kinds, array $kwMap, array &$params, string $pfx): ?string
-{
+function whereKinds(array $kinds, array $kwMap, array &$params, string $pfx): ?string{
   if (!$kinds) return null;
-  $ors = [];
-  $i = 0;
+  $ors = []; $i = 0;
   foreach ($kinds as $k) {
     if (!isset($kwMap[$k])) continue;
     $likes = [];
@@ -147,6 +126,20 @@ function whereKinds(array $kinds, array $kwMap, array &$params, string $pfx): ?s
   return $ors ? '(' . implode(' OR ', $ors) . ')' : null;
 }
 
+// ----- ตัวช่วยแบ่งหน้า -----
+/** คืนค่า [per, page, offset] โดยอ่านจาก GET และ clamp ช่วง */
+function get_pager(): array{
+  $per   = max(5, min(200, (int) getv('per', 20))); // default 20/หน้า
+  $page  = max(1, (int) getv('page', 1));           // default หน้า 1
+  $off   = ($page - 1) * $per;
+  return [$per, $page, $off];
+}
+/** สร้าง URL สำหรับไปยังหน้า i (คง query อื่นไว้) */
+function page_url($i){
+  $q = $_GET; $q['page'] = max(1,(int)$i);
+  return '?'.http_build_query($q);
+}
+
 // =========================[ 3) STATE ]================================
 $tab = getv('tab', 'new');
 $q   = getv('q', '');
@@ -156,19 +149,32 @@ $err = getv('err', '');
 $devices = getvArray('device', $DEVICE_LABELS);
 $kinds   = getvArray('kind', $KIND_LABELS);
 
+// อ่านค่าแบ่งหน้า (ใช้ร่วมกันทั้งหน้า; ถ้าอยากแยกต่อแท็บ ให้อ่านชื่อ param คนละชื่อ เช่น page_used)
+[$per, $page, $offset] = get_pager();
+
 // =========================[ 4) LOAD DATA ]============================
 $parts = $usedItems = $historyRows = $donors = [];
+// ตัวแปรสรุปแบ่งหน้า (จะเซ็ตให้ถูกแท็บก่อนวาด pager)
+$total = 0; $pages = 1;
 
-/* 4.1 NEW: parts_new (สรุปตาม part_code) */
+// ---------- 4.1 NEW: parts_new (สรุปตาม part_code + pagination) ----------
 if ($tab === 'new') {
   require_perms(['parts.new.view']);
 
-  $params = [];
-  $where = [];
+  $params = []; $where = [];
   if ($w = whereSearch($q, ['part_name', 'part_number', 'device_models', 'category'], $params, 'qn')) $where[] = $w;
   if ($w = whereDevices($devices, ['part_name', 'device_models', 'category'], $params, 'dn')) $where[] = $w;
   if ($w = whereKinds($kinds, $KIND_KEYWORDS, $params, 'kn')) $where[] = $w;
+  $where_sql = $where ? "WHERE " . implode(' AND ', $where) : "";
 
+  // 1) นับจำนวนแถวจริงหลัง GROUP BY = COUNT(DISTINCT part_code)
+  $stc = $pdo->prepare("SELECT COUNT(DISTINCT part_code) AS c FROM parts_new {$where_sql}");
+  $stc->execute($params);
+  $total = (int)($stc->fetchColumn() ?: 0);
+  $pages = max(1, (int)ceil($total / $per));
+  if ($page > $pages) { $page = $pages; $offset = ($page-1)*$per; }
+
+  // 2) ดึงรายการจริง
   $sql = "
     SELECT part_code,
            MAX(part_name)     AS part_name,
@@ -179,53 +185,73 @@ if ($tab === 'new') {
            MAX(min_stock)     AS min_stock,
            SUM(quantity)      AS qty
     FROM parts_new
-    " . ($where ? "WHERE " . implode(' AND ', $where) : "") . "
+    {$where_sql}
     GROUP BY part_code
     ORDER BY part_code DESC
-    LIMIT 500";
+    LIMIT :limit OFFSET :off";
   $st = $pdo->prepare($sql);
-  $st->execute($params);
+  foreach ($params as $k => $v) $st->bindValue($k, $v);
+  $st->bindValue(':limit', $per, PDO::PARAM_INT);
+  $st->bindValue(':off',   $offset, PDO::PARAM_INT);
+  $st->execute();
   $parts = $st->fetchAll(PDO::FETCH_ASSOC);
 }
 
-/* 4.2 USED: parts_used */
+// ---------- 4.2 USED: parts_used + pagination ----------
 if ($tab === 'used') {
   require_perms(['parts.used.view']);
 
-  $params = [];
-  $where = [];
+  $params = []; $where = [];
   if ($w = whereSearch($q, ['part_code', 'part_name', 'part_number', 'device_models', 'category', 'location', 'remarks'], $params, 'qu')) $where[] = $w;
   if ($w = whereDevices($devices, ['part_name', 'device_models', 'category'], $params, 'du')) $where[] = $w;
   if ($w = whereKinds($kinds, $KIND_KEYWORDS, $params, 'ku')) $where[] = $w;
+  $where_sql = $where ? "WHERE " . implode(' AND ', $where) : "";
 
+  // นับจำนวนทั้งหมด
+  $stc = $pdo->prepare("SELECT COUNT(*) FROM parts_used {$where_sql}");
+  $stc->execute($params);
+  $total = (int)($stc->fetchColumn() ?: 0);
+  $pages = max(1, (int)ceil($total / $per));
+  if ($page > $pages) { $page = $pages; $offset = ($page-1)*$per; }
+
+  // ดึงรายการหน้า current
   $sql = "
     SELECT id, part_code, part_name, part_number, device_models, category,
            image_url, location, remarks, created_at, updated_at
     FROM parts_used
-    " . ($where ? "WHERE " . implode(' AND ', $where) : "") . "
+    {$where_sql}
     ORDER BY id DESC
-    LIMIT 500";
+    LIMIT :limit OFFSET :off";
   $st = $pdo->prepare($sql);
-  $st->execute($params);
+  foreach ($params as $k => $v) $st->bindValue($k, $v);
+  $st->bindValue(':limit', $per, PDO::PARAM_INT);
+  $st->bindValue(':off',   $offset, PDO::PARAM_INT);
+  $st->execute();
   $usedItems = $st->fetchAll(PDO::FETCH_ASSOC);
 }
 
-/* 4.3 DONOR: parts_donors */
+// ---------- 4.3 DONOR: parts_donors + pagination ----------
 if ($tab === 'donor') {
   require_perms(['parts.donor.view']);
 
-  $params = [];
-  $where = [];
+  $params = []; $where = [];
   if ($w = whereSearch($q, ['device_models', 'serial_no', 'reserved_ref', 'remarks', 'category'], $params, 'qd')) $where[] = $w;
   if ($w = whereDevices($devices, ['device_name', 'device_models', 'category'], $params, 'dd')) $where[] = $w;
 
   $dism = getv('dism', '');
-  if ($dism === '0') {
-    $where[] = "status <> 'stripped'";
-  } else if ($dism === '1') {
-    $where[] = "status = 'stripped'";
-  }
+  if ($dism === '0')      $where[] = "status <> 'stripped'";
+  else if ($dism === '1') $where[] = "status = 'stripped'";
 
+  $where_sql = $where ? "WHERE " . implode(' AND ', $where) : "";
+
+  // นับจำนวนทั้งหมด
+  $stc = $pdo->prepare("SELECT COUNT(*) FROM parts_donors {$where_sql}");
+  $stc->execute($params);
+  $total = (int)($stc->fetchColumn() ?: 0);
+  $pages = max(1, (int)ceil($total / $per));
+  if ($page > $pages) { $page = $pages; $offset = ($page-1)*$per; }
+
+  // ดึงรายการหน้า current
   $sql = "
     SELECT
       id, device_name, device_models, category, serial_no, status,
@@ -233,38 +259,29 @@ if ($tab === 'donor') {
       created_at, updated_at,
       CASE WHEN status='stripped' THEN 1 ELSE 0 END AS is_dismantled
     FROM parts_donors
-    " . ($where ? "WHERE " . implode(' AND ', $where) : "") . "
+    {$where_sql}
     ORDER BY id DESC
-    LIMIT 500";
+    LIMIT :limit OFFSET :off";
   $st = $pdo->prepare($sql);
-  $st->execute($params);
+  foreach ($params as $k => $v) $st->bindValue($k, $v);
+  $st->bindValue(':limit', $per, PDO::PARAM_INT);
+  $st->bindValue(':off',   $offset, PDO::PARAM_INT);
+  $st->execute();
   $donors = $st->fetchAll(PDO::FETCH_ASSOC);
 }
 
-/* 4.4 HISTORY: docs + lines + admin */
+// ---------- 4.4 HISTORY: docs + lines + admin (คง limit 200) ----------
 if ($tab === 'history') {
   require_perms(['parts.history.view']);
 
-  $params = [];
-  $where = [];
+  $params = []; $where = [];
   if ($w = whereSearch($q, ['l.part_code', 'd.ref_no', 'd.remarks', 'au.username'], $params, 'qh')) $where[] = $w;
   $doc_type = getv('doc_type', '');
-  if ($doc_type !== '') {
-    $where[] = "d.doc_type=:dt";
-    $params[':dt'] = $doc_type;
-  }
-  $df = getv('date_from', '');
-  if ($df !== '') {
-    $where[] = "DATE(d.created_at)>=:df";
-    $params[':df'] = $df;
-  }
-  $dt = getv('date_to', '');
-  if ($dt !== '') {
-    $where[] = "DATE(d.created_at)<=:dt2";
-    $params[':dt2'] = $dt;
-  }
+  if ($doc_type !== '') { $where[] = "d.doc_type=:dt"; $params[':dt'] = $doc_type; }
+  $df = getv('date_from', ''); if ($df !== '') { $where[] = "DATE(d.created_at)>=:df";  $params[':df']  = $df; }
+  $dt = getv('date_to', '');   if ($dt !== '') { $where[] = "DATE(d.created_at)<=:dt2"; $params[':dt2'] = $dt; }
 
-$sql = "
+  $sql = "
   SELECT d.created_at, d.doc_type, d.ref_no, d.remarks,
          l.part_code,
          CASE
@@ -281,7 +298,6 @@ $sql = "
   " . ($where ? "WHERE " . implode(' AND ', $where) : "") . "
   ORDER BY d.doc_id DESC, COALESCE(l.line_id,0) DESC
   LIMIT 200";
-
   $st = $pdo->prepare($sql);
   $st->execute($params);
   $historyRows = $st->fetchAll(PDO::FETCH_ASSOC);
@@ -292,6 +308,8 @@ include __DIR__ . '/../../templates/header_admin.php';
 include __DIR__ . '/../../templates/sidebar_admin.php';
 ?>
 <main class="main" id="main-content">
+  <!-- สไตล์ปุ่มแบ่งหน้า (ถ้าต้องการ ย้ายไป assets/css/admin-style.css ได้) -->
+
   <!-- Topbar -->
   <div class="topbar">
     <span><?= h($pageTitle) ?></span>
@@ -338,7 +356,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 
   <!-- Flash -->
   <?php if ($msg): ?><div class="alert alert-success"><?= h($msg) ?></div><?php endif; ?>
-  <?php if (!empty($_GET['saved'])): ?><div class="alert alert-success">บันทึกชิ้นเรียบร้อย</div><?php endif; ?>
   <?php if ($err): ?><div class="alert alert-danger"><?= h($err) ?></div><?php endif; ?>
 
   <?php if ($tab === 'new'): ?>
@@ -370,6 +387,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
           </div>
         </div>
 
+        <input type="hidden" name="page" value="1">
         <button class="btn-search">ค้นหา</button>
       </div>
     </form>
@@ -390,11 +408,9 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
         </thead>
         <tbody>
           <?php if ($parts): foreach ($parts as $i => $p): $img = img_src($p['image_url'] ?? '');
-              $qty = (int)$p['qty'];
-              $min = (int)$p['min_stock'];
-              $low = $min > 0 && $qty < $min; ?>
+              $qty = (int)$p['qty']; $min = (int)$p['min_stock']; $low = $min > 0 && $qty < $min; ?>
               <tr>
-                <td><?= $i + 1 ?></td>
+                <td><?= ($offset + $i + 1) ?></td>
                 <td>
                   <?php if ($img): ?>
                     <button type="button" class="thumb-btn" data-src="<?= h($img) ?>">
@@ -427,14 +443,37 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                   <?php endif; ?>
                 </td>
               </tr>
-            <?php endforeach;
-          else: ?>
-            <tr>
-              <td colspan="8" class="text-center">ยังไม่มีข้อมูล</td>
-            </tr>
+            <?php endforeach; else: ?>
+            <tr><td colspan="8" class="text-center">ยังไม่มีข้อมูล</td></tr>
           <?php endif; ?>
         </tbody>
       </table>
+    </div>
+
+    <!-- Pager -->
+    <?php /* ใช้ $total,$page,$pages,$per ที่เซ็ตไว้ตอนโหลดข้อมูลแท็บนี้ */ ?>
+    <div class="pager-bar">
+      <div class="pager-left">
+        <span class="pager-total">พบ <?= (int)$total ?> รายการ</span>
+        <span class="divider">•</span>
+        <span>หน้า <?= (int)$page ?> / <?= (int)$pages ?></span>
+      </div>
+      <nav class="pager-nav" aria-label="Pagination">
+        <a class="page-btn <?= $page<=1?'is-disabled':''?>" href="<?= $page>1?page_url($page-1):'#'?>" rel="prev" aria-label="ก่อนหน้า">‹</a>
+        <?php $start=max(1,$page-2); $end=min($pages,$page+2);
+          if($start>1) echo '<span class="page-ellipsis">…</span>';
+          for($i=$start;$i<=$end;$i++): ?>
+          <a class="page-btn <?= $i==$page?'is-active':''?>" href="<?= page_url($i) ?>"><?= $i ?></a>
+        <?php endfor; if($end<$pages) echo '<span class="page-ellipsis">…</span>'; ?>
+        <a class="page-btn <?= $page>=$pages?'is-disabled':''?>" href="<?= $page<$pages?page_url($page+1):'#'?>" rel="next" aria-label="ถัดไป">›</a>
+        <div class="page-size">
+          <select id="ppSelect" class="pager-select" aria-label="จำนวนต่อหน้า">
+            <?php foreach([20,50,100] as $pp): ?>
+              <option value="<?= $pp ?>" <?= (int)$per===$pp?'selected':'' ?>><?= $pp ?>/หน้า</option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+      </nav>
     </div>
 
   <?php elseif ($tab === 'history'): ?>
@@ -451,8 +490,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
         <option value="USED" <?= getv('doc_type') === 'USED' ? 'selected' : '' ?>>มือ 2</option>
         <option value="DONOR" <?= getv('doc_type') === 'DONOR' ? 'selected' : '' ?>>เครื่องซาก</option>
       </select>
-
-
       <input type="date" name="date_from" value="<?= h(getv('date_from')) ?>">
       <input type="date" name="date_to" value="<?= h(getv('date_to')) ?>">
       <button class="btn-search">ค้นหา</button>
@@ -476,23 +513,20 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
         </thead>
         <tbody>
           <?php if ($historyRows): foreach ($historyRows as $r): ?>
-              <tr>
-                <td><?= h($r['created_at']) ?></td>
-                <td><span class="badge"><?= h(doc_label($r['doc_type'])) ?></span></td>
-                <td><?= h($r['part_code']) ?></td>
-                <td class="fw-600"><?= h(qty_fmt($r['doc_type'], $r['qty'])) ?></td>
-                <td><?= h($r['location_from']) ?></td>
-                <td><?= h($r['location_to']) ?></td>
-                <td><?= $r['unit_cost'] !== null ? number_format($r['unit_cost'], 2) : '' ?></td>
-                <td class="muted"><?= h($r['ref_no']) ?></td>
-                <td><?= h($r['admin_name'] ?? 'N/A') ?></td>
-                <td><?= h($r['remarks']) ?></td>
-              </tr>
-            <?php endforeach;
-          else: ?>
             <tr>
-              <td colspan="10" class="text-center">ยังไม่มีประวัติ</td>
+              <td><?= h($r['created_at']) ?></td>
+              <td><span class="badge"><?= h(doc_label($r['doc_type'])) ?></span></td>
+              <td><?= h($r['part_code']) ?></td>
+              <td class="fw-600"><?= h(qty_fmt($r['doc_type'], $r['qty'])) ?></td>
+              <td><?= h($r['location_from']) ?></td>
+              <td><?= h($r['location_to']) ?></td>
+              <td><?= $r['unit_cost'] !== null ? number_format($r['unit_cost'], 2) : '' ?></td>
+              <td class="muted"><?= h($r['ref_no']) ?></td>
+              <td><?= h($r['admin_name'] ?? 'N/A') ?></td>
+              <td><?= h($r['remarks']) ?></td>
             </tr>
+          <?php endforeach; else: ?>
+            <tr><td colspan="10" class="text-center">ยังไม่มีประวัติ</td></tr>
           <?php endif; ?>
         </tbody>
       </table>
@@ -531,6 +565,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
             </div>
           </div>
         </div>
+        <input type="hidden" name="page" value="1">
         <button class="btn-search">ค้นหา</button>
       </div>
     </form>
@@ -545,63 +580,71 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
             <th>เลขอะไหล่</th>
             <th>รุ่น</th>
             <th>หมวด</th>
-            <th>ที่เก็บ</th> <!-- ⬅ เพิ่ม -->
+            <th>ที่เก็บ</th>
             <th>หมายเหตุ</th>
             <th>จัดการ</th>
           </tr>
         </thead>
-
         <tbody>
-          <?php if ($usedItems): foreach ($usedItems as $i => $u): $img = img_src($u['image_url'] ?? '');
-              $remark = trim((string)$u['remarks']); ?>
-              <tr>
-                <td><?= $i + 1 ?></td>
-                <td>
-                  <?php if ($img): ?>
-                    <button type="button" class="thumb-btn" data-src="<?= h($img) ?>">
-                      <img src="<?= h($img) ?>" class="thumb" alt="">
-                    </button>
-                  <?php else: ?>
-                    <div class="thumb"></div>
-                  <?php endif; ?>
-                </td>
-                <td><strong><?= h($u['part_name'] ?: $u['part_code']) ?></strong></td>
-                <td class="muted"><?= h($u['part_number']) ?></td>
-                <td><?= h($u['device_models']) ?></td>
-                <td><span class="badge"><?= h($u['category'] ?: 'Other') ?></span></td>
-
-                <td><?= h($u['location'] ?: '-') ?></td>   <!-- ⬅ เพิ่ม -->
-
-                <!-- หมายเหตุ: แสดงย่อ + คลิกดูเต็ม -->
-                <td class="remark-cell">
-                  <?php if ($remark !== ''): ?>
-                    <span class="remark-text"
-                      data-remark="<?= h($remark) ?>"
-                      title="<?= h($remark) ?>">
-                      <?= h($remark) ?>
-                    </span>
-                  <?php else: ?>
-                    <span class="muted">-</span>
-                  <?php endif; ?>
-                </td>
-
-                <td class="no-wrap">
-                  <?php if (can('parts.used.consume')): ?>
-                    <a class="btn-checkout" href="consume.php?type=used&used_id=<?= (int)$u['id'] ?>">เบิก</a>
-                  <?php endif; ?>
-                  <?php if (can('parts.used.update')): ?>
-                    <a class="btn-edit" href="form_used.php?id=<?= (int)$u['id'] ?>">แก้ไข</a>
-                  <?php endif; ?>
-                </td>
-              </tr>
-            <?php endforeach;
-          else: ?>
+          <?php if ($usedItems): foreach ($usedItems as $i => $u): $img = img_src($u['image_url'] ?? ''); $remark = trim((string)$u['remarks']); ?>
             <tr>
-              <td colspan="9" class="text-center">ยังไม่มีชิ้นมือ 2</td>
+              <td><?= ($offset + $i + 1) ?></td>
+              <td>
+                <?php if ($img): ?>
+                  <button type="button" class="thumb-btn" data-src="<?= h($img) ?>">
+                    <img src="<?= h($img) ?>" class="thumb" alt="">
+                  </button>
+                <?php else: ?><div class="thumb"></div><?php endif; ?>
+              </td>
+              <td><strong><?= h($u['part_name'] ?: $u['part_code']) ?></strong></td>
+              <td class="muted"><?= h($u['part_number']) ?></td>
+              <td><?= h($u['device_models']) ?></td>
+              <td><span class="badge"><?= h($u['category'] ?: 'Other') ?></span></td>
+              <td><?= h($u['location'] ?: '-') ?></td>
+              <td class="remark-cell">
+                <?php if ($remark !== ''): ?>
+                  <span class="remark-text" data-remark="<?= h($remark) ?>" title="<?= h($remark) ?>"><?= h($remark) ?></span>
+                <?php else: ?><span class="muted">-</span><?php endif; ?>
+              </td>
+              <td class="no-wrap">
+                <?php if (can('parts.used.consume')): ?>
+                  <a class="btn-checkout" href="consume.php?type=used&used_id=<?= (int)$u['id'] ?>">เบิก</a>
+                <?php endif; ?>
+                <?php if (can('parts.used.update')): ?>
+                  <a class="btn-edit" href="form_used.php?id=<?= (int)$u['id'] ?>">แก้ไข</a>
+                <?php endif; ?>
+              </td>
             </tr>
+          <?php endforeach; else: ?>
+            <tr><td colspan="9" class="text-center">ยังไม่มีชิ้นมือ 2</td></tr>
           <?php endif; ?>
         </tbody>
       </table>
+    </div>
+
+    <!-- Pager -->
+    <div class="pager-bar">
+      <div class="pager-left">
+        <span class="pager-total">พบ <?= (int)$total ?> รายการ</span>
+        <span class="divider">•</span>
+        <span>หน้า <?= (int)$page ?> / <?= (int)$pages ?></span>
+      </div>
+      <nav class="pager-nav" aria-label="Pagination">
+        <a class="page-btn <?= $page<=1?'is-disabled':''?>" href="<?= $page>1?page_url($page-1):'#'?>" rel="prev" aria-label="ก่อนหน้า">‹</a>
+        <?php $start=max(1,$page-2); $end=min($pages,$page+2);
+          if($start>1) echo '<span class="page-ellipsis">…</span>';
+          for($i=$start;$i<=$end;$i++): ?>
+          <a class="page-btn <?= $i==$page?'is-active':''?>" href="<?= page_url($i) ?>"><?= $i ?></a>
+        <?php endfor; if($end<$pages) echo '<span class="page-ellipsis">…</span>'; ?>
+        <a class="page-btn <?= $page>=$pages?'is-disabled':''?>" href="<?= $page<$pages?page_url($page+1):'#'?>" rel="next" aria-label="ถัดไป">›</a>
+        <div class="page-size">
+          <select id="ppSelect" class="pager-select" aria-label="จำนวนต่อหน้า">
+            <?php foreach([20,50,100] as $pp): ?>
+              <option value="<?= $pp ?>" <?= (int)$per===$pp?'selected':'' ?>><?= $pp ?>/หน้า</option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+      </nav>
     </div>
 
     <!-- Modal หมายเหตุ (ใช้ร่วมกับแท็บอื่นได้) -->
@@ -639,7 +682,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
         </thead>
         <tbody>
           <?php if ($donors): foreach ($donors as $i => $d):
-              $img    = img_src($d['image_url'] ?? '');
+              $img = img_src($d['image_url'] ?? '');
               $remark = trim((string)$d['remarks']);
               $status = (string)($d['status'] ?? '');
               $statusClass = [
@@ -655,52 +698,70 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                 'sold'     => 'ขายแล้ว'
               ][$status] ?? $status;
           ?>
-              <tr>
-                <td><?= $i + 1 ?></td>
-                <td>
-                  <?php if ($img): ?>
-                    <button type="button" class="thumb-btn" data-src="<?= h($img) ?>">
-                      <img src="<?= h($img) ?>" class="thumb" alt="">
-                    </button>
-                  <?php else: ?>
-                    <div class="thumb"></div>
-                  <?php endif; ?>
-                </td>
-                <td><strong><?= h($d['device_models']) ?></strong></td>
-                <td class="muted"><?= h($d['serial_no']) ?></td>
-                <td><?= h($d['category']) ?></td>
-                <td><span class="badge <?= h($statusClass) ?>"><?= h($statusLabel) ?></span></td>
-                <td><?= $d['purchase_cost'] !== null ? number_format($d['purchase_cost'], 2) : '' ?></td>
-                <td class="remark-cell">
-                  <?php if ($remark !== ''): ?>
-                    <span class="remark-text" data-remark="<?= h($remark) ?>" title="<?= h($remark) ?>"><?= h($remark) ?></span>
-                  <?php else: ?>
-                    <span class="muted">-</span>
-                  <?php endif; ?>
-                </td>
-                <td class="no-wrap">
-                  <?php if ((int)$d['is_dismantled'] === 0): ?>
-                    <?php if (can('parts.donor.split')): ?>
-                      <a class="btn-checkout" href="donor_split.php?id=<?= (int)$d['id'] ?>">แยกอะไหล่</a>
-                    <?php else: ?>
-                      <a class="btn-secondary" href="donor_split.php?id=<?= (int)$d['id'] ?>">ดู</a>
-                    <?php endif; ?>
-                  <?php else: ?>
-                    <a class="btn-danger" href="donor_split.php?id=<?= (int)$d['id'] ?>">ดูรายการที่แยก</a>
-                  <?php endif; ?>
-                  <?php if (can('parts.donor.update')): ?>
-                    <a class="btn-edit" href="donor_form.php?id=<?= (int)$d['id'] ?>">แก้ไข</a>
-                  <?php endif; ?>
-                </td>
-              </tr>
-            <?php endforeach;
-          else: ?>
             <tr>
-              <td colspan="9" class="text-center">ยังไม่มีเครื่องซาก</td>
+              <td><?= ($offset + $i + 1) ?></td>
+              <td>
+                <?php if ($img): ?>
+                  <button type="button" class="thumb-btn" data-src="<?= h($img) ?>">
+                    <img src="<?= h($img) ?>" class="thumb" alt="">
+                  </button>
+                <?php else: ?><div class="thumb"></div><?php endif; ?>
+              </td>
+              <td><strong><?= h($d['device_models']) ?></strong></td>
+              <td class="muted"><?= h($d['serial_no']) ?></td>
+              <td><?= h($d['category']) ?></td>
+              <td><span class="badge <?= h($statusClass) ?>"><?= h($statusLabel) ?></span></td>
+              <td><?= $d['purchase_cost'] !== null ? number_format($d['purchase_cost'], 2) : '' ?></td>
+              <td class="remark-cell">
+                <?php if ($remark !== ''): ?>
+                  <span class="remark-text" data-remark="<?= h($remark) ?>" title="<?= h($remark) ?>"><?= h($remark) ?></span>
+                <?php else: ?><span class="muted">-</span><?php endif; ?>
+              </td>
+              <td class="no-wrap">
+                <?php if ((int)$d['is_dismantled'] === 0): ?>
+                  <?php if (can('parts.donor.split')): ?>
+                    <a class="btn-checkout" href="donor_split.php?id=<?= (int)$d['id'] ?>">แยกอะไหล่</a>
+                  <?php else: ?>
+                    <a class="btn-secondary" href="donor_split.php?id=<?= (int)$d['id'] ?>">ดู</a>
+                  <?php endif; ?>
+                <?php else: ?>
+                  <a class="btn-danger" href="donor_split.php?id=<?= (int)$d['id'] ?>">ดูรายการที่แยก</a>
+                <?php endif; ?>
+                <?php if (can('parts.donor.update')): ?>
+                  <a class="btn-edit" href="donor_form.php?id=<?= (int)$d['id'] ?>">แก้ไข</a>
+                <?php endif; ?>
+              </td>
             </tr>
+          <?php endforeach; else: ?>
+            <tr><td colspan="9" class="text-center">ยังไม่มีเครื่องซาก</td></tr>
           <?php endif; ?>
         </tbody>
       </table>
+    </div>
+
+    <!-- Pager -->
+    <div class="pager-bar">
+      <div class="pager-left">
+        <span class="pager-total">พบ <?= (int)$total ?> รายการ</span>
+        <span class="divider">•</span>
+        <span>หน้า <?= (int)$page ?> / <?= (int)$pages ?></span>
+      </div>
+      <nav class="pager-nav" aria-label="Pagination">
+        <a class="page-btn <?= $page<=1?'is-disabled':''?>" href="<?= $page>1?page_url($page-1):'#'?>" rel="prev" aria-label="ก่อนหน้า">‹</a>
+        <?php $start=max(1,$page-2); $end=min($pages,$page+2);
+          if($start>1) echo '<span class="page-ellipsis">…</span>';
+          for($i=$start;$i<=$end;$i++): ?>
+          <a class="page-btn <?= $i==$page?'is-active':''?>" href="<?= page_url($i) ?>"><?= $i ?></a>
+        <?php endfor; if($end<$pages) echo '<span class="page-ellipsis">…</span>'; ?>
+        <a class="page-btn <?= $page>=$pages?'is-disabled':''?>" href="<?= $page<$pages?page_url($page+1):'#'?>" rel="next" aria-label="ถัดไป">›</a>
+        <div class="page-size">
+          <select id="ppSelect" class="pager-select" aria-label="จำนวนต่อหน้า">
+            <?php foreach([20,50,100] as $pp): ?>
+              <option value="<?= $pp ?>" <?= (int)$per===$pp?'selected':'' ?>><?= $pp ?>/หน้า</option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+      </nav>
     </div>
 
     <!-- Modal หมายเหตุ -->
@@ -712,7 +773,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     </div>
   <?php endif; ?>
 
-  <!-- Image Preview Modal -->
+  <!-- Image Preview Modal (ใช้ร่วมทุกแท็บ) -->
   <div id="imgPreviewOverlay" class="imgpv-overlay" aria-hidden="true">
     <div class="imgpv-dialog" role="dialog" aria-modal="true" aria-label="ตัวอย่างรูป">
       <button type="button" class="imgpv-close" aria-label="ปิด">✕</button>
@@ -725,123 +786,66 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 
 <!-- ========================= SCRIPTS ========================= -->
 <script>
-  function toggleMenu(id) {
-    var m = document.getElementById(id);
-    if (m) m.classList.toggle('show');
-  }
-  document.addEventListener('click', function(e) {
+  // เปิด/ปิดเมนูตัวกรองแบบ dropdown (แท็บ new)
+  function toggleMenu(id){ var m=document.getElementById(id); if(m) m.classList.toggle('show'); }
+  document.addEventListener('click', function(e){
     var dd = e.target.closest ? e.target.closest('.filter-dropdown') : null;
-    document.querySelectorAll('.filter-menu.show').forEach(function(m) {
-      if (!dd || !dd.contains(m)) m.classList.remove('show');
-    });
+    document.querySelectorAll('.filter-menu.show').forEach(function(m){ if(!dd || !dd.contains(m)) m.classList.remove('show'); });
   });
-
-  function clearMenu(id) {
-    var root = document.getElementById(id);
-    if (!root) return;
-    root.querySelectorAll('input[type="checkbox"]').forEach(el => el.checked = false);
-    root.querySelectorAll('select').forEach(sel => sel.selectedIndex = 0);
-    root.querySelectorAll('input[type="radio"][name="dism"]').forEach(function(r) {
-      if (r.value === '') r.checked = true;
-    });
+  function clearMenu(id){
+    var root=document.getElementById(id); if(!root) return;
+    root.querySelectorAll('input[type="checkbox"]').forEach(el=>el.checked=false);
   }
+  function toggleFilterMenuUsed(){ var m=document.getElementById('filterMenuUsed'); if(m) m.classList.toggle('show'); }
+  function clearFilterChecksUsed(){ document.querySelectorAll('#filterMenuUsed input[type="checkbox"]').forEach(el=>el.checked=false); }
 
-  function toggleFilterMenuUsed() {
-    var m = document.getElementById('filterMenuUsed');
-    if (m) m.classList.toggle('show');
-  }
-
-  function clearFilterChecksUsed() {
-    document.querySelectorAll('#filterMenuUsed input[type="checkbox"]').forEach(el => el.checked = false);
-  }
-  (function() {
-    var overlay = document.getElementById('imgPreviewOverlay');
-    var imgEl = document.getElementById('imgPreview');
-
-    function openPreview(src) {
-      if (!overlay || !imgEl) return;
-      imgEl.src = src;
-      overlay.classList.add('show');
-      overlay.setAttribute('aria-hidden', 'false');
-    }
-
-    function closePreview() {
-      if (!overlay) return;
-      overlay.classList.remove('show');
-      overlay.setAttribute('aria-hidden', 'true');
-      if (imgEl) imgEl.src = '';
-    }
-    document.addEventListener('click', function(e) {
+  // Modal รูปภาพตัวอย่าง
+  (function(){
+    var overlay=document.getElementById('imgPreviewOverlay');
+    var imgEl=document.getElementById('imgPreview');
+    function openPreview(src){ if(!overlay||!imgEl) return; imgEl.src=src; overlay.classList.add('show'); overlay.setAttribute('aria-hidden','false'); }
+    function closePreview(){ if(!overlay) return; overlay.classList.remove('show'); overlay.setAttribute('aria-hidden','true'); if(imgEl) imgEl.src=''; }
+    document.addEventListener('click', function(e){
       var btn = e.target.closest ? e.target.closest('.thumb-btn') : null;
-      if (!btn) return;
-      var src = btn.getAttribute('data-src');
-      if (src) openPreview(src);
+      if(!btn) return; var src = btn.getAttribute('data-src'); if(src) openPreview(src);
     });
-    if (overlay) {
-      overlay.addEventListener('click', function(e) {
-        if (e.target === overlay || e.target.classList.contains('imgpv-close')) closePreview();
-      });
-    }
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape' && overlay && overlay.classList.contains('show')) closePreview();
-    });
+    if(overlay){ overlay.addEventListener('click', function(e){ if(e.target===overlay || e.target.classList.contains('imgpv-close')) closePreview(); }); }
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape' && overlay && overlay.classList.contains('show')) closePreview(); });
   })();
-</script>
 
-<script>
+  // Modal หมายเหตุ (used/donor)
   document.addEventListener('DOMContentLoaded', () => {
     const modal = document.getElementById('remarkModal');
     const modalText = document.getElementById('remarkFullText');
+    if(!modal || !modalText) return;
     const closeBtn = modal.querySelector('.close-btn');
-
-    document.querySelectorAll('.remark-text').forEach(el => {
-      el.addEventListener('click', () => {
-        modalText.textContent = el.dataset.remark;
-        modal.classList.add('show');
-      });
-    });
-
-    closeBtn.addEventListener('click', () => modal.classList.remove('show'));
-    modal.addEventListener('click', e => {
-      if (e.target === modal) modal.classList.remove('show');
-    });
-  });
-</script>
-
-<script>
-  document.addEventListener('DOMContentLoaded', () => {
-    const modal = document.getElementById('remarkModal');
-    const modalText = document.getElementById('remarkFullText');
-
-    if (!modal || !modalText) return;
-    const closeBtn = modal.querySelector('.close-btn');
-
     document.addEventListener('click', (e) => {
       const target = e.target.closest('.remark-text');
-      if (target) {
-        modalText.textContent = target.dataset.remark || target.textContent || '';
-        modal.classList.add('show');
-        modal.setAttribute('aria-hidden', 'false');
-        return;
-      }
-      if (e.target === closeBtn) {
-        modal.classList.remove('show');
-        modal.setAttribute('aria-hidden', 'true');
-        modalText.textContent = '';
-        return;
-      }
-      if (e.target === modal) {
-        modal.classList.remove('show');
-        modal.setAttribute('aria-hidden', 'true');
-        modalText.textContent = '';
-      }
+      if (target) { modalText.textContent = target.dataset.remark || target.textContent || ''; modal.classList.add('show'); modal.setAttribute('aria-hidden','false'); return; }
+      if (e.target === closeBtn || e.target === modal) { modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); modalText.textContent=''; }
     });
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && modal.classList.contains('show')) {
-        modal.classList.remove('show');
-        modal.setAttribute('aria-hidden', 'true');
-        modalText.textContent = '';
-      }
+      if (e.key === 'Escape' && modal.classList.contains('show')) { modal.classList.remove('show'); modal.setAttribute('aria-hidden','true'); modalText.textContent=''; }
     });
   });
+
+  // เปลี่ยนจำนวนต่อหน้า
+  (function(){
+    const sel=document.getElementById('ppSelect'); if(!sel) return;
+    sel.addEventListener('change', function(){
+      const u = new URL(location.href);
+      u.searchParams.set('per', this.value);
+      u.searchParams.set('page', '1'); // รีเซ็ตไปหน้าแรก
+      location = u.toString();
+    });
+  })();
+
+  // ช็อตคัตซ้าย/ขวา
+  (function(){
+    document.addEventListener('keydown', function(e){
+      if (e.altKey || e.metaKey || e.ctrlKey) return;
+      if (e.key === 'ArrowRight') document.querySelector('.page-btn[rel="next"]')?.click();
+      if (e.key === 'ArrowLeft')  document.querySelector('.page-btn[rel="prev"]')?.click();
+    });
+  })();
 </script>
