@@ -1,11 +1,14 @@
 <?php
 // admin/sidebar_admin.php — Sidebar พร้อมเมนูย่อยแบบ Hover/Click รองรับ PHP < 7.4
-if (session_status() === PHP_SESSION_NONE) { session_start(); }
+if (session_status() === PHP_SESSION_NONE) {
+  session_start();
+}
 $uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '/';
 
-function has($needle) {
-    global $uri;
-    return strpos($uri, $needle) !== false;
+function has($needle)
+{
+  global $uri;
+  return strpos($uri, $needle) !== false;
 }
 
 $partsOpen = has('/admin/parts/'); // เปิดเมนูย่อยอัตโนมัติถ้าอยู่ในหน้า parts
@@ -46,6 +49,10 @@ $partsOpen = has('/admin/parts/'); // เปิดเมนูย่อยอั
       <span class="material-symbols-rounded">sell</span> จัดการราคาซ่อม
     </a>
 
+    <a class="<?php echo has('/admin/warranty/') ? 'active' : ''; ?>" href="/admin/warranty/">
+      <span class="material-symbols-rounded">verified_user</span> รับประกัน (Warranty)
+    </a>
+
     <!-- ===== เมนูอะไหล่ (Parts) ===== -->
     <div class="has-sub <?php echo $partsOpen ? 'open' : ''; ?>">
       <div class="sub-head">
@@ -53,10 +60,10 @@ $partsOpen = has('/admin/parts/'); // เปิดเมนูย่อยอั
           <span class="material-symbols-rounded">inventory_2</span> อะไหล่ (Parts)
         </a>
         <button type="button"
-                class="sub-toggle"
-                aria-label="สลับเมนูย่อยอะไหล่"
-                aria-expanded="<?php echo $partsOpen ? 'true' : 'false'; ?>"
-                onclick="toggleSubmenu(event, 'parts-sub')">
+          class="sub-toggle"
+          aria-label="สลับเมนูย่อยอะไหล่"
+          aria-expanded="<?php echo $partsOpen ? 'true' : 'false'; ?>"
+          onclick="toggleSubmenu(event, 'parts-sub')">
           <span class="material-symbols-rounded">expand_more</span>
         </button>
       </div>
@@ -97,17 +104,40 @@ $partsOpen = has('/admin/parts/'); // เปิดเมนูย่อยอั
 
 <style>
   .has-sub .sub-head {
-    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
   }
+
   .has-sub .sub-toggle {
-    background: transparent; border: 0; cursor: pointer; padding: 6px; border-radius: 8px;
+    background: transparent;
+    border: 0;
+    cursor: pointer;
+    padding: 6px;
+    border-radius: 8px;
   }
-  .submenu { display: none; padding-left: 36px; }
-  .submenu a { display: block; }
-  .has-sub:hover .submenu { display: block; }
-  .submenu.open { display: block; }
+
+  .submenu {
+    display: none;
+    padding-left: 36px;
+  }
+
+  .submenu a {
+    display: block;
+  }
+
+  .has-sub:hover .submenu {
+    display: block;
+  }
+
+  .submenu.open {
+    display: block;
+  }
+
   .has-sub.open .sub-toggle .material-symbols-rounded {
-    transform: rotate(180deg); transition: transform .15s;
+    transform: rotate(180deg);
+    transition: transform .15s;
   }
 </style>
 
@@ -116,7 +146,8 @@ $partsOpen = has('/admin/parts/'); // เปิดเมนูย่อยอั
     document.getElementById('sidebar').classList.toggle('show');
     document.getElementById('overlay').classList.toggle('show');
   }
-  function toggleSubmenu(e, id){
+
+  function toggleSubmenu(e, id) {
     e.preventDefault();
     e.stopPropagation();
     var sub = document.getElementById(id);

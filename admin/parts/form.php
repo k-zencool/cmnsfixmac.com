@@ -3,8 +3,10 @@
  * admin/parts/form.php  (มือ 1)
  * - เพิ่ม/แก้ไขเมตาอะไหล่ + ปรับยอดเฉพาะโลเคชันที่ระบุ
  * - ออกเอกสาร ADJUST อัตโนมัติเมื่อยอดเปลี่ยน (แสดงในหน้า "ประวัติ")
- * - ใช้สคีมาเดิม: parts_docs.doc_type ∈ {IN, CONSUME, MOVE, ADJUST}
- *                 parts_docs.remarks เป็น VARCHAR(255)
+ * - part_number: อนุญาตให้เว้นว่างหรือใส่ '-' แล้วเก็บเป็น NULL
+ * - อัปโหลดรูป: path/url ชัดเจน, ตรวจ error, preview JS
+ * - ลบรูปได้: เคลียร์ใน DB และ unlink ไฟล์เก่าบนดิสก์
+ * - เพิ่มฟิลด์ "ขั้นต่ำ (min_stock)"
  ********************************************************************/
 
 session_start();
@@ -14,18 +16,64 @@ require_role(['super_admin', 'manager']);
 
 $pageTitle = "ฟอร์มอะไหล่ (มือ 1)";
 
-// ---------- helpers ----------
+/* ---------------- helpers ---------------- */
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
+function normalize_part_number($v){
+  $v = trim((string)($v ?? ''));
+  if ($v === '' || $v === '-') return null;
+  return $v;
+}
 
-define('UPLOAD_DIR', __DIR__ . '/../../uploads/parts/');
-if (!is_dir(UPLOAD_DIR)) @mkdir(UPLOAD_DIR, 0775, true);
+/* ---------------- Upload constants ---------------- */
+define('PUBLIC_ROOT', realpath(__DIR__ . '/../../'));     // root ฝั่ง public ของโปรเจกต์
+define('UPLOAD_DIR',  PUBLIC_ROOT . '/uploads/parts/');   // path เก็บไฟล์จริง
+define('UPLOAD_URL',  '/uploads/parts/');                 // URL สำหรับเบราว์เซอร์
+
+if (!is_dir(UPLOAD_DIR)) {
+  if (!@mkdir(UPLOAD_DIR, 0775, true) && !is_dir(UPLOAD_DIR)) {
+    throw new RuntimeException('สร้างโฟลเดอร์อัปโหลดไม่สำเร็จ: ' . UPLOAD_DIR);
+  }
+}
+if (!is_writable(UPLOAD_DIR)) {
+  @chmod(UPLOAD_DIR, 0775);
+}
 
 function safeUploadName(string $orig): string {
   $ext  = strtolower(pathinfo($orig, PATHINFO_EXTENSION));
+  if ($ext === '') $ext = 'jpg';
   $base = preg_replace('/[^a-z0-9\-_]+/i','-', pathinfo($orig, PATHINFO_FILENAME));
   if ($base==='') $base='part';
   return $base.'_'.date('Ymd_His').'_'.substr(bin2hex(random_bytes(6)),0,12).'.'.$ext;
 }
+
+function img_src($v){
+  $v = trim((string)$v);
+  if ($v==='') return '';
+  if (preg_match('~^https?://~i',$v) || $v[0]==='/') return $v;
+  return UPLOAD_URL . $v;
+}
+
+/* --- normalize ชื่อไฟล์โลคัลจากค่าที่ปน path/URL มั่ว ๆ --- */
+function normalize_local_image($v): string {
+  $v = trim((string)$v);
+  if ($v==='') return '';
+  // เคส 'filename.jpg'
+  if (!preg_match('~^https?://~i',$v) && $v[0]!=='/') return $v;
+  // เคส '/uploads/parts/filename.jpg'
+  if (strpos($v, '/uploads/parts/') === 0) {
+    return substr($v, strlen('/uploads/parts/'));
+  }
+  // เคส '../../uploads/parts/filename.jpg' หรือ path อื่นที่มี '/uploads/parts/'
+  $needle = '/uploads/parts/';
+  $pos = strrpos($v, $needle);
+  if ($pos !== false) {
+    return substr($v, $pos + strlen($needle));
+  }
+  return '';
+}
+function is_local_image($v): bool { return normalize_local_image($v) !== ''; }
+
+/* ---------------- genPartCode ---------------- */
 function genPartCode(PDO $pdo): string {
   for ($i=0;$i<5;$i++){
     $c = 'AUTO-'.date('Ymd-His').'-'.substr(bin2hex(random_bytes(3)),0,6);
@@ -36,13 +84,8 @@ function genPartCode(PDO $pdo): string {
   }
   return 'AUTO-'.date('Ymd-His').'-'.substr(bin2hex(random_bytes(6)),0,12);
 }
-function img_src($v){
-  $v = trim((string)$v);
-  if ($v==='') return '';
-  if (preg_match('~^https?://~i',$v) || $v[0]==='/') return $v;
-  return '../../uploads/parts/'.$v;
-}
-/** บันทึกเอกสาร ADJUST ให้ย่อความยาว remarks <= 255 */
+
+/* ---------------- บันทึกเอกสาร ADJUST ---------------- */
 function log_adjust(PDO $pdo, int $user_id, string $location, string $part_code, int $delta): int {
   $remarks = "manual adjust (@{$location})";
   if (strlen($remarks) > 255) $remarks = substr($remarks, 0, 255);
@@ -61,19 +104,20 @@ function log_adjust(PDO $pdo, int $user_id, string $location, string $part_code,
   return $doc_id;
 }
 
-// ---------- UI base ----------
+/* ---------------- UI base ---------------- */
 $categories = ['MacBook','iMac','iPhone','iPad','Apple Watch','Other'];
 
-// ---------- load (edit) ----------
+/* ---------------- load (edit) ---------------- */
 $pc = isset($_GET['part_code']) ? trim($_GET['part_code']) : '';
 
 $meta = [
   'part_code'     => $pc,
   'part_name'     => '',
-  'part_number'   => '',
+  'part_number'   => null,
   'device_models' => '',
   'category'      => 'MacBook',
   'image_url'     => null,
+  'min_stock'     => 0, // <<< เพิ่ม
 ];
 
 if ($pc!=='') {
@@ -86,9 +130,14 @@ if ($pc!=='') {
   ");
   $st->execute([$pc]);
   if ($row = $st->fetch(PDO::FETCH_ASSOC)) $meta = array_merge($meta, $row);
+
+  // โหลดค่า min_stock (ใช้ MAX กันกรณีแถวต่างโลเคชันมีค่าไม่เท่ากัน)
+  $st = $pdo->prepare("SELECT COALESCE(MAX(min_stock),0) FROM parts_new WHERE part_code=?");
+  $st->execute([$pc]);
+  $meta['min_stock'] = (int)$st->fetchColumn();
 }
 
-// โหลดยอดตามโลเคชัน
+/* ---------------- โหลดยอดตามโลเคชัน ---------------- */
 $locations=[];
 if ($meta['part_code']!=='') {
   $st=$pdo->prepare("
@@ -102,7 +151,7 @@ if ($meta['part_code']!=='') {
   $locations=$st->fetchAll(PDO::FETCH_ASSOC);
 }
 
-// datalist โลเคชัน
+/* ---------------- datalist โลเคชัน ---------------- */
 $knownLocs=[];
 foreach($locations as $r){
   $L = isset($r['location'])? trim((string)$r['location']) : '';
@@ -110,7 +159,7 @@ foreach($locations as $r){
 }
 if (!in_array('main',$knownLocs,true)) $knownLocs[]='main';
 
-// เดาโลเคชัน/ยอดเริ่ม
+/* ---------------- เดาโลเคชัน/ยอดเริ่ม ---------------- */
 $curLoc='main'; $curQty=0;
 if (!empty($locations)) {
   $curLoc = $locations[0]['location']; $curQty=(int)$locations[0]['qty'];
@@ -119,7 +168,7 @@ if (!empty($locations)) {
   }
 }
 
-// ---------- actions ----------
+/* ---------------- actions ---------------- */
 $errors=[];
 
 if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='delete') {
@@ -147,52 +196,83 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='save_all') 
   $old_code      = trim($_POST['existing_code'] ?? '');
   $part_code     = $old_code ?: '';
   $part_name     = trim($_POST['part_name'] ?? '');
-  $part_number   = trim($_POST['part_number'] ?? '');
+  $part_number   = normalize_part_number($_POST['part_number'] ?? null);
   $device_models = trim($_POST['device_models'] ?? '');
   $category      = trim($_POST['category'] ?? 'MacBook');
   $location      = trim($_POST['location'] ?? $curLoc);
   if ($location==='') $location='main';
   $desired_qty   = max(0, (int)($_POST['desired_qty'] ?? $curQty));
+  $min_stock     = max(0, (int)($_POST['min_stock'] ?? (int)$meta['min_stock'])); // <<< เพิ่ม
 
   $user_id = (int)($_SESSION['admin_id'] ?? ($_SESSION['user']['id'] ?? 0));
 
-  if ($part_name==='')   $errors[]="กรอกชื่ออะไหล่";
-  if ($part_number==='') $errors[]="กรอกเลขอะไหล่";
+  if ($part_name==='') $errors[]="กรอกชื่ออะไหล่";
   if (!in_array($category,$categories,true)) $category='Other';
   if (!$user_id) $errors[]="ไม่พบผู้ใช้งาน";
 
-  // ชื่อ = เลข (ไม่ให้)
-  if (mb_strtolower($part_name)===mb_strtolower($part_number)) {
+  if ($part_number !== null && mb_strtolower($part_name)===mb_strtolower($part_number)) {
     $errors[]="ชื่ออะไหล่กับเลขอะไหล่ห้ามเหมือนกัน";
   }
-  // เลขอะไหล่ห้ามซ้ำกับของคนอื่น
-  if ($part_number!=='') {
+  if ($part_number !== null) {
     if ($old_code!=='') {
-      $st=$pdo->prepare("SELECT part_code FROM parts_new WHERE LOWER(part_number)=LOWER(?) AND part_code<>? LIMIT 1");
+      $st=$pdo->prepare("SELECT part_code FROM parts_new WHERE part_number IS NOT NULL AND LOWER(part_number)=LOWER(?) AND part_code<>? LIMIT 1");
       $st->execute([$part_number,$old_code]);
     } else {
-      $st=$pdo->prepare("SELECT part_code FROM parts_new WHERE LOWER(part_number)=LOWER(?) LIMIT 1");
+      $st=$pdo->prepare("SELECT part_code FROM parts_new WHERE part_number IS NOT NULL AND LOWER(part_number)=LOWER(?) LIMIT 1");
       $st->execute([$part_number]);
     }
     if ($st->fetch(PDO::FETCH_ASSOC)) $errors[]="เลขอะไหล่นี้ถูกใช้แล้วโดยรายการอื่น";
   }
 
-  // อัปโหลดรูป (ออปชัน)
-  $image_url=null;
+  /* -------- อัปโหลด/ลบรูป -------- */
+  $old_image   = $meta['image_url'] ?? null;                 // ค่าเดิมใน DB
+  $want_remove = isset($_POST['remove_image']) && $_POST['remove_image']=='1';
+  $new_image   = null;
+
   if (!empty($_FILES['image']['name'])) {
-    $f=$_FILES['image'];
-    if ($f['error']===UPLOAD_ERR_OK){
-      $ext=strtolower(pathinfo($f['name'],PATHINFO_EXTENSION));
-      if (!in_array($ext,['jpg','jpeg','png','webp'],true)) $errors[]="ไฟล์รูปต้องเป็น jpg, jpeg, png หรือ webp";
-      elseif ($f['size']>5*1024*1024) $errors[]="ไฟล์รูปใหญ่เกิน 5MB";
-      else{
-        $new=safeUploadName($f['name']);
-        if (!move_uploaded_file($f['tmp_name'], UPLOAD_DIR.$new)) $errors[]="อัปโหลดรูปไม่สำเร็จ";
-        else $image_url=$new;
+    $f = $_FILES['image'];
+    $errmap = [
+      UPLOAD_ERR_INI_SIZE   => 'ขนาดไฟล์เกิน upload_max_filesize',
+      UPLOAD_ERR_FORM_SIZE  => 'ขนาดไฟล์เกิน MAX_FILE_SIZE',
+      UPLOAD_ERR_PARTIAL    => 'อัปโหลดไฟล์มาไม่ครบ',
+      UPLOAD_ERR_NO_FILE    => 'ไม่ได้เลือกไฟล์',
+      UPLOAD_ERR_NO_TMP_DIR => 'เซิร์ฟเวอร์ไม่มีโฟลเดอร์ temp',
+      UPLOAD_ERR_CANT_WRITE => 'เขียนไฟล์ลงดิสก์ไม่ได้',
+      UPLOAD_ERR_EXTENSION  => 'ส่วนขยาย PHP บล็อกไว้',
+    ];
+    if ($f['error'] !== UPLOAD_ERR_OK) {
+      if ($f['error'] !== UPLOAD_ERR_NO_FILE) {
+        $errors[] = 'อัปโหลดรูปผิดพลาด: ' . ($errmap[$f['error']] ?? ('code '.$f['error']));
       }
-    } elseif ($f['error']!==UPLOAD_ERR_NO_FILE) {
-      $errors[]="อัปโหลดรูปผิดพลาด (code {$f['error']})";
+    } else {
+      $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
+      $allowed = ['jpg','jpeg','png','webp'];
+      if (!in_array($ext, $allowed, true)) {
+        $errors[] = "ไฟล์รูปต้องเป็น jpg, jpeg, png หรือ webp";
+      } elseif ($f['size'] > 5*1024*1024) {
+        $errors[] = "ไฟล์รูปใหญ่เกิน 5MB";
+      } elseif (!is_uploaded_file($f['tmp_name'])) {
+        $errors[] = "ระบบไม่พบไฟล์อัปโหลด";
+      } else {
+        $new = safeUploadName($f['name']);
+        if (!@move_uploaded_file($f['tmp_name'], UPLOAD_DIR . $new)) {
+          $errors[] = "อัปโหลดรูปไม่สำเร็จ: เขียนไฟล์ลง " . UPLOAD_DIR . " ไม่ได้";
+        } else {
+          @chmod(UPLOAD_DIR . $new, 0644);
+          $new_image = $new;
+        }
+      }
     }
+  }
+
+  // โหมดรูปสำหรับอัปเดต
+  $imgMode  = 'keep';
+  $imgValue = null;
+  if ($new_image) {
+    $imgMode = 'set';
+    $imgValue = $new_image;
+  } elseif ($want_remove) {
+    $imgMode = 'clear';
   }
 
   if (!$errors){
@@ -201,25 +281,91 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='save_all') 
 
       if ($part_code==='') $part_code = genPartCode($pdo);
 
-      // ให้มีแถว (part_code, location) เสมอ
-      $pdo->prepare("
+      // อย่าดันรูปเก่ากลับเข้า INSERT ถ้าผู้ใช้กดลบ
+      if ($imgMode === 'set') {
+        $imgForInsert = $imgValue;
+      } elseif ($imgMode === 'clear') {
+        $imgForInsert = null;
+      } else { // keep
+        $imgForInsert = $old_image ?? null;
+      }
+
+      // สร้าง/อัปเดตแถวหลักของโลเคชันปัจจุบัน (เพิ่ม min_stock)
+      $stmt = $pdo->prepare("
         INSERT INTO parts_new
           (part_code, part_name, part_number, device_models, category, image_url, min_stock, location, quantity)
-        VALUES (?, ?, ?, ?, ?, ?, 0, ?, 0)
+        VALUES (:code, :name, :pnum, :models, :cat, :img, :min, :loc, 0)
         ON DUPLICATE KEY UPDATE
           part_name=VALUES(part_name),
           part_number=VALUES(part_number),
           device_models=VALUES(device_models),
           category=VALUES(category),
-          image_url=COALESCE(VALUES(image_url), image_url)
-      ")->execute([$part_code,$part_name,$part_number,$device_models,$category,$image_url,$location]);
+          image_url=COALESCE(VALUES(image_url), image_url),
+          min_stock=VALUES(min_stock)
+      ");
+      $stmt->bindValue(':code',   $part_code);
+      $stmt->bindValue(':name',   $part_name);
+      if ($part_number === null) $stmt->bindValue(':pnum', null, PDO::PARAM_NULL);
+      else                       $stmt->bindValue(':pnum', $part_number, PDO::PARAM_STR);
+      $stmt->bindValue(':models', $device_models);
+      $stmt->bindValue(':cat',    $category);
+      $stmt->bindValue(':img',    $imgForInsert);
+      $stmt->bindValue(':min',    $min_stock, PDO::PARAM_INT);
+      $stmt->bindValue(':loc',    $location);
+      $stmt->execute();
 
-      // sync เมตาทุกโลเคชันของ part_code
-      $pdo->prepare("
-        UPDATE parts_new
-        SET part_name=?, part_number=?, device_models=?, category=?, image_url=COALESCE(?, image_url)
-        WHERE part_code=?
-      ")->execute([$part_name,$part_number,$device_models,$category,$image_url,$part_code]);
+      // อัปเดตเมตาทุกโลเคชันของ part_code โดยพิจารณาโหมดรูป (เพิ่ม min_stock)
+      if ($imgMode === 'set') {
+        $stmt = $pdo->prepare("
+          UPDATE parts_new
+          SET part_name=:name,
+              part_number=:pnum,
+              device_models=:models,
+              category=:cat,
+              image_url=:img,
+              min_stock=:min
+          WHERE part_code=:code
+        ");
+        $stmt->bindValue(':img', $imgValue);
+      } elseif ($imgMode === 'clear') {
+        $stmt = $pdo->prepare("
+          UPDATE parts_new
+          SET part_name=:name,
+              part_number=:pnum,
+              device_models=:models,
+              category=:cat,
+              image_url=NULL,
+              min_stock=:min
+          WHERE part_code=:code
+        ");
+      } else { // keep
+        $stmt = $pdo->prepare("
+          UPDATE parts_new
+          SET part_name=:name,
+              part_number=:pnum,
+              device_models=:models,
+              category=:cat,
+              min_stock=:min
+          WHERE part_code=:code
+        ");
+      }
+      $stmt->bindValue(':name',   $part_name);
+      if ($part_number === null) $stmt->bindValue(':pnum', null, PDO::PARAM_NULL);
+      else                       $stmt->bindValue(':pnum', $part_number, PDO::PARAM_STR);
+      $stmt->bindValue(':models', $device_models);
+      $stmt->bindValue(':cat',    $category);
+      $stmt->bindValue(':min',    $min_stock, PDO::PARAM_INT);
+      $stmt->bindValue(':code',   $part_code);
+      $stmt->execute();
+
+      // ลบไฟล์เก่าในดิสก์ถ้าจำเป็น
+      if (($imgMode==='set' || $imgMode==='clear') && $old_image) {
+        $oldLocal = normalize_local_image($old_image);
+        $newLocal = normalize_local_image($new_image ?? '');
+        if ($oldLocal && $oldLocal !== $newLocal) {
+          @unlink(UPLOAD_DIR . $oldLocal);
+        }
+      }
 
       // อ่านยอดปัจจุบันของโลเคชันนี้
       $st=$pdo->prepare("SELECT COALESCE(SUM(quantity),0) FROM parts_new WHERE part_code=? AND location=? FOR UPDATE");
@@ -228,9 +374,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='save_all') 
       $delta = (int)$desired_qty - $currentQty;
 
       if ($delta!==0){
-        // เอกสาร ADJUST + line + ปรับยอดจริง
         log_adjust($pdo, $user_id, $location, $part_code, $delta);
-
         $pdo->prepare("UPDATE parts_new SET quantity=quantity+? WHERE part_code=? AND location=?")
             ->execute([$delta,$part_code,$location]);
       }
@@ -250,11 +394,16 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='save_all') 
   $meta['part_number']=$part_number;
   $meta['device_models']=$device_models;
   $meta['category']=$category;
-  if ($image_url) $meta['image_url']=$image_url;
+  $meta['min_stock']=$min_stock; // <<< เพิ่ม
+  if ($new_image) {
+    $meta['image_url']=$new_image;
+  } elseif ($want_remove) {
+    $meta['image_url']=null;
+  }
   $curLoc=$location; $curQty=$desired_qty;
 }
 
-// ---------- template ----------
+/* ---------------- template ---------------- */
 include __DIR__ . '/../../templates/header_admin.php';
 include __DIR__ . '/../../templates/sidebar_admin.php';
 ?>
@@ -282,7 +431,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     </div>
     <div class="part-summary__body">
       <strong class="part-summary__title"><?= h($meta['part_name'] ?: $meta['part_code']) ?></strong>
-      <div class="muted small">เลข: <?= h($meta['part_number']) ?> | หมวด: <?= h($meta['category']) ?></div>
+      <div class="muted small">เลข: <?= h($meta['part_number'] ?? '—') ?> | หมวด: <?= h($meta['category']) ?></div>
       <div class="muted small">รุ่น: <?= h($meta['device_models']) ?></div>
       <?php
         $locRows=[];
@@ -307,73 +456,39 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     <input type="hidden" name="action" id="actionField" value="save_all">
     <input type="hidden" name="existing_code" value="<?= h($meta['part_code']) ?>">
     <input type="hidden" name="del_code" id="del_codeField" value="">
+    <input type="hidden" name="remove_image" id="remove_image" value="0"><!-- จะถูกตั้งเป็น 1 เมื่อกดลบ -->
 
     <div class="form-grid">
       <!-- รูป -->
       <div class="form-item">
         <label class="form-label">รูป</label>
         <div class="image-upload-ui" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-          <div id="imgPreviewWrap" style="position:relative;width:100px;height:100px;border:1px dashed #cbd5e1;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fafafa;cursor:pointer;" title="คลิกหรือลากไฟล์มาวาง">
+          <div id="imgPreviewWrap" style="position:relative;width:120px;height:120px;border:1px dashed #cbd5e1;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fafafa;cursor:pointer;" title="คลิกหรือลากไฟล์มาวาง">
             <?php if (!empty($meta['image_url'])): ?>
               <img id="imgPreview" src="<?= h(img_src($meta['image_url'])) ?>" alt="preview" style="width:100%;height:100%;object-fit:cover;">
-              <button type="button" id="imageRemoveBtn" style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:#ef4444;color:#fff;border:0;cursor:pointer;font-weight:700;line-height:22px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.15);">×</button>
+              <!-- ปุ่มลบแบบเดิม 22px วงกลมแดง -->
+              <button type="button" id="imageRemoveBtn"
+                style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;
+                       background:#ef4444;color:#fff;border:0;cursor:pointer;font-weight:700;
+                       line-height:22px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.15);"
+                title="ลบรูป">×</button>
             <?php else: ?>
               <span id="imgPreviewText" class="muted small">ลากรูปมาวาง</span>
-              <button type="button" id="imageRemoveBtn" style="display:none;position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:#ef4444;color:#fff;border:0;cursor:pointer;font-weight:700;line-height:22px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.15);">×</button>
+              <button type="button" id="imageRemoveBtn"
+                style="display:none;position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;
+                       background:#ef4444;color:#fff;border:0;cursor:pointer;font-weight:700;
+                       line-height:22px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.15);"
+                title="ลบรูป">×</button>
             <?php endif; ?>
           </div>
           <div style="display:flex;flex-direction:column;gap:8px;min-width:220px;">
             <label for="image" class="btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:8px;">เลือกรูปจากเครื่อง</label>
             <input type="file" name="image" id="image" accept=".jpg,.jpeg,.png,.webp" style="display:none">
             <div class="muted small">รองรับ jpg, jpeg, png, webp ≤ 5MB</div>
+            <div class="muted small">กดปุ่ม × เพื่อลบรูปปัจจุบัน</div>
           </div>
         </div>
       </div>
-
-      <script>
-      (function(){
-        var input = document.getElementById('image');
-        var wrap  = document.getElementById('imgPreviewWrap');
-        var remove= document.getElementById('imageRemoveBtn');
-        var img   = document.getElementById('imgPreview');
-
-        function showPreview(file){
-          if(!file) return;
-          if(!/image\/(png|jpe?g|webp)/i.test(file.type)){ alert('ไฟล์ไม่รองรับ'); return; }
-          var reader=new FileReader();
-          reader.onload=function(e){
-            if(!img){
-              img=document.createElement('img');
-              img.id='imgPreview'; img.alt='preview';
-              img.style.cssText='width:100%;height:100%;object-fit:cover;';
-            }
-            wrap.innerHTML=''; wrap.appendChild(img); img.src=e.target.result;
-            if(!remove){
-              remove=document.createElement('button'); remove.id='imageRemoveBtn'; remove.type='button';
-              remove.textContent='×';
-              remove.style.cssText='position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:#ef4444;color:#fff;border:0;cursor:pointer;font-weight:700;line-height:22px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.15);';
-              remove.addEventListener('click', clearImage);
-            }
-            wrap.appendChild(remove); remove.style.display='';
-          };
-          reader.readAsDataURL(file);
-        }
-        function clearImage(e){
-          if(e) e.stopPropagation();
-          if(input) input.value='';
-          wrap.innerHTML='<span id="imgPreviewText" class="muted small">ลากรูปมาวาง</span>';
-          if(remove){ wrap.appendChild(remove); remove.style.display='none'; }
-          img=null;
-        }
-        wrap.addEventListener('click', function(){ if(input) input.click(); });
-        function setBorder(c){ wrap.style.borderColor=c; }
-        wrap.addEventListener('dragover', function(e){ e.preventDefault(); setBorder('#3b82f6'); });
-        wrap.addEventListener('dragleave', function(){ setBorder('#cbd5e1'); });
-        wrap.addEventListener('drop', function(e){ e.preventDefault(); setBorder('#cbd5e1'); var f=e.dataTransfer.files && e.dataTransfer.files[0]; if(f){ input.files=e.dataTransfer.files; showPreview(f); }});
-        if(input) input.addEventListener('change', function(){ var f=input.files && input.files[0]; if(f) showPreview(f); });
-        if(remove) remove.addEventListener('click', clearImage);
-      })();
-      </script>
 
       <div class="form-item">
         <label class="form-label" for="part_name">ชื่ออะไหล่ *</label>
@@ -381,8 +496,8 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
       </div>
 
       <div class="form-item">
-        <label class="form-label" for="part_number">เลขอะไหล่ *</label>
-        <input id="part_number" name="part_number" class="input filter-input" required value="<?= h($meta['part_number']) ?>" placeholder="เช่น A1819 หรือ 661-xxxx">
+        <label class="form-label" for="part_number">เลขอะไหล่ (ถ้ามี)</label>
+        <input id="part_number" name="part_number" class="input filter-input" value="<?= h($meta['part_number']) ?>" placeholder="เช่น A1819 หรือ 661-xxxx (เว้นว่างหรือใส่ - ได้)">
       </div>
 
       <div class="form-item">
@@ -397,6 +512,12 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
             <option value="<?= h($c) ?>" <?= $meta['category']===$c ? 'selected' : '' ?>><?= h($c) ?></option>
           <?php endforeach; ?>
         </select>
+      </div>
+
+      <!-- เพิ่มช่องขั้นต่ำ -->
+      <div class="form-item">
+        <label class="form-label" for="min_stock">ขั้นต่ำ (เตือน)</label>
+        <input type="number" id="min_stock" name="min_stock" class="input filter-input" min="0" value="<?= (int)$meta['min_stock'] ?>" placeholder="0" style="max-width:160px;">
       </div>
 
       <div class="form-item">
@@ -461,13 +582,14 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     f.submit(); return false;
   }
 
-  // ป้องกันชื่อ=เลข
+  // ป้องกันชื่อ=เลข (เฉพาะเวลามีเลขจริง)
   (function(){
     var nameEl=document.getElementById('part_name');
     var numEl=document.getElementById('part_number');
     if(!nameEl||!numEl) return;
+    function norm(v){ v=(v||'').trim(); return (v===''||v==='-')? '' : v.toLowerCase(); }
     function validate(){
-      var same=(nameEl.value.trim().toLowerCase()===numEl.value.trim().toLowerCase());
+      var same=(nameEl.value.trim().toLowerCase()===norm(numEl.value));
       if(same){ var msg='ชื่ออะไหล่กับเลขอะไหล่ห้ามเหมือนกัน'; nameEl.setCustomValidity(msg); numEl.setCustomValidity(msg); }
       else { nameEl.setCustomValidity(''); numEl.setCustomValidity(''); }
     }
@@ -475,4 +597,58 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     numEl.addEventListener('input', validate);
     validate();
   })();
+
+  // Image upload preview, toggle ลบรูป (remove_image=1) และเช็กไฟล์เบื้องต้น
+  (function(){
+    var box = document.getElementById('imgPreviewWrap');
+    var file = document.getElementById('image');
+    var removeBtn = document.getElementById('imageRemoveBtn');
+    var txt = document.getElementById('imgPreviewText');
+    var rmField = document.getElementById('remove_image');
+
+    if (!box || !file || !rmField) return;
+
+    // คลิกกรอบ = เปิดเลือกไฟล์
+    box.addEventListener('click', function(e){
+      if (e.target && e.target.id === 'imageRemoveBtn') return;
+      file.click();
+    });
+
+    // เลือกไฟล์ใหม่ = ยกเลิกสถานะลบ
+    file.addEventListener('change', function(){
+      if (!file.files || !file.files[0]) return;
+      rmField.value = '0';
+      var f = file.files[0];
+      var ok = /\.(jpe?g|png|webp)$/i.test(f.name);
+      if (!ok) { alert('รองรับเฉพาะ JPG/PNG/WebP'); file.value=''; return; }
+      if (f.size > 5*1024*1024) { alert('ไฟล์ใหญ่เกิน 5MB'); file.value=''; return; }
+      var url = URL.createObjectURL(f);
+      var imgEl = document.getElementById('imgPreview');
+      if (!imgEl){
+        imgEl = document.createElement('img');
+        imgEl.id = 'imgPreview';
+        imgEl.style.width='100%';
+        imgEl.style.height='100%';
+        imgEl.style.objectFit='cover';
+        box.appendChild(imgEl);
+      }
+      imgEl.src = url;
+      if (txt) txt.style.display='none';
+      if (removeBtn) removeBtn.style.display='block';
+    });
+
+    // กดปุ่มลบรูป = ตั้ง remove_image=1 และเคลียร์พรีวิว/ไฟล์ที่เลือก
+    if (removeBtn){
+      removeBtn.addEventListener('click', function(e){
+        e.stopPropagation();
+        rmField.value = '1';
+        var imgEl = document.getElementById('imgPreview');
+        if (imgEl) imgEl.remove();
+        if (txt) txt.style.display='';
+        file.value=''; // ถ้าเคยเลือกไฟล์ใหม่ ให้ยกเลิก
+        removeBtn.style.display='none';
+      });
+    }
+  })();
 </script>
+ 

@@ -28,7 +28,9 @@
           <a href="/en/products.php"><span class="material-symbols-rounded">storefront</span>Shop</a>
           <a href="/en/articles.php"><span class="material-symbols-rounded">description</span>Articles</a>
           <a href="/en/buyback.php"><span class="material-symbols-rounded">laptop_mac</span>Sell Your Device</a>
-
+            <a href="https://cmnsfixmac.com/en/warranty.php">
+              <span class="material-symbols-rounded">verified</span> warranty
+            </a>
 
           <div class="menu-dropdown">
             <a href="#" class="test-device-btn" role="button" onclick="return false;"> <span
@@ -106,6 +108,11 @@
       <a href="https://cmnsfixmac.com/en/products.php"><span class="material-symbols-rounded">storefront</span> Shop</a>
       <a href="https://cmnsfixmac.com/en/articles.php"><span class="material-symbols-rounded">description</span>Articles</a>
       <a href="https://cmnsfixmac.com/en/buyback.php"><span class="material-symbols-rounded">laptop_mac</span>Sell YourDevice</a>
+
+      <a href="https://cmnsfixmac.com/en/warranty.php">
+        <span class="material-symbols-rounded">verified</span> warranty
+      </a>
+
 
       <a href="tel:0841511684"><span class="material-symbols-rounded">call</span> Call Now</a>
     </nav>

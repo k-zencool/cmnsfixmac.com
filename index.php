@@ -54,7 +54,7 @@ $videos = $stmt->fetchAll();
   <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png" />
   <link rel="stylesheet" href="/assets/css/footer-style.css">
 
-  
+  <link rel="manifest" href="/manifest.json">
 
   <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
@@ -534,6 +534,24 @@ $videos = $stmt->fetchAll();
 
   <script src="assets/js/lazy-youtube.js"></script>
   <script src="assets/js/preload-images.js"></script>
+
+
+
+
+
+<script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js') 
+          .then(registration => {
+            console.log('PWA ServiceWorker Registered: ', registration);
+          })
+          .catch(error => {
+            console.log('PWA ServiceWorker Registration Failed: ', error);
+          });
+      });
+    }
+  </script>
 
 </body>
 

@@ -23,47 +23,65 @@
       <div class="menu-desktop-only">
 
         <nav class="menu">
-          <a href="https://cmnsfixmac.com" class="highlight-home"> <span class="material-symbols-rounded">home</span> หน้าแรก</a>
+          <nav class="menu">
+            <a href="https://cmnsfixmac.com" class="highlight-home">
+              <span class="material-symbols-rounded">home</span> หน้าแรก
+            </a>
 
-          <a href="https://cmnsfixmac.com/works.php"><span class="material-symbols-rounded">construction</span>ผลงาน</a>
-          <a href="https://cmnsfixmac.com/products.php"><span class="material-symbols-rounded">storefront</span>ร้านค้า</a>
-          <a href="https://cmnsfixmac.com/articles.php"><span class="material-symbols-rounded">description</span>บทความ</a>
-          <a href="https://cmnsfixmac.com/buyback.php"><span class="material-symbols-rounded">laptop_mac</span>รับซื้อเครื่อง</a>
+            <a href="https://cmnsfixmac.com/works.php">
+              <span class="material-symbols-rounded">construction</span> ผลงาน
+            </a>
 
+            <a href="https://cmnsfixmac.com/products.php">
+              <span class="material-symbols-rounded">storefront</span> ร้านค้า
+            </a>
 
-          <div class="menu-dropdown">
-            <a href="#" class="test-device-btn" role="button" onclick="return false;"> <span
-                class="material-symbols-rounded">smart_toy</span>ทดสอบอุปกรณ์
+            <a href="https://cmnsfixmac.com/articles.php">
+              <span class="material-symbols-rounded">description</span> บทความ
+            </a>
+
+            <a href="https://cmnsfixmac.com/buyback.php">
+              <span class="material-symbols-rounded">laptop_mac</span> รับซื้อเครื่อง
+            </a>
+
+            <!-- ✅ เพิ่มเมนูตรวจสอบประกัน -->
+            <a href="https://cmnsfixmac.com/warranty.php">
+              <span class="material-symbols-rounded">verified</span> ตรวจสอบประกัน
+            </a>
+
+            <div class="menu-dropdown">
+              <a href="#" class="test-device-btn" role="button" onclick="return false;"> <span
+                  class="material-symbols-rounded">smart_toy</span>ทดสอบอุปกรณ์
                 <span class="material-symbols-rounded arrow">expand_more</span>
-            </a>
+              </a>
 
-            <div class="dropdown-menu">
-              <a href="/tester/monitor-tester/"><span class="material-symbols-rounded">monitor</span>ทดสอบหน้าจอ</a>
-              <a href="/tester/keyboard-tester/"><span class=  "material-symbols-rounded" >keyboard</span>ทดสอบคีย์บอร์ด</a>
-              <a href="/tester/microphone-tester/"><span class="material-symbols-rounded">mic</span>ทดสอบไมโครโฟน</a>
-              <a href="/tester/camera-tester/"><span class="material-symbols-rounded">photo_camera</span>ทดสอบกล้อง</a>
-              <a href="/en/tester/sounds-tester"><span class="material-symbols-rounded">volume_up</span>ทดสอบเสียงลำโพง</a>
+              <div class="dropdown-menu">
+                <a href="/tester/monitor-tester/"><span class="material-symbols-rounded">monitor</span>ทดสอบหน้าจอ</a>
+                <a href="/tester/keyboard-tester/"><span class="material-symbols-rounded">keyboard</span>ทดสอบคีย์บอร์ด</a>
+                <a href="/tester/microphone-tester/"><span class="material-symbols-rounded">mic</span>ทดสอบไมโครโฟน</a>
+                <a href="/tester/camera-tester/"><span class="material-symbols-rounded">photo_camera</span>ทดสอบกล้อง</a>
+                <a href="/tester/sounds-tester"><span class="material-symbols-rounded">volume_up</span>ทดสอบเสียงลำโพง</a>
 
+              </div>
             </div>
-          </div>
 
-          <div class="nav-call-container">
-            <a href="#" class="nav-call" role="button" onclick="copyPhone(); return false;"> <span
-                class="material-symbols-rounded icon-phone">call</span> โทรเลย
+            <div class="nav-call-container">
+              <a href="#" class="nav-call" role="button" onclick="copyPhone(); return false;"> <span
+                  class="material-symbols-rounded icon-phone">call</span> โทรเลย
+              </a>
+              <span class="phone-hover" id="phone-number">084-151-1684</span>
+            </div>
+
+            <?php
+            // สร้าง URL ของหน้าภาษาอังกฤษที่คู่กัน
+            $en_version_url = 'https://cmnsfixmac.com/en' . $_SERVER['REQUEST_URI'];
+            // จัดการหน้า index.php ให้สวยงาม
+            $en_version_url = str_replace('/index.php', '/', $en_version_url);
+            ?>
+            <a href="<?= htmlspecialchars($en_version_url) ?>" class="language-switch-btn" title="Switch to English">
+              <span class="material-symbols-rounded">language</span> EN
             </a>
-            <span class="phone-hover" id="phone-number">084-151-1684</span>
-          </div>
-
-          <?php
-          // สร้าง URL ของหน้าภาษาอังกฤษที่คู่กัน
-          $en_version_url = 'https://cmnsfixmac.com/en' . $_SERVER['REQUEST_URI'];
-          // จัดการหน้า index.php ให้สวยงาม
-          $en_version_url = str_replace('/index.php', '/', $en_version_url);
-          ?>
-          <a href="<?= htmlspecialchars($en_version_url) ?>" class="language-switch-btn" title="Switch to English">
-            <span class="material-symbols-rounded">language</span> EN
-          </a>
-        </nav>
+          </nav>
 
 
       </div>
@@ -103,10 +121,16 @@
       <a href="https://cmnsfixmac.com/works.php"><span class="material-symbols-rounded">construction</span> ผลงาน</a>
       <a href="https://cmnsfixmac.com/products.php"><span class="material-symbols-rounded">storefront</span> ร้านค้า</a>
       <a href="https://cmnsfixmac.com/articles.php"><span class="material-symbols-rounded">description</span> บทความ</a>
-      <a href="https://cmnsfixmac.com/buyback.php"><span class="material-symbols-rounded">laptop_mac</span>รับซื้อเครื่อง</a>
+      <a href="https://cmnsfixmac.com/buyback.php"><span class="material-symbols-rounded">laptop_mac</span> รับซื้อเครื่อง</a>
+
+      <!-- ✅ เพิ่มเมนูตรวจสอบประกัน -->
+      <a href="https://cmnsfixmac.com/warranty.php">
+        <span class="material-symbols-rounded">verified</span> ตรวจสอบประกัน
+      </a>
 
       <a href="tel:0841511684"><span class="material-symbols-rounded">call</span> โทรเลย</a>
     </nav>
+
 
 
     <div class="sidebar-dropdown">
@@ -166,4 +190,5 @@
   </script>
 
 </body>
+
 </html>

@@ -5,7 +5,7 @@
  * - อัปโหลดรูปแบบลาก-วาง + ปุ่มลบรูป
  * - ลบด้วย POST (กันลบถ้ามี parts_used ผูกอยู่)
  * - เก็บประวัติลง parts_docs (doc_type='DONOR', ref_no='DONOR:<id>')
- *   ใช้เฉพาะคอลัมน์เดิม: doc_type, ref_no, remarks, user_id, created_at
+ * - เพิ่มคอลัมน์ที่เก็บ: location_index (VARCHAR 60)
  ********************************************************************/
 
 // ========== SETUP ==========
@@ -27,9 +27,7 @@ function val($arr,$k,$d=''){ return isset($arr[$k]) ? trim((string)$arr[$k]) : $
 // ย่อสตริงให้ไม่เกินความยาว remarks (255)
 function short_remarks(string $s, int $max=255): string {
   $s = trim($s);
-  if (mb_strlen($s) > $max) {
-    $s = mb_substr($s, 0, $max - 1) . '…';
-  }
+  if (mb_strlen($s) > $max) $s = mb_substr($s, 0, $max - 1) . '…';
   return $s;
 }
 
@@ -63,11 +61,12 @@ function donor_doc(PDO $pdo, string $action, int $donor_id, array $item_or_diff,
   try {
     $action = strtoupper($action);
 
-    // สร้างข้อความสั้นๆ ให้พอดี remarks (กันคอลัมน์ 255)
     if ($action === 'CREATE') {
       $txt = "เพิ่มเครื่องซาก: ".($item_or_diff['device_models'] ?? '');
+      if (!empty($item_or_diff['location_index'])) {
+        $txt .= " [ที่เก็บ: ".$item_or_diff['location_index']."]";
+      }
     } elseif ($action === 'UPDATE') {
-      // ระบุคีย์ที่แก้ (อ่านง่ายและสั้น)
       $changed = array_keys($item_or_diff['changed'] ?? []);
       $txt = "แก้ไขเครื่องซาก (#{$donor_id}) ".($changed ? 'fields: '.implode(',', $changed) : '');
     } elseif ($action === 'DELETE') {
@@ -86,7 +85,6 @@ function donor_doc(PDO $pdo, string $action, int $donor_id, array $item_or_diff,
       ':uid'     => $user_id,
     ]);
   } catch (Throwable $e) {
-    // ไม่ให้ flow หลักพัง
     error_log("[donor_doc] ".$e->getMessage());
   }
 }
@@ -100,15 +98,16 @@ $statusOptions = ['in_stock','reserved','stripped','sold'];
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 
 $item = [
-  'device_name'   => 'MacBook',
-  'device_models' => '',
-  'category'      => '',
-  'serial_no'     => '',
-  'status'        => 'in_stock',
-  'purchase_cost' => null,
-  'reserved_ref'  => '',
-  'image_url'     => null,
-  'remarks'       => ''
+  'device_name'    => 'MacBook',
+  'device_models'  => '',
+  'category'       => '',
+  'serial_no'      => '',
+  'status'         => 'in_stock',
+  'purchase_cost'  => null,
+  'reserved_ref'   => '',
+  'image_url'      => null,
+  'remarks'        => '',
+  'location_index' => ''
 ];
 
 $beforeRow = null;
@@ -139,9 +138,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
       if ((int)$chk->fetchColumn() > 0) {
         $errors[] = "ลบไม่ได้: มีอะไหล่มือ 2 ผูกกับเครื่องซากนี้";
       } else {
-        // log ก่อนลบ
         donor_doc($pdo, 'DELETE', $id, ['before'=>$beforeRow], $user_id);
-
         $pdo->prepare("DELETE FROM parts_donors WHERE id=? LIMIT 1")->execute([$id]);
         header("Location: index.php?tab=donor&msg=".urlencode("ลบเครื่องซากเรียบร้อย"));
         exit;
@@ -153,16 +150,17 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
 
   // บันทึก (สร้าง/แก้ไข)
   if ($action==='save_donor') {
-    $form_id               = (int)($_POST['id'] ?? 0);
-    $item['device_name']   = val($_POST,'device_name','MacBook');
-    $item['device_models'] = val($_POST,'device_models');
-    $item['category']      = val($_POST,'category');
-    $item['serial_no']     = val($_POST,'serial_no');
-    $item['status']        = val($_POST,'status','in_stock');
-    $item['purchase_cost'] = ($_POST['purchase_cost'] ?? '') === '' ? null : (float)$_POST['purchase_cost'];
-    $item['reserved_ref']  = val($_POST,'reserved_ref');
-    $item['remarks']       = val($_POST,'remarks');
-    $remove_image_flag     = (int)($_POST['remove_image'] ?? 0);
+    $form_id                = (int)($_POST['id'] ?? 0);
+    $item['device_name']    = val($_POST,'device_name','MacBook');
+    $item['device_models']  = val($_POST,'device_models');
+    $item['category']       = val($_POST,'category');
+    $item['serial_no']      = val($_POST,'serial_no');
+    $item['status']         = val($_POST,'status','in_stock');
+    $item['purchase_cost']  = ($_POST['purchase_cost'] ?? '') === '' ? null : (float)$_POST['purchase_cost'];
+    $item['reserved_ref']   = val($_POST,'reserved_ref');
+    $item['remarks']        = val($_POST,'remarks');
+    $item['location_index'] = mb_substr(val($_POST,'location_index'), 0, 60);
+    $remove_image_flag      = (int)($_POST['remove_image'] ?? 0);
 
     // validate
     if ($item['device_models']==='') $errors[] = "กรุณากรอกชื่ออะไหล่/รุ่น";
@@ -206,36 +204,36 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
           if ($newImage !== null) {
             $sql = "UPDATE parts_donors
                        SET device_name=?, device_models=?, category=?, serial_no=?, status=?,
-                           purchase_cost=?, reserved_ref=?, image_url=?, remarks=?, updated_at=NOW()
+                           purchase_cost=?, reserved_ref=?, image_url=?, remarks=?, location_index=?, updated_at=NOW()
                      WHERE id=?";
             $params = [
               $item['device_name'], $item['device_models'], $item['category'], $item['serial_no'], $item['status'],
-              $item['purchase_cost'], $item['reserved_ref'], $newImage, $item['remarks'], $form_id
+              $item['purchase_cost'], $item['reserved_ref'], $newImage, $item['remarks'], $item['location_index'], $form_id
             ];
           } elseif ($remove_image_flag===1) {
             $sql = "UPDATE parts_donors
                        SET device_name=?, device_models=?, category=?, serial_no=?, status=?,
-                           purchase_cost=?, reserved_ref=?, image_url=NULL, remarks=?, updated_at=NOW()
+                           purchase_cost=?, reserved_ref=?, image_url=NULL, remarks=?, location_index=?, updated_at=NOW()
                      WHERE id=?";
             $params = [
               $item['device_name'], $item['device_models'], $item['category'], $item['serial_no'], $item['status'],
-              $item['purchase_cost'], $item['reserved_ref'], $item['remarks'], $form_id
+              $item['purchase_cost'], $item['reserved_ref'], $item['remarks'], $item['location_index'], $form_id
             ];
           } else {
             $sql = "UPDATE parts_donors
                        SET device_name=?, device_models=?, category=?, serial_no=?, status=?,
-                           purchase_cost=?, reserved_ref=?, remarks=?, updated_at=NOW()
+                           purchase_cost=?, reserved_ref=?, remarks=?, location_index=?, updated_at=NOW()
                      WHERE id=?";
             $params = [
               $item['device_name'], $item['device_models'], $item['category'], $item['serial_no'], $item['status'],
-              $item['purchase_cost'], $item['reserved_ref'], $item['remarks'], $form_id
+              $item['purchase_cost'], $item['reserved_ref'], $item['remarks'], $item['location_index'], $form_id
             ];
           }
           $pdo->prepare($sql)->execute($params);
 
           // หา field ที่เปลี่ยนเพื่อลง log แบบสั้น
           $changed = [];
-          foreach (['device_name','device_models','category','serial_no','status','purchase_cost','reserved_ref','image_url','remarks'] as $k) {
+          foreach (['device_name','device_models','category','serial_no','status','purchase_cost','reserved_ref','image_url','remarks','location_index'] as $k) {
             $afterVal = ($k==='image_url')
               ? ($newImage !== null ? $newImage : (($remove_image_flag===1) ? null : ($beforeRow[$k] ?? null)))
               : $item[$k];
@@ -250,16 +248,18 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
           // ============== INSERT ==============
           $sql = "INSERT INTO parts_donors
                     (device_name, device_models, category, serial_no, status,
-                     purchase_cost, reserved_ref, image_url, remarks, created_at, updated_at)
-                  VALUES (?,?,?,?,?,?, ?, ?, ?, NOW(), NOW())";
+                     purchase_cost, reserved_ref, image_url, remarks, location_index,
+                     created_at, updated_at)
+                  VALUES (?,?,?,?,?, ?,?,?,?, ?, NOW(), NOW())";
           $pdo->prepare($sql)->execute([
             $item['device_name'], $item['device_models'], $item['category'], $item['serial_no'], $item['status'],
-            $item['purchase_cost'], $item['reserved_ref'], $newImage, $item['remarks']
+            $item['purchase_cost'], $item['reserved_ref'], $newImage, $item['remarks'], $item['location_index']
           ]);
           $new_id = (int)$pdo->lastInsertId();
 
           donor_doc($pdo, 'CREATE', $new_id, [
-            'device_models' => $item['device_models'],
+            'device_models'  => $item['device_models'],
+            'location_index' => $item['location_index'],
           ], $user_id);
 
           header("Location: index.php?tab=donor&msg=".urlencode("เพิ่มเครื่องซากแล้ว"));
@@ -361,6 +361,13 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
       <div class="form-item">
         <label class="form-label" for="reserved_ref">อ้างอิง/ผู้ขาย</label>
         <input id="reserved_ref" name="reserved_ref" class="input filter-input" value="<?= h($item['reserved_ref']) ?>" placeholder="PO/ชื่อร้าน/เลขบิล">
+      </div>
+
+      <div class="form-item">
+        <label class="form-label" for="location_index">ที่เก็บ</label>
+        <input id="location_index" name="location_index" class="input filter-input" maxlength="60"
+               value="<?= h($item['location_index']) ?>" placeholder="เช่น ชั้นB-กล่อง3 หรือ C1-R2">
+        <small class="form-hint">ไม่เกิน 60 ตัวอักษร</small>
       </div>
 
       <div class="form-item">

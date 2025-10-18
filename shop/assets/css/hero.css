@@ -1,0 +1,181 @@
+/* === HERO 70/30 – FULL BANNER + RAINBOW GLOW (UNDER CARD) === */
+:root{
+  --nav-h: 72px;
+  --accent:#fc7404;
+  --gap: clamp(16px, 2vw, 28px);
+  --radius:18px;
+  --hero-h: clamp(420px, 50vw, 640px);
+  --gutter: clamp(24px, 5vw, 80px);
+  --content-max: 1600px;
+
+  /* 👇 ปรับค่ากลาวได้ที่นี่ */
+  --glow-w: min(62%, 560px);   /* ความกว้างไฮไลต์ */
+  --glow-h: 44px;              /* ความสูงไฮไลต์ */
+  --glow-blur: 28px;           /* ความเบลอ */
+  --glow-opacity: .9;          /* ความเข้ม */
+  --glow-offset: -14px;        /* ระยะห่างจากขอบล่าง (+ ขยับลง) */
+  --glow-speed: 6s;            /* ความเร็ววิ่ง */
+}
+
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+body{ overflow-x:hidden; }
+
+.hero-split{
+  margin-top: calc(var(--nav-h) + 16px);
+  width: 100%;
+  max-width: var(--content-max);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+  display: grid;
+  grid-template-columns: 70% 30%;
+  gap: var(--gap);
+}
+
+/* ===== LEFT: SLIDE ===== */
+.hero-left{
+  position: relative;
+  height: var(--hero-h);
+  overflow: hidden;
+  border-radius: var(--radius);
+  box-shadow: 0 16px 40px rgba(0,0,0,.15);
+  background:#000;
+}
+
+/* 🌈 RAINBOW GLOW UNDER CARD (hover only) */
+.hero-left::before,
+.hero-right::before{
+  content:"";
+  position:absolute;
+  left:50%;
+  bottom: var(--glow-offset);
+  transform: translateX(-50%);
+  width: var(--glow-w);
+  height: var(--glow-h);
+  border-radius: 100px;
+  background: linear-gradient(90deg,
+    #8a2be2, #6c5cff, #00d4ff, #12ff6d, #ffe600, #ff8a00, #ff004c, #ff00e6, #8a2be2);
+  background-size: 250% 100%;
+  filter: blur(var(--glow-blur)) saturate(140%);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .35s ease, transform .35s ease, filter .35s ease;
+  animation: glow-flow var(--glow-speed) linear infinite paused;
+  z-index: 1; /* อยู่ใต้ caption/ลูกศร */
+}
+.hero-left:hover::before,
+.hero-right:hover::before{
+  opacity: var(--glow-opacity);
+  animation-play-state: running;
+}
+
+/* ไล่สีวิ่ง */
+@keyframes glow-flow{
+  0%   { background-position: 0% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
+.hero-track{ display:flex; height:100%; transition: transform .6s ease; }
+.hero-slide{ min-width:100%; height:100%; position:relative; overflow:hidden; }
+.hero-slide img{
+  position:absolute; inset:0;
+  width:100%; height:100%; object-fit:cover;
+  transform: scale(1.04);
+}
+
+/* caption */
+.hero-caption{
+  position:absolute; left:24px; bottom:22px;
+  background: rgba(255,255,255,.9);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  padding:14px 18px;
+  border-radius:14px;
+  max-width: 420px;
+  box-shadow: 0 8px 22px rgba(0,0,0,.18);
+  z-index: 3; /* เหนือ glow */
+}
+.hero-caption h2{ margin:0 0 6px; font-size:24px; font-weight:800; color:#111; }
+.hero-caption p{ margin:0 0 10px; color:#444; font-size:15px; }
+.btn-hero{
+  display:inline-block; background:var(--accent); color:#fff;
+  text-decoration:none; padding:9px 14px; border-radius:10px; font-weight:700;
+  font-size:14px;
+}
+.btn-hero:hover{ background:#e55d00; }
+
+/* nav arrows */
+.hero-nav{
+  position:absolute; top:50%; transform:translateY(-50%);
+  width:42px; height:42px; border-radius:50%;
+  background:rgba(255,255,255,.9);
+  border:none; cursor:pointer; font-size:24px;
+  display:grid; place-items:center;
+  box-shadow:0 8px 20px rgba(0,0,0,.18);
+  z-index:3;
+}
+.hero-nav.prev{ left:12px; }
+.hero-nav.next{ right:12px; }
+
+/* dots */
+.hero-dots{
+  position:absolute; bottom:14px; left:50%; transform:translateX(-50%);
+  display:flex; gap:8px; z-index:3;
+}
+.hero-dots button{
+  width:9px; height:9px; border-radius:999px; border:none; cursor:pointer;
+  background:rgba(255,255,255,.55);
+  transition:all .25s ease;
+}
+.hero-dots button.is-active{ width:20px; background:var(--accent); }
+
+/* ===== RIGHT: PROMO ===== */
+.hero-right{
+  position:relative;
+  height: var(--hero-h);
+  border-radius: var(--radius);
+  overflow:hidden;
+  box-shadow: 0 16px 40px rgba(0,0,0,.14);
+}
+.promo-card{ position:relative; height:100%; }
+.promo-card img{ width:100%; height:100%; object-fit:cover; }
+.promo-caption{
+  position:absolute; inset:auto 0 0 0;
+  background: linear-gradient(to top, rgba(0,0,0,.65), rgba(0,0,0,0));
+  color:#fff; padding:18px; z-index:3;
+}
+.promo-caption h3{ margin:0 0 6px; font-size:20px; font-weight:700; }
+.promo-caption p{ margin:0 0 12px; font-size:15px; }
+.btn-hero.btn-ghost{
+  background:rgba(255,255,255,.1);
+  border:1px solid rgba(255,255,255,.5);
+  color:#fff;
+}
+.btn-hero.btn-ghost:hover{ background:rgba(255,255,255,.2); }
+
+/* ===== Responsive ===== */
+@media (max-width: 1100px){
+  :root{ --nav-h: 64px; }
+  .hero-split{ grid-template-columns: 65% 35%; }
+}
+@media (max-width: 900px){
+  .hero-split{ grid-template-columns: 1fr; }
+  .hero-right{ order:2; height: 340px; }
+  .hero-left{ order:1; }
+}
+@media (max-width: 768px){
+  :root{ --nav-h: 60px; }
+  .hero-split{ padding-inline: 16px; }
+  .hero-caption{ left:16px; right:16px; max-width:none; }
+  .hero-caption h2{ font-size:20px; }
+  .hero-caption p{ font-size:14px; }
+  .btn-hero{ font-size:13px; padding:8px 12px; }
+}
+@media (max-width: 480px){
+  :root{ --hero-h: 400px; }
+  .hero-caption{ padding:12px 14px; }
+  .hero-caption h2{ font-size:18px; }
+  .promo-caption h3{ font-size:16px; }
+}
