@@ -13,7 +13,8 @@
 - **Frontend:** HTML, CSS, JavaScript (Bootstrap/Custom CSS)
 - **Database:** MySQL
 
-## ⚙️ วิธีติดตั้ง (Installation) โง่แบงค์
+## ⚙️ วิธีติดตั้ง (Installation) 
+
 
 1. **Clone โปรเจกต์**
    ```bash
