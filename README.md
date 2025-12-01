@@ -8,12 +8,12 @@
 - **Admin Dashboard:** หลังบ้านสำหรับจัดการรายการสินค้าและ Order
 - **Service/Warranty:** ระบบเช็คประกันและสถานะงานซ่อม
 
-## 🛠️ Tech Stack
+## 🛠️ Tech Stack1
 - **Language:** PHP
 - **Frontend:** HTML, CSS, JavaScript (Bootstrap/Custom CSS)
 - **Database:** MySQL
 
-## ⚙️ วิธีติดตั้ง (Installation)
+## ⚙️ วิธีติดตั้ง (Installation) โง่แบงค์
 
 1. **Clone โปรเจกต์**
    ```bash
