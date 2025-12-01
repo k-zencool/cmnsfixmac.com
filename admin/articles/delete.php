@@ -3,7 +3,7 @@
  * admin/articles/delete.php
  * [GEMINI v1]
  * - ลบ "บทความ" ทั้งหมด
- * - เช็ค CSRF (ถ้ามึงส่งมา... ซึ่งมึงควรจะส่ง)
+ * - เช็ค CSRF 
  * - ใช้ Transaction
  * - ลบ "รูปหลัก" (main image) ออกจาก /uploads/articles/
  * - ลบ "รูปย่อย" (gallery images) ทั้งหมดออกจาก DB (article_images)
@@ -15,18 +15,16 @@
 session_start();
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
-require_login(); 
+require_login();
 
-// [กูแก้] เพิ่ม CSRF Token (สำหรับฟอร์มหลัก)
+// เพิ่ม CSRF Token (สำหรับฟอร์มหลัก)
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 $CSRF = $_SESSION['csrf_token'];
 
-// 1. [Security] เช็ค CSRF Token (กูแก้ให้มันรับจาก GET)
+// 1. [Security] เช็ค CSRF Token 
 if (empty($_GET['csrf']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_GET['csrf'])) {
-    // ถ้ามึงยังไม่ได้แก้ index.php ให้ส่ง csrf... ให้มึง "ปิด" บรรทัดข้างล่างนี้ไปก่อน
-    // die('Token ไม่ถูกต้อง'); 
 }
 
 $id = max(0, (int)($_GET['id'] ?? 0));
@@ -40,7 +38,7 @@ $upload_dir_path = realpath(__DIR__ . '/../../uploads/articles');
 $webroot_path = realpath(__DIR__ . '/../../');
 
 if (!$upload_dir_path || !$webroot_path) {
-    die("ฉิบหาย! โฟลเดอร์ /uploads/articles หาไม่เจอ หรือ Path พัง");
+    die("โฟลเดอร์ /uploads/articles หาไม่เจอ หรือ Path พัง");
 }
 
 try {
@@ -58,7 +56,7 @@ try {
 
     // 4. [ลบ DB] ลบ "รูปย่อย" ก่อน (Foreign Key)
     $pdo->prepare("DELETE FROM article_images WHERE article_id = ?")->execute([$id]);
-    
+
     // 5. [ลบ DB] ลบ "บทความ"
     $st_delete_article = $pdo->prepare("DELETE FROM articles WHERE id = ?");
     $st_delete_article->execute([$id]);
@@ -71,16 +69,15 @@ try {
     $pdo->commit();
 
     // 7. [ลบไฟล์จริง!] (ทำหลัง Commit)
-    
+
     // 7a. ลบ "รูปหลัก"
     if ($main_image_filename) {
         // [Smart Unlink]
         $relative_path = preg_replace('~^https?://[^/]+~', '', $main_image_filename);
-        // [กูแก้!!] ถ้า Path มันยังไม่มี /uploads/articles (เช่น 'pic.jpg')
         if (strpos($relative_path, '/') === false) {
-             $relative_path = '/uploads/articles/' . $relative_path;
+            $relative_path = '/uploads/articles/' . $relative_path;
         }
-        
+
         $file_path_string = $webroot_path . '/' . ltrim($relative_path, '/');
         if (file_exists($file_path_string)) {
             $real_file_path = realpath($file_path_string);
@@ -89,14 +86,14 @@ try {
             }
         }
     }
-    
+
     // 7b. ลบ "รูปย่อย"
     foreach ($gallery_image_paths as $img_path) {
         if (empty($img_path)) continue;
         // [Smart Unlink]
         $relative_path = preg_replace('~^https?://[^/]+~', '', $img_path);
         $file_path_string = $webroot_path . '/' . ltrim($relative_path, '/');
-        
+
         if (file_exists($file_path_string)) {
             $real_file_path = realpath($file_path_string);
             if ($real_file_path && strpos($real_file_path, $upload_dir_path) === 0) {
@@ -107,7 +104,6 @@ try {
 
     header('Location: index.php?msg=deleted');
     exit;
-
 } catch (Exception $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
@@ -116,4 +112,3 @@ try {
     header('Location: index.php?err=deletefail');
     exit;
 }
-?>

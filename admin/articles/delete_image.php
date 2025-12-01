@@ -13,7 +13,7 @@
 session_start();
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
-require_login(); 
+require_login();
 
 // 1. [Security] เช็ค CSRF Token
 if (empty($_GET['csrf']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_GET['csrf'])) {
@@ -28,18 +28,17 @@ if ($id <= 0 || $article_id <= 0) {
     exit;
 }
 
-// [กูแก้!!] Path ที่ถูกต้อง
 $upload_dir_path = realpath(__DIR__ . '/../../uploads/articles');
 $webroot_path = realpath(__DIR__ . '/../../');
 
 if (!$upload_dir_path || !$webroot_path) {
-    die("ฉิบหาย! โฟลเดอร์ /uploads/articles หาไม่เจอ หรือ Path พัง");
+    die("โฟลเดอร์ /uploads/articles หาไม่เจอ หรือ Path พัง");
 }
 
 try {
     $pdo->beginTransaction();
 
-    // 2. [เตรียมลบ] ดึง "รูปย่อย" (เช็คด้วยว่ามึงเป็นเจ้าของ)
+    // 2. [เตรียมลบ] ดึง "รูปย่อย" 
     $stmt_find = $pdo->prepare("SELECT image_path FROM article_images WHERE id = ? AND article_id = ?");
     $stmt_find->execute([$id, $article_id]);
     $img_path = $stmt_find->fetchColumn();
@@ -51,7 +50,7 @@ try {
     // 3. [ลบ DB]
     $st_delete = $pdo->prepare("DELETE FROM article_images WHERE id = ?");
     $st_delete->execute([$id]);
-    
+
     // 4. [Commit!]
     $pdo->commit();
 
@@ -59,7 +58,7 @@ try {
     // [Smart Unlink]
     $relative_path = preg_replace('~^https?://[^/]+~', '', $img_path);
     $file_path_string = $webroot_path . '/' . ltrim($relative_path, '/');
-    
+
     if (file_exists($file_path_string)) {
         $real_file_path = realpath($file_path_string);
         if ($real_file_path && strpos($real_file_path, $upload_dir_path) === 0) {
@@ -69,7 +68,6 @@ try {
 
     header('Location: edit.php?id=' . $article_id . '&saved=1'); // เด้งกลับหน้าเดิม
     exit;
-
 } catch (Exception $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();
@@ -78,4 +76,3 @@ try {
     header('Location: edit.php?id=' . $article_id . '&err=deletefail');
     exit;
 }
-?>
