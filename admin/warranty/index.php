@@ -3,6 +3,8 @@
 /********************************************************************
  * admin/warranty/index.php — Warranty console (jobs | claims | policy | report)
  * สไตล์เรียบง่าย เน้นอ่านง่าย ใช้ง่าย
+ * [GEMINI EDIT v1]
+ * - Changed default 'jobs' status from 'in_warranty' to 'all'
  ********************************************************************/
 session_start();
 require_once __DIR__ . '/../../includes/db.php';
@@ -68,7 +70,9 @@ list($per, $page, $offset) = w_get_pager();
 
 /* filters */
 $JSTAT = ['in_warranty' => 'ยังอยู่ในประกัน', 'soon7' => 'ใกล้หมด 7 วัน', 'expired' => 'หมดประกัน', 'void' => 'โมฆะ', 'all' => 'ทั้งหมด'];
-$j_status    = w_getv('status', 'in_warranty');
+// <-- [กูแก้!!] เปลี่ยน 'in_warranty' เป็น 'all'
+$j_status    = w_getv('status', 'all');
+// <-- [จบจุดที่กูแก้!!]
 $j_date_by   = w_getv('date_by', 'until'); // until|base
 $j_date_from = w_getv('date_from', '');
 $j_date_to   = w_getv('date_to', '');
@@ -350,7 +354,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     <?php endif; ?>
   </div>
 
-  <!-- Section header + ปุ่มเพิ่ม -->
   <div class="section-header" style="display:flex;align-items:center;justify-content:space-between;margin:8px 0 12px;">
     <h2>
       <?php if ($tab === 'jobs'): ?>งานรับประกัน
@@ -598,7 +601,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 
   <?php elseif ($tab === 'policy'): ?>
 
-    <!-- Toolbar (sticky on scroll) -->
     <form action="index.php" method="get" class="policy-toolbar policy-toolbar--sticky">
       <input type="hidden" name="tab" value="policy">
       <div class="policy-toolbar__left">
@@ -612,9 +614,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
       </div>
     </form>
 
-    <!-- Cards -->
     <div class="policy-cards<?= $showDefaultCard ? '' : ' one' ?>">
-      <!-- Current -->
       <section class="policy-card">
         <header class="policy-card__head">
           <div>
@@ -653,7 +653,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
         <?php endif; ?>
       </section>
 
-      <!-- Default (show only if different) -->
       <?php if ($showDefaultCard): ?>
         <section class="policy-card">
           <header class="policy-card__head">
@@ -684,7 +683,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
       <?php endif; ?>
     </div>
 
-    <!-- Versions table -->
     <div class="table-container">
       <div class="table-head-min">
         <h3 class="table-title">เวอร์ชันทั้งหมด</h3>
@@ -734,7 +732,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
       </table>
     </div>
 
-    <!-- Pager -->
     <div class="pager-bar">
       <div class="pager-left">
         <span class="pager-total">พบ <?= (int)$total ?> เวอร์ชัน</span>
@@ -782,7 +779,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
       </div>
     </form>
 
-    <!-- KPI -->
     <section class="report-kpi-grid simple">
       <div class="report-kpi-card">
         <div class="kpi-top"><span class="kpi-dot kpi-green"></span><span>อยู่ในประกัน</span></div>

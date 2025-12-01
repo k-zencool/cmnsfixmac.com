@@ -94,7 +94,7 @@
             <a href="https://page.line.me/cmns" target="_blank" class="btn-line">
                 <span class="material-symbols-rounded">chat</span> ส่งรูปตีราคาผ่าน LINE เลย!
             </a>
-            <p style="font-size: 0.9em; margin-top: 15px;">(ประเมินราคาฟรี! ไม่พอใจ ไม่ขาย ไม่เป็นไร)</p>
+            <p style="font-size: 0.9em; margin-top: 15px;">(ประเมินฟรี ไม่บังคับขาย เงื่อนไขเป็นไปตามที่ร้านกำหนด ร้านขอสงวนสิทธิ์งดประเมินหากเครื่องไม่เข้าเกณฑ์ หรือร้านไม่สนใจซื้อ และบางเคสอาจต้องนำเครื่องมาตรวจเช็คที่ร้านก่อน)</p>
         </div>
     </header>
 

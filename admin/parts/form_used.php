@@ -2,14 +2,6 @@
 /********************************************************************
  * admin/parts/form_used.php
  * ฟอร์ม "อะไหล่มือ 2"
- * - เพิ่ม/แก้ไข/ลบ parts_used
- * - อัปโหลดรูปแบบลาก-วาง + ปุ่ม X เพื่อลบพรีวิว
- * - บันทึกประวัติลง parts_docs (doc_type='USED') ทุกครั้งที่ CREATE/UPDATE/DELETE
- *
- * ตารางอ้างอิง:
- *  - parts_used(id, donor_id?, part_code, part_name, part_number, device_models,
- *               category, image_url, location, remarks, created_at, updated_at)
- *  - parts_docs(doc_id, doc_type, ref_no, remarks, user_id, created_at, ...)
  ********************************************************************/
 
 // ========== SETUP ==========
@@ -41,17 +33,10 @@ function img_src($v){
   return '../../uploads/parts/'.$v;
 }
 
-/** -------- บันทึกประวัติลง parts_docs --------
- * doc_type = 'USED'
- * ref_no   = 'USED:<id>'
- * remarks  = ข้อความสั้นๆ (จำกัดให้สั้นไว้ ไม่ยัด JSON เพื่อกันล้น)
- */
-// แทนที่ฟังก์ชันเดิมทั้งก้อน
+/** -------- บันทึกประวัติลง parts_docs -------- */
 function used_doc(PDO $pdo, string $action, int $used_id, array $item, $user_id): void {
   try {
     $ref = 'USED:' . $used_id;
-
-    // ทำข้อความสั้น ๆ กันล้น (คอลัมน์ remarks เป็น VARCHAR)
     if ($action === 'CREATE') {
       $remarks = 'เพิ่มมือ 2: ' . (($item['part_name'] ?? '') ?: ($item['part_code'] ?? ''));
     } elseif ($action === 'UPDATE') {
@@ -61,46 +46,50 @@ function used_doc(PDO $pdo, string $action, int $used_id, array $item, $user_id)
     } else {
       $remarks = strtoupper($action)." USED #{$used_id}";
     }
-    $remarks = function_exists('mb_strimwidth')
-      ? mb_strimwidth($remarks, 0, 250, '', 'UTF-8')
-      : substr($remarks, 0, 250);
+    $remarks = function_exists('mb_strimwidth') ? mb_strimwidth($remarks, 0, 250, '', 'UTF-8') : substr($remarks, 0, 250);
 
-    // header
-    $pdo->prepare("
-      INSERT INTO parts_docs (doc_type, ref_no, remarks, user_id, created_at)
-      VALUES ('USED', :ref_no, :remarks, :uid, NOW())
-    ")->execute([
-      ':ref_no'  => $ref,
-      ':remarks' => $remarks,
-      ':uid'     => $user_id,
-    ]);
+    $pdo->prepare("INSERT INTO parts_docs (doc_type, ref_no, remarks, user_id, created_at) VALUES ('USED', :ref_no, :remarks, :uid, NOW())")
+        ->execute([':ref_no' => $ref, ':remarks' => $remarks, ':uid' => $user_id]);
     $doc_id = (int)$pdo->lastInsertId();
 
-    // ไลน์: CREATE = +1 / DELETE = -1, UPDATE ไม่ต้องมีไลน์
     $loc = trim((string)($item['location'] ?? ''));
     $pc  = $item['part_code'] ?? null;
 
     if ($action === 'CREATE') {
-      $pdo->prepare("
-        INSERT INTO parts_doc_lines (doc_id, part_code, qty, location_from, location_to, unit_cost)
-        VALUES (?, ?, 1, NULL, ?, NULL)
-      ")->execute([$doc_id, ($pc ?: null), ($loc ?: null)]);
+      $pdo->prepare("INSERT INTO parts_doc_lines (doc_id, part_code, qty, location_from, location_to) VALUES (?, ?, 1, NULL, ?)")->execute([$doc_id, ($pc ?: null), ($loc ?: null)]);
     } elseif ($action === 'DELETE') {
-      $pdo->prepare("
-        INSERT INTO parts_doc_lines (doc_id, part_code, qty, location_from, location_to, unit_cost)
-        VALUES (?, ?, -1, ?, NULL, NULL)
-      ")->execute([$doc_id, ($pc ?: null), ($loc ?: null)]);
+      $pdo->prepare("INSERT INTO parts_doc_lines (doc_id, part_code, qty, location_from, location_to) VALUES (?, ?, -1, ?, NULL)")->execute([$doc_id, ($pc ?: null), ($loc ?: null)]);
     }
-  } catch (Throwable $e) {
-    // เงียบ ๆ ไม่ให้ flow หลักล้ม
-  }
+  } catch (Throwable $e) {}
 }
 
 
 // -------- State --------
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-// กรณีเพิ่มมาจากหน้าแยกชิ้นซาก อาจมี donor_id ติดมา
 $donor_id = isset($_GET['donor_id']) ? (int)$_GET['donor_id'] : 0;
+
+
+// [แก้ใหม่: LOGIC หาเลขหน้าแบบฉลาด]
+// 1. ดูจาก POST ก่อน (กรณี submit แล้ว error)
+// 2. ถ้าไม่มี ดูจาก GET (กรณีลิงก์ส่งมาถูก)
+// 3. ถ้าไม่มี ดูจาก Referer (กรณีลิงก์ไม่ได้ส่งมา แต่อยู่หน้าเดิม)
+$currentPage = 1;
+if (isset($_POST['page']) && is_numeric($_POST['page'])) {
+    $currentPage = (int)$_POST['page'];
+} elseif (isset($_GET['page']) && is_numeric($_GET['page'])) {
+    $currentPage = (int)$_GET['page'];
+} elseif (isset($_SERVER['HTTP_REFERER'])) {
+    // แกะ URL ของหน้าที่แล้ว หา query string ว่ามี page= ไหม
+    $parts = parse_url($_SERVER['HTTP_REFERER']);
+    if (isset($parts['query'])) {
+        parse_str($parts['query'], $qs);
+        if (isset($qs['page']) && is_numeric($qs['page'])) {
+            $currentPage = (int)$qs['page'];
+        }
+    }
+}
+$currentPage = max(1, $currentPage);
+
 
 // ค่าเริ่มต้น
 $item = [
@@ -121,7 +110,7 @@ if ($id) {
   $st->execute([$id]);
   $row = $st->fetch(PDO::FETCH_ASSOC);
   if (!$row) {
-    header("Location: index.php?tab=used&err=".urlencode("ไม่พบอะไหล่มือ 2"));
+    header("Location: index.php?tab=used&page={$currentPage}&err=".urlencode("ไม่พบอะไหล่มือ 2"));
     exit;
   }
   $beforeRow = $row;
@@ -133,13 +122,16 @@ $errors = [];
 // -------- Actions (POST) --------
 if ($_SERVER['REQUEST_METHOD']==='POST') {
   $action = val($_POST,'action');
+  
+  // รับค่า page จากฟอร์ม POST เพื่อใช้ตอน redirect กลับ
+  $redirectPage = isset($_POST['page']) ? (int)$_POST['page'] : 1;
 
   // ลบ
   if ($action==='delete_used' && $id) {
     try {
       used_doc($pdo, 'DELETE', $id, $item, $user_id);
       $pdo->prepare("DELETE FROM parts_used WHERE id=? LIMIT 1")->execute([$id]);
-      header("Location: index.php?tab=used&msg=".urlencode("ลบชิ้นมือ 2 เรียบร้อย"));
+      header("Location: index.php?tab=used&page={$redirectPage}&msg=".urlencode("ลบชิ้นมือ 2 เรียบร้อย"));
       exit;
     } catch(Throwable $e){
       $errors[] = $e->getMessage();
@@ -159,11 +151,10 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     $item['remarks']        = val($_POST,'remarks');
     $remove_image_flag      = (int)($_POST['remove_image'] ?? 0);
 
-    // อย่างน้อยต้องมี part_name หรือ part_code อย่างใดอย่างหนึ่ง
     if ($item['part_name']==='' && $item['part_code']==='') $errors[] = "กรุณากรอกชื่ออะไหล่หรือรหัสอะไหล่อย่างน้อยอย่างใดอย่างหนึ่ง";
     if (!$user_id) $errors[] = "ไม่พบผู้ใช้งาน (session)";
 
-    // อัปโหลดรูป (ถ้ามี)
+    // อัปโหลดรูป
     $newImage = null;
     if (!empty($_FILES['image']['name'])) {
       $f = $_FILES['image'];
@@ -198,57 +189,33 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
           }
 
           if ($newImage !== null) {
-            $sql = "UPDATE parts_used
-                       SET donor_id=?, part_code=?, part_name=?, part_number=?, device_models=?,
-                           category=?, image_url=?, location=?, remarks=?, updated_at=NOW()
-                     WHERE id=?";
-            $params = [
-              $item['donor_id'], $item['part_code'], $item['part_name'], $item['part_number'], $item['device_models'],
-              $item['category'], $newImage, $item['location'], $item['remarks'], $form_id
-            ];
+            $sql = "UPDATE parts_used SET donor_id=?, part_code=?, part_name=?, part_number=?, device_models=?, category=?, image_url=?, location=?, remarks=?, updated_at=NOW() WHERE id=?";
+            $params = [$item['donor_id'], $item['part_code'], $item['part_name'], $item['part_number'], $item['device_models'], $item['category'], $newImage, $item['location'], $item['remarks'], $form_id];
           } elseif ($remove_image_flag===1) {
-            $sql = "UPDATE parts_used
-                       SET donor_id=?, part_code=?, part_name=?, part_number=?, device_models=?,
-                           category=?, image_url=NULL, location=?, remarks=?, updated_at=NOW()
-                     WHERE id=?";
-            $params = [
-              $item['donor_id'], $item['part_code'], $item['part_name'], $item['part_number'], $item['device_models'],
-              $item['category'], $item['location'], $item['remarks'], $form_id
-            ];
+            $sql = "UPDATE parts_used SET donor_id=?, part_code=?, part_name=?, part_number=?, device_models=?, category=?, image_url=NULL, location=?, remarks=?, updated_at=NOW() WHERE id=?";
+            $params = [$item['donor_id'], $item['part_code'], $item['part_name'], $item['part_number'], $item['device_models'], $item['category'], $item['location'], $item['remarks'], $form_id];
           } else {
-            $sql = "UPDATE parts_used
-                       SET donor_id=?, part_code=?, part_name=?, part_number=?, device_models=?,
-                           category=?, location=?, remarks=?, updated_at=NOW()
-                     WHERE id=?";
-            $params = [
-              $item['donor_id'], $item['part_code'], $item['part_name'], $item['part_number'], $item['device_models'],
-              $item['category'], $item['location'], $item['remarks'], $form_id
-            ];
+            $sql = "UPDATE parts_used SET donor_id=?, part_code=?, part_name=?, part_number=?, device_models=?, category=?, location=?, remarks=?, updated_at=NOW() WHERE id=?";
+            $params = [$item['donor_id'], $item['part_code'], $item['part_name'], $item['part_number'], $item['device_models'], $item['category'], $item['location'], $item['remarks'], $form_id];
           }
           $pdo->prepare($sql)->execute($params);
-
-          // log
           used_doc($pdo, 'UPDATE', $form_id, $item, $user_id);
 
-          header("Location: index.php?tab=used&msg=".urlencode("บันทึกการแก้ไขแล้ว"));
+          header("Location: index.php?tab=used&page={$redirectPage}&msg=".urlencode("บันทึกการแก้ไขแล้ว"));
           exit;
 
         } else {
           // ============== INSERT ==============
-          $sql = "INSERT INTO parts_used
-                    (donor_id, part_code, part_name, part_number, device_models,
-                     category, image_url, location, remarks, created_at, updated_at)
-                  VALUES (?,?,?,?,?,?, ?, ?, ?, NOW(), NOW())";
+          $sql = "INSERT INTO parts_used (donor_id, part_code, part_name, part_number, device_models, category, image_url, location, remarks, created_at, updated_at) VALUES (?,?,?,?,?,?, ?, ?, ?, NOW(), NOW())";
           $pdo->prepare($sql)->execute([
             $item['donor_id'], $item['part_code'], $item['part_name'], $item['part_number'], $item['device_models'],
             $item['category'], $newImage, $item['location'], $item['remarks']
           ]);
           $new_id = (int)$pdo->lastInsertId();
-
-          // log
           used_doc($pdo, 'CREATE', $new_id, $item, $user_id);
 
-          header("Location: index.php?tab=used&msg=".urlencode("เพิ่มชิ้นมือ 2 แล้ว"));
+          // ถ้าสร้างใหม่ จะกลับไปหน้าเดิม หรือหน้า 1 ก็ได้ (อันนี้ใส่ให้กลับหน้าเดิมถ้ามีค่ามา)
+          header("Location: index.php?tab=used&page={$redirectPage}&msg=".urlencode("เพิ่มชิ้นมือ 2 แล้ว"));
           exit;
         }
       } catch(Throwable $e){
@@ -267,7 +234,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 <main class="main" id="main-content">
   <div class="topbar">
     <span><?= h($pageTitle) ?> <?= $id ? '(แก้ไข #' . (int)$id . ')' : '(เพิ่มรายการใหม่)' ?></span>
-    <a href="index.php?tab=used" class="view-site">← กลับรายการมือ 2</a>
+    <a href="index.php?tab=used&page=<?= $currentPage ?>" class="view-site">← กลับรายการมือ 2</a>
   </div>
 
   <?php if ($errors): ?>
@@ -282,9 +249,10 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     <input type="hidden" name="action" id="usedAction" value="save_used">
     <input type="hidden" name="id" value="<?= (int)$id ?>">
     <input type="hidden" name="remove_image" id="remove_image" value="0">
+    
+    <input type="hidden" name="page" value="<?= $currentPage ?>">
 
     <div class="form-grid">
-      <!-- รูป -->
       <div class="form-item">
         <label class="form-label">รูป</label>
         <div class="image-upload-ui" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
@@ -306,41 +274,34 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
       </div>
 
       <div class="form-item">
-        <label class="form-label" for="donor_id">เชื่อมกับเครื่องซาก (ถ้ามี)</label>
-        <input id="donor_id" name="donor_id" class="input filter-input" type="number" min="0" value="<?= h($item['donor_id']) ?>" placeholder="ID เครื่องซาก">
-        <small class="form-hint">ปล่อยว่างได้ หากชิ้นนี้ไม่ได้มาจากเครื่องซาก</small>
+        <label class="form-label" for="donor_id">เชื่อมกับเครื่อง (ถ้ามี)</label>
+        <input id="donor_id" name="donor_id" class="input filter-input" type="number" min="0" value="<?= h($item['donor_id']) ?>" placeholder="ID เครื่อง">
+        <small class="form-hint">ปล่อยว่างได้ หากชิ้นนี้ไม่ได้มาจากเครื่อง</small>
       </div>
-
       <div class="form-item">
         <label class="form-label" for="part_name">ชื่ออะไหล่</label>
         <input id="part_name" name="part_name" class="input filter-input" value="<?= h($item['part_name']) ?>" placeholder="เช่น Top Case, Screen, Battery">
       </div>
-
       <div class="form-item">
         <label class="form-label" for="part_code">รหัสอะไหล่ (ภายใน)</label>
         <input id="part_code" name="part_code" class="input filter-input" value="<?= h($item['part_code']) ?>" placeholder="ถ้ามี ใช้ช่วยค้นหา">
       </div>
-
       <div class="form-item">
         <label class="form-label" for="part_number">เลขอะไหล่</label>
         <input id="part_number" name="part_number" class="input filter-input" value="<?= h($item['part_number']) ?>" placeholder="เช่น 661-xxxx, Axxxx">
       </div>
-
       <div class="form-item">
         <label class="form-label" for="device_models">รุ่นอุปกรณ์</label>
         <input id="device_models" name="device_models" class="input filter-input" value="<?= h($item['device_models']) ?>" placeholder="เช่น A1706, A2159">
       </div>
-
       <div class="form-item">
         <label class="form-label" for="category">หมวด</label>
         <input id="category" name="category" class="input filter-input" value="<?= h($item['category']) ?>" placeholder="screen/battery/board/...">
       </div>
-
       <div class="form-item">
         <label class="form-label" for="location">ที่เก็บ</label>
         <input id="location" name="location" class="input filter-input" value="<?= h($item['location']) ?>" placeholder="เช่น main, shelf-A3">
       </div>
-
       <div class="form-item" style="grid-column:1 / -1">
         <label class="form-label" for="remarks">หมายเหตุ</label>
         <textarea id="remarks" name="remarks" class="input filter-input" rows="3" placeholder="รายละเอียด/สภาพ/ที่มา ฯลฯ"><?= h($item['remarks']) ?></textarea>
@@ -348,7 +309,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 
       <div class="form-actions" style="grid-column:1 / -1">
         <button class="btn-primary" type="submit"><?= $id ? 'บันทึกการแก้ไข' : 'เพิ่มชิ้นมือ 2' ?></button>
-        <a class="btn-secondary" href="index.php?tab=used">ยกเลิก</a>
+        <a class="btn-secondary" href="index.php?tab=used&page=<?= $currentPage ?>">ยกเลิก</a>
         <?php if ($id): ?>
           <button type="button" class="btn-secondary" onclick="return deleteUsed();">ลบรายการ</button>
         <?php endif; ?>
@@ -360,12 +321,11 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 <?php include __DIR__ . '/../../templates/footer_admin.php'; ?>
 
 <script>
-  // Image UI (drag & drop + preview + remove)
   (function() {
-    var input   = document.getElementById('image');
-    var wrap    = document.getElementById('uImgWrap');
-    var remove  = document.getElementById('uRemoveBtn');
-    var img     = document.getElementById('uImg');
+    var input = document.getElementById('image');
+    var wrap = document.getElementById('uImgWrap');
+    var remove = document.getElementById('uRemoveBtn');
+    var img = document.getElementById('uImg');
     var rmField = document.getElementById('remove_image');
     var existed = <?= json_encode(!empty($item['image_url'])) ?>;
 
@@ -376,32 +336,21 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
       reader.onload = function(e) {
         if (!img) {
           img = document.createElement('img');
-          img.id = 'uImg';
-          img.alt = 'preview';
+          img.id = 'uImg'; img.alt = 'preview';
           img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
         }
-        wrap.innerHTML = '';
-        wrap.appendChild(img);
-        img.src = e.target.result;
-
+        wrap.innerHTML = ''; wrap.appendChild(img); img.src = e.target.result;
         if (!remove) {
           remove = document.createElement('button');
-          remove.id = 'uRemoveBtn';
-          remove.type = 'button';
-          remove.textContent = '×';
-          remove.style.cssText =
-            'position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;' +
-            'background:#ef4444;color:#fff;border:0;cursor:pointer;font-weight:700;' +
-            'line-height:22px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.15);';
+          remove.id = 'uRemoveBtn'; remove.type = 'button'; remove.textContent = '×';
+          remove.style.cssText = 'position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:#ef4444;color:#fff;border:0;cursor:pointer;font-weight:700;line-height:22px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.15);';
           remove.addEventListener('click', clearImage);
         }
-        wrap.appendChild(remove);
-        remove.style.display = '';
+        wrap.appendChild(remove); remove.style.display = '';
         if (rmField) rmField.value = 0;
       };
       reader.readAsDataURL(file);
     }
-
     function clearImage(e) {
       if (e) e.stopPropagation();
       if (input) input.value = '';
@@ -410,20 +359,15 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
       img = null;
       if (rmField && existed) rmField.value = 1;
     }
-
     wrap.addEventListener('click', function(){ if (input) input.click(); });
-    function setBorder(c){ wrap.style.borderColor = c; }
-    wrap.addEventListener('dragover', function(e){ e.preventDefault(); setBorder('#3b82f6'); });
-    wrap.addEventListener('dragleave', function(){ setBorder('#cbd5e1'); });
+    wrap.addEventListener('dragover', function(e){ e.preventDefault(); wrap.style.borderColor = '#3b82f6'; });
+    wrap.addEventListener('dragleave', function(){ wrap.style.borderColor = '#cbd5e1'; });
     wrap.addEventListener('drop', function(e){
-      e.preventDefault(); setBorder('#cbd5e1');
+      e.preventDefault(); wrap.style.borderColor = '#cbd5e1';
       var f = e.dataTransfer.files && e.dataTransfer.files[0];
       if (f){ input.files = e.dataTransfer.files; showPreview(f); }
     });
-    if (input) input.addEventListener('change', function(){
-      var f = input.files && input.files[0];
-      if (f) showPreview(f);
-    });
+    if (input) input.addEventListener('change', function(){ var f = input.files && input.files[0]; if (f) showPreview(f); });
     if (remove) remove.addEventListener('click', clearImage);
   })();
 

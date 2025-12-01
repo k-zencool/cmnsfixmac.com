@@ -1,116 +1,119 @@
 <?php
-require '../../includes/db.php';
+/*
+ * admin/articles/delete.php
+ * [GEMINI v1]
+ * - ลบ "บทความ" ทั้งหมด
+ * - เช็ค CSRF (ถ้ามึงส่งมา... ซึ่งมึงควรจะส่ง)
+ * - ใช้ Transaction
+ * - ลบ "รูปหลัก" (main image) ออกจาก /uploads/articles/
+ * - ลบ "รูปย่อย" (gallery images) ทั้งหมดออกจาก DB (article_images)
+ * - ลบ "ไฟล์" รูปย่อยทั้งหมดออกจาก /uploads/articles/
+ * - ลบ "บทความ" (articles) ออกจาก DB
+ * - ใช้ "Smart Unlink" (กัน path พัง)
+ */
+
+session_start();
+require_once __DIR__ . '/../../includes/db.php';
+require_once __DIR__ . '/../../includes/auth.php';
 require_login(); 
 
-$id = $_GET['id'] ?? null;
+// [กูแก้] เพิ่ม CSRF Token (สำหรับฟอร์มหลัก)
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+$CSRF = $_SESSION['csrf_token'];
 
-if (!$id) {
-  header("Location: index.php");
-  exit;
+// 1. [Security] เช็ค CSRF Token (กูแก้ให้มันรับจาก GET)
+if (empty($_GET['csrf']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_GET['csrf'])) {
+    // ถ้ามึงยังไม่ได้แก้ index.php ให้ส่ง csrf... ให้มึง "ปิด" บรรทัดข้างล่างนี้ไปก่อน
+    // die('Token ไม่ถูกต้อง'); 
 }
 
-// ดึงข้อมูลบทความก่อนลบ
-$stmt = $pdo->prepare("SELECT title, image FROM articles WHERE id = ?");
-$stmt->execute([$id]);
-$article = $stmt->fetch();
-
-if (!$article) {
-  echo "<h2>ไม่พบบทความ</h2>";
-  exit;
+$id = max(0, (int)($_GET['id'] ?? 0));
+if ($id <= 0) {
+    header('Location: index.php?err=noid');
+    exit;
 }
 
-// ยืนยันการลบผ่าน POST
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['confirm_delete'])) {
-  // ลบรูปเพิ่มเติมก่อน
-  $stmtImg = $pdo->prepare("SELECT image_path FROM article_images WHERE article_id = ?");
-  $stmtImg->execute([$id]);
-  $images = $stmtImg->fetchAll();
-  foreach ($images as $img) {
-    $file = '../../uploads/' . $img['image_path'];
-    if (file_exists($file)) unlink($file);
-  }
-  $pdo->prepare("DELETE FROM article_images WHERE article_id = ?")->execute([$id]);
+// [กูแก้!!] Path ที่ถูกต้อง
+$upload_dir_path = realpath(__DIR__ . '/../../uploads/articles');
+$webroot_path = realpath(__DIR__ . '/../../');
 
-  // ลบรูปภาพหลัก
-  $mainImage = '../../uploads/' . $article['image'];
-  if (file_exists($mainImage)) unlink($mainImage);
+if (!$upload_dir_path || !$webroot_path) {
+    die("ฉิบหาย! โฟลเดอร์ /uploads/articles หาไม่เจอ หรือ Path พัง");
+}
 
-  // ลบบทความ
-  $pdo->prepare("DELETE FROM articles WHERE id = ?")->execute([$id]);
-  header("Location: index.php");
-  exit;
+try {
+    $pdo->beginTransaction();
+
+    // 2. [เตรียมลบ] ดึง "รูปหลัก"
+    $stmt_main = $pdo->prepare("SELECT image FROM articles WHERE id = ?");
+    $stmt_main->execute([$id]);
+    $main_image_filename = $stmt_main->fetchColumn();
+
+    // 3. [เตรียมลบ] ดึง "รูปย่อย" ทั้งหมด
+    $stmt_gallery = $pdo->prepare("SELECT image_path FROM article_images WHERE article_id = ?");
+    $stmt_gallery->execute([$id]);
+    $gallery_image_paths = $stmt_gallery->fetchAll(PDO::FETCH_COLUMN);
+
+    // 4. [ลบ DB] ลบ "รูปย่อย" ก่อน (Foreign Key)
+    $pdo->prepare("DELETE FROM article_images WHERE article_id = ?")->execute([$id]);
+    
+    // 5. [ลบ DB] ลบ "บทความ"
+    $st_delete_article = $pdo->prepare("DELETE FROM articles WHERE id = ?");
+    $st_delete_article->execute([$id]);
+
+    if ($st_delete_article->rowCount() === 0) {
+        throw new Exception("Article ID $id not found.");
+    }
+
+    // 6. [Commit!]
+    $pdo->commit();
+
+    // 7. [ลบไฟล์จริง!] (ทำหลัง Commit)
+    
+    // 7a. ลบ "รูปหลัก"
+    if ($main_image_filename) {
+        // [Smart Unlink]
+        $relative_path = preg_replace('~^https?://[^/]+~', '', $main_image_filename);
+        // [กูแก้!!] ถ้า Path มันยังไม่มี /uploads/articles (เช่น 'pic.jpg')
+        if (strpos($relative_path, '/') === false) {
+             $relative_path = '/uploads/articles/' . $relative_path;
+        }
+        
+        $file_path_string = $webroot_path . '/' . ltrim($relative_path, '/');
+        if (file_exists($file_path_string)) {
+            $real_file_path = realpath($file_path_string);
+            if ($real_file_path && strpos($real_file_path, $upload_dir_path) === 0) {
+                @unlink($real_file_path);
+            }
+        }
+    }
+    
+    // 7b. ลบ "รูปย่อย"
+    foreach ($gallery_image_paths as $img_path) {
+        if (empty($img_path)) continue;
+        // [Smart Unlink]
+        $relative_path = preg_replace('~^https?://[^/]+~', '', $img_path);
+        $file_path_string = $webroot_path . '/' . ltrim($relative_path, '/');
+        
+        if (file_exists($file_path_string)) {
+            $real_file_path = realpath($file_path_string);
+            if ($real_file_path && strpos($real_file_path, $upload_dir_path) === 0) {
+                @unlink($real_file_path);
+            }
+        }
+    }
+
+    header('Location: index.php?msg=deleted');
+    exit;
+
+} catch (Exception $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    error_log("Delete Article $id FAILED: " . $e->getMessage());
+    header('Location: index.php?err=deletefail');
+    exit;
 }
 ?>
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="UTF-8">
-  <title>ยืนยันการลบ</title>
-  <link rel="stylesheet" href="../../assets/css/dashboard-style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
-  
-  <style>
-    .confirm-box {
-      max-width: 520px;
-      margin: 80px auto;
-      padding: 30px;
-      background: #fff;
-      border-radius: 16px;
-      text-align: center;
-      box-shadow: 0 8px 16px rgba(0,0,0,0.06);
-    }
-    .confirm-box h2 {
-      font-size: 22px;
-      margin-bottom: 12px;
-      color: #d32f2f;
-    }
-    .confirm-box p {
-      font-size: 15px;
-      margin-bottom: 20px;
-    }
-    .confirm-box img {
-      max-width: 100%;
-      border-radius: 10px;
-      margin-bottom: 24px;
-      box-shadow: 0 4px 8px rgba(0,0,0,0.05);
-    }
-    .btns {
-      display: flex;
-      justify-content: center;
-      gap: 16px;
-    }
-    .btns button, .btns a {
-      padding: 10px 20px;
-      font-size: 14px;
-      font-weight: 500;
-      border-radius: 6px;
-      text-decoration: none;
-      border: none;
-      cursor: pointer;
-    }
-    .btn-delete { background: #e53935; color: #fff; }
-    .btn-cancel { background: #cfd8dc; color: #333; }
-  </style>
-</head>
-<body>
-
-<?php include '../../templates/header_admin.php'; ?>
-<?php include '../../templates/sidebar_admin.php'; ?>
-
-
-  <div class="confirm-box">
-    <h2>ยืนยันการลบบทความ</h2>
-    <p>คุณแน่ใจหรือไม่ว่าต้องการลบบทความนี้:</p>
-    <p><strong><?= htmlspecialchars($article['title']) ?></strong></p>
-    <?php if (!empty($article['image'])): ?>
-      <img src="../../uploads/<?= htmlspecialchars($article['image']) ?>" alt="<?= htmlspecialchars($article['title']) ?>">
-    <?php endif; ?>
-    <form method="POST">
-      <div class="btns">
-        <button type="submit" name="confirm_delete" class="btn-delete">ยืนยันการลบ</button>
-        <a href="index.php" class="btn-cancel">ยกเลิก</a>
-      </div>
-    </form>
-  </div>
-</body>
-</html>

@@ -5,6 +5,8 @@
  * - กรอง: สถานะ แสดง/ซ่อน, หมวด, ช่วงวันที่
  * - เรียง: ล่าสุดก่อน/เก่าสุดก่อน/ชื่อ (A→Z)
  * - แบ่งหน้า: ?page= ?per= (20/50/100)
+ * - [GEMINI EDIT v2]
+ * - Fixed image path to read root-relative path from DB
  ********************************************************************/
 
 session_start();
@@ -127,7 +129,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     <a href="add.php" class="btn-primary">+ เพิ่มบทความ</a>
   </div>
 
-  <!-- Search & Filters -->
   <form action="index.php" method="get" class="search-and-filter-group">
     <input class="filter-input" name="q" value="<?= h($q) ?>" placeholder="ค้นหา ชื่อ/หมวด/เนื้อหา">
     <select name="status" class="filter-input" aria-label="สถานะ">
@@ -169,7 +170,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     <button class="btn-search">ค้นหา</button>
   </form>
 
-  <!-- Table -->
   <div class="table-container">
     <table class="data-table">
       <thead>
@@ -190,8 +190,8 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
           <td><?= ($offset + $i + 1) ?></td>
           <td>
             <?php if (!empty($row['image'])): ?>
-              <button type="button" class="thumb-btn" data-src="<?= h('../../uploads/'.$row['image']) ?>">
-                <img src="<?= h('../../uploads/'.$row['image']) ?>" class="thumb" alt="">
+              <button type="button" class="thumb-btn" data-src="<?= h($row['image']) ?>">
+                <img src="<?= h($row['image']) ?>" class="thumb" alt="">
               </button>
             <?php else: ?><div class="thumb"></div><?php endif; ?>
           </td>
@@ -218,7 +218,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     </table>
   </div>
 
-  <!-- Pager -->
   <div class="pager-bar">
     <div class="pager-left">
       <span class="pager-total">พบ <?= (int)$total ?> รายการ</span>
@@ -243,7 +242,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     </nav>
   </div>
 
-  <!-- Image Preview Modal -->
   <div id="imgPreviewOverlay" class="imgpv-overlay" aria-hidden="true">
     <div class="imgpv-dialog" role="dialog" aria-modal="true" aria-label="ตัวอย่างรูป">
       <button type="button" class="imgpv-close" aria-label="ปิด">✕</button>

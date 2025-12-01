@@ -1,6 +1,14 @@
 <?php
-// Assuming this file is /en/articles.php
-include '../includes/db.php'; // Path changed
+/*
+ * en/articles.php
+ * - [GEMINI EDIT v3]
+ * - Synced logic with Thai version
+ * - Fixed Image Paths (No hardcoded /uploads/)
+ * - Changed links from 'slug' to 'id'
+ * - Filters only articles with English titles
+ */
+
+include '../includes/db.php';
 
 function e($str)
 {
@@ -11,8 +19,6 @@ function e($str)
 $title_col = 'title_en';
 $content_col = 'content_en';
 $excerpt_col = 'excerpt_en';
-// Use slug_en if it exists and is not empty, otherwise fallback to the original slug
-$slug_col = "IF(slug_en IS NOT NULL AND slug_en != '', slug_en, slug)";
 
 $search = trim($_GET['q'] ?? '');
 $category_filter = $_GET['cat'] ?? 'all';
@@ -24,7 +30,7 @@ $offset = ($page - 1) * $perPage;
 $conditions = [];
 $params = [];
 
-// IMPORTANT: Only show articles that have been translated into English
+// IMPORTANT: Only show articles that have been translated into English (Active & Has EN Title)
 $conditions[] = "status = 1 AND ({$title_col} IS NOT NULL AND {$title_col} != '')";
 
 if ($search !== '') {
@@ -51,13 +57,14 @@ $totalArticles = $countStmt->fetchColumn();
 $totalPages = ceil($totalArticles / $perPage);
 
 // Fetch articles for the current page
-$sql = "SELECT id, {$title_col} AS title_display, {$content_col} AS content_display, {$excerpt_col} AS excerpt_display, {$slug_col} AS slug_display, image, created_at, views, category FROM articles $whereClause ORDER BY $orderBy LIMIT $perPage OFFSET $offset";
+// [Note] We select 'id' for the link, and alias EN columns for display
+$sql = "SELECT id, {$title_col} AS title_display, {$content_col} AS content_display, {$excerpt_col} AS excerpt_display, image, created_at, views, category FROM articles $whereClause ORDER BY $orderBy LIMIT $perPage OFFSET $offset";
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $articles = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Fetch popular articles (English version)
-$popularStmt = $pdo->query("SELECT id, {$title_col} AS title_display, {$slug_col} AS slug_display, image FROM articles WHERE status = 1 AND ({$title_col} IS NOT NULL AND {$title_col} != '') ORDER BY views DESC LIMIT 3");
+$popularStmt = $pdo->query("SELECT id, {$title_col} AS title_display, image FROM articles WHERE status = 1 AND ({$title_col} IS NOT NULL AND {$title_col} != '') ORDER BY views DESC LIMIT 3");
 $popularArticles = $popularStmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Define English category labels
@@ -91,8 +98,6 @@ $categories_en = [
   <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png" />
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet" />
 
-
-
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -107,7 +112,6 @@ $categories_en = [
 
 <body>
   <?php include '../includes/header_en.php'; ?>
-
 
   <section class="article-hero">
     <div class="container">
@@ -140,7 +144,17 @@ $categories_en = [
         <h2>Popular Articles</h2>
         <div class="popular-list">
           <?php foreach ($popularArticles as $pop): ?>
-            <a href="article-detail.php?slug=<?= urlencode($pop['slug_display']) ?>" class="popular-item"> <img src="/uploads/<?= e($pop['image']) ?>" alt="<?= e($pop['title_display']) ?>">
+            <?php
+            // [GEMINI FIXED] Image Path Logic
+            $image_filename_pop = $pop['image'] ?? '';
+            if (!empty($image_filename_pop) && strpos($image_filename_pop, '/') !== false) {
+                $imagePathPop = e($image_filename_pop); 
+            } else {
+                $imagePathPop = '/assets/img/placeholder.png'; // Absolute path for EN subfolder
+            }
+            ?>
+            <a href="article-detail.php?id=<?= e($pop['id']) ?>" class="popular-item"> 
+              <img src="<?= $imagePathPop ?>" alt="<?= e($pop['title_display']) ?>">
               <h3><?= e($pop['title_display']) ?></h3>
             </a>
           <?php endforeach; ?>
@@ -154,9 +168,18 @@ $categories_en = [
   <section class="articles-container">
       <?php if ($articles): ?>
         <?php foreach ($articles as $row): ?>
-          <a href="article-detail.php?slug=<?= urlencode($row['slug_display']) ?>" class="article-card">
+          <?php
+            // [GEMINI FIXED] Image Path Logic
+            $image_filename_main = $row['image'] ?? '';
+            if (!empty($image_filename_main) && strpos($image_filename_main, '/') !== false) {
+                $imagePathMain = e($image_filename_main); 
+            } else {
+                $imagePathMain = '/assets/img/placeholder.png'; // Absolute path
+            }
+          ?>
+          <a href="article-detail.php?id=<?= e($row['id']) ?>" class="article-card">
             <div class="article-image">
-              <img src="/uploads/<?= e($row['image']) ?>" alt="<?= e($row['title_display']) ?>">
+              <img src="<?= $imagePathMain ?>" alt="<?= e($row['title_display']) ?>">
             </div>
             <div class="article-body">
               <p class="date"><?= date('d M Y', strtotime($row['created_at'])) ?></p>
@@ -167,10 +190,11 @@ $categories_en = [
           </a>
         <?php endforeach; ?>
       <?php else: ?>
-        <p>No articles found matching your search or selected category. (Note: Only articles with English translations will be shown.)</p> <?php endif; ?>
+        <div class="container">
+            <p>No articles found matching your search or selected category. (Note: Only articles with English translations will be shown.)</p> 
+        </div>
+      <?php endif; ?>
   </section>
-
-
 
   <?php if ($totalPages > 1): ?>
     <div class="pagination">
@@ -191,8 +215,6 @@ $categories_en = [
     </div>
   <?php endif; ?>
 
-  <?php include_once '../includes/footer_en.php'; // Path changed 
-  ?>
+  <?php include_once '../includes/footer_en.php'; ?>
 </body>
-
 </html>

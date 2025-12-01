@@ -199,16 +199,6 @@ $items = $st->fetchAll(PDO::FETCH_ASSOC);
 // แล้วดึง total count จาก query เมื่อกี้แทน
 $total = (int)$pdo->query("SELECT FOUND_ROWS()")->fetchColumn();
 
-/* ---------- [ADDED] Sold Items (Random 4 items) ---------- */
-// ดึงสินค้าที่สถานะเป็น sold หรือ published แต่ของหมด
-$sqlSold = "SELECT id, title AS name, brand AS category, price, price_old, main_image
-            FROM listings
-            WHERE (status = 'sold' OR (status = 'published' AND in_stock = 0))
-              AND main_image IS NOT NULL AND main_image != ''
-            ORDER BY RAND()
-            LIMIT 4";
-$soldItems = $pdo->query($sqlSold)->fetchAll(PDO::FETCH_ASSOC);
-
 
 /* ---------- Build Active Filter List for UI ---------- */
 $activeFilters = [];
@@ -254,13 +244,14 @@ ob_start();
   <?php endif; ?>
 
   <h2 class="cmnsx-title">สินค้าทั้งหมด (<?= number_format($total) ?>)</h2>
-  <?php $fallback_icon_html = '<div class="cmnsx-thumb-icon"><span class="material-symbols-rounded" aria-hidden="true">image</span></div>'; ?>
 
   <?php if (empty($items)): ?>
     <p class="cmnsx-empty">ไม่พบสินค้า ลองล้างตัวกรอง</p>
   <?php else: ?>
     <ul class="cmnsx-grid">
       <?php
+      $fallback_icon_html = '<div class="cmnsx-thumb-icon"><span class="material-symbols-rounded" aria-hidden="true">image</span></div>';
+
       foreach ($items as $row):
         $url   = '/shop/product-detail.php?id=' . (int)$row['id'];
         $img = trim((string)($row['main_image'] ?? ''));
@@ -354,49 +345,7 @@ ob_start();
       </nav>
     <?php endif; ?>
   <?php endif; ?>
-
-  <?php if (!empty($soldItems)): ?>
-    <div class="cmnsx-sold-section" style="margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px;">
-      <h3 class="cmnsx-title" style="font-size: 1.2rem; color: #666; margin-bottom: 15px; display:flex; align-items:center; gap:8px;">
-        <span class="material-symbols-rounded" aria-hidden="true">history</span> สินค้าที่จำหน่ายแล้ว (Sold Out)
-      </h3>
-      <ul class="cmnsx-grid">
-        <?php foreach ($soldItems as $row):
-          // ไม่ต้องมีลิงก์หรือถ้ามีก็กดไม่ได้
-          $img = trim((string)($row['main_image'] ?? ''));
-          if ($img !== '' && substr($img, 0, 1) !== '/' && !preg_match('~^https?://~', $img)) {
-            $img = '/' . ltrim($img, '/');
-          }
-          $name  = $row['name'];
-          $cat   = $row['category'] ?: 'อื่นๆ';
-          $price = (float)$row['price'];
-        ?>
-          <li class="cmnsx-card is-sold" style="opacity: 0.7; filter: grayscale(100%); pointer-events: none; position: relative;">
-            <div class="cmnsx-thumb">
-              <?php if ($img === ''): ?>
-                <?= $fallback_icon_html ?>
-              <?php else: ?>
-                <img src="<?= h($img) ?>" alt="<?= h($name) ?>" class="cmnsx-img" loading="lazy">
-              <?php endif; ?>
-              <div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); 
-                          background:rgba(0,0,0,0.65); color:#fff; padding:6px 16px; border-radius:4px; 
-                          font-weight:700; font-size:16px; border:1px solid #fff; z-index:2; text-transform: uppercase;">
-                Sold Out
-              </div>
-            </div>
-            <div class="cmnsx-info">
-              <div class="cmnsx-cat"><?= h($cat) ?></div>
-              <h3 class="cmnsx-name" style="color:#555;"><?= h($name) ?></h3>
-              <div class="cmnsx-price">
-                <span class="cmnsx-price-now" style="color:#888;">฿<?= number_format($price, 0) ?></span>
-              </div>
-            </div>
-          </li>
-        <?php endforeach; ?>
-      </ul>
-    </div>
-  <?php endif; ?>
-  </section>
+</section>
 <?php
 $__products_html = ob_get_clean();
 
@@ -590,15 +539,15 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
   <script>
     // ===== Global escapeHtml (ใช้ร่วมกันทุกที่) =====
     // [FIXED] อุดรูรั่ว XSS
-// ===== Global escapeHtml (แก้ไขแล้ว) =====
     function escapeHtml(s) {
       return String(s || '')
         .replace(/&/g, '&amp;')
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
         .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+        .replace(/'/g, '&#39;');
     }
+
     function toggleSidebar() {
       document.getElementById('sidebar').classList.toggle('open');
       document.getElementById('sidebar-overlay').classList.toggle('show');

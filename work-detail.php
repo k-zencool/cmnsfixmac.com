@@ -30,6 +30,18 @@ if (!$data) {
 $imgStmt = $pdo->prepare("SELECT * FROM repair_images WHERE repair_id = ?");
 $imgStmt->execute([$id]);
 $images = $imgStmt->fetchAll();
+
+// [กูแก้!!] (v4) หาแค่ที่เดียว... เพราะเราย้ายบ้านแล้ว
+$image_filename = $data['image'] ?? '';
+$imagePath = 'assets/img/placeholder.png'; // รูป Default
+$ogImagePath = 'https://cmnsfixmac.com/assets/img/placeholder.png'; // Path เต็มสำหรับ OG
+
+if (!empty($image_filename) && strpos($image_filename, '/') !== false) {
+    // ถ้าเป็น Path ใหม่ (เช่น /uploads/repairs/pic.jpg)... ใช้เลย
+    $imagePath = e($image_filename);
+    $ogImagePath = 'https://cmnsfixmac.com' . e($image_filename);
+}
+// ถ้าไม่มี... ก็ใช้ placeholder
 ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -57,7 +69,7 @@ $images = $imgStmt->fetchAll();
 
   <meta property="og:title" content="<?= e($data['title']) ?> - CMNS Mac Repair">
   <meta property="og:description" content="<?= e(mb_substr(strip_tags($data['fix_detail']), 0, 100)) ?>...">
-  <meta property="og:image" content="https://cmnsfixmac.com/uploads/<?= e($data['image']) ?>">
+  <meta property="og:image" content="<?= e($ogImagePath) ?>">
   <meta property="og:url" content="https://cmnsfixmac.com/work-detail.php?id=<?= $id ?>">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="description" content="<?= e(mb_substr(strip_tags($data['fix_detail']), 0, 160)) ?>">
@@ -74,14 +86,16 @@ $images = $imgStmt->fetchAll();
       <span class="breadcrumb-current"><?= e($data['title']) ?></span>
       <p><strong>วันที่โพสต์:</strong> <?= date('d/m/Y H:i', strtotime($data['created_at'])) ?></p>
     </nav>
-    <img src="/uploads/<?= e($data['image']) ?>" class="main-image" alt="ภาพงานซ่อม <?= e($data['title']) ?> รุ่น <?= e($data['model']) ?> หมวด <?= e($data['category']) ?>">
+    
+    <img src="<?= e($imagePath) ?>" class="main-image" alt="ภาพงานซ่อม <?= e($data['title']) ?> รุ่น <?= e($data['model']) ?> หมวด <?= e($data['category']) ?>">
+    
     <?php if ($images): ?>
       <section class="article-gallery">
         <h2>แกลเลอรี</h2>
         <div class="gallery-grid">
           <?php foreach ($images as $img): ?>
             <figure>
-              <img src="/<?= e($img['image_path']) ?>" alt="<?= e($img['caption']) ?>">
+              <img src="<?= e($img['image_path']) ?>" alt="<?= e($img['caption']) ?>">
               <figcaption><?= e($img['caption']) ?></figcaption>
             </figure>
           <?php endforeach; ?>

@@ -5,6 +5,8 @@
  * - กรอง: ผู้สร้าง, รุ่น, ช่วงวันที่สร้าง
  * - เรียง: ล่าสุดก่อน/เก่าสุดก่อน/ชื่อ (A→Z)
  * - แบ่งหน้า: ?page= ?per= (20/50/100)
+ * - [GEMINI EDIT v1]
+ * - Changed upload path to /uploads/repairs/
  ********************************************************************/
 
 session_start();
@@ -132,7 +134,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     <a href="add.php" class="btn-primary">+ เพิ่มผลงาน</a>
   </div>
 
-  <!-- Search & Filter -->
   <form action="index.php" method="get" class="search-and-filter-group">
     <input class="filter-input" name="q" value="<?= h($q) ?>" placeholder="ค้นหา ชื่อผลงาน/รุ่น/คำอธิบาย">
 
@@ -179,7 +180,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     <button class="btn-search">ค้นหา</button>
   </form>
 
-  <!-- Table -->
   <div class="table-container">
     <table class="data-table">
       <thead>
@@ -199,8 +199,8 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
             <td><?= ($offset + $i + 1) ?></td>
             <td>
               <?php if (!empty($r['image'])): ?>
-                <button type="button" class="thumb-btn" data-src="<?= h('../../uploads/'.$r['image']) ?>">
-                  <img src="<?= h('../../uploads/'.$r['image']) ?>" class="thumb" alt="">
+                <button type="button" class="thumb-btn" data-src="<?= h('../../uploads/repairs/'.$r['image']) ?>">
+                  <img src="<?= h('../../uploads/repairs/'.$r['image']) ?>" class="thumb" alt="">
                 </button>
               <?php else: ?><div class="thumb"></div><?php endif; ?>
             </td>
@@ -223,7 +223,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     </table>
   </div>
 
-  <!-- Pager -->
   <div class="pager-bar">
     <div class="pager-left">
       <span class="pager-total">พบ <?= (int)$total ?> รายการ</span>
@@ -248,7 +247,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     </nav>
   </div>
 
-  <!-- Image preview modal -->
   <div id="imgPreviewOverlay" class="imgpv-overlay" aria-hidden="true">
     <div class="imgpv-dialog" role="dialog" aria-modal="true" aria-label="ตัวอย่างรูป">
       <button type="button" class="imgpv-close" aria-label="ปิด">✕</button>
@@ -303,4 +301,3 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     });
   })();
 </script>
-

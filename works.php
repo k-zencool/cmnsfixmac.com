@@ -1,4 +1,12 @@
 <?php
+/*
+ * works.php
+ * - [GEMINI EDIT v4]
+ * - Patched image path logic to read from DB (which now points to /uploads/repairs/)
+ * - No longer checks file_exists (it's slow)
+ * - No longer checks /uploads/ (it's obsolete)
+ */
+
 include 'includes/db.php';
 
 function e($string)
@@ -31,7 +39,6 @@ if (!$page || $page < 1) $page = 1;
 
   
 
-  <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -126,9 +133,17 @@ if (!$page || $page < 1) $page = 1;
     <div class="work-grid">
       <?php while ($row = $stmt->fetch()): ?>
         <?php
-        $imagePath = (!empty($row['image']) && file_exists('uploads/' . $row['image']))
-          ? 'uploads/' . e($row['image'])
-          : 'assets/img/placeholder.png';
+        // [กูแก้!!] (v4) หาแค่ที่เดียว... เพราะเราย้ายบ้านแล้ว
+        $image_filename = $row['image'] ?? '';
+        
+        // [กูแก้!!] เช็คว่า Path ใน DB เป็นแบบใหม่ (มี /) รึยัง
+        if (!empty($image_filename) && strpos($image_filename, '/') !== false) {
+            // ถ้าเป็น Path ใหม่ (เช่น /uploads/repairs/pic.jpg)... ใช้เลย
+            $imagePath = e($image_filename);
+        } else {
+            // ไม่มีรูป หรือ Path พัง (เป็น pic.jpg เก่า)
+            $imagePath = 'assets/img/placeholder.png';
+        }
         ?>
         <a href="work-detail.php?id=<?= e($row['id']) ?>" class="work-card-link">
           <div class="work-card">

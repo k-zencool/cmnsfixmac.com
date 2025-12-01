@@ -1,4 +1,12 @@
 <?php
+/*
+ * articles.php
+ * - [GEMINI EDIT v2]
+ * - Patched image path logic to read root-relative path from DB
+ * - No longer adds "uploads/" prefix
+ * - Changed detail link from slug to id (to match admin)
+ */
+
 include 'includes/db.php';
 
 // ป้องกัน XSS และจัดการตัวแปร
@@ -65,14 +73,13 @@ $popularArticles = $popularStmt->fetchAll();
   <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/articles.php" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="assets/css/navbar-style.css">
+  <link rel="stylesheet" href="assets/css/style.css">
   <link rel="stylesheet" href="assets/css/articles-style.css">
   <link rel="stylesheet" href="/assets/css/footer-style.css">
   <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png" />
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet" />
 
 
-  <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
@@ -125,8 +132,17 @@ $popularArticles = $popularStmt->fetchAll();
         <h2>บทความยอดนิยม</h2>
         <div class="popular-list">
           <?php foreach ($popularArticles as $pop): ?>
-            <a href="article-detail.php?slug=<?= urlencode($pop['slug']) ?>" class="popular-item">
-              <img src="uploads/<?= e($pop['image']) ?>" alt="<?= e($pop['title']) ?>">
+            <?php
+            // [กูแก้!!] (v4) หาแค่ที่เดียว... เพราะเราย้ายบ้านแล้ว
+            $image_filename_pop = $pop['image'] ?? '';
+            if (!empty($image_filename_pop) && strpos($image_filename_pop, '/') !== false) {
+                $imagePathPop = e($image_filename_pop); // -> /uploads/articles/pic.jpg
+            } else {
+                $imagePathPop = 'assets/img/placeholder.png'; // ไม่มีรูป
+            }
+            ?>
+            <a href="article-detail.php?id=<?= e($pop['id']) ?>" class="popular-item">
+              <img src="<?= $imagePathPop ?>" alt="<?= e($pop['title']) ?>">
               <h3><?= e($pop['title']) ?></h3>
             </a>
           <?php endforeach; ?>
@@ -138,9 +154,18 @@ $popularArticles = $popularStmt->fetchAll();
   <section class="articles-container">
     <?php if ($articles): ?>
       <?php foreach ($articles as $row): ?>
-        <a href="article-detail.php?slug=<?= urlencode($row['slug']) ?>" class="article-card">
+        <?php
+        // [กูแก้!!] (v4) หาแค่ที่เดียว... เพราะเราย้ายบ้านแล้ว
+        $image_filename_main = $row['image'] ?? '';
+        if (!empty($image_filename_main) && strpos($image_filename_main, '/') !== false) {
+            $imagePathMain = e($image_filename_main); // -> /uploads/articles/pic.jpg
+        } else {
+            $imagePathMain = 'assets/img/placeholder.png'; // ไม่มีรูป
+        }
+        ?>
+        <a href="article-detail.php?id=<?= e($row['id']) ?>" class="article-card">
           <div class="article-image">
-            <img src="uploads/<?= e($row['image']) ?>" alt="<?= e($row['title']) ?>">
+            <img src="<?= $imagePathMain ?>" alt="<?= e($row['title']) ?>">
           </div>
           <div class="article-body">
             <p class="date"><?= date('d M Y', strtotime($row['created_at'])) ?></p>

@@ -25,12 +25,12 @@
           <a href="/en/" class="highlight-home"> <span class="material-symbols-rounded">home</span> Home</a>
 
           <a href="/en/works.php"><span class="material-symbols-rounded">construction</span>Our Work</a>
-          <a href="/en/products.php"><span class="material-symbols-rounded">storefront</span>Shop</a>
+          <a href="/en/shop"><span class="material-symbols-rounded">storefront</span>Shop</a>
           <a href="/en/articles.php"><span class="material-symbols-rounded">description</span>Articles</a>
           <a href="/en/buyback.php"><span class="material-symbols-rounded">laptop_mac</span>Sell Your Device</a>
-            <a href="https://cmnsfixmac.com/en/warranty.php">
-              <span class="material-symbols-rounded">verified</span> warranty
-            </a>
+          <a href="/en/warranty.php">
+            <span class="material-symbols-rounded">verified</span> warranty
+          </a>
 
           <div class="menu-dropdown">
             <a href="#" class="test-device-btn" role="button" onclick="return false;"> <span
@@ -55,29 +55,51 @@
           </div>
 
           <?php
-          // สร้าง URL ของหน้าภาษาไทยที่คู่กัน โดยการตัด /en/ ออก
-          $th_version_uri = substr($_SERVER['REQUEST_URI'], 3); // ตัด 3 ตัวแรก ('/en')
-          if (empty($th_version_uri)) {
-            $th_version_uri = '/'; // ถ้าเป็นหน้าแรกสุดของ /en/ ให้มันกลายเป็น /
+          // [GEMINI FIXED] Logic Switch Language (Relative Path for Localhost support)
+          if (isset($switch_to_lang_url) && !empty($switch_to_lang_url)) {
+              // ถ้ามี URL เฉพาะส่งมา (จาก article detail) ใช้ตัวนั้น
+              $th_version_url = $switch_to_lang_url;
+          } else {
+              // ตัด /en ออกจาก Path ปัจจุบัน
+              $current_uri = $_SERVER['REQUEST_URI'];
+              if (strpos($current_uri, '/en') === 0) {
+                  $th_version_uri = substr($current_uri, 3); // ตัด 3 ตัวแรก (/en)
+              } else {
+                  $th_version_uri = $current_uri;
+              }
+              
+              // ถ้าตัดแล้วว่าง ให้ไปหน้าแรก /
+              if (empty($th_version_uri) || $th_version_uri === '/') {
+                  $th_version_uri = '/';
+              }
+              $th_version_url = $th_version_uri;
           }
-          $th_version_url = 'https://cmnsfixmac.com' . $th_version_uri;
           ?>
           <a href="<?= htmlspecialchars($th_version_url) ?>" class="language-switch-btn" title="เปลี่ยนเป็นภาษาไทย">
             <span class="material-symbols-rounded">language</span> TH
           </a>
         </nav>
 
-
       </div>
 
       <div class="mobile-controls">
         <?php
-        // สร้าง URL ของหน้าภาษาไทยที่คู่กัน (สำหรับมือถือ)
-        $th_version_uri_mobile = substr($_SERVER['REQUEST_URI'], 3);
-        if (empty($th_version_uri_mobile)) {
-          $th_version_uri_mobile = '/';
+        // Logic มือถือ เหมือนข้างบน
+        if (isset($switch_to_lang_url) && !empty($switch_to_lang_url)) {
+            $th_version_url_mobile = $switch_to_lang_url;
+        } else {
+            $current_uri = $_SERVER['REQUEST_URI'];
+            if (strpos($current_uri, '/en') === 0) {
+                $th_version_uri_mobile = substr($current_uri, 3);
+            } else {
+                $th_version_uri_mobile = $current_uri;
+            }
+
+            if (empty($th_version_uri_mobile) || $th_version_uri_mobile === '/') {
+              $th_version_uri_mobile = '/';
+            }
+            $th_version_url_mobile = $th_version_uri_mobile;
         }
-        $th_version_url_mobile = 'https://cmnsfixmac.com' . $th_version_uri_mobile;
         ?>
         <a href="<?= htmlspecialchars($th_version_url_mobile) ?>" class="language-switch-btn"
           title="เปลี่ยนเป็นภาษาไทย">
@@ -95,24 +117,23 @@
 
   <div id="sidebar" class="sidebar">
     <div class="sidebar-header">
-      <a href="https://cmnsfixmac.com/en/"> <img src="/assets/img/Logo1.png" alt="CMNS FixMac Logo"
+      <a href="/en/"> <img src="/assets/img/Logo1.png" alt="CMNS FixMac Logo"
           style="height: 36px; margin-bottom: 16px;">
       </a>
       <span class="close-btn" onclick="toggleSidebar()">✕</span>
     </div>
     <nav class="sidebar-menu">
-      <a href="https://cmnsfixmac.com/en/" class="highlight-home"> <span class="material-symbols-rounded">home</span>
+      <a href="/en/" class="highlight-home"> <span class="material-symbols-rounded">home</span>
         Home
       </a>
-      <a href="https://cmnsfixmac.com/en/works.php"><span class="material-symbols-rounded">construction</span> OurWork</a>
-      <a href="https://cmnsfixmac.com/en/products.php"><span class="material-symbols-rounded">storefront</span> Shop</a>
-      <a href="https://cmnsfixmac.com/en/articles.php"><span class="material-symbols-rounded">description</span>Articles</a>
-      <a href="https://cmnsfixmac.com/en/buyback.php"><span class="material-symbols-rounded">laptop_mac</span>Sell YourDevice</a>
+      <a href="/en/works.php"><span class="material-symbols-rounded">construction</span> OurWork</a>
+      <a href="/en/shop"><span class="material-symbols-rounded">storefront</span> Shop</a>
+      <a href="/en/articles.php"><span class="material-symbols-rounded">description</span>Articles</a>
+      <a href="/en/buyback.php"><span class="material-symbols-rounded">laptop_mac</span>Sell YourDevice</a>
 
-      <a href="https://cmnsfixmac.com/en/warranty.php">
+      <a href="/en/warranty.php">
         <span class="material-symbols-rounded">verified</span> warranty
       </a>
-
 
       <a href="tel:0841511684"><span class="material-symbols-rounded">call</span> Call Now</a>
     </nav>
@@ -145,9 +166,9 @@
     function copyPhone() {
       const phone = document.getElementById('phone-number').innerText;
       navigator.clipboard.writeText(phone).then(() => {
-        alert("Phone number copied: " + phone); // Translated alert
+        alert("Phone number copied: " + phone); 
       }).catch(() => {
-        alert("Could not copy phone number."); // Translated alert
+        alert("Could not copy phone number."); 
       });
     }
 

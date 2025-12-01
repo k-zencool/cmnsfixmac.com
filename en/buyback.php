@@ -97,9 +97,9 @@
             <h1>We Buy Used MacBooks, iPhones, iPads, & iMacs in Chiang Mai</h1>
             <p>Broken device, won't turn on, cracked screen, bad battery? We take it all! Fair prices, fast payment, and local pickup available.</p>
             <a href="https://page.line.me/cmns" target="_blank" class="btn-line">
-                <span class="material-symbols-rounded">chat</span> Get a Free Quote via LINE Now!
+                <span class="material-symbols-rounded">chat</span> Send photos via LINE for a price estimate!
             </a>
-            <p style="font-size: 0.9em; margin-top: 15px;">(Free estimate! No obligation to sell.)</p>
+            <p style="font-size: 0.9em; margin-top: 15px;">(Free valuation, no pressure to sell. Terms apply. We may decline valuation if the device doesn’t meet our criteria or isn’t of interest. In some cases, device inspection at the shop may be required.)</p>
         </div>
     </header>
 

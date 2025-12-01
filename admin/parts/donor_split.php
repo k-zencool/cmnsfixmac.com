@@ -2,7 +2,7 @@
 
 /********************************************************************
  * admin/parts/donor_split.php
- * แยกอะไหล่จากเครื่องซาก (ทีละชิ้น) -> เข้า "อะไหล่มือ 2"
+ * แยกอะไหล่จากเครื่อง (ทีละชิ้น) -> เข้า "อะไหล่มือ 2"
  * - เฮดการ์ด: รูป/รุ่น/ซีเรียล/ทุน/สถานะ  (class เข้ากับ index.php)
  * - ตาราง "รายการที่แยกแล้ว" อยู่ด้านบน (แก้ที่เก็บได้ทีละชิ้น)
  * - ฟอร์มด้านล่างใช้สไตล์เดียวกับ form_used.php
@@ -16,7 +16,7 @@ require_once __DIR__ . '/../../includes/auth.php';
 require_login();
 require_perms(['parts.donor.view']);
 
-$pageTitle = "แยกอะไหล่จากเครื่องซาก (ทีละชิ้น)";
+$pageTitle = "แยกอะไหล่จากเครื่อง (ทีละชิ้น)";
 
 function h($s)
 {
@@ -58,7 +58,7 @@ $st = $pdo->prepare("SELECT * FROM parts_donors WHERE id=? LIMIT 1");
 $st->execute([$donor_id]);
 $donor = $st->fetch(PDO::FETCH_ASSOC);
 if (!$donor) {
-  header("Location: index.php?tab=donor&err=" . urlencode("ไม่พบเครื่องซาก"));
+  header("Location: index.php?tab=donor&err=" . urlencode("ไม่พบเครื่อง"));
   exit;
 }
 
@@ -200,7 +200,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 
   <div class="topbar">
     <span><?= h($pageTitle) ?> #<?= (int)$donor_id ?> (<?= h($donor['device_models']) ?>)</span>
-    <a href="index.php?tab=donor" class="view-site">← กลับรายการเครื่องซาก</a>
+    <a href="index.php?tab=donor" class="view-site">← กลับรายการเครื่อง</a>
   </div>
 
   <?php if ($msg): ?><div class="alert alert-success"><?= h($msg) ?></div><?php endif; ?>
@@ -335,9 +335,9 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 
       <!-- แสดง donor_id (ล็อกค่าไว้) -->
       <div class="form-item">
-        <label class="form-label" for="donor_id_display">เชื่อมกับเครื่องซาก</label>
+        <label class="form-label" for="donor_id_display">เชื่อมกับเครื่อง</label>
         <input id="donor_id_display" class="input filter-input" value="<?= (int)$donor_id ?>" disabled>
-        <small class="form-hint">รายการนี้ถูกสร้างจากเครื่องซากนี้โดยอัตโนมัติ</small>
+        <small class="form-hint">รายการนี้ถูกสร้างจากเครื่องนี้โดยอัตโนมัติ</small>
       </div>
 
       <div class="form-item">

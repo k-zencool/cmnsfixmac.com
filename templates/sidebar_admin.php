@@ -25,8 +25,13 @@ $partsOpen = has('/admin/parts/'); // เปิดเมนูย่อยอั
       <span class="material-symbols-rounded">space_dashboard</span> Dashboard
     </a>
 
-    <a class="<?php echo has('/admin/products/') ? 'active' : ''; ?>" href="/admin/products/">
-      <span class="material-symbols-rounded">shopping_bag</span> จัดการสินค้า/บริการ
+
+
+
+    <?php // <-- [NEW] เพิ่มเมนูนี้เข้าไป 
+    ?>
+    <a class="<?php echo has('/admin/shop/') ? 'active' : ''; ?>" href="/admin/shop/">
+      <span class="material-symbols-rounded">storefront</span> จัดการหน้าร้าน (Shop)
     </a>
 
     <a class="<?php echo has('/admin/repairs/') ? 'active' : ''; ?>" href="/admin/repairs/">
@@ -70,13 +75,13 @@ $partsOpen = has('/admin/parts/'); // เปิดเมนูย่อยอั
 
       <div id="parts-sub" class="submenu <?php echo $partsOpen ? 'open' : ''; ?>">
         <a href="/admin/parts/index.php?tab=new">
-          <span class="material-symbols-rounded">chevron_right</span> ของมือ 1
+          <span class="material-symbols-rounded">chevron_right</span> อะไหล่มือ 1
         </a>
         <a href="/admin/parts/index.php?tab=used">
-          <span class="material-symbols-rounded">chevron_right</span> ของมือ 2
+          <span class="material-symbols-rounded">chevron_right</span> อะไหล่มือ 2
         </a>
         <a href="/admin/parts/index.php?tab=donor">
-          <span class="material-symbols-rounded">chevron_right</span> เครื่องซาก
+          <span class="material-symbols-rounded">chevron_right</span> เครื่อง
         </a>
         <a href="/admin/parts/index.php?tab=history">
           <span class="material-symbols-rounded">chevron_right</span> ประวัติ

@@ -16,36 +16,34 @@
   <header class="navbar navbar-top">
     <div class="nav-container">
       <div class="nav-logo">
-        <a href="https://cmnsfixmac.com/">
+        <a href="/">
           <img src="/assets/img/Logo1.png" alt="CMNS FixMac Logo">
         </a>
       </div>
       <div class="menu-desktop-only">
 
         <nav class="menu">
-          <nav class="menu">
-            <a href="https://cmnsfixmac.com" class="highlight-home">
+            <a href="/" class="highlight-home">
               <span class="material-symbols-rounded">home</span> หน้าแรก
             </a>
 
-            <a href="https://cmnsfixmac.com/works.php">
+            <a href="/works.php">
               <span class="material-symbols-rounded">construction</span> ผลงาน
             </a>
 
-            <a href="https://cmnsfixmac.com/products.php">
+            <a href="/shop">
               <span class="material-symbols-rounded">storefront</span> ร้านค้า
             </a>
 
-            <a href="https://cmnsfixmac.com/articles.php">
+            <a href="/articles.php">
               <span class="material-symbols-rounded">description</span> บทความ
             </a>
 
-            <a href="https://cmnsfixmac.com/buyback.php">
+            <a href="/buyback.php">
               <span class="material-symbols-rounded">laptop_mac</span> รับซื้อเครื่อง
             </a>
 
-            <!-- ✅ เพิ่มเมนูตรวจสอบประกัน -->
-            <a href="https://cmnsfixmac.com/warranty.php">
+            <a href="/warranty.php">
               <span class="material-symbols-rounded">verified</span> ตรวจสอบประกัน
             </a>
 
@@ -61,7 +59,6 @@
                 <a href="/tester/microphone-tester/"><span class="material-symbols-rounded">mic</span>ทดสอบไมโครโฟน</a>
                 <a href="/tester/camera-tester/"><span class="material-symbols-rounded">photo_camera</span>ทดสอบกล้อง</a>
                 <a href="/tester/sounds-tester"><span class="material-symbols-rounded">volume_up</span>ทดสอบเสียงลำโพง</a>
-
               </div>
             </div>
 
@@ -73,25 +70,32 @@
             </div>
 
             <?php
-            // สร้าง URL ของหน้าภาษาอังกฤษที่คู่กัน
-            $en_version_url = 'https://cmnsfixmac.com/en' . $_SERVER['REQUEST_URI'];
-            // จัดการหน้า index.php ให้สวยงาม
-            $en_version_url = str_replace('/index.php', '/', $en_version_url);
+            // [GEMINI FIXED] Logic เปลี่ยนภาษา (ใช้ Relative Path เพื่อรองรับ Localhost)
+            if (isset($switch_to_lang_url) && !empty($switch_to_lang_url)) {
+                // ถ้าหน้านั้นส่ง URL มา (เช่น article-detail) ให้ใช้ตามนั้น
+                $en_version_url = $switch_to_lang_url;
+            } else {
+                // ถ้าปกติ ให้เติม /en ข้างหน้า path ปัจจุบัน
+                $en_version_url = '/en' . $_SERVER['REQUEST_URI'];
+                $en_version_url = str_replace('/index.php', '/', $en_version_url);
+            }
             ?>
             <a href="<?= htmlspecialchars($en_version_url) ?>" class="language-switch-btn" title="Switch to English">
               <span class="material-symbols-rounded">language</span> EN
             </a>
           </nav>
 
-
       </div>
 
       <div class="mobile-controls">
         <?php
-        // สร้าง URL ของหน้าภาษาอังกฤษที่คู่กัน (สำหรับมือถือ)
-        $en_version_url_mobile = 'https://cmnsfixmac.com/en' . $_SERVER['REQUEST_URI'];
-        // จัดการหน้า index.php ให้สวยงาม
-        $en_version_url_mobile = str_replace('/index.php', '/', $en_version_url_mobile);
+        // Logic มือถือ เหมือนข้างบน
+        if (isset($switch_to_lang_url) && !empty($switch_to_lang_url)) {
+            $en_version_url_mobile = $switch_to_lang_url;
+        } else {
+            $en_version_url_mobile = '/en' . $_SERVER['REQUEST_URI'];
+            $en_version_url_mobile = str_replace('/index.php', '/', $en_version_url_mobile);
+        }
         ?>
         <a href="<?= htmlspecialchars($en_version_url_mobile) ?>" class="language-switch-btn"
           title="Switch to English">
@@ -109,29 +113,26 @@
 
   <div id="sidebar" class="sidebar">
     <div class="sidebar-header">
-      <a href="https://cmnsfixmac.com/">
+      <a href="/">
         <img src="/assets/img/Logo1.png" alt="CMNS FixMac Logo" style="height: 36px; margin-bottom: 16px;">
       </a>
       <span class="close-btn" onclick="toggleSidebar()">✕</span>
     </div>
     <nav class="sidebar-menu">
-      <a href="https://cmnsfixmac.com" class="highlight-home">
+      <a href="/" class="highlight-home">
         <span class="material-symbols-rounded">home</span> หน้าแรก
       </a>
-      <a href="https://cmnsfixmac.com/works.php"><span class="material-symbols-rounded">construction</span> ผลงาน</a>
-      <a href="https://cmnsfixmac.com/products.php"><span class="material-symbols-rounded">storefront</span> ร้านค้า</a>
-      <a href="https://cmnsfixmac.com/articles.php"><span class="material-symbols-rounded">description</span> บทความ</a>
-      <a href="https://cmnsfixmac.com/buyback.php"><span class="material-symbols-rounded">laptop_mac</span> รับซื้อเครื่อง</a>
+      <a href="/works.php"><span class="material-symbols-rounded">construction</span> ผลงาน</a>
+      <a href="/shop"><span class="material-symbols-rounded">storefront</span> ร้านค้า</a>
+      <a href="/articles.php"><span class="material-symbols-rounded">description</span> บทความ</a>
+      <a href="/buyback.php"><span class="material-symbols-rounded">laptop_mac</span> รับซื้อเครื่อง</a>
 
-      <!-- ✅ เพิ่มเมนูตรวจสอบประกัน -->
-      <a href="https://cmnsfixmac.com/warranty.php">
+      <a href="/warranty.php">
         <span class="material-symbols-rounded">verified</span> ตรวจสอบประกัน
       </a>
 
       <a href="tel:0841511684"><span class="material-symbols-rounded">call</span> โทรเลย</a>
     </nav>
-
-
 
     <div class="sidebar-dropdown">
       <button class="dropdown-toggle" onclick="toggleSidebarDropdown(this)">
@@ -190,5 +191,4 @@
   </script>
 
 </body>
-
 </html>

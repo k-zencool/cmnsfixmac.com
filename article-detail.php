@@ -1,46 +1,83 @@
 <?php
+/*
+ * article-detail.php
+ * - [GEMINI EDIT v5]
+ * - Fixed $switch_to_lang_url to use Relative Path (Compatible with Localhost)
+ */
+
 include 'includes/db.php';
 
-$slug = $_GET['slug'] ?? '';
-if (!$slug) {
+function e($string) {
+  return htmlspecialchars($string, ENT_QUOTES, 'UTF-8');
+}
+
+// รับค่า ID
+$id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+if (!$id) {
   header("Location: articles.php");
   exit;
 }
 
-$stmt = $pdo->prepare("SELECT * FROM articles WHERE slug = ? LIMIT 1");
-$stmt->execute([$slug]);
+// เพิ่มวิว
+$pdo->prepare("UPDATE articles SET views = views + 1 WHERE id = ?")->execute([$id]);
+
+// ดึงข้อมูลบทความ
+$stmt = $pdo->prepare("SELECT * FROM articles WHERE id = ?");
+$stmt->execute([$id]);
 $article = $stmt->fetch();
 
-if (!$article) {
+if (!$article || !$article['status']) { 
   http_response_code(404);
   echo "<h1>ไม่พบบทความ</h1>";
   exit;
 }
 
+// --- [GEMINI FIXED] Language Switch Logic (Relative Path) ---
+// ส่ง Path แบบสัมพัทธ์ไปให้ Header (ไม่ต้องมี https://...)
+// จะได้ไม่เด้งไปเว็บจริงตอนอยู่ localhost
+$switch_to_lang_url = "/en/article-detail.php?id=" . $article['id'];
+// ---------------------------------------------------------
+
+// ดึงรูปภาพเพิ่มเติม
 $stmtImg = $pdo->prepare("SELECT * FROM article_images WHERE article_id = ?");
 $stmtImg->execute([$article['id']]);
 $images = $stmtImg->fetchAll();
 
-$fullUrl = "https://cmnsfixmac.com/article-detail.php?slug=" . urlencode($slug);
-
-$stmtRelated = $pdo->prepare("SELECT * FROM articles WHERE category = ? AND id != ? ORDER BY created_at DESC LIMIT 4");
+// ดึงบทความที่เกี่ยวข้อง
+$stmtRelated = $pdo->prepare("SELECT * FROM articles WHERE category = ? AND id != ? AND status = 1 ORDER BY created_at DESC LIMIT 4");
 $stmtRelated->execute([$article['category'], $article['id']]);
 $related = $stmtRelated->fetchAll();
 
-$pdo->prepare("UPDATE articles SET views = views + 1 WHERE id = ?")->execute([$article['id']]);
-
-$stmtPopular = $pdo->prepare("SELECT * FROM articles WHERE id != ? ORDER BY views DESC LIMIT 4");
+// ดึงบทความยอดนิยม
+$stmtPopular = $pdo->prepare("SELECT * FROM articles WHERE id != ? AND status = 1 ORDER BY views DESC LIMIT 4");
 $stmtPopular->execute([$article['id']]);
 $popular = $stmtPopular->fetchAll();
 
-$prevStmt = $pdo->prepare("SELECT * FROM articles WHERE id < ? ORDER BY id DESC LIMIT 1");
+// Previous/Next Logic
+$prevStmt = $pdo->prepare("SELECT * FROM articles WHERE id < ? AND status = 1 ORDER BY id DESC LIMIT 1");
 $prevStmt->execute([$article['id']]);
 $prev = $prevStmt->fetch();
 
-$nextStmt = $pdo->prepare("SELECT * FROM articles WHERE id > ? ORDER BY id ASC LIMIT 1");
+$nextStmt = $pdo->prepare("SELECT * FROM articles WHERE id > ? AND status = 1 ORDER BY id ASC LIMIT 1");
 $nextStmt->execute([$article['id']]);
 $next = $nextStmt->fetch();
 
+// Image Path Logic
+$image_filename = $article['image'] ?? '';
+$imagePath = '/assets/img/placeholder.png'; // รูป Default
+$ogImagePath = 'https://cmnsfixmac.com/assets/img/placeholder.png'; // OG ต้องใช้ Full URL
+
+if (!empty($image_filename) && strpos($image_filename, '/') !== false) {
+    $imagePath = e($image_filename);
+    // เช็ค Protocol สำหรับ OG Image (เผื่อ localhost)
+    $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? "https" : "http";
+    $host = $_SERVER['HTTP_HOST'];
+    $ogImagePath = "$protocol://$host" . e($image_filename);
+}
+
+// สร้าง Full URL สำหรับ Canonical/OG (ใช้ Dynamic Host)
+$protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? "https" : "http";
+$currentUrl = "$protocol://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
 ?>
 
 <!DOCTYPE html>
@@ -49,104 +86,42 @@ $next = $nextStmt->fetch();
 <head>
   <meta charset="UTF-8">
   <title><?= htmlspecialchars($article['title']) ?> | FixMac</title>
-  <?php
-  // --- Hreflang Tags for Article Detail Page (by SLUG) ---
-  // โค้ดนี้จะทำงานหลังจากที่มึงดึงข้อมูลบทความมาใส่ในตัวแปร $article แล้ว
-
-  // ดึง slug ของทั้งสองภาษามาจาก $article 
-  // (เราต้อง SELECT slug, slug_en มาจาก DB ด้วยนะ)
-  $slug_th = $article['slug'] ?? '';
-  // ถ้า slug_en มีค่าและไม่ว่างเปล่า ก็ใช้ slug_en, ถ้าไม่มีก็ใช้ slug_th แทนไปก่อน
-  $slug_en = !empty(trim($article['slug_en'] ?? '')) ? $article['slug_en'] : $slug_th;
-
-  if (!empty($slug_th)) {
-    $th_url = "https://cmnsfixmac.com/article-detail.php?slug=" . urlencode($slug_th);
-    $en_url = "https://cmnsfixmac.com/en/article-detail.php?slug=" . urlencode($slug_en);
-
-    echo '<link rel="alternate" hreflang="th" href="' . htmlspecialchars($th_url) . '" />' . "\n";
-    echo '    <link rel="alternate" hreflang="en" href="' . htmlspecialchars($en_url) . '" />' . "\n";
-    echo '    <link rel="alternate" hreflang="x-default" href="' . htmlspecialchars($en_url) . '" />' . "\n";
-  }
+  
+  <?php 
+    // สร้าง Full URL สำหรับ Hreflang (ใช้ Dynamic Host)
+    $baseUrl = "$protocol://$_SERVER[HTTP_HOST]";
   ?>
+  <link rel="alternate" hreflang="th" href="<?= $baseUrl ?>/article-detail.php?id=<?= $article['id'] ?>" />
+  <link rel="alternate" hreflang="en" href="<?= $baseUrl ?>/en/article-detail.php?id=<?= $article['id'] ?>" />
+  <link rel="alternate" hreflang="x-default" href="<?= $baseUrl ?>/en/article-detail.php?id=<?= $article['id'] ?>" />
+
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="<?= htmlspecialchars(mb_substr(strip_tags($article['excerpt'] ?: $article['content']), 0, 160)) ?>">
-  <link rel="stylesheet" href="assets/css/navbar-style.css">
-  <link rel="stylesheet" href="assets/css/article-detail-style.css">
-  <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png" />
+  
+  <link rel="stylesheet" href="/assets/css/navbar-style.css">
+  <link rel="stylesheet" href="/assets/css/article-detail-style.css">
+  <link rel="shortcut icon" href="/assets/img/favicon1.png" />
   <link rel="stylesheet" href="/assets/css/footer-style.css">
-  <link rel="canonical" href="<?= $fullUrl ?>">
+  <link rel="canonical" href="<?= $currentUrl ?>">
 
   <meta property="og:title" content="<?= htmlspecialchars($article['title']) ?> | FixMac">
   <meta property="og:description" content="<?= htmlspecialchars(mb_substr(strip_tags($article['excerpt'] ?: $article['content']), 0, 160)) ?>">
-  <meta property="og:image" content="https://cmnsfixmac.com/uploads/<?= htmlspecialchars($article['image']) ?>">
-  <meta property="og:url" content="<?= $fullUrl ?>">
+  <meta property="og:image" content="<?= htmlspecialchars($ogImagePath) ?>">
+  <meta property="og:url" content="<?= $currentUrl ?>">
   <meta property="og:type" content="article">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="<?= htmlspecialchars($article['title']) ?>">
   <meta name="twitter:description" content="<?= htmlspecialchars(mb_substr(strip_tags($article['excerpt'] ?: $article['content']), 0, 160)) ?>">
-  <meta name="twitter:image" content="https://cmnsfixmac.com/uploads/<?= htmlspecialchars($article['image']) ?>">
+  <meta name="twitter:image" content="<?= htmlspecialchars($ogImagePath) ?>">
 
   <meta name="keywords" content="<?= htmlspecialchars($article['tags'] ?? '') ?>">
-  <!-- Google tag (gtag.js) -->
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
   <script>
     window.dataLayer = window.dataLayer || [];
-
-    function gtag() {
-      dataLayer.push(arguments);
-    }
+    function gtag() { dataLayer.push(arguments); }
     gtag('js', new Date());
-
     gtag('config', 'G-3WXK9GWN7C');
   </script>
-
-  <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "Article",
-      "headline": "<?= htmlspecialchars($article['title']) ?>",
-      "image": ["https://cmnsfixmac.com/uploads/<?= htmlspecialchars($article['image']) ?>"],
-      "author": {
-        "@type": "Organization",
-        "name": "FixMac"
-      },
-      "publisher": {
-        "@type": "Organization",
-        "name": "FixMac",
-        "logo": {
-          "@type": "ImageObject",
-          "url": "https://cmnsfixmac.com/assets/img/Logo1.png"
-        }
-      },
-      "datePublished": "<?= date('Y-m-d', strtotime($article['created_at'])) ?>",
-      "dateModified": "<?= date('Y-m-d', strtotime($article['created_at'])) ?>",
-      "mainEntityOfPage": {
-        "@type": "WebPage",
-        "@id": "<?= $fullUrl ?>"
-      }
-    }
-  </script>
-
-  <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "BreadcrumbList",
-      "itemListElement": [{
-          "@type": "ListItem",
-          "position": 1,
-          "name": "บทความทั้งหมด",
-          "item": "https://cmnsfixmac.com/articles.php"
-        },
-        {
-          "@type": "ListItem",
-          "position": 2,
-          "name": "<?= htmlspecialchars($article['title']) ?>",
-          "item": "<?= $fullUrl ?>"
-        }
-      ]
-    }
-  </script>
-
 </head>
 
 <body>
@@ -158,13 +133,13 @@ $next = $nextStmt->fetch();
     <p class="views">รับชม <?= number_format($article['views']) ?> ครั้ง</p>
 
     <div class="breadcrumb-bar">
-      <a href="articles.php" class="breadcrumb-home">บทความทั้งหมด</a>
+      <a href="/articles.php" class="breadcrumb-home">บทความทั้งหมด</a>
       <span class="breadcrumb-separator">›</span>
       <span class="breadcrumb-current"><?= htmlspecialchars($article['title']) ?></span>
     </div>
 
     <?php if (!empty($article['image'])): ?>
-      <img class="main-image" src="uploads/<?= htmlspecialchars($article['image']) ?>" alt="<?= htmlspecialchars($article['title']) ?>">
+      <img class="main-image" src="<?= $imagePath ?>" alt="<?= htmlspecialchars($article['title']) ?>">
     <?php endif; ?>
 
     <article class="article-content">
@@ -177,7 +152,7 @@ $next = $nextStmt->fetch();
         <div class="gallery-grid">
           <?php foreach ($images as $img): ?>
             <figure>
-              <img loading="lazy" src="uploads/<?= htmlspecialchars($img['image_path']) ?>" alt="<?= htmlspecialchars($img['caption']) ?>">
+              <img loading="lazy" src="<?= e($img['image_path']) ?>" alt="<?= e($img['caption']) ?>">
               <?php if (!empty($img['caption'])): ?>
                 <figcaption><strong>คำอธิบาย:</strong> <?= $img['caption'] ?></figcaption>
               <?php endif; ?>
@@ -197,48 +172,35 @@ $next = $nextStmt->fetch();
 
     <div class="article-actions">
       <button class="share-btn native" onclick="shareNative()">
-        <img src="assets/img/icons/Share.png" alt="แชร์บทความ">
-        แชร์บทความ
+        <img src="/assets/img/icons/Share.png" alt="แชร์บทความ"> แชร์บทความ
       </button>
-
-      <a href="https://www.facebook.com/sharer/sharer.php?u=<?= urlencode($fullUrl) ?>"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="share-btn facebook desktop-only">
-        <img src="assets/img/icons/facebook.png" alt="แชร์ Facebook">
-        แชร์ Facebook
+      <a href="https://www.facebook.com/sharer/sharer.php?u=<?= urlencode($currentUrl) ?>"
+        target="_blank" rel="noopener noreferrer" class="share-btn facebook desktop-only">
+        <img src="/assets/img/icons/facebook.png" alt="แชร์ Facebook"> แชร์ Facebook
       </a>
-
-      <a href="https://social-plugins.line.me/lineit/share?url=<?= urlencode($fullUrl) ?>"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="share-btn line desktop-only">
-        <img src="assets/img/icons/Line.png" alt="แชร์ LINE">
-        แชร์ LINE
+      <a href="https://social-plugins.line.me/lineit/share?url=<?= urlencode($currentUrl) ?>"
+        target="_blank" rel="noopener noreferrer" class="share-btn line desktop-only">
+        <img src="/assets/img/icons/Line.png" alt="แชร์ LINE"> แชร์ LINE
       </a>
-
       <button class="share-btn copy" onclick="copyArticleLink()">
-        <img src="assets/img/icons/Link.png" alt="คัดลอกลิงก์">
-        คัดลอกลิงก์
+        <img src="/assets/img/icons/Link.png" alt="คัดลอกลิงก์"> คัดลอกลิงก์
       </button>
     </div>
-
-
 
     <?php if ($related): ?>
       <section class="related-articles">
         <h2>บทความที่เกี่ยวข้อง</h2>
         <div class="related-list">
           <?php foreach ($related as $item): ?>
-            <a href="article-detail.php?slug=<?= urlencode($item['slug']) ?>" class="related-item">
-
-              <img src="uploads/<?= htmlspecialchars($item['image']) ?>" alt="<?= htmlspecialchars($item['title']) ?>">
-
+            <?php
+            $image_filename_related = $item['image'] ?? '';
+            $imagePathRelated = (!empty($image_filename_related) && strpos($image_filename_related, '/') !== false) ? e($image_filename_related) : '/assets/img/placeholder.png';
+            ?>
+            <a href="/article-detail.php?id=<?= e($item['id']) ?>" class="related-item">
+              <img src="<?= $imagePathRelated ?>" alt="<?= htmlspecialchars($item['title']) ?>">
               <div class="related-item-content">
                 <h3><?= htmlspecialchars($item['title']) ?></h3>
-
               </div>
-
             </a>
           <?php endforeach; ?>
         </div>
@@ -250,14 +212,15 @@ $next = $nextStmt->fetch();
         <h2>บทความยอดนิยม</h2>
         <div class="popular-list">
           <?php foreach ($popular as $pop): ?>
-            <a href="article-detail.php?slug=<?= urlencode($pop['slug']) ?>" class="popular-item">
-
-              <img src="uploads/<?= htmlspecialchars($pop['image']) ?>" alt="<?= htmlspecialchars($pop['title']) ?>">
-
+             <?php
+            $image_filename_pop = $pop['image'] ?? '';
+            $imagePathPop = (!empty($image_filename_pop) && strpos($image_filename_pop, '/') !== false) ? e($image_filename_pop) : '/assets/img/placeholder.png';
+            ?>
+            <a href="/article-detail.php?id=<?= e($pop['id']) ?>" class="popular-item">
+              <img src="<?= $imagePathPop ?>" alt="<?= htmlspecialchars($pop['title']) ?>">
               <div class="popular-item-content">
                 <h3><?= htmlspecialchars($pop['title']) ?></h3>
               </div>
-
             </a>
           <?php endforeach; ?>
         </div>
@@ -267,18 +230,13 @@ $next = $nextStmt->fetch();
     <?php if ($prev || $next): ?>
       <nav class="article-nav short">
         <?php if ($prev): ?>
-          <a class="prev-article" href="article-detail.php?slug=<?= urlencode($prev['slug']) ?>">
-            ← ก่อนหน้า
-          </a>
+          <a class="prev-article" href="/article-detail.php?id=<?= e($prev['id']) ?>">← ก่อนหน้า</a>
         <?php endif; ?>
         <?php if ($next): ?>
-          <a class="next-article" href="article-detail.php?slug=<?= urlencode($next['slug']) ?>">
-            ถัดไป →
-          </a>
+          <a class="next-article" href="/article-detail.php?id=<?= e($next['id']) ?>">ถัดไป →</a>
         <?php endif; ?>
       </nav>
     <?php endif; ?>
-
 
   </main>
 
@@ -289,7 +247,7 @@ $next = $nextStmt->fetch();
       if (navigator.share) {
         navigator.share({
           title: document.title,
-          url: "<?= $fullUrl ?>"
+          url: "<?= $currentUrl ?>"
         });
       } else {
         alert("อุปกรณ์ของคุณไม่รองรับการแชร์อัตโนมัติ กรุณาแชร์ด้วยปุ่มด้านล่าง");
@@ -297,7 +255,7 @@ $next = $nextStmt->fetch();
     }
 
     function copyArticleLink() {
-      const url = "<?= $fullUrl ?>";
+      const url = "<?= $currentUrl ?>";
       navigator.clipboard.writeText(url).then(() => {
         alert("คัดลอกลิงก์เรียบร้อยแล้ว!");
       }).catch(() => {
@@ -307,5 +265,4 @@ $next = $nextStmt->fetch();
   </script>
 
 </body>
-
 </html>

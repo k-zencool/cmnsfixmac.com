@@ -5,7 +5,7 @@
  * รวม 4 แท็บ:
  *  - new    : อะไหล่มือ 1 — GROUP BY part_code + แบ่งหน้า (+แสดงขั้นต่ำ)
  *  - used   : อะไหล่มือ 2 — แบ่งหน้า
- *  - donor  : เครื่องซาก  — แบ่งหน้า + ตัวกรอง (อุปกรณ์/สถานะ) + ที่เก็บ (location_index)
+ *  - donor  : เครื่อง  — แบ่งหน้า + ตัวกรอง (อุปกรณ์/สถานะ) + ที่เก็บ (location_index)
  *  - history: เอกสาร IN/CONSUME/MOVE/ADJUST/DONOR — (LIMIT 200)
  ********************************************************************/
 
@@ -37,10 +37,11 @@ $KIND_KEYWORDS = [
   'hinge'=>['บานพับ','hinge'],
   'case'=>['ฝาหลัง','ฝา','case','top case','bottom']
 ];
-// สถานะเครื่องซาก
+// สถานะเครื่อง
 $DONOR_STATUS = [
   'in_stock' => 'พร้อมแยก',
   'reserved' => 'จอง',
+  'for_sale' => 'กำลังขาย', // << [ เพิ่มตรงนี้ ]
   'stripped' => 'แยกแล้ว',
   'sold'     => 'ขายแล้ว'
 ];
@@ -60,7 +61,7 @@ function img_src($v){
   return '/uploads/parts/'.$v;
 }
 function doc_label($t){
-  return $t==='IN'?'รับเข้า':($t==='CONSUME'?'เบิก':($t==='MOVE'?'ย้าย':($t==='ADJUST'?'ปรับยอด':($t==='DONOR'?'เครื่องซาก':$t))));
+  return $t==='IN'?'รับเข้า':($t==='CONSUME'?'เบิก':($t==='MOVE'?'ย้าย':($t==='ADJUST'?'ปรับยอด':($t==='DONOR'?'เครื่อง':$t))));
 }
 function qty_fmt($t,$q){
   if ($q===null) return '';
@@ -120,7 +121,7 @@ $err = getv('err','');
 
 $devices = getvArray('device',$DEVICE_LABELS);
 $kinds   = getvArray('kind',$KIND_LABELS);
-$donorStatuses = getvArray('status', $DONOR_STATUS); // ตัวกรองสถานะเครื่องซาก
+$donorStatuses = getvArray('status', $DONOR_STATUS); // ตัวกรองสถานะเครื่อง
 
 [$per,$page,$offset] = get_pager();
 
@@ -261,8 +262,8 @@ if ($tab==='history'){
       l.part_code,
       pn.part_name,
       CASE
-        WHEN d.doc_type='DONOR' AND (d.remarks LIKE 'เพิ่มเครื่องซาก:%' OR d.remarks LIKE 'CREATE%') THEN 1
-        WHEN d.doc_type='DONOR' AND (d.remarks LIKE 'ลบเครื่องซาก%'   OR d.remarks LIKE 'DELETE%') THEN -1
+        WHEN d.doc_type='DONOR' AND (d.remarks LIKE 'เพิ่มเครื่อง:%' OR d.remarks LIKE 'CREATE%') THEN 1
+        WHEN d.doc_type='DONOR' AND (d.remarks LIKE 'ลบเครื่อง%'   OR d.remarks LIKE 'DELETE%') THEN -1
         WHEN d.doc_type='DONOR' THEN NULL
         ELSE l.qty
       END AS qty,
@@ -298,13 +299,13 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
   <!-- Tabs -->
   <div class="view-switcher">
     <?php if (can('parts.new.view')): ?>
-      <a class="switcher-item <?= $tab==='new'?'active':'' ?>" href="index.php?tab=new">ของมือ 1</a>
+      <a class="switcher-item <?= $tab==='new'?'active':'' ?>" href="index.php?tab=new">อะไหร่ใหม่</a>
     <?php endif; ?>
     <?php if (can('parts.used.view')): ?>
-      <a class="switcher-item <?= $tab==='used'?'active':'' ?>" href="index.php?tab=used">ของมือ 2</a>
+      <a class="switcher-item <?= $tab==='used'?'active':'' ?>" href="index.php?tab=used">อะไหร่มือสอง</a>
     <?php endif; ?>
     <?php if (can('parts.donor.view')): ?>
-      <a class="switcher-item <?= $tab==='donor'?'active':'' ?>" href="index.php?tab=donor">เครื่องซาก</a>
+      <a class="switcher-item <?= $tab==='donor'?'active':'' ?>" href="index.php?tab=donor">เครื่อง</a>
     <?php endif; ?>
     <?php if (can('parts.history.view')): ?>
       <a class="switcher-item <?= $tab==='history'?'active':'' ?>" href="index.php?tab=history">ประวัติ</a>
@@ -314,12 +315,12 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
   <!-- Section header -->
   <div class="section-header">
     <h2>
-      <?php if ($tab==='new'): ?>อะไหล่มือ 1<?php elseif ($tab==='used'): ?>อะไหล่มือ 2<?php elseif ($tab==='donor'): ?>เครื่องซาก<?php else: ?>ประวัติการเคลื่อนไหว<?php endif; ?>
+      <?php if ($tab==='new'): ?>อะไหล่มือ 1<?php elseif ($tab==='used'): ?>อะไหล่มือ 2<?php elseif ($tab==='donor'): ?>เครื่อง<?php else: ?>ประวัติการเคลื่อนไหว<?php endif; ?>
     </h2>
     <div>
       <?php if ($tab==='new'  && can('parts.new.create')): ?><a href="form.php" class="btn-primary">+ เพิ่มชนิดอะไหล่ใหม่</a><?php endif; ?>
-      <?php if ($tab==='used' && can('parts.used.create')): ?><a href="form_used.php" class="btn-primary">+ เพิ่มชิ้นมือ 2</a><?php endif; ?>
-      <?php if ($tab==='donor' && can('parts.donor.create')): ?><a href="donor_form.php" class="btn-primary">+ เพิ่มเครื่องซาก</a><?php endif; ?>
+      <?php if ($tab==='used' && can('parts.used.create')): ?><a href="form_used.php" class="btn-primary">+ เพิ่มชิ้นมือสอง</a><?php endif; ?>
+      <?php if ($tab==='donor' && can('parts.donor.create')): ?><a href="donor_form.php" class="btn-primary">+ เพิ่มเครื่อง</a><?php endif; ?>
     </div>
   </div>
 
@@ -440,7 +441,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
         <option value="MOVE" <?= getv('doc_type')==='MOVE'?'selected':'' ?>>ย้าย</option>
         <option value="ADJUST" <?= getv('doc_type')==='ADJUST'?'selected':'' ?>>ปรับยอด</option>
         <option value="USED" <?= getv('doc_type')==='USED'?'selected':'' ?>>มือ 2</option>
-        <option value="DONOR" <?= getv('doc_type')==='DONOR'?'selected':'' ?>>เครื่องซาก</option>
+        <option value="DONOR" <?= getv('doc_type')==='DONOR'?'selected':'' ?>>เครื่อง</option>
       </select>
       <input type="date" name="date_from" value="<?= h(getv('date_from')) ?>">
       <input type="date" name="date_to" value="<?= h(getv('date_to')) ?>">
@@ -660,7 +661,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
               </td>
             </tr>
           <?php endforeach; else: ?>
-            <tr><td colspan="12" class="text-center">ยังไม่มีเครื่องซาก</td></tr>
+            <tr><td colspan="12" class="text-center">ยังไม่มีเครื่อง</td></tr>
           <?php endif; ?>
         </tbody>
       </table>

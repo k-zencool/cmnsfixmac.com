@@ -1,11 +1,16 @@
 <?php
 /********************************************************************
  * admin/parts/donor_form.php
- * ฟอร์ม "เครื่องซาก" (Donor)
+ * ฟอร์ม "เครื่อง" (Donor)
  * - อัปโหลดรูปแบบลาก-วาง + ปุ่มลบรูป
  * - ลบด้วย POST (กันลบถ้ามี parts_used ผูกอยู่)
  * - เก็บประวัติลง parts_docs (doc_type='DONOR', ref_no='DONOR:<id>')
  * - เพิ่มคอลัมน์ที่เก็บ: location_index (VARCHAR 60)
+ *
+ * [v2 - 2025-10-30]
+ * - แก้ $statusOptions เป็น Key=>Value (EN=>TH)
+ * - แก้ Validation ให้ใช้ !isset()
+ * - แก้ Dropdown foreach ให้ใช้ key=>label
  ********************************************************************/
 
 // ========== SETUP ==========
@@ -14,7 +19,7 @@ require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_role(['super_admin','manager']);
 
-$pageTitle = "ฟอร์มเครื่องซาก";
+$pageTitle = "ฟอร์มเครื่อง";
 
 // ให้ PDO โยน exception เผื่อโฮสต์ไม่ได้ตั้งค่า
 if ($pdo instanceof PDO) {
@@ -62,15 +67,15 @@ function donor_doc(PDO $pdo, string $action, int $donor_id, array $item_or_diff,
     $action = strtoupper($action);
 
     if ($action === 'CREATE') {
-      $txt = "เพิ่มเครื่องซาก: ".($item_or_diff['device_models'] ?? '');
+      $txt = "เพิ่มเครื่อง: ".($item_or_diff['device_models'] ?? '');
       if (!empty($item_or_diff['location_index'])) {
         $txt .= " [ที่เก็บ: ".$item_or_diff['location_index']."]";
       }
     } elseif ($action === 'UPDATE') {
       $changed = array_keys($item_or_diff['changed'] ?? []);
-      $txt = "แก้ไขเครื่องซาก (#{$donor_id}) ".($changed ? 'fields: '.implode(',', $changed) : '');
+      $txt = "แก้ไขเครื่อง (#{$donor_id}) ".($changed ? 'fields: '.implode(',', $changed) : '');
     } elseif ($action === 'DELETE') {
-      $txt = "ลบเครื่องซาก (#{$donor_id})";
+      $txt = "ลบเครื่อง (#{$donor_id})";
     } else {
       $txt = "{$action} donor #{$donor_id}";
     }
@@ -92,7 +97,15 @@ function donor_doc(PDO $pdo, string $action, int $donor_id, array $item_or_diff,
 
 // -------- Options --------
 $deviceOptions = ['MacBook','iMac','iPhone','iPad','Apple Watch','อื่นๆ'];
-$statusOptions = ['in_stock','reserved','stripped','sold'];
+
+// [!!! G-CODE-EDIT-1: แก้ $statusOptions เป็น Key=>Value !!!]
+$statusOptions = [
+  'in_stock' => 'พร้อมแยก (in_stock)',
+  'reserved' => 'จอง (reserved)',
+  'for_sale' => 'กำลังขาย (for_sale)',
+  'stripped' => 'แยกแล้ว (stripped)',
+  'sold'     => 'ขายแล้ว (sold)'
+];
 
 // -------- State --------
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
@@ -116,7 +129,7 @@ if ($id) {
   $st->execute([$id]);
   $row = $st->fetch(PDO::FETCH_ASSOC);
   if (!$row) {
-    header("Location: index.php?tab=donor&err=".urlencode("ไม่พบเครื่องซาก"));
+    header("Location: index.php?tab=donor&err=".urlencode("ไม่พบเครื่อง"));
     exit;
   }
   $beforeRow = $row;
@@ -136,11 +149,11 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
       $chk = $pdo->prepare("SELECT COUNT(*) FROM parts_used WHERE donor_id=?");
       $chk->execute([$id]);
       if ((int)$chk->fetchColumn() > 0) {
-        $errors[] = "ลบไม่ได้: มีอะไหล่มือ 2 ผูกกับเครื่องซากนี้";
+        $errors[] = "ลบไม่ได้: มีอะไหล่มือ 2 ผูกกับเครื่องนี้";
       } else {
         donor_doc($pdo, 'DELETE', $id, ['before'=>$beforeRow], $user_id);
         $pdo->prepare("DELETE FROM parts_donors WHERE id=? LIMIT 1")->execute([$id]);
-        header("Location: index.php?tab=donor&msg=".urlencode("ลบเครื่องซากเรียบร้อย"));
+        header("Location: index.php?tab=donor&msg=".urlencode("ลบเครื่องเรียบร้อย"));
         exit;
       }
     } catch(Throwable $e){
@@ -165,7 +178,9 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     // validate
     if ($item['device_models']==='') $errors[] = "กรุณากรอกชื่ออะไหล่/รุ่น";
     if (!in_array($item['device_name'], $deviceOptions, true)) $errors[] = "อุปกรณ์ไม่ถูกต้อง";
-    if (!in_array($item['status'], $statusOptions, true))   $errors[] = "สถานะไม่ถูกต้อง";
+    
+    // [!!! G-CODE-EDIT-2: แก้ Validation เป็น !isset() !!!]
+    if (!isset($statusOptions[$item['status']]))   $errors[] = "สถานะไม่ถูกต้อง";
 
     // อัปโหลดรูป (ถ้ามี)
     $newImage = null;
@@ -262,7 +277,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
             'location_index' => $item['location_index'],
           ], $user_id);
 
-          header("Location: index.php?tab=donor&msg=".urlencode("เพิ่มเครื่องซากแล้ว"));
+          header("Location: index.php?tab=donor&msg=".urlencode("เพิ่มเครื่องแล้ว"));
           exit;
         }
       } catch(Throwable $e){
@@ -281,7 +296,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 <main class="main" id="main-content">
   <div class="topbar">
     <span><?= h($pageTitle) ?> <?= $id ? '(แก้ไข #' . (int)$id . ')' : '(เพิ่มรายการใหม่)' ?></span>
-    <a href="index.php?tab=donor" class="view-site">← กลับรายการเครื่องซาก</a>
+    <a href="index.php?tab=donor" class="view-site">← กลับรายการเครื่อง</a>
   </div>
 
   <?php if ($errors): ?>
@@ -298,7 +313,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     <input type="hidden" name="remove_image" id="remove_image" value="0">
 
     <div class="form-grid">
-      <!-- รูป -->
       <div class="form-item">
         <label class="form-label">รูป</label>
         <div class="image-upload-ui" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
@@ -346,8 +360,8 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
       <div class="form-item">
         <label class="form-label" for="status">สถานะ</label>
         <select id="status" name="status" class="input filter-input">
-          <?php foreach($statusOptions as $s): ?>
-            <option value="<?= h($s) ?>" <?= $item['status']===$s ? 'selected' : '' ?>><?= h($s) ?></option>
+          <?php foreach($statusOptions as $key => $label): ?>
+            <option value="<?= h($key) ?>" <?= $item['status']===$key ? 'selected' : '' ?>><?= h($label) ?></option>
           <?php endforeach; ?>
         </select>
         <small class="form-hint">ตั้งเป็น <code>stripped</code> เมื่อแยกอะไหล่แล้ว</small>
@@ -376,10 +390,10 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
       </div>
 
       <div class="form-actions">
-        <button class="btn-primary" type="submit"><?= $id ? 'บันทึกการแก้ไข' : 'เพิ่มเครื่องซาก' ?></button>
+        <button class="btn-primary" type="submit"><?= $id ? 'บันทึกการแก้ไข' : 'เพิ่มเครื่อง' ?></button>
         <a class="btn-secondary" href="index.php?tab=donor">ยกเลิก</a>
         <?php if ($id): ?>
-          <button type="button" class="btn-secondary" onclick="return deleteDonor();">ลบเครื่องซาก</button>
+          <button type="button" class="btn-secondary" onclick="return deleteDonor();">ลบเครื่อง</button>
         <?php endif; ?>
       </div>
     </div>
@@ -457,7 +471,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
   })();
 
   function deleteDonor(){
-    if(!confirm('ยืนยันลบเครื่องซากนี้ถาวร?')) return false;
+    if(!confirm('ยืนยันลบเครื่องนี้ถาวร?')) return false;
     document.getElementById('donorAction').value = 'delete_donor';
     document.getElementById('donorForm').submit();
     return false;

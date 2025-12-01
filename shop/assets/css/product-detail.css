@@ -1,0 +1,482 @@
+/* =================================================================
+   Product Detail Page (PDP) - Akko Inspired
+   ================================================================= */
+
+.pdp-container {
+  max-width: 1200px;
+  margin: 110px auto 40px; /* เว้นที่ให้ navbar */
+  padding: 0 20px;
+}
+.pdp-error {
+  text-align: center;
+  padding: 4rem 1rem;
+  background: #f9f9f9;
+  border-radius: 12px;
+}
+.pdp-error h1 { margin-top: 0; }
+
+/* --- Layout หลัก (ซ้าย/ขวา) --- */
+.pdp-layout {
+  display: grid;
+  /* ลอง 55/45 ก่อน, ปรับได้ */
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 3rem; /* ระยะห่างระหว่างคอลัมน์ */
+  margin-bottom: 3rem; /* ระยะห่างก่อนถึง Tabs */
+}
+
+/* =================================================================
+   [REFACTORED] สไตล์ไอคอน Placeholder (ใช้ร่วมกัน)
+   ================================================================= */
+
+/* --- A. ทำให้ตัวครอบรูป (Container) เป็น Relative --- */
+/* (เพื่อให้ไอคอน Absolute ลอยทับได้) */
+.pdp-gallery-main,
+.pdp-thumb-item,
+.cmnsx-thumb {
+  position: relative; /* [!!] สำคัญสัดๆ */
+  overflow: hidden; /* [!!] กันไอคอนล้น */
+  display: block; /* [!!] ให้เป็น block ธรรมดา (ลบ flex/grid ทิ้ง) */
+  background-color: transparent; /* [!!] ลบสีพื้นหลังเก่าทิ้ง */
+}
+
+/* --- B. สไตล์รูปภาพ (img) --- */
+/* (จัดการ z-index และ object-fit) */
+.pdp-gallery-main img,
+.pdp-thumb-item img,
+.cmnsx-thumb img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  position: relative; /* [!!] ให้ img มี z-index */
+  z-index: 2; /* [!!] ให้รูปอยู่ "ทับ" ไอคอน */
+  background: #fff; /* [!!] กันรูปโปร่งใสทะลุเห็นไอคอน */
+}
+
+/* [!!] แยก object-fit เพราะมึงใช้ไม่เหมือนกัน */
+.pdp-gallery-main img,
+.pdp-thumb-item img {
+  object-fit: contain; /* หน้าสินค้า ใช้ contain */
+}
+.cmnsx-thumb img {
+  object-fit: cover; /* การ์ด ใช้ cover */
+}
+
+/* --- C. สไตล์ไอคอน Placeholder (ตัวหลัก) --- */
+/* (ใช้ .pdp-gallery-icon และ .cmnsx-thumb-icon) */
+.pdp-gallery-icon,
+.cmnsx-thumb-icon {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  z-index: 1; /* [!!] ให้ไอคอนอยู่ "ใต้" รูป */
+  pointer-events: none; /* [!!] กันคลิกโดนไอคอน */
+
+  /* [!!] ตั้งค่า Default */
+  background-color: #f7f7f7; /* สีพื้น PDP */
+  color: #ccc;
+  --icon-size: 48px; /* ขนาดไอคอน default (สำหรับ .cmnsx-thumb-icon) */
+}
+
+/* --- D. สไตล์ตัวไอคอน (span) --- */
+.pdp-gallery-icon .material-symbols-rounded,
+.cmnsx-thumb-icon .material-symbols-rounded {
+  font-size: var(--icon-size); /* [!!] รับขนาดมาจากตัวแปร */
+}
+
+/* --- E. Override ค่าเฉพาะจุด --- */
+
+/* ไอคอนรูปหลัก (ใหญ่) */
+.pdp-gallery-main .pdp-gallery-icon {
+  --icon-size: 80px;
+}
+
+/* ไอคอน Thumbnail (เล็ก) */
+.pdp-thumb-item .pdp-gallery-icon {
+  --icon-size: 32px;
+}
+
+/* ไอคอน Card (สีต่าง) */
+.cmnsx-thumb-icon { /* (ใช้ .cmnsx-thumb-icon เพื่อ override) */
+  background-color: #f0f0f0;
+  color: #bbb;
+}
+
+
+/* =================================================================
+   1. คอลัมน์ซ้าย: Gallery
+   ================================================================= */
+.pdp-gallery {
+  position: relative; /* สำหรับปุ่มลูกศร */
+}
+
+/* รูปหลัก */
+.pdp-gallery-main {
+  aspect-ratio: 1 / 1;
+  border-radius: 12px;
+  /* overflow: hidden; <-- ย้ายไป [REFACTORED] */
+  /* display: grid; <-- ย้ายไป [REFACTORED] */
+  /* place-items: center; <-- ย้ายไป [REFACTORED] */
+  /* position: relative; <-- ย้ายไป [REFACTORED] */
+  margin-bottom: 12px; /* ระยะห่างก่อนถึง Thumbnails */
+}
+/* img และ icon styles ถูกย้ายไป [REFACTORED] แล้ว */
+
+
+/* ปุ่มลูกศร */
+.pdp-gallery-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+  color: #333;
+  cursor: pointer;
+  display: grid; /* แก้จาก none เป็น grid */
+  place-items: center;
+  z-index: 5;
+  transition: background 0.2s, opacity 0.3s;
+  opacity: 0; /* ซ่อนไว้ก่อน */
+}
+.pdp-gallery:hover .pdp-gallery-nav {
+    opacity: 1; /* โชว์ตอน hover gallery */
+}
+.pdp-gallery-nav:hover { background: #fff; }
+.pdp-gallery-nav.prev { left: 15px; }
+.pdp-gallery-nav.next { right: 15px; }
+/* ซ่อนปุ่มถ้ามีรูปเดียว */
+.pdp-gallery-main:not(:has(button.prev)) button.prev,
+.pdp-gallery-main:not(:has(button.next)) button.next {
+    display: none;
+}
+
+
+/* Thumbnails */
+.pdp-gallery-thumbs {
+  display: grid;
+  /* ให้มี 5-6 รูปต่อแถว */
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 10px;
+}
+.pdp-thumb-item {
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  /* overflow: hidden; <-- ย้ายไป [REFACTORED] */
+  cursor: pointer;
+  border: 2px solid transparent; /* เปลี่ยนจาก #eee เป็น transparent */
+  /* background: #f7f7f7; <-- ย้ายไป [REFACTORED] */
+  transition: border-color .2s, transform 0.2s;
+}
+.pdp-thumb-item:hover {
+  border-color: #ccc;
+  transform: scale(1.05);
+}
+.pdp-thumb-item.is-active {
+  border-color: var(--brand);
+  box-shadow: 0 0 0 2px var(--brand); /* เพิ่มเงาให้เด่น */
+}
+/* img และ icon styles ถูกย้ายไป [REFACTORED] แล้ว */
+
+
+/* =================================================================
+   2. คอลัมน์ขวา: Info
+   ================================================================= */
+.pdp-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.pdp-cat { /* ทำให้จางลง */
+  font-size: .8rem; color: #999; text-transform: uppercase;
+  letter-spacing: .5px; margin-bottom: 8px;
+}
+.pdp-title { /* ใหญ่ขึ้น */
+  font-size: clamp(1.8rem, 4vw, 2.5rem);
+  font-weight: 700; /* ลดจาก 800 */
+  color: #111;
+  margin: 0 0 10px;
+  line-height: 1.3;
+}
+
+/* Brand / SKU */
+.pdp-meta {
+  font-size: 0.9rem;
+  color: #666;
+  margin-bottom: 1.5rem;
+}
+.pdp-meta span + span::before {
+  content: "|";
+  margin: 0 8px;
+  color: #ddd;
+}
+
+/* Wishlist / Share Icons (Placeholder) */
+.pdp-sub-actions {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 1.5rem;
+  color: #666;
+}
+.pdp-sub-actions button, .pdp-sub-actions a {
+  background: none; border: none; padding: 0; cursor: pointer;
+  color: inherit; display: inline-flex; align-items: center; gap: 6px;
+  font-size: 0.9rem;
+}
+.pdp-sub-actions button:hover, .pdp-sub-actions a:hover { color: var(--brand); }
+.pdp-sub-actions .material-symbols-rounded { font-size: 20px; }
+
+/* ราคา */
+.pdp-price-box {
+  /* ไม่ต้องมีพื้นหลังละ */
+  padding: 0;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #eee; /* เพิ่มเส้นคั่น */
+  padding-bottom: 1.5rem;
+}
+.pdp-price-now { /* ใหญ่ขึ้น แดงเข้มขึ้น */
+  font-size: 2.4rem;
+  font-weight: 700;
+  color: #D70015; /* สีแดงเข้ม */
+  margin-right: 12px;
+}
+.pdp-price-old { /* จางลง */
+  font-size: 1.1rem;
+  color: #aaa;
+  text-decoration: line-through;
+}
+.pdp-discount-badge { /* ใช้สีแดงเดียวกับราคา */
+  background: #D70015; color: #fff;
+  font-weight: 600; font-size: .85rem;
+  padding: 5px 10px;
+  border-radius: 6px;
+  margin-left: 1rem;
+  vertical-align: middle;
+}
+
+/* จำนวน */
+.pdp-qty-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 1.5rem;
+}
+.pdp-qty-selector label {
+  font-weight: 600;
+  color: #333;
+}
+.pdp-qty-input-wrap {
+  display: flex;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  overflow: hidden;
+}
+.pdp-qty-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  background: #f0f0f0;
+  color: #333;
+  font-size: 1.2rem;
+  cursor: pointer;
+  line-height: 36px; /* จัดกลาง */
+}
+.pdp-qty-btn:hover { background: #e0e0e0; }
+.pdp-qty-input {
+  width: 50px;
+  height: 36px;
+  text-align: center;
+  border: none;
+  border-left: 1px solid #ccc;
+  border-right: 1px solid #ccc;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 0 5px;
+  /* ซ่อนลูกศร default ของ input number */
+  -moz-appearance: textfield;
+}
+.pdp-qty-input::-webkit-outer-spin-button,
+.pdp-qty-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Stock */
+.pdp-stock {
+  font-size: 0.9rem; font-weight: 600; margin-bottom: 1.5rem;
+}
+.pdp-stock.in-stock { color: #27ae60; }
+.pdp-stock.low-stock { color: #e67e22; }
+.pdp-stock.out-stock { color: #c0392b; }
+
+/* ปุ่มหลัก */
+.pdp-actions {
+  display: grid;
+  grid-template-columns: 1fr; /* แก้เป็น 1 คอลัมน์ */
+  gap: 12px;
+  margin-bottom: 1.5rem; /* ระยะห่างก่อนถึง Tags */
+}
+.pdp-add-to-cart-btn { /* ปุ่มสีแดง */
+  width: 100%;
+  height: 52px;
+  font-size: 1.1rem;
+  font-weight: 700; /* ลดจาก 800 */
+  border-radius: 10px; /* ลดความมน */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #D70015; /* สีแดงหลัก */
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  transition: background 0.2s, transform 0.1s;
+}
+.pdp-add-to-cart-btn:hover { background: #b80012; } /* สีแดงเข้มขึ้น */
+.pdp-add-to-cart-btn:active { transform: scale(0.98); }
+.pdp-add-to-cart-btn[disabled] { background: #ccc; cursor: not-allowed; }
+
+/* ปุ่ม LINE (ใช้ .btn-line-full เดิม แต่ปรับนิดหน่อย) */
+.btn-line-full {
+   height: 52px;
+   border-radius: 10px; /* ลดความมน */
+   font-weight: 700;
+}
+
+/* Tags */
+.pdp-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 1.5rem;
+}
+.pdp-tag-item {
+  display: inline-block;
+  padding: 6px 12px;
+  border-radius: 6px;
+  background: #ffebeb; /* พื้นหลังแดงอ่อนๆ */
+  color: #D70015; /* ตัวหนังสือแดง */
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  border: 1px solid #ffcccc; /* ขอบแดงอ่อน */
+}
+.pdp-tag-item:hover { background: #ffdddd; }
+
+/* =================================================================
+   3. Tabs (Description / Specs)
+   ================================================================= */
+.pdp-tabs {
+  border-top: 1px solid #eee; /* ย้ายเส้นจาก section มาไว้ที่นี่ */
+  padding-top: 2rem; /* เพิ่มระยะห่างบน */
+  margin-top: 3rem;
+}
+.pdp-tab-nav {
+  display: flex;
+  gap: 5px; /* ลด gap */
+  border-bottom: 1px solid #ddd; /* ย้ายเส้นมาที่ nav */
+  margin-bottom: 2rem;
+}
+.pdp-tab-btn {
+  padding: 12px 20px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #666;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px; /* ให้เส้น border ทับเส้นล่าง */
+  transition: color 0.2s, border-color 0.2s;
+}
+.pdp-tab-btn:hover { color: #111; }
+.pdp-tab-btn.is-active {
+  color: #111;
+  border-bottom-color: var(--brand); /* หรือสีแดง #D70015 */
+}
+
+.pdp-tab-content {
+  display: none; /* ซ่อนไว้ก่อน JS ค่อยมาเปิด */
+  line-height: 1.7;
+  color: #333;
+}
+.pdp-tab-content.is-active {
+  display: block;
+}
+.pdp-description p { margin-bottom: 1em; }
+.pdp-description ul { margin-left: 20px; margin-bottom: 1em; }
+
+.pdp-specs-table {
+  width: 100%;
+  max-width: 700px; /* กว้างขึ้นหน่อย */
+  border-collapse: collapse;
+}
+.pdp-specs-table th,
+.pdp-specs-table td {
+  padding: 14px 10px; /* ปรับ padding */
+  text-align: left;
+  border-bottom: 1px solid #f0f0f0;
+  vertical-align: top;
+}
+.pdp-specs-table th {
+  font-weight: 600;
+  color: #555;
+  width: 200px; /* กว้างขึ้น */
+  background: #fcfcfc; /* สีพื้นหลังหัวข้อ */
+}
+.pdp-specs-table td {
+  font-weight: 500;
+  color: #111;
+}
+/* ทำให้แถวสลับสีนิดๆ */
+.pdp-specs-table tr:nth-child(even) td { background: #fcfcfc; }
+.pdp-specs-table tr:nth-child(even) th { background: #f9f9f9; }
+
+
+/* =================================================================
+   4. Related Products
+   ================================================================= */
+.pdp-related-wrapper {
+  margin-top: 4rem;
+  border-top: 1px solid #eee;
+  padding-top: 2rem;
+}
+.pdp-related-wrapper .pdp-section-title { /* ใช้คลาสเดิม */
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin: 0 0 1.5rem;
+  text-align: center; /* จัดกลาง */
+}
+/* .cmnsx-thumb styles ถูกย้ายไป [REFACTORED] แล้ว */
+
+
+/* =================================================================
+   Responsive
+   ================================================================= */
+@media (max-width: 900px) { /* Tablet */
+  .pdp-layout {
+    grid-template-columns: 1fr; /* คอลัมน์เดียว */
+    gap: 2rem;
+  }
+  .pdp-container {
+    margin-top: 90px;
+    padding: 0 14px;
+  }
+}
+
+@media (max-width: 600px) { /* Mobile */
+  .pdp-title { font-size: 1.6rem; }
+  .pdp-price-now { font-size: 2rem; }
+  .pdp-add-to-cart-btn, .btn-line-full { height: 48px; font-size: 1rem; }
+  .pdp-gallery-thumbs { grid-template-columns: repeat(auto-fill, minmax(65px, 1fr)); gap: 8px;}
+  .pdp-tab-btn { padding: 10px 15px; font-size: 0.95rem;}
+  .pdp-specs-table th { width: 140px; }
+}
+
+
