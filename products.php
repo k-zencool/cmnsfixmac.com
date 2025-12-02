@@ -3,7 +3,7 @@ session_start();
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/auth.php';
 
-// ดึงสินค้าแนะนำมาโชว์หน้าแรก
+// ดึงสินค้าแนะนำมาโชว์หน้าแรก1
 $stmt = $pdo->query("SELECT id, name, price, main_image, category 
                      FROM products 
                      WHERE status=1 
