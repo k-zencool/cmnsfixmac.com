@@ -2,11 +2,10 @@
 /********************************************************************
  * admin/tracking/index.php
  *
- * ฉบับสมบูรณ์ (Final Ultimate):
- * - UI Search Bar สไตล์เดียวกับ admin/articles/index.php
- * - แยกสถานะ FN (รอรับ) / DV (ส่งมอบแล้ว)
- * - แยกคอลัมน์ Device Type / Model
- * - CSS ปรับความสูง Input/Button เท่ากัน (42px)
+ * ฉบับสมบูรณ์ (Final Ultimate Fixed):
+ * - แก้ช่อง "อาการเสีย" ไม่ให้ขึ้นบรรทัดใหม่ (เป็น ... แทน)
+ * - เอาเมาส์ชี้อาการเสียจะเห็นข้อความเต็ม (Tooltip)
+ * - UI/CSS อื่นๆ คงเดิม (ช่องเท่ากัน, แยกสถานะ, แยกโมเดล)
  ********************************************************************/
 
 // =========================[ 0) SETUP & GUARD ]========================
@@ -36,8 +35,8 @@ $STATUS_COLORS = [
     'WC'  => 'badge-orange',
     'OK'  => 'badge-amber',
     'RW'  => 'badge-purple',
-    'FN'  => 'badge-green',      // เขียว = เสร็จรอรับ
-    'DV'  => 'badge-black',      // ดำ = จบงาน
+    'FN'  => 'badge-green',
+    'DV'  => 'badge-black',
     'NCF' => 'badge-red',
     'NCS' => 'badge-orange',
     'XX'  => 'badge-red',
@@ -45,8 +44,6 @@ $STATUS_COLORS = [
 ];
 
 $DEVICE_TYPES = ['iPhone', 'iPad', 'MacBook', 'iMac', 'Apple Watch', 'Android', 'Notebook', 'PC', 'Other'];
-
-// สถานะที่ถือว่า "จบงานแล้ว" (หยุดนับเวลาถอยหลัง)
 $FINISHED_STATUSES = ['FN', 'DV', 'XX', 'RT', 'NCF'];
 
 // =========================[ 2) HELPERS ]==============================
@@ -121,25 +118,14 @@ $pages = 1;
 $params = [];
 $where = [];
 
-// 4.1 Search
-if ($w = whereSearch($q, ['ticket_number', 'customer_name', 'customer_phone', 'device_model', 'problem_details'], $params, 'q')) {
-    $where[] = $w;
-}
-// 4.2 Status
-if ($w = whereIn('status', $filterStatus, $params, 'st')) {
-    $where[] = $w;
-}
-// 4.3 Device
-if ($w = whereIn('device_type', $filterTypes, $params, 'dt')) {
-    $where[] = $w;
-}
-// 4.4 Date
+if ($w = whereSearch($q, ['ticket_number', 'customer_name', 'customer_phone', 'device_model', 'problem_details'], $params, 'q')) { $where[] = $w; }
+if ($w = whereIn('status', $filterStatus, $params, 'st')) { $where[] = $w; }
+if ($w = whereIn('device_type', $filterTypes, $params, 'dt')) { $where[] = $w; }
 if ($dfrom !== '') { $where[] = "DATE(created_at) >= :df"; $params[':df'] = $dfrom; }
 if ($dto !== '')   { $where[] = "DATE(created_at) <= :dt"; $params[':dt'] = $dto; }
 
 $where_sql = $where ? ("WHERE " . implode(' AND ', $where)) : "";
 
-// 4.5 Count
 $stc = $pdo->prepare("SELECT COUNT(*) FROM tracking {$where_sql}");
 foreach ($params as $k => $v) $stc->bindValue($k, $v);
 $stc->execute();
@@ -147,21 +133,13 @@ $total = (int)($stc->fetchColumn() ?: 0);
 $pages = max(1, (int)ceil($total / $per));
 if ($page > $pages) { $page = $pages; $offset = ($page - 1) * $per; }
 
-// 4.6 Fetch Data & Sort Logic
 $sql = "
     SELECT * FROM tracking
     {$where_sql}
     ORDER BY 
         CASE status
-            WHEN 'RW' THEN 1  -- งานแก้ ด่วนสุด
-            WHEN 'OK' THEN 2  -- กำลังซ่อม
-            WHEN 'QS' THEN 3  -- รอเช็ค
-            WHEN 'WC' THEN 4  -- รอคอนเฟิร์ม
-            WHEN 'NCS' THEN 5 
-            WHEN 'NCF' THEN 6 
-            WHEN 'FN' THEN 7  -- เสร็จ (รอรับ)
-            WHEN 'DV' THEN 99 -- ส่งมอบแล้ว (ท้ายสุด)
-            ELSE 8
+            WHEN 'RW' THEN 1 WHEN 'OK' THEN 2 WHEN 'QS' THEN 3 WHEN 'WC' THEN 4 
+            WHEN 'NCS' THEN 5 WHEN 'NCF' THEN 6 WHEN 'FN' THEN 7 WHEN 'DV' THEN 99 ELSE 8
         END ASC,
         " . ($sort === 'deadline_asc' ? '(appointment_date IS NULL) ASC, appointment_date ASC,' : '') . "
         created_at DESC
@@ -203,7 +181,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 
         <div class="filter-dropdown">
             <button type="button" class="btn-secondary" onclick="toggleMenu('filterMenuJobs')">ตัวกรอง</button>
-            
             <div id="filterMenuJobs" class="filter-menu">
                 <div class="filter-section">
                     <div class="filter-title">สถานะงาน</div>
@@ -226,7 +203,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                         </label>
                     <?php endforeach; ?>
                 </div>
-
                 <div class="filter-section">
                     <div class="filter-title">ประเภทเครื่อง</div>
                     <?php foreach ($DEVICE_TYPES as $type): 
@@ -238,7 +214,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                         </label>
                     <?php endforeach; ?>
                 </div>
-
                 <div class="filter-section">
                     <div class="filter-title">วันที่รับงาน</div>
                     <div class="range-inline">
@@ -247,7 +222,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                         <input type="date" name="date_to" value="<?= h($dto) ?>">
                     </div>
                 </div>
-
                 <div class="filter-actions">
                     <button type="button" class="btn-secondary" onclick="clearMenu('filterMenuJobs')">ล้าง</button>
                     <button type="submit" class="btn-primary">ค้นหา</button>
@@ -281,7 +255,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                     $badgeColor = $STATUS_COLORS[$row['status']] ?? 'badge-gray';
                     $statusText = $STATUS_LABELS[$row['status']] ?? $row['status'];
                     
-                    // Logic นับวัน
                     $daysLeft = getDaysRemaining($row['appointment_date']);
                     $timeLeftBadge = '<span class="muted">-</span>';
                     $isFinished = in_array($row['status'], $FINISHED_STATUSES);
@@ -323,9 +296,11 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                                 <?= h($row['device_model']) ?>
                             </span>
                         </td>
-                        <td style="max-width:180px; white-space:normal; line-height:1.4;">
+                        
+                        <td style="max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="<?= h($row['problem_details']) ?>">
                             <?= h($row['problem_details']) ?>
                         </td>
+                        
                         <td style="text-align:center;"><span class="badge <?= $badgeColor ?>"><?= $statusText ?></span></td>
                         <td>
                             <?php if ($row['appointment_date']): ?>
@@ -408,37 +383,22 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 
 <style>
     /* =========================================
-       1. CSS FIX: Equal Height & Alignment (เหมือน Articles)
+       1. CSS FIX: Equal Height & Alignment
        ========================================= */
     .search-and-filter-group {
-        display: flex;
-        align-items: center; /* จัดกึ่งกลางแนวตั้ง */
-        gap: 10px;
-        flex-wrap: wrap;
-        background: #fff;
-        padding: 15px;
-        border-radius: 8px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
-        margin-bottom: 20px;
+        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+        background: #fff; padding: 15px; border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 20px;
     }
-    .filter-input, 
-    .btn-search, 
-    .btn-secondary {
-        height: 42px !important;  /* ล็อคความสูงเท่ากันเป๊ะ */
-        padding: 0 12px;
-        font-size: 0.95rem;
-        border-radius: 6px;
-        border: 1px solid #e5e7eb;
-        box-sizing: border-box; /* รวมขอบ */
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        vertical-align: middle;
-        margin: 0;
+    .filter-input, .btn-search, .btn-secondary {
+        height: 42px !important; padding: 0 12px; font-size: 0.95rem; border-radius: 6px;
+        border: 1px solid #e5e7eb; box-sizing: border-box;
+        display: inline-flex; align-items: center; justify-content: center;
+        vertical-align: middle; margin: 0;
     }
     input.filter-input { flex: 1; min-width: 200px; }
     select.filter-input { background-color: #fff; cursor: pointer; }
-    .btn-search { background: var(--primary-color); color: #fff; border: none; font-weight: 500; cursor: pointer; } /* ใช้สีฟ้าแบบ Articles */
+    .btn-search { background: var(--primary-color); color: #fff; border: none; font-weight: 500; cursor: pointer; } 
     .btn-search:hover { opacity: 0.9; }
     .btn-secondary { background: #fff; color: var(--text); cursor: pointer; }
     .btn-secondary:hover { background: #f9fafb; border-color: #d1d5db; }
@@ -455,47 +415,32 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     .badge-purple { background: #ede9fe; color: #5b21b6; }
     .badge-black { background: #1f2937; color: #fff; } 
 
-    /* Time Left Badges */
     .badge-red-outline { border: 1px solid #ef4444; color: #ef4444; background: #fff; font-weight: bold; }
     .badge-red-flash { background: #ef4444; color: #fff; font-weight: bold; animation: pulse 2s infinite; }
     .badge-gray-outline { border: 1px solid #9ca3af; color: #9ca3af; background: #fff; }
     .badge-green-outline { border: 1px solid #10b981; color: #10b981; background: #fff; }
 
-    /* Model Badge (Equal Width) */
-    .badge, .badge-model, 
-    .badge-red-outline, .badge-red-flash, .badge-gray-outline, .badge-green-outline {
-        display: inline-flex;
-        justify-content: center;
-        align-items: center;
-        min-width: 130px;           /* ความกว้างขั้นต่ำเท่ากัน */
-        height: 28px;
-        padding: 0 10px;
-        border-radius: 20px;
-        font-size: 0.85em;
-        font-weight: 500;
-        white-space: nowrap;
-        box-sizing: border-box;
-        vertical-align: middle;
-        overflow: hidden;
-        text-overflow: ellipsis;
+    .badge, .badge-model, .badge-red-outline, .badge-red-flash, .badge-gray-outline, .badge-green-outline {
+        display: inline-flex; justify-content: center; align-items: center;
+        min-width: 130px; height: 28px; padding: 0 10px; border-radius: 20px;
+        font-size: 0.85em; font-weight: 500; white-space: nowrap;
+        box-sizing: border-box; vertical-align: middle;
+        overflow: hidden; text-overflow: ellipsis;
     }
     .badge-model {
-        background: #f3f4f6;
-        color: #374151;
-        font-weight: 600;
-        min-width: 100px; /* ลดความกว้างรุ่นลงนิดนึงก็ได้ถ้าต้องการ */
+        background: #f3f4f6; color: #374151; font-weight: 600; min-width: 100px;
     }
-
     @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
 
     /* =========================================
-       3. Dropdown Menu (เหมือน Articles)
+       3. Filter Dropdown
        ========================================= */
     .filter-dropdown { position: relative; }
     .filter-menu { 
         display: none; position: absolute; top: 100%; right: 0; 
         background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; 
-        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); width: 280px; z-index: 100; margin-top: 8px; padding: 16px; 
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); 
+        width: 320px; z-index: 100; margin-top: 8px; padding: 16px; box-sizing: border-box;
     }
     .filter-menu.show { display: block; animation: slideDown 0.15s ease-out; }
     @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
@@ -505,6 +450,10 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     .checkline { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; cursor: pointer; user-select: none; font-size: 0.95rem; }
     .checkline input { accent-color: var(--primary-color); width: 18px; height: 18px; }
     .filter-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb; }
+    
     .range-inline { display: flex; align-items: center; gap: 5px; }
-    .range-inline input { width: 100%; padding: 6px; border: 1px solid #e5e7eb; border-radius: 4px; }
+    .range-inline input { 
+        flex: 1; width: 0; min-width: 0;
+        padding: 6px; border: 1px solid #e5e7eb; border-radius: 4px; box-sizing: border-box;
+    }
 </style>
