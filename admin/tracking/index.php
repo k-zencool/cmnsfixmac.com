@@ -2,10 +2,10 @@
 /********************************************************************
  * admin/tracking/index.php
  *
- * ฉบับสมบูรณ์ (Final Ultimate Fixed):
- * - แก้ช่อง "อาการเสีย" ไม่ให้ขึ้นบรรทัดใหม่ (เป็น ... แทน)
- * - เอาเมาส์ชี้อาการเสียจะเห็นข้อความเต็ม (Tooltip)
- * - UI/CSS อื่นๆ คงเดิม (ช่องเท่ากัน, แยกสถานะ, แยกโมเดล)
+ * ฉบับสมบูรณ์ (Final Minimal):
+ * - แก้ช่องอาการเสียให้เรียบที่สุด (เหมือนข้อความปกติ)
+ * - กดแล้วมี Modal เด้งให้อ่านเหมือนเดิม
+ * - ไม่มีลูกเล่น Hover รกตา
  ********************************************************************/
 
 // =========================[ 0) SETUP & GUARD ]========================
@@ -297,8 +297,8 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                             </span>
                         </td>
                         
-                        <td style="max-width:220px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;" title="<?= h($row['problem_details']) ?>">
-                            <?= h($row['problem_details']) ?>
+                        <td class="clickable-cell" onclick="openTextModal(this)" data-fulltext="<?= h($row['problem_details']) ?>">
+                            <div class="truncate-text"><?= h($row['problem_details']) ?></div>
                         </td>
                         
                         <td style="text-align:center;"><span class="badge <?= $badgeColor ?>"><?= $statusText ?></span></td>
@@ -351,6 +351,17 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
             </div>
         </nav>
     </div>
+
+    <div id="textModal" class="modal-overlay" aria-hidden="true" onclick="closeTextModal(event)">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>รายละเอียดอาการเสีย</h3>
+                <button type="button" class="close-btn" onclick="closeTextModal()">✕</button>
+            </div>
+            <div class="modal-body" id="modalTextContent"></div>
+        </div>
+    </div>
+
 </main>
 
 <?php include __DIR__ . '/../../templates/footer_admin.php'; ?>
@@ -368,6 +379,23 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
             if (!dd || !dd.contains(m)) m.classList.remove('show');
         });
     });
+    
+    function openTextModal(element) {
+        var text = element.getAttribute('data-fulltext');
+        if (!text) return;
+        document.getElementById('modalTextContent').innerText = text;
+        var modal = document.getElementById('textModal');
+        modal.classList.add('show'); modal.setAttribute('aria-hidden', 'false');
+    }
+    function closeTextModal(e) {
+        if (e && e.target !== e.currentTarget && !e.target.classList.contains('close-btn')) return;
+        var modal = document.getElementById('textModal');
+        modal.classList.remove('show'); modal.setAttribute('aria-hidden', 'true');
+    }
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') { var modal = document.getElementById('textModal'); if (modal && modal.classList.contains('show')) closeTextModal(); }
+    });
+
     (function() {
         const sel = document.getElementById('ppSelect'); if (!sel) return;
         sel.addEventListener('change', function() {
@@ -382,20 +410,9 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 </script>
 
 <style>
-    /* =========================================
-       1. CSS FIX: Equal Height & Alignment
-       ========================================= */
-    .search-and-filter-group {
-        display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-        background: #fff; padding: 15px; border-radius: 8px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 20px;
-    }
-    .filter-input, .btn-search, .btn-secondary {
-        height: 42px !important; padding: 0 12px; font-size: 0.95rem; border-radius: 6px;
-        border: 1px solid #e5e7eb; box-sizing: border-box;
-        display: inline-flex; align-items: center; justify-content: center;
-        vertical-align: middle; margin: 0;
-    }
+    /* 1. Equal Height */
+    .search-and-filter-group { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; background: #fff; padding: 15px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 20px; }
+    .filter-input, .btn-search, .btn-secondary { height: 42px !important; padding: 0 12px; font-size: 0.95rem; border-radius: 6px; border: 1px solid #e5e7eb; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; margin: 0; }
     input.filter-input { flex: 1; min-width: 200px; }
     select.filter-input { background-color: #fff; cursor: pointer; }
     .btn-search { background: var(--primary-color); color: #fff; border: none; font-weight: 500; cursor: pointer; } 
@@ -403,9 +420,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     .btn-secondary { background: #fff; color: var(--text); cursor: pointer; }
     .btn-secondary:hover { background: #f9fafb; border-color: #d1d5db; }
 
-    /* =========================================
-       2. Badges & Status Colors
-       ========================================= */
+    /* 2. Badges */
     .badge-blue { background: #dbeafe; color: #1e40af; }
     .badge-amber { background: #fef3c7; color: #92400e; }
     .badge-orange { background: #ffedd5; color: #9a3412; }
@@ -414,12 +429,10 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     .badge-gray { background: #f3f4f6; color: #374151; }
     .badge-purple { background: #ede9fe; color: #5b21b6; }
     .badge-black { background: #1f2937; color: #fff; } 
-
     .badge-red-outline { border: 1px solid #ef4444; color: #ef4444; background: #fff; font-weight: bold; }
     .badge-red-flash { background: #ef4444; color: #fff; font-weight: bold; animation: pulse 2s infinite; }
     .badge-gray-outline { border: 1px solid #9ca3af; color: #9ca3af; background: #fff; }
     .badge-green-outline { border: 1px solid #10b981; color: #10b981; background: #fff; }
-
     .badge, .badge-model, .badge-red-outline, .badge-red-flash, .badge-gray-outline, .badge-green-outline {
         display: inline-flex; justify-content: center; align-items: center;
         min-width: 130px; height: 28px; padding: 0 10px; border-radius: 20px;
@@ -427,33 +440,41 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
         box-sizing: border-box; vertical-align: middle;
         overflow: hidden; text-overflow: ellipsis;
     }
-    .badge-model {
-        background: #f3f4f6; color: #374151; font-weight: 600; min-width: 100px;
-    }
+    .badge-model { background: #f3f4f6; color: #374151; font-weight: 600; min-width: 100px; }
     @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
 
-    /* =========================================
-       3. Filter Dropdown
-       ========================================= */
-    .filter-dropdown { position: relative; }
-    .filter-menu { 
-        display: none; position: absolute; top: 100%; right: 0; 
-        background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; 
-        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); 
-        width: 320px; z-index: 100; margin-top: 8px; padding: 16px; box-sizing: border-box;
+    /* 3. [Minimal] Clickable Text Style */
+    .clickable-cell {
+        cursor: pointer;
+        color: #4b5563; /* สีปกติ ไม่ฟ้า */
+        max-width: 220px;
+        transition: color 0.1s;
     }
+    .clickable-cell:hover {
+        color: #000; /* ชี้แล้วเข้มขึ้นนิดนึงพอ */
+    }
+    .truncate-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; width: 100%; }
+
+    /* 4. Dropdown */
+    .filter-dropdown { position: relative; }
+    .filter-menu { display: none; position: absolute; top: 100%; right: 0; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); width: 320px; z-index: 100; margin-top: 8px; padding: 16px; box-sizing: border-box; }
     .filter-menu.show { display: block; animation: slideDown 0.15s ease-out; }
     @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
-    
     .filter-section { margin-bottom: 16px; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; }
     .filter-title { font-weight: 600; margin-bottom: 10px; color: #6b7280; font-size: 0.85rem; text-transform: uppercase; }
     .checkline { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; cursor: pointer; user-select: none; font-size: 0.95rem; }
     .checkline input { accent-color: var(--primary-color); width: 18px; height: 18px; }
     .filter-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb; }
-    
     .range-inline { display: flex; align-items: center; gap: 5px; }
-    .range-inline input { 
-        flex: 1; width: 0; min-width: 0;
-        padding: 6px; border: 1px solid #e5e7eb; border-radius: 4px; box-sizing: border-box;
-    }
+    .range-inline input { flex: 1; width: 0; min-width: 0; padding: 6px; border: 1px solid #e5e7eb; border-radius: 4px; box-sizing: border-box; }
+
+    /* 5. Modal */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.5); z-index: 2000; display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s; }
+    .modal-overlay.show { display: flex; opacity: 1; }
+    .modal-content { background: #fff; padding: 25px; border-radius: 12px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.2); transform: translateY(20px); transition: transform 0.2s; }
+    .modal-overlay.show .modal-content { transform: translateY(0); }
+    .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; border-bottom: 1px solid #f0f0f0; padding-bottom: 10px; }
+    .modal-header h3 { margin: 0; font-size: 1.2rem; color: #374151; }
+    .modal-header .close-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #9ca3af; }
+    .modal-body { font-size: 1rem; line-height: 1.6; color: #4b5563; white-space: pre-wrap; }
 </style>
