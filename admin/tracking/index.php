@@ -2,7 +2,11 @@
 /********************************************************************
  * admin/tracking/index.php
  *
- * อัปเดต: แยกคอลัมน์ "ประเภท" กับ "รุ่น" ออกจากกัน
+ * ฉบับสมบูรณ์ (Final Ultimate):
+ * - UI Search Bar สไตล์เดียวกับ admin/articles/index.php
+ * - แยกสถานะ FN (รอรับ) / DV (ส่งมอบแล้ว)
+ * - แยกคอลัมน์ Device Type / Model
+ * - CSS ปรับความสูง Input/Button เท่ากัน (42px)
  ********************************************************************/
 
 // =========================[ 0) SETUP & GUARD ]========================
@@ -14,34 +18,36 @@ require_login();
 $pageTitle = "ติดตามงานซ่อม";
 
 // =========================[ 1) CONSTANTS / MAPS ]=====================
-// 1.1 สถานะ
 $STATUS_LABELS = [
     'QS'  => 'รอเช็คราคา',
     'WC'  => 'รอคอนเฟิร์ม',
     'OK'  => 'กำลังซ่อม',
     'RW'  => 'งานแก้/เคลม',
-    'FN'  => 'ซ่อมเสร็จ',
-    'NCF' => 'ติดต่อไม่ได้(เสร็จ)',
-    'NCS' => 'ติดต่อไม่ได้(เสนอราคา)',
+    'FN'  => 'ซ่อมเสร็จ (รอรับ)',
+    'DV'  => 'ส่งมอบแล้ว',
+    'NCF' => 'ติดต่อไม่ได้ (เสร็จ)',
+    'NCS' => 'ติดต่อไม่ได้ (เสนอ)',
     'XX'  => 'ยกเลิก',
     'RT'  => 'รับคืนแล้ว'
 ];
 
-// 1.2 สีของ Badge
 $STATUS_COLORS = [
     'QS'  => 'badge-blue',
     'WC'  => 'badge-orange',
     'OK'  => 'badge-amber',
     'RW'  => 'badge-purple',
-    'FN'  => 'badge-green',
+    'FN'  => 'badge-green',      // เขียว = เสร็จรอรับ
+    'DV'  => 'badge-black',      // ดำ = จบงาน
     'NCF' => 'badge-red',
     'NCS' => 'badge-orange',
     'XX'  => 'badge-red',
     'RT'  => 'badge-gray'
 ];
 
-// 1.3 ประเภทเครื่อง
 $DEVICE_TYPES = ['iPhone', 'iPad', 'MacBook', 'iMac', 'Apple Watch', 'Android', 'Notebook', 'PC', 'Other'];
+
+// สถานะที่ถือว่า "จบงานแล้ว" (หยุดนับเวลาถอยหลัง)
+$FINISHED_STATUSES = ['FN', 'DV', 'XX', 'RT', 'NCF'];
 
 // =========================[ 2) HELPERS ]==============================
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
@@ -88,12 +94,23 @@ function page_url($i) {
     return '?' . http_build_query($q);
 }
 
+function getDaysRemaining($dateStr) {
+    if (!$dateStr) return null;
+    $today = new DateTime();
+    $today->setTime(0, 0, 0);
+    $target = new DateTime($dateStr);
+    $target->setTime(0, 0, 0);
+    $diff = $today->diff($target);
+    return (int)$diff->format('%r%a');
+}
+
 // =========================[ 3) STATE ]================================
 $q = getv('q', '');
 $filterStatus = getvArray('status', array_keys($STATUS_LABELS));
 $filterTypes  = getvArray('type');
 $dfrom = getv('date_from', '');
 $dto   = getv('date_to', '');
+$sort  = getv('sort', 'deadline_asc');
 
 [$per, $page, $offset] = get_pager();
 
@@ -130,15 +147,23 @@ $total = (int)($stc->fetchColumn() ?: 0);
 $pages = max(1, (int)ceil($total / $per));
 if ($page > $pages) { $page = $pages; $offset = ($page - 1) * $per; }
 
-// 4.6 Fetch Data
+// 4.6 Fetch Data & Sort Logic
 $sql = "
     SELECT * FROM tracking
     {$where_sql}
     ORDER BY 
         CASE status
-            WHEN 'RW' THEN 1 WHEN 'OK' THEN 2 WHEN 'QS' THEN 3 WHEN 'WC' THEN 4 
-            WHEN 'NCS' THEN 5 WHEN 'NCF' THEN 6 WHEN 'FN' THEN 7 ELSE 8
+            WHEN 'RW' THEN 1  -- งานแก้ ด่วนสุด
+            WHEN 'OK' THEN 2  -- กำลังซ่อม
+            WHEN 'QS' THEN 3  -- รอเช็ค
+            WHEN 'WC' THEN 4  -- รอคอนเฟิร์ม
+            WHEN 'NCS' THEN 5 
+            WHEN 'NCF' THEN 6 
+            WHEN 'FN' THEN 7  -- เสร็จ (รอรับ)
+            WHEN 'DV' THEN 99 -- ส่งมอบแล้ว (ท้ายสุด)
+            ELSE 8
         END ASC,
+        " . ($sort === 'deadline_asc' ? '(appointment_date IS NULL) ASC, appointment_date ASC,' : '') . "
         created_at DESC
     LIMIT :limit OFFSET :off
 ";
@@ -163,73 +188,75 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 
     <div class="section-header">
         <h2>รายการงานซ่อมทั้งหมด</h2>
-        <div>
-            <a href="create.php" class="btn-primary">+ เปิดงานซ่อมใหม่</a>
-        </div>
+        <div><a href="create.php" class="btn-primary">+ เปิดงานซ่อมใหม่</a></div>
     </div>
 
-    <form action="index.php" method="GET">
-        <div class="search-and-filter-group">
-            <input class="filter-input" name="q" value="<?= h($q) ?>" placeholder="ค้นหา เลขงาน/ลูกค้า/เบอร์/รุ่น/อาการ...">
+    <form action="index.php" method="get" class="search-and-filter-group">
+        <input class="filter-input" name="q" value="<?= h($q) ?>" placeholder="ค้นหา เลขงาน/ลูกค้า/เบอร์/รุ่น...">
+        
+        <select name="sort" class="filter-input" onchange="this.form.submit()" style="min-width: 180px;">
+            <option value="deadline_asc" <?= $sort==='deadline_asc'?'selected':'' ?>>งานด่วน (ใกล้กำหนดส่ง)</option>
+            <option value="status_priority" <?= $sort==='status_priority'?'selected':'' ?>>เรียงตามสถานะงาน</option>
+            <option value="created_desc" <?= $sort==='created_desc'?'selected':'' ?>>วันที่รับงาน (ใหม่ → เก่า)</option>
+            <option value="created_asc" <?= $sort==='created_asc'?'selected':'' ?>>วันที่รับงาน (เก่า → ใหม่)</option>
+        </select>
 
-            <div class="filter-dropdown">
-                <button type="button" class="btn-secondary" onclick="toggleFilterMenu()">
-                    <span class="material-symbols-rounded" style="font-size:18px; vertical-align:middle;">filter_list</span> ตัวกรอง
-                </button>
-                
-                <div id="filterMenu" class="filter-menu">
-                    <div class="filter-section">
-                        <div class="filter-title">สถานะงาน</div>
-                        <?php foreach ($STATUS_LABELS as $key => $label): 
-                            $checked = in_array($key, $filterStatus) ? 'checked' : ''; 
-                            $colorClass = $STATUS_COLORS[$key] ?? 'badge-gray';
-                            $dotColor = '#9ca3af'; 
-                            if(strpos($colorClass,'blue')!==false) $dotColor='#3b82f6';
-                            if(strpos($colorClass,'amber')!==false) $dotColor='#f59e0b';
-                            if(strpos($colorClass,'orange')!==false) $dotColor='#f97316';
-                            if(strpos($colorClass,'green')!==false) $dotColor='#10b981';
-                            if(strpos($colorClass,'red')!==false) $dotColor='#ef4444';
-                            if(strpos($colorClass,'purple')!==false) $dotColor='#8b5cf6';
-                        ?>
-                            <label class="checkline">
-                                <input type="checkbox" name="status[]" value="<?= h($key) ?>" <?= $checked ?>>
-                                <span style="width:8px; height:8px; border-radius:50%; background:<?= $dotColor ?>; display:inline-block; margin-right:4px;"></span>
-                                <span><?= h($label) ?></span>
-                            </label>
-                        <?php endforeach; ?>
-                    </div>
+        <div class="filter-dropdown">
+            <button type="button" class="btn-secondary" onclick="toggleMenu('filterMenuJobs')">ตัวกรอง</button>
+            
+            <div id="filterMenuJobs" class="filter-menu">
+                <div class="filter-section">
+                    <div class="filter-title">สถานะงาน</div>
+                    <?php foreach ($STATUS_LABELS as $key => $label): 
+                        $checked = in_array($key, $filterStatus) ? 'checked' : ''; 
+                        $colorClass = $STATUS_COLORS[$key] ?? 'badge-gray';
+                        $dotColor = '#9ca3af';
+                        if(strpos($colorClass,'blue')!==false) $dotColor='#3b82f6';
+                        if(strpos($colorClass,'amber')!==false) $dotColor='#f59e0b';
+                        if(strpos($colorClass,'orange')!==false) $dotColor='#f97316';
+                        if(strpos($colorClass,'green')!==false) $dotColor='#10b981';
+                        if(strpos($colorClass,'red')!==false) $dotColor='#ef4444';
+                        if(strpos($colorClass,'purple')!==false) $dotColor='#8b5cf6';
+                        if(strpos($colorClass,'black')!==false) $dotColor='#1f2937';
+                    ?>
+                        <label class="checkline">
+                            <input type="checkbox" name="status[]" value="<?= h($key) ?>" <?= $checked ?>>
+                            <span style="width:8px; height:8px; border-radius:50%; background:<?= $dotColor ?>; display:inline-block; margin-right:6px;"></span>
+                            <span><?= h($label) ?></span>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
 
-                    <div class="filter-section">
-                        <div class="filter-title">ประเภทเครื่อง</div>
-                        <?php foreach ($DEVICE_TYPES as $type): 
-                            $checked = in_array($type, $filterTypes) ? 'checked' : ''; 
-                        ?>
-                            <label class="checkline">
-                                <input type="checkbox" name="type[]" value="<?= h($type) ?>" <?= $checked ?>>
-                                <span><?= h($type) ?></span>
-                            </label>
-                        <?php endforeach; ?>
-                    </div>
+                <div class="filter-section">
+                    <div class="filter-title">ประเภทเครื่อง</div>
+                    <?php foreach ($DEVICE_TYPES as $type): 
+                        $checked = in_array($type, $filterTypes) ? 'checked' : ''; 
+                    ?>
+                        <label class="checkline">
+                            <input type="checkbox" name="type[]" value="<?= h($type) ?>" <?= $checked ?>>
+                            <span><?= h($type) ?></span>
+                        </label>
+                    <?php endforeach; ?>
+                </div>
 
-                    <div class="filter-section">
-                        <div class="filter-title">วันที่รับงาน</div>
-                        <div class="range-inline">
-                            <input type="date" name="date_from" value="<?= h($dfrom) ?>">
-                            <span class="mx-2">-</span>
-                            <input type="date" name="date_to" value="<?= h($dto) ?>">
-                        </div>
-                    </div>
-
-                    <div class="filter-actions">
-                        <button type="button" class="btn-secondary" onclick="clearFilters()">ล้าง</button>
-                        <button type="submit" class="btn-primary">ใช้ตัวกรอง</button>
+                <div class="filter-section">
+                    <div class="filter-title">วันที่รับงาน</div>
+                    <div class="range-inline">
+                        <input type="date" name="date_from" value="<?= h($dfrom) ?>">
+                        <span class="mx-2">-</span>
+                        <input type="date" name="date_to" value="<?= h($dto) ?>">
                     </div>
                 </div>
+
+                <div class="filter-actions">
+                    <button type="button" class="btn-secondary" onclick="clearMenu('filterMenuJobs')">ล้าง</button>
+                    <button type="submit" class="btn-primary">ค้นหา</button>
+                </div>
             </div>
-            
-            <input type="hidden" name="page" value="1">
-            <button class="btn-search">ค้นหา</button>
         </div>
+
+        <input type="hidden" name="page" value="1">
+        <button class="btn-search">ค้นหา</button>
     </form>
 
     <div class="table-container">
@@ -239,13 +266,13 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                     <th>#</th>
                     <th>เลขที่ซ่อม</th>
                     <th>ลูกค้า</th>
-                    <th>ประเภท</th>
-                    <th>รุ่น / Model</th>
-                    
+                    <th>ประเภท</th>      
+                    <th style="text-align:center;">รุ่น / Model</th> 
                     <th>อาการเสีย</th>
-                    <th>สถานะ</th>
+                    <th style="text-align:center;">สถานะ</th>
                     <th>วันนัดรับ</th>
-                    <th>ราคาประเมิน</th>
+                    <th style="text-align:center;">เหลือเวลา</th>
+                    <th>ราคา</th>
                     <th>จัดการ</th>
                 </tr>
             </thead>
@@ -253,6 +280,27 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                 <?php if ($jobs): foreach ($jobs as $i => $row): 
                     $badgeColor = $STATUS_COLORS[$row['status']] ?? 'badge-gray';
                     $statusText = $STATUS_LABELS[$row['status']] ?? $row['status'];
+                    
+                    // Logic นับวัน
+                    $daysLeft = getDaysRemaining($row['appointment_date']);
+                    $timeLeftBadge = '<span class="muted">-</span>';
+                    $isFinished = in_array($row['status'], $FINISHED_STATUSES);
+
+                    if (!$isFinished && $row['appointment_date']) {
+                        if ($daysLeft < 0) {
+                            $timeLeftBadge = '<span class="badge badge-red-outline">เกิน '.abs($daysLeft).' วัน</span>';
+                        } elseif ($daysLeft == 0) {
+                            $timeLeftBadge = '<span class="badge badge-red-flash">วันนี้!</span>';
+                        } elseif ($daysLeft <= 2) {
+                            $timeLeftBadge = '<span class="badge badge-orange">อีก '.$daysLeft.' วัน</span>';
+                        } else {
+                            $timeLeftBadge = '<span class="badge badge-green">อีก '.$daysLeft.' วัน</span>';
+                        }
+                    } elseif ($row['status'] === 'FN') {
+                        $timeLeftBadge = '<span class="badge badge-green-outline">รอรับ</span>';
+                    } elseif ($row['status'] === 'DV') {
+                        $timeLeftBadge = '<span class="badge badge-gray-outline">จบงาน</span>';
+                    }
                 ?>
                     <tr>
                         <td><?= ($offset + $i + 1) ?></td>
@@ -269,21 +317,16 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                                 <?= h($row['customer_phone']) ?>
                             </div>
                         </td>
-                        
                         <td><?= h($row['device_type']) ?></td>
-                        
-                        <td>
-                            <span class="badge" style="background:#f3f4f6; color:#374151; font-weight:normal;">
+                        <td style="text-align:center;">
+                            <span class="badge-model" title="<?= h($row['device_model']) ?>">
                                 <?= h($row['device_model']) ?>
                             </span>
                         </td>
-
-                        <td style="max-width:200px; white-space:normal; line-height:1.4;">
+                        <td style="max-width:180px; white-space:normal; line-height:1.4;">
                             <?= h($row['problem_details']) ?>
                         </td>
-                        <td>
-                            <span class="badge <?= $badgeColor ?>"><?= $statusText ?></span>
-                        </td>
+                        <td style="text-align:center;"><span class="badge <?= $badgeColor ?>"><?= $statusText ?></span></td>
                         <td>
                             <?php if ($row['appointment_date']): ?>
                                 <?= date('d/m/Y', strtotime($row['appointment_date'])) ?>
@@ -291,9 +334,8 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                                 <span class="muted">-</span>
                             <?php endif; ?>
                         </td>
-                        <td>
-                            <?= $row['estimated_cost'] > 0 ? number_format($row['estimated_cost']) : '<span class="muted">-</span>' ?>
-                        </td>
+                        <td style="text-align:center; white-space:nowrap;"><?= $timeLeftBadge ?></td>
+                        <td><?= $row['estimated_cost'] > 0 ? number_format($row['estimated_cost']) : '<span class="muted">-</span>' ?></td>
                         <td class="no-wrap">
                             <a href="edit.php?id=<?= (int)$row['id'] ?>" class="btn-edit">
                                 <span class="material-symbols-rounded" style="font-size:18px;">edit_document</span> แก้ไข
@@ -302,7 +344,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                     </tr>
                 <?php endforeach; else: ?>
                     <tr>
-                        <td colspan="10" class="text-center" style="padding:40px; color:#9ca3af;">
+                        <td colspan="11" class="text-center" style="padding:40px; color:#9ca3af;">
                             <span class="material-symbols-rounded" style="font-size:48px; display:block; margin-bottom:10px;">search_off</span>
                             ไม่พบงานซ่อมตามเงื่อนไข
                         </td>
@@ -318,49 +360,39 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
             <span class="divider">•</span>
             <span>หน้า <?= (int)$page ?> / <?= (int)$pages ?></span>
         </div>
-        <nav class="pager-nav" aria-label="Pagination">
-            <a class="page-btn <?= $page <= 1 ? 'is-disabled' : '' ?>" href="<?= $page > 1 ? page_url($page - 1) : '#' ?>" rel="prev">‹</a>
-            
+        <nav class="pager-nav">
+            <a class="page-btn <?= $page <= 1 ? 'is-disabled' : '' ?>" href="<?= $page > 1 ? page_url($page - 1) : '#' ?>">‹</a>
             <?php 
-            $start = max(1, $page - 2);
-            $end = min($pages, $page + 2);
+            $start = max(1, $page - 2); $end = min($pages, $page + 2);
             if ($start > 1) echo '<span class="page-ellipsis">…</span>';
             for ($i = $start; $i <= $end; $i++): ?>
                 <a class="page-btn <?= $i == $page ? 'is-active' : '' ?>" href="<?= page_url($i) ?>"><?= $i ?></a>
-            <?php endfor; 
-            if ($end < $pages) echo '<span class="page-ellipsis">…</span>'; ?>
-            
-            <a class="page-btn <?= $page >= $pages ? 'is-disabled' : '' ?>" href="<?= $page < $pages ? page_url($page + 1) : '#' ?>" rel="next">›</a>
-            
+            <?php endfor; if ($end < $pages) echo '<span class="page-ellipsis">…</span>'; ?>
+            <a class="page-btn <?= $page >= $pages ? 'is-disabled' : '' ?>" href="<?= $page < $pages ? page_url($page + 1) : '#' ?>">›</a>
             <div class="page-size">
                 <select id="ppSelect" class="pager-select">
-                    <?php foreach ([20, 50, 100] as $pp): ?>
-                        <option value="<?= $pp ?>" <?= (int)$per === $pp ? 'selected' : '' ?>><?= $pp ?>/หน้า</option>
-                    <?php endforeach; ?>
+                    <?php foreach ([20, 50, 100] as $pp): ?><option value="<?= $pp ?>" <?= (int)$per === $pp ? 'selected' : '' ?>><?= $pp ?>/หน้า</option><?php endforeach; ?>
                 </select>
             </div>
         </nav>
     </div>
-
 </main>
 
 <?php include __DIR__ . '/../../templates/footer_admin.php'; ?>
 
 <script>
-    function toggleFilterMenu() { var m = document.getElementById('filterMenu'); if (m) m.classList.toggle('show'); }
-    
-    document.addEventListener('click', function(e) {
-        var dd = e.target.closest ? e.target.closest('.filter-dropdown') : null;
-        var m = document.getElementById('filterMenu');
-        if (m && m.classList.contains('show') && (!dd || !dd.contains(m))) m.classList.remove('show');
-    });
-
-    function clearFilters() {
-        var root = document.getElementById('filterMenu'); if (!root) return;
+    function toggleMenu(id) { var m = document.getElementById(id); if (m) m.classList.toggle('show'); }
+    function clearMenu(id) {
+        var root = document.getElementById(id); if (!root) return;
         root.querySelectorAll('input[type="checkbox"]').forEach(el => el.checked = false);
         root.querySelectorAll('input[type="date"]').forEach(el => el.value = '');
     }
-
+    document.addEventListener('click', function(e) {
+        var dd = e.target.closest ? e.target.closest('.filter-dropdown') : null;
+        document.querySelectorAll('.filter-menu.show').forEach(function(m) {
+            if (!dd || !dd.contains(m)) m.classList.remove('show');
+        });
+    });
     (function() {
         const sel = document.getElementById('ppSelect'); if (!sel) return;
         sel.addEventListener('change', function() {
@@ -375,6 +407,45 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 </script>
 
 <style>
+    /* =========================================
+       1. CSS FIX: Equal Height & Alignment (เหมือน Articles)
+       ========================================= */
+    .search-and-filter-group {
+        display: flex;
+        align-items: center; /* จัดกึ่งกลางแนวตั้ง */
+        gap: 10px;
+        flex-wrap: wrap;
+        background: #fff;
+        padding: 15px;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
+    }
+    .filter-input, 
+    .btn-search, 
+    .btn-secondary {
+        height: 42px !important;  /* ล็อคความสูงเท่ากันเป๊ะ */
+        padding: 0 12px;
+        font-size: 0.95rem;
+        border-radius: 6px;
+        border: 1px solid #e5e7eb;
+        box-sizing: border-box; /* รวมขอบ */
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        vertical-align: middle;
+        margin: 0;
+    }
+    input.filter-input { flex: 1; min-width: 200px; }
+    select.filter-input { background-color: #fff; cursor: pointer; }
+    .btn-search { background: var(--primary-color); color: #fff; border: none; font-weight: 500; cursor: pointer; } /* ใช้สีฟ้าแบบ Articles */
+    .btn-search:hover { opacity: 0.9; }
+    .btn-secondary { background: #fff; color: var(--text); cursor: pointer; }
+    .btn-secondary:hover { background: #f9fafb; border-color: #d1d5db; }
+
+    /* =========================================
+       2. Badges & Status Colors
+       ========================================= */
     .badge-blue { background: #dbeafe; color: #1e40af; }
     .badge-amber { background: #fef3c7; color: #92400e; }
     .badge-orange { background: #ffedd5; color: #9a3412; }
@@ -382,9 +453,58 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     .badge-red { background: #fee2e2; color: #991b1b; }
     .badge-gray { background: #f3f4f6; color: #374151; }
     .badge-purple { background: #ede9fe; color: #5b21b6; }
+    .badge-black { background: #1f2937; color: #fff; } 
+
+    /* Time Left Badges */
+    .badge-red-outline { border: 1px solid #ef4444; color: #ef4444; background: #fff; font-weight: bold; }
+    .badge-red-flash { background: #ef4444; color: #fff; font-weight: bold; animation: pulse 2s infinite; }
+    .badge-gray-outline { border: 1px solid #9ca3af; color: #9ca3af; background: #fff; }
+    .badge-green-outline { border: 1px solid #10b981; color: #10b981; background: #fff; }
+
+    /* Model Badge (Equal Width) */
+    .badge, .badge-model, 
+    .badge-red-outline, .badge-red-flash, .badge-gray-outline, .badge-green-outline {
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        min-width: 130px;           /* ความกว้างขั้นต่ำเท่ากัน */
+        height: 28px;
+        padding: 0 10px;
+        border-radius: 20px;
+        font-size: 0.85em;
+        font-weight: 500;
+        white-space: nowrap;
+        box-sizing: border-box;
+        vertical-align: middle;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .badge-model {
+        background: #f3f4f6;
+        color: #374151;
+        font-weight: 600;
+        min-width: 100px; /* ลดความกว้างรุ่นลงนิดนึงก็ได้ถ้าต้องการ */
+    }
+
+    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+
+    /* =========================================
+       3. Dropdown Menu (เหมือน Articles)
+       ========================================= */
+    .filter-dropdown { position: relative; }
+    .filter-menu { 
+        display: none; position: absolute; top: 100%; right: 0; 
+        background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; 
+        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); width: 280px; z-index: 100; margin-top: 8px; padding: 16px; 
+    }
+    .filter-menu.show { display: block; animation: slideDown 0.15s ease-out; }
+    @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
     
-    .checkline { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; cursor: pointer; user-select: none; }
-    .checkline input { accent-color: var(--primary-color); width: 16px; height: 16px; }
+    .filter-section { margin-bottom: 16px; border-bottom: 1px solid #f3f4f6; padding-bottom: 12px; }
+    .filter-title { font-weight: 600; margin-bottom: 10px; color: #6b7280; font-size: 0.85rem; text-transform: uppercase; }
+    .checkline { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; cursor: pointer; user-select: none; font-size: 0.95rem; }
+    .checkline input { accent-color: var(--primary-color); width: 18px; height: 18px; }
+    .filter-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #e5e7eb; }
     .range-inline { display: flex; align-items: center; gap: 5px; }
     .range-inline input { width: 100%; padding: 6px; border: 1px solid #e5e7eb; border-radius: 4px; }
 </style>
