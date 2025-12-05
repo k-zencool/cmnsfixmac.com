@@ -45,7 +45,7 @@ $STATUS_COLORS = [
     'RT'  => 'badge-gray'
 ];
 
-$DEVICE_TYPES = ['iPhone', 'iPad', 'MacBook', 'iMac', 'Apple Watch', 'Android', 'Notebook', 'PC', 'Other'];
+$DEVICE_TYPES = ['iPhone', 'iPad', 'MacBook', 'iMac', 'Apple Watch', 'AirPods', 'Notebook', 'PC', 'Other'];
 $FINISHED_STATUSES = ['FN', 'DV', 'XX', 'RT', 'NCF'];
 
 // =========================[ 2) HELPERS ]==============================
