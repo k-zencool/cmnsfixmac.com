@@ -2,10 +2,12 @@
 /********************************************************************
  * admin/tracking/index.php
  *
- * ฉบับสมบูรณ์ (Final Minimal):
- * - แก้ช่องอาการเสียให้เรียบที่สุด (เหมือนข้อความปกติ)
- * - กดแล้วมี Modal เด้งให้อ่านเหมือนเดิม
- * - ไม่มีลูกเล่น Hover รกตา
+ * ฉบับสมบูรณ์ (Final Ultimate Fixed - Revision Left Align):
+ * - รวมคอลัมน์ "อุปกรณ์" และ "รุ่น" เข้าด้วยกัน
+ * - แสดง "ประเภท" ด้านบน และ "รุ่น" (Badge) ด้านล่าง
+ * - แก้ไข Filter ให้ทำงานได้จริง
+ * - ปรับหัวตารางและเลย์เอาต์ให้สวยงาม
+ * - [UPDATE LATEST] Serial/Password: หัวกลาง / เนื้อหาชิดซ้าย
  ********************************************************************/
 
 // =========================[ 0) SETUP & GUARD ]========================
@@ -49,10 +51,13 @@ $FINISHED_STATUSES = ['FN', 'DV', 'XX', 'RT', 'NCF'];
 // =========================[ 2) HELPERS ]==============================
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 function getv($k,$d=null){ return isset($_GET[$k]) ? trim($_GET[$k]) : $d; }
+
+// Helper: รับค่า Array จาก URL
 function getvArray($key, array $allowKeys = null): array {
-    $v = isset($_GET[$key]) ? (array)$_GET[$key] : [];
+    $v = isset($_GET[$key]) ? $_GET[$key] : [];
+    if (!is_array($v)) $v = []; 
     if ($allowKeys !== null) return array_values(array_intersect($v, $allowKeys));
-    return $v;
+    return array_values($v);
 }
 
 function whereSearch(string $q, array $cols, array &$params, string $pfx): ?string {
@@ -68,7 +73,7 @@ function whereSearch(string $q, array $cols, array &$params, string $pfx): ?stri
 }
 
 function whereIn(string $col, array $vals, array &$params, string $pfx): ?string {
-    if (!$vals) return null;
+    if (empty($vals)) return null;
     $in = [];
     foreach ($vals as $i => $v) {
         $ph = ":{$pfx}{$i}";
@@ -118,14 +123,21 @@ $pages = 1;
 $params = [];
 $where = [];
 
-if ($w = whereSearch($q, ['ticket_number', 'customer_name', 'customer_phone', 'device_model', 'problem_details'], $params, 'q')) { $where[] = $w; }
+// 4.1 Search
+if ($w = whereSearch($q, ['ticket_number', 'customer_name', 'customer_phone', 'device_model', 'problem_details', 'serial_number', 'technician_note'], $params, 'q')) { 
+    $where[] = $w; 
+}
+// 4.2 Filter Status
 if ($w = whereIn('status', $filterStatus, $params, 'st')) { $where[] = $w; }
+// 4.3 Filter Device Type
 if ($w = whereIn('device_type', $filterTypes, $params, 'dt')) { $where[] = $w; }
+// 4.4 Filter Date
 if ($dfrom !== '') { $where[] = "DATE(created_at) >= :df"; $params[':df'] = $dfrom; }
 if ($dto !== '')   { $where[] = "DATE(created_at) <= :dt"; $params[':dt'] = $dto; }
 
 $where_sql = $where ? ("WHERE " . implode(' AND ', $where)) : "";
 
+// 4.5 Count
 $stc = $pdo->prepare("SELECT COUNT(*) FROM tracking {$where_sql}");
 foreach ($params as $k => $v) $stc->bindValue($k, $v);
 $stc->execute();
@@ -133,16 +145,32 @@ $total = (int)($stc->fetchColumn() ?: 0);
 $pages = max(1, (int)ceil($total / $per));
 if ($page > $pages) { $page = $pages; $offset = ($page - 1) * $per; }
 
+// 4.6 Sort Logic
+$orderBy = "created_at DESC";
+switch ($sort) {
+    case 'deadline_asc':
+        $orderBy = "
+            CASE WHEN status IN ('FN', 'DV', 'XX', 'RT', 'NCF') THEN 1 ELSE 0 END ASC, 
+            (appointment_date IS NULL) ASC, 
+            appointment_date ASC, 
+            created_at DESC";
+        break;
+    case 'status_priority':
+        $orderBy = "
+            CASE status
+                WHEN 'RW' THEN 1 WHEN 'OK' THEN 2 WHEN 'QS' THEN 3 WHEN 'WC' THEN 4 
+                WHEN 'NCS' THEN 5 WHEN 'NCF' THEN 6 WHEN 'FN' THEN 7 WHEN 'DV' THEN 99 ELSE 8
+            END ASC, created_at DESC";
+        break;
+    case 'created_desc': $orderBy = "created_at DESC"; break;
+    case 'created_asc': $orderBy = "created_at ASC"; break;
+}
+
+// 4.7 Fetch Data
 $sql = "
     SELECT * FROM tracking
     {$where_sql}
-    ORDER BY 
-        CASE status
-            WHEN 'RW' THEN 1 WHEN 'OK' THEN 2 WHEN 'QS' THEN 3 WHEN 'WC' THEN 4 
-            WHEN 'NCS' THEN 5 WHEN 'NCF' THEN 6 WHEN 'FN' THEN 7 WHEN 'DV' THEN 99 ELSE 8
-        END ASC,
-        " . ($sort === 'deadline_asc' ? '(appointment_date IS NULL) ASC, appointment_date ASC,' : '') . "
-        created_at DESC
+    ORDER BY {$orderBy}
     LIMIT :limit OFFSET :off
 ";
 
@@ -169,10 +197,10 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
         <div><a href="create.php" class="btn-primary">+ เปิดงานซ่อมใหม่</a></div>
     </div>
 
-    <form action="index.php" method="get" class="search-and-filter-group">
-        <input class="filter-input" name="q" value="<?= h($q) ?>" placeholder="ค้นหา เลขงาน/ลูกค้า/เบอร์/รุ่น...">
+    <form action="index.php" method="get" id="searchForm" class="search-and-filter-group">
+        <input class="filter-input" name="q" value="<?= h($q) ?>" placeholder="ค้นหา เลขงาน/ลูกค้า/Serial/อาการ...">
         
-        <select name="sort" class="filter-input" onchange="this.form.submit()" style="min-width: 180px;">
+        <select name="sort" class="filter-input" onchange="document.getElementById('searchForm').submit()" style="min-width: 180px;">
             <option value="deadline_asc" <?= $sort==='deadline_asc'?'selected':'' ?>>งานด่วน (ใกล้กำหนดส่ง)</option>
             <option value="status_priority" <?= $sort==='status_priority'?'selected':'' ?>>เรียงตามสถานะงาน</option>
             <option value="created_desc" <?= $sort==='created_desc'?'selected':'' ?>>วันที่รับงาน (ใหม่ → เก่า)</option>
@@ -181,6 +209,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 
         <div class="filter-dropdown">
             <button type="button" class="btn-secondary" onclick="toggleMenu('filterMenuJobs')">ตัวกรอง</button>
+            
             <div id="filterMenuJobs" class="filter-menu">
                 <div class="filter-section">
                     <div class="filter-title">สถานะงาน</div>
@@ -189,12 +218,12 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                         $colorClass = $STATUS_COLORS[$key] ?? 'badge-gray';
                         $dotColor = '#9ca3af';
                         if(strpos($colorClass,'blue')!==false) $dotColor='#3b82f6';
-                        if(strpos($colorClass,'amber')!==false) $dotColor='#f59e0b';
-                        if(strpos($colorClass,'orange')!==false) $dotColor='#f97316';
-                        if(strpos($colorClass,'green')!==false) $dotColor='#10b981';
-                        if(strpos($colorClass,'red')!==false) $dotColor='#ef4444';
-                        if(strpos($colorClass,'purple')!==false) $dotColor='#8b5cf6';
-                        if(strpos($colorClass,'black')!==false) $dotColor='#1f2937';
+                        elseif(strpos($colorClass,'amber')!==false) $dotColor='#f59e0b';
+                        elseif(strpos($colorClass,'orange')!==false) $dotColor='#f97316';
+                        elseif(strpos($colorClass,'green')!==false) $dotColor='#10b981';
+                        elseif(strpos($colorClass,'red')!==false) $dotColor='#ef4444';
+                        elseif(strpos($colorClass,'purple')!==false) $dotColor='#8b5cf6';
+                        elseif(strpos($colorClass,'black')!==false) $dotColor='#1f2937';
                     ?>
                         <label class="checkline">
                             <input type="checkbox" name="status[]" value="<?= h($key) ?>" <?= $checked ?>>
@@ -203,6 +232,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                         </label>
                     <?php endforeach; ?>
                 </div>
+
                 <div class="filter-section">
                     <div class="filter-title">ประเภทเครื่อง</div>
                     <?php foreach ($DEVICE_TYPES as $type): 
@@ -214,6 +244,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                         </label>
                     <?php endforeach; ?>
                 </div>
+
                 <div class="filter-section">
                     <div class="filter-title">วันที่รับงาน</div>
                     <div class="range-inline">
@@ -222,6 +253,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                         <input type="date" name="date_to" value="<?= h($dto) ?>">
                     </div>
                 </div>
+
                 <div class="filter-actions">
                     <button type="button" class="btn-secondary" onclick="clearMenu('filterMenuJobs')">ล้าง</button>
                     <button type="submit" class="btn-primary">ค้นหา</button>
@@ -230,7 +262,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
         </div>
 
         <input type="hidden" name="page" value="1">
-        <button class="btn-search">ค้นหา</button>
+        <button type="submit" class="btn-search">ค้นหา</button>
     </form>
 
     <div class="table-container">
@@ -238,11 +270,12 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
             <thead>
                 <tr>
                     <th>#</th>
-                    <th>เลขที่ซ่อม</th>
+                    <th style="white-space: nowrap;">เลขที่ซ่อม</th>
                     <th>ลูกค้า</th>
-                    <th>ประเภท</th>      
-                    <th style="text-align:center;">รุ่น / Model</th> 
+                    <th style="text-align:center;">อุปกรณ์ / รุ่น</th>
+                    <th style="text-align:center;">Serial / Password</th>
                     <th>อาการเสีย</th>
+                    <th>หมายเหตุ</th>
                     <th style="text-align:center;">สถานะ</th>
                     <th>วันนัดรับ</th>
                     <th style="text-align:center;">เหลือเวลา</th>
@@ -254,7 +287,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                 <?php if ($jobs): foreach ($jobs as $i => $row): 
                     $badgeColor = $STATUS_COLORS[$row['status']] ?? 'badge-gray';
                     $statusText = $STATUS_LABELS[$row['status']] ?? $row['status'];
-                    
                     $daysLeft = getDaysRemaining($row['appointment_date']);
                     $timeLeftBadge = '<span class="muted">-</span>';
                     $isFinished = in_array($row['status'], $FINISHED_STATUSES);
@@ -277,12 +309,16 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                 ?>
                     <tr>
                         <td><?= ($offset + $i + 1) ?></td>
+                        
                         <td>
-                            <span style="font-family:monospace; font-weight:600; color:var(--primary-color);">
+                            <div style="font-family:monospace; font-weight:600; color:var(--primary-color); font-size:1.1em; line-height:1.2;">
                                 <?= h($row['ticket_number']) ?>
-                            </span>
-                            <div class="muted" style="font-size:0.8em;"><?= date('d/m/y H:i', strtotime($row['created_at'])) ?></div>
+                            </div>
+                            <div class="muted" style="font-size:0.8em; color: #9ca3af; margin-top: 2px;">
+                                <?= date('d/m/y H:i', strtotime($row['created_at'])) ?>
+                            </div>
                         </td>
+
                         <td>
                             <strong><?= h($row['customer_name']) ?></strong>
                             <div class="muted" style="font-size:0.85em;">
@@ -290,18 +326,38 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                                 <?= h($row['customer_phone']) ?>
                             </div>
                         </td>
-                        <td><?= h($row['device_type']) ?></td>
-                        <td style="text-align:center;">
+                        
+                        <td style="text-align: center;">
+                            <div style="font-weight: 600; color: #374151; margin-bottom: 4px;">
+                                <?= h($row['device_type']) ?>
+                            </div>
                             <span class="badge-model" title="<?= h($row['device_model']) ?>">
                                 <?= h($row['device_model']) ?>
                             </span>
                         </td>
+
+                        <td style="text-align:left;">
+                            <div style="font-size:0.85em; color:#4b5563; font-family:monospace;">
+                                <span style="color:#9ca3af;">SN:</span> <?= h($row['serial_number'] ?? '-') ?>
+                            </div>
+                            <div style="font-size:0.85em; font-family:monospace; margin-top:2px;">
+                                <span style="color:#9ca3af;">PW:</span> 
+                                <span style="color:#ef4444; font-weight:bold;"><?= h($row['device_password'] ?? '-') ?></span>
+                            </div>
+                        </td>
                         
-                        <td class="clickable-cell" onclick="openTextModal(this)" data-fulltext="<?= h($row['problem_details']) ?>">
+                        <td class="clickable-cell" onclick="openTextModal(this)" data-fulltext="<?= h($row['problem_details']) ?>" data-title="อาการเสีย">
                             <div class="truncate-text"><?= h($row['problem_details']) ?></div>
+                        </td>
+
+                        <td class="clickable-cell" onclick="openTextModal(this)" data-fulltext="<?= h($row['technician_note']) ?>" data-title="หมายเหตุ">
+                            <div class="truncate-text" style="color:#6b7280; font-style:italic;">
+                                <?= h($row['technician_note'] ?: '-') ?>
+                            </div>
                         </td>
                         
                         <td style="text-align:center;"><span class="badge <?= $badgeColor ?>"><?= $statusText ?></span></td>
+                        
                         <td>
                             <?php if ($row['appointment_date']): ?>
                                 <?= date('d/m/Y', strtotime($row['appointment_date'])) ?>
@@ -319,7 +375,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                     </tr>
                 <?php endforeach; else: ?>
                     <tr>
-                        <td colspan="11" class="text-center" style="padding:40px; color:#9ca3af;">
+                        <td colspan="12" class="text-center" style="padding:40px; color:#9ca3af;">
                             <span class="material-symbols-rounded" style="font-size:48px; display:block; margin-bottom:10px;">search_off</span>
                             ไม่พบงานซ่อมตามเงื่อนไข
                         </td>
@@ -355,7 +411,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     <div id="textModal" class="modal-overlay" aria-hidden="true" onclick="closeTextModal(event)">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>รายละเอียดอาการเสีย</h3>
+                <h3 id="modalTitle">รายละเอียด</h3>
                 <button type="button" class="close-btn" onclick="closeTextModal()">✕</button>
             </div>
             <div class="modal-body" id="modalTextContent"></div>
@@ -382,8 +438,10 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     
     function openTextModal(element) {
         var text = element.getAttribute('data-fulltext');
-        if (!text) return;
+        var title = element.getAttribute('data-title') || 'รายละเอียด';
+        if (!text || text === '-') return; 
         document.getElementById('modalTextContent').innerText = text;
+        document.getElementById('modalTitle').innerText = title;
         var modal = document.getElementById('textModal');
         modal.classList.add('show'); modal.setAttribute('aria-hidden', 'false');
     }
@@ -440,19 +498,12 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
         box-sizing: border-box; vertical-align: middle;
         overflow: hidden; text-overflow: ellipsis;
     }
-    .badge-model { background: #f3f4f6; color: #374151; font-weight: 600; min-width: 100px; }
+    .badge-model { background: #f3f4f6; color: #374151; font-weight: 600; min-width: 100px; text-align: center;}
     @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
 
-    /* 3. [Minimal] Clickable Text Style */
-    .clickable-cell {
-        cursor: pointer;
-        color: #4b5563; /* สีปกติ ไม่ฟ้า */
-        max-width: 220px;
-        transition: color 0.1s;
-    }
-    .clickable-cell:hover {
-        color: #000; /* ชี้แล้วเข้มขึ้นนิดนึงพอ */
-    }
+    /* 3. Clickable Text (Minimal) */
+    .clickable-cell { cursor: pointer; color: #4b5563; max-width: 220px; transition: color 0.1s; }
+    .clickable-cell:hover { color: #000; }
     .truncate-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; width: 100%; }
 
     /* 4. Dropdown */
