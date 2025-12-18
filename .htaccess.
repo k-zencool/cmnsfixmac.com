@@ -2,10 +2,18 @@ Options -MultiViews
 RewriteEngine On
 RewriteBase /
 
-# ================== SITEMAP ==================
+# ================== 1. FIX SEO SPAM (สำคัญมาก ห้ามลบ!) ==================
+# สั่ง Google ไม่ให้ Index หน้าที่มีพารามิเตอร์ขยะ (แก้กราฟพุ่ง)
+<IfModule mod_headers.c>
+    RewriteCond %{QUERY_STRING} (color|ram_|year_|ssd_|sort|price|filter) [NC]
+    RewriteRule .* - [E=MY_NOINDEX:1]
+    Header set X-Robots-Tag "noindex, follow" env=MY_NOINDEX
+</IfModule>
+
+# ================== 2. SITEMAP ==================
 RewriteRule ^sitemap\.xml$ sitemap.php [L]
 
-# ================== 301: ย้ายบ้านเพจเก่า (Old Pages to New Folders) ==================
+# ================== 3. ย้ายหน้าเก่า (301 Redirect) ==================
 Redirect 301 /imac.php /services/imac.php
 Redirect 301 /airpods.php /services/airpods.php
 Redirect 301 /apple-watch.php /services/apple-watch.php
@@ -14,7 +22,7 @@ Redirect 301 /macbook.php /services/macbook.php
 Redirect 301 /iphone.php /services/iphone.php
 Redirect 301 /ipad.php /services/ipad.php
 
-# ================== 301: ย้ายเครื่องมือเทส (Test Tools) ==================
+# ย้ายเครื่องมือเทส
 Redirect 301 /test/mic.php /tester/microphone-tester/
 Redirect 301 /test/camera.php /tester/camera-tester/
 Redirect 301 /test/sound.php /tester/sounds-tester/
@@ -22,79 +30,29 @@ Redirect 301 /test/keyboard.php /tester/keyboard-tester/
 Redirect 301 /test/screen.php /tester/touchscreen-tester/
 Redirect 301 /device-test/ /tester/
 
-# ================== 301: ย้ายหน้าเดี่ยว (Direct .php to Clean URL) ==================
-# ใช้ RewriteCond %{THE_REQUEST} เพื่อป้องกัน Loop Redirect
-RewriteCond %{THE_REQUEST} \s/work\.php [NC]
-RewriteRule ^work\.php$ /work [R=301,L]
+# ================== 4. URL สวย (Internal Rewrite) ==================
+# แปลงจาก /article/slug ให้ Server ไปอ่านไฟล์จริง (แต่ URL ข้างบนไม่เปลี่ยน)
 
-RewriteCond %{THE_REQUEST} \s/en/work\.php [NC]
-RewriteRule ^en/work\.php$ /en/work [R=301,L]
-
-# ================== 301: URL พารามิเตอร์ -> URL สวย ==================
-# (บังคับให้คนและ Google ไปใช้ URL แบบไม่มี ?slug=)
-
-# /article-detail.php?slug=foo -> /article/foo
-RewriteCond %{THE_REQUEST} \s/+article-detail\.php[?\s] [NC]
-RewriteCond %{QUERY_STRING} (^|&)slug=([A-Za-z0-9\-]+)(&|$) [NC]
-RewriteRule ^article-detail\.php$ /article/%2? [R=301,L]
-
-# /en/article-detail.php?slug=foo -> /en/article/foo
-RewriteCond %{THE_REQUEST} \s+/en/article-detail\.php[?\s] [NC]
-RewriteCond %{QUERY_STRING} (^|&)slug=([A-Za-z0-9\-]+)(&|$) [NC]
-RewriteRule ^en/article-detail\.php$ /en/article/%2? [R=301,L]
-
-# /product-detail.php?slug=foo -> /product/foo
-RewriteCond %{THE_REQUEST} \s/+product-detail\.php[?\s] [NC]
-RewriteCond %{QUERY_STRING} (^|&)slug=([A-Za-z0-9\-]+)(&|$) [NC]
-RewriteRule ^product-detail\.php$ /product/%2? [R=301,L]
-
-# /en/product-detail.php?slug=foo -> /en/product/foo
-RewriteCond %{THE_REQUEST} \s+/en/product-detail\.php[?\s] [NC]
-RewriteCond %{QUERY_STRING} (^|&)slug=([A-Za-z0-9\-]+)(&|$) [NC]
-RewriteRule ^en/product-detail\.php$ /en/product/%2? [R=301,L]
-
-# /work-detail.php?slug=foo -> /work/foo
-RewriteCond %{THE_REQUEST} \s/+work-detail\.php[?\s] [NC]
-RewriteCond %{QUERY_STRING} (^|&)slug=([A-Za-z0-9\-]+)(&|$) [NC]
-RewriteRule ^work-detail\.php$ /work/%2? [R=301,L]
-
-# /en/work-detail.php?slug=foo -> /en/work/foo
-RewriteCond %{THE_REQUEST} \s+/en/work-detail\.php[?\s] [NC]
-RewriteCond %{QUERY_STRING} (^|&)slug=([A-Za-z0-9\-]+)(&|$) [NC]
-RewriteRule ^en/work-detail\.php$ /en/work/%2? [R=301,L]
-
-# ================== INTERNAL REWRITE: แปลง URL สวย -> ไฟล์จริง ==================
-# (Server รับ /article/foo แต่แอบไปดึงข้อมูลจาก article-detail.php?slug=foo มาโชว์)
-
-# บทความ (Article)
+# บทความ
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^article/([\w-]+)/?$ /article-detail.php?slug=$1 [L,QSA]
-
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^en/article/([\w-]+)/?$ /en/article-detail.php?slug=$1 [L,QSA]
 
-# สินค้า (Product)
+# สินค้า
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^product/([\w-]+)/?$ /product-detail.php?slug=$1 [L,QSA]
-
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^en/product/([\w-]+)/?$ /en/product-detail.php?slug=$1 [L,QSA]
 
-# ผลงาน (Work) - ต้องวางไว้ก่อน "ซ่อน .php"
+# ผลงาน
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^work/([\w-]+)/?$ /work-detail.php?slug=$1 [L,QSA]
-
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^en/work/([\w-]+)/?$ /en/work-detail.php?slug=$1 [L,QSA]
 
-# ================== ซ่อน .php (Universal) ==================
-# ถ้า Request ไม่ใช่โฟลเดอร์ และเมื่อเติม .php แล้วมีไฟล์อยู่จริง ให้รันไฟล์นั้น
+# ================== 5. ซ่อนนามสกุล .php ==================
+# ถ้าเข้า /work แล้วไม่เจอโฟลเดอร์ ให้ลองเรียก work.php
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteCond %{REQUEST_FILENAME}\.php -f
 RewriteRule ^([^\.]+)$ $1.php [L]

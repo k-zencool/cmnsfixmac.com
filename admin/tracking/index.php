@@ -194,7 +194,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 
     <div class="section-header">
         <h2>รายการงานซ่อมทั้งหมด</h2>
-        <div><a href="create.php" class="btn-primary">+ เปิดงานซ่อมใหม่</a></div>
+        <div><a href="#" class="btn-primary">+ เปิดงานซ่อมใหม่</a></div>
     </div>
 
     <form action="index.php" method="get" id="searchForm" class="search-and-filter-group">

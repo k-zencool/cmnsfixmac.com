@@ -1,17 +1,10 @@
 User-agent: *
 Allow: /
 
-# ของเดิมมึง (ป้องกัน Folder ระบบ)
+# ห้ามเข้า folder ระบบ (อันนี้ปกติ)
 Disallow: /includes/
 
-# ของใหม่ (ป้องกันหน้า Filter ขยะ รก Google)
-Disallow: /*?cat=
-Disallow: /*?color=
-Disallow: /*?ssd_min=
-Disallow: /*?year_min=
-Disallow: /*?ram_min=
-Disallow: /*?q=
-Disallow: /*&sort=
+# อย่าเพิ่ง Block พวก parameter! 
+# ปล่อยให้ Google เข้าไปเจอ noindex ใน .htaccess ก่อน
 
-# Sitemap (ทางเดินหลักของบอท)
 Sitemap: https://cmnsfixmac.com/sitemap.xml

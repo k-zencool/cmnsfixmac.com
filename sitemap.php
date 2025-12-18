@@ -1,89 +1,103 @@
 <?php
-// sitemap.php (Corrected Version)
+/**
+ * sitemap.php - Final Version
+ * เน้น URL สวย (/article/slug) และแก้หน้า Static ตามสั่ง
+ */
 
-require 'includes/db.php';
+ini_set('display_errors', 0);
+error_reporting(E_ALL);
 
-// Set the base URL of your website
+require 'includes/db.php'; 
+
 $baseUrl = 'https://cmnsfixmac.com';
+$today = date('Y-m-d');
 
-// Start XML output
 header('Content-Type: application/xml; charset=utf-8');
 echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
 echo '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml">' . "\n";
 
-// Helper function to create a URL entry with hreflang tags
-function createUrlEntry($loc, $lastmod, $changefreq, $priority, $alternates) {
-    echo '  <url>' . "\n";
-    echo '    <loc>' . htmlspecialchars($loc) . '</loc>' . "\n";
-    echo '    <lastmod>' . $lastmod . '</lastmod>' . "\n";
-    echo '    <changefreq>' . $changefreq . '</changefreq>' . "\n";
-    echo '    <priority>' . $priority . '</priority>' . "\n";
-    foreach ($alternates as $lang => $href) {
-        echo '    <xhtml:link rel="alternate" hreflang="' . $lang . '" href="' . htmlspecialchars($href) . '" />' . "\n";
-    }
-    echo '  </url>' . "\n";
+function addUrl($loc, $lastmod, $changefreq, $priority) {
+    echo "  <url>\n";
+    echo "    <loc>" . htmlspecialchars($loc) . "</loc>\n";
+    echo "    <lastmod>" . $lastmod . "</lastmod>\n";
+    echo "    <changefreq>" . $changefreq . "</changefreq>\n";
+    echo "    <priority>" . $priority . "</priority>\n";
+    echo "  </url>\n";
 }
 
-// --- Static Pages ---
+// --- 1. หน้า Static (ใส่ .php ให้ตามที่ขอ) ---
 $staticPages = [
-    '', // Homepage
-    'works.php',
-    'products.php',
-    'articles.php',
-    'buyback.php'
+    '' => 1.0,               // หน้าแรก
+    'work.php' => 0.9,
+    'products.php' => 0.9,
+    'articles.php' => 0.9,
+    'buyback.php' => 0.8,
+    'contact.php' => 0.8
 ];
 
-foreach ($staticPages as $page) {
-    $th_url = rtrim($baseUrl . '/' . $page, '/');
-    if(empty($page)) $th_url .= '/'; 
+foreach ($staticPages as $page => $prio) {
+    $path = empty($page) ? '' : '/' . $page;
+    $url = $baseUrl . $path;
+    if(empty($page)) $url .= '/'; // หน้าแรกปิดท้ายด้วย /
     
-    $en_url = rtrim($baseUrl . '/en/' . $page, '/');
-    if(empty($page)) $en_url .= '/';
-
-    $alternates = [ 'th' => $th_url, 'en' => $en_url, 'x-default' => $en_url ];
-    createUrlEntry($th_url, date('Y-m-d'), 'weekly', '1.0', $alternates);
-    createUrlEntry($en_url, date('Y-m-d'), 'weekly', '0.9', $alternates);
+    addUrl($url, $today, 'weekly', $prio);
 }
 
-// --- Dynamic Pages from 'repairs' table ---
-// CORRECTED: Using created_at instead of updated_at
-$stmt_repairs = $pdo->query("SELECT id, created_at FROM repairs");
-while ($row = $stmt_repairs->fetch(PDO::FETCH_ASSOC)) {
-    $th_url = $baseUrl . '/work-detail.php?id=' . $row['id'];
-    $en_url = $baseUrl . '/en/work-detail.php?id=' . $row['id'];
-    $lastmod = date('Y-m-d', strtotime($row['created_at']));
-    $alternates = [ 'th' => $th_url, 'en' => $en_url, 'x-default' => $en_url ];
-    createUrlEntry($th_url, $lastmod, 'monthly', '0.8', $alternates);
-    createUrlEntry($en_url, $lastmod, 'monthly', '0.7', $alternates);
-}
+// --- 2. บทความ (Articles) ---
+try {
+    $stmt = $pdo->prepare("SELECT * FROM articles WHERE status = 1 LIMIT 2000"); 
+    $stmt->execute();
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        // เลือก slug (ไทย หรือ อังกฤษ)
+        $mySlug = !empty($row['slug']) ? $row['slug'] : (!empty($row['slug_en']) ? $row['slug_en'] : '');
+        
+        // ข้ามถ้า slug ไปซ้ำกับชื่อไฟล์ระบบ (กันบั๊ก /article/articles.php)
+        if ($mySlug == 'articles' || $mySlug == 'articles.php') continue;
 
-// --- Dynamic Pages from 'products' table ---
-// Using created_at for consistency, though products has updated_at
-$stmt_products = $pdo->query("SELECT id, created_at FROM products WHERE status = 1");
-while ($row = $stmt_products->fetch(PDO::FETCH_ASSOC)) {
-    $th_url = $baseUrl . '/product-detail.php?id=' . $row['id'];
-    $en_url = $baseUrl . '/en/product-detail.php?id=' . $row['id'];
-    $lastmod = date('Y-m-d', strtotime($row['created_at']));
-    $alternates = [ 'th' => $th_url, 'en' => $en_url, 'x-default' => $en_url ];
-    createUrlEntry($th_url, $lastmod, 'monthly', '0.8', $alternates);
-    createUrlEntry($en_url, $lastmod, 'monthly', '0.7', $alternates);
-}
+        if ($mySlug) {
+            // ใช้ URL สวย (/article/ชื่อเรื่อง)
+            $url = $baseUrl . '/article/' . $mySlug;
+        } else {
+            // ถ้าไม่มี slug ใช้ id
+            $url = $baseUrl . '/article-detail.php?id=' . $row['id'];
+        }
+        
+        $lastmod = !empty($row['updated_at']) ? date('Y-m-d', strtotime($row['updated_at'])) : date('Y-m-d');
+        addUrl($url, $lastmod, 'monthly', '0.9');
+    }
+} catch (Exception $e) { }
 
-// --- Dynamic Pages from 'articles' table ---
-// CORRECTED: Using created_at instead of updated_at
-$stmt_articles = $pdo->query("SELECT slug, slug_en, created_at FROM articles WHERE status = 1");
-while ($row = $stmt_articles->fetch(PDO::FETCH_ASSOC)) {
-    $slug_th = $row['slug'];
-    $slug_en = !empty(trim($row['slug_en'])) ? $row['slug_en'] : $slug_th;
-    
-    $th_url = $baseUrl . '/article-detail.php?slug=' . urlencode($slug_th);
-    $en_url = $baseUrl . '/en/article-detail.php?slug=' . urlencode($slug_en);
-    $lastmod = date('Y-m-d', strtotime($row['created_at']));
-    $alternates = [ 'th' => $th_url, 'en' => $en_url, 'x-default' => $en_url ];
-    createUrlEntry($th_url, $lastmod, 'monthly', '0.8', $alternates);
-    createUrlEntry($en_url, $lastmod, 'monthly', '0.7', $alternates);
-}
+// --- 3. สินค้า (Products) ---
+try {
+    $stmt = $pdo->prepare("SELECT * FROM products WHERE status = 1 LIMIT 2000");
+    $stmt->execute();
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $mySlug = !empty($row['slug']) ? $row['slug'] : '';
+        if ($mySlug) {
+            $url = $baseUrl . '/product/' . $mySlug;
+        } else {
+            $url = $baseUrl . '/product-detail.php?id=' . $row['id'];
+        }
+        $lastmod = !empty($row['updated_at']) ? date('Y-m-d', strtotime($row['updated_at'])) : date('Y-m-d');
+        addUrl($url, $lastmod, 'monthly', '0.8');
+    }
+} catch (Exception $e) { }
 
-// End XML output
+// --- 4. ผลงาน (Work) ---
+try {
+    $stmt = $pdo->prepare("SELECT * FROM repairs LIMIT 2000");
+    $stmt->execute();
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $mySlug = !empty($row['slug']) ? $row['slug'] : '';
+        if ($mySlug) {
+            $url = $baseUrl . '/work/' . $mySlug;
+        } else {
+            $url = $baseUrl . '/work-detail.php?id=' . $row['id'];
+        }
+        $lastmod = !empty($row['updated_at']) ? date('Y-m-d', strtotime($row['updated_at'])) : date('Y-m-d');
+        addUrl($url, $lastmod, 'monthly', '0.8');
+    }
+} catch (Exception $e) { }
+
 echo '</urlset>';
 ?>

@@ -1,8 +1,7 @@
 <?php
 /*
  * article-detail.php
- * - [GEMINI EDIT v5]
- * - Fixed $switch_to_lang_url to use Relative Path (Compatible with Localhost)
+ * - [GEMINI FINAL FIX] รองรับ URL สวย (Slug) ไม่เด้งกลับหน้าแรก
  */
 
 include 'includes/db.php';
@@ -11,12 +10,33 @@ function e($string) {
   return htmlspecialchars($string, ENT_QUOTES, 'UTF-8');
 }
 
-// รับค่า ID
+// -------------------------------------------------------------
+// 1. รับค่า Slug และ ID (หัวใจสำคัญของการแก้รอบนี้)
+// -------------------------------------------------------------
+$slug = filter_input(INPUT_GET, 'slug', FILTER_SANITIZE_STRING);
 $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
+
+// ถ้ามีแต่ Slug ส่งมา (เช่นเข้าผ่าน /article/ชื่อเรื่อง) ให้ไปหา ID มาซะ
+if ($slug && !$id) {
+    // เช็คทั้ง slug ภาษาไทย และอังกฤษ (กันเหนียว)
+    $stmtSlug = $pdo->prepare("SELECT id FROM articles WHERE slug = ? OR slug_en = ? LIMIT 1");
+    $stmtSlug->execute([$slug, $slug]);
+    $rowSlug = $stmtSlug->fetch();
+    
+    if ($rowSlug) {
+        $id = $rowSlug['id']; // เย้! เจอ ID แล้ว ใช้ตัวนี้ทำงานต่อเลย
+    }
+}
+
+// ถ้าสุดท้ายยังไม่มี ID (แปลว่า Link ผิด หรือหาไม่เจอ) -> ค่อยดีดไปหน้าแรก
 if (!$id) {
   header("Location: articles.php");
   exit;
 }
+
+// -------------------------------------------------------------
+// 2. โค้ดส่วนเดิม (ทำงานต่อได้เลย เพราะมี $id แล้ว)
+// -------------------------------------------------------------
 
 // เพิ่มวิว
 $pdo->prepare("UPDATE articles SET views = views + 1 WHERE id = ?")->execute([$id]);
@@ -32,11 +52,8 @@ if (!$article || !$article['status']) {
   exit;
 }
 
-// --- [GEMINI FIXED] Language Switch Logic (Relative Path) ---
-// ส่ง Path แบบสัมพัทธ์ไปให้ Header (ไม่ต้องมี https://...)
-// จะได้ไม่เด้งไปเว็บจริงตอนอยู่ localhost
+// Language Switch Logic
 $switch_to_lang_url = "/en/article-detail.php?id=" . $article['id'];
-// ---------------------------------------------------------
 
 // ดึงรูปภาพเพิ่มเติม
 $stmtImg = $pdo->prepare("SELECT * FROM article_images WHERE article_id = ?");
@@ -69,13 +86,12 @@ $ogImagePath = 'https://cmnsfixmac.com/assets/img/placeholder.png'; // OG ต้
 
 if (!empty($image_filename) && strpos($image_filename, '/') !== false) {
     $imagePath = e($image_filename);
-    // เช็ค Protocol สำหรับ OG Image (เผื่อ localhost)
     $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? "https" : "http";
     $host = $_SERVER['HTTP_HOST'];
     $ogImagePath = "$protocol://$host" . e($image_filename);
 }
 
-// สร้าง Full URL สำหรับ Canonical/OG (ใช้ Dynamic Host)
+// สร้าง Full URL
 $protocol = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? "https" : "http";
 $currentUrl = "$protocol://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
 ?>
@@ -88,7 +104,6 @@ $currentUrl = "$protocol://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
   <title><?= htmlspecialchars($article['title']) ?> | FixMac</title>
   
   <?php 
-    // สร้าง Full URL สำหรับ Hreflang (ใช้ Dynamic Host)
     $baseUrl = "$protocol://$_SERVER[HTTP_HOST]";
   ?>
   <link rel="alternate" hreflang="th" href="<?= $baseUrl ?>/article-detail.php?id=<?= $article['id'] ?>" />
