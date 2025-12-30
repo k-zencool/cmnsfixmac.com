@@ -1,298 +1,304 @@
 <?php
 /********************************************************************
  * admin/parts/donor_form.php
- * ฟอร์ม "เครื่อง" (Donor)
- * - อัปโหลดรูปแบบลาก-วาง + ปุ่มลบรูป
- * - ลบด้วย POST (กันลบถ้ามี parts_used ผูกอยู่)
- * - เก็บประวัติลง parts_docs (doc_type='DONOR', ref_no='DONOR:<id>')
- * - เพิ่มคอลัมน์ที่เก็บ: location_index (VARCHAR 60)
- *
- * [v2 - 2025-10-30]
- * - แก้ $statusOptions เป็น Key=>Value (EN=>TH)
- * - แก้ Validation ให้ใช้ !isset()
- * - แก้ Dropdown foreach ให้ใช้ key=>label
+ * ฟอร์มจัดการเครื่อง (Parts Donor)
+ * - [System] Prefix-Based Counting (แยกนับเลขตามชนิดอุปกรณ์ MB, PD, IP)
+ * - [UX] Autofill Asset ID (ใส่เลขในช่องกรอกให้อัตโนมัติ)
+ * - [Security] Duplicate Check + Loading Spinner
  ********************************************************************/
 
-// ========== SETUP ==========
+// ========== 1. SETUP & AUTH ==========
 session_start();
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
-require_role(['super_admin','manager']);
+require_login(); 
 
 $pageTitle = "ฟอร์มเครื่อง";
 
-// ให้ PDO โยน exception เผื่อโฮสต์ไม่ได้ตั้งค่า
 if ($pdo instanceof PDO) {
   try { $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); } catch (Throwable $e) {}
 }
 
+// Helpers
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 function val($arr,$k,$d=''){ return isset($arr[$k]) ? trim((string)$arr[$k]) : $d; }
-
-// ย่อสตริงให้ไม่เกินความยาว remarks (255)
 function short_remarks(string $s, int $max=255): string {
   $s = trim($s);
-  if (mb_strlen($s) > $max) $s = mb_substr($s, 0, $max - 1) . '…';
-  return $s;
+  return mb_strlen($s) > $max ? mb_substr($s, 0, $max - 1) . '…' : $s;
 }
 
 $user_id = $_SESSION['admin_id'] ?? ($_SESSION['user']['id'] ?? null);
 
-// -------- Upload helpers --------
+// Upload Folder
 define('PARTS_UPLOAD_DIR', __DIR__ . '/../../uploads/parts/');
 if (!is_dir(PARTS_UPLOAD_DIR)) @mkdir(PARTS_UPLOAD_DIR, 0775, true);
 
 function safeUploadName(string $orig): string {
   $ext  = strtolower(pathinfo($orig, PATHINFO_EXTENSION));
   $base = preg_replace('/[^a-z0-9\-_]+/i','-', pathinfo($orig, PATHINFO_FILENAME));
-  if ($base==='') $base='donor';
-  return $base.'_'.date('Ymd_His').'_'.substr(bin2hex(random_bytes(6)),0,12).'.'.$ext;
+  return ($base?:'donor').'_'.date('Ymd_His').'_'.substr(bin2hex(random_bytes(6)),0,12).'.'.$ext;
 }
 function img_src($v){
   $v = trim((string)$v);
   if ($v==='') return '';
   if (preg_match('~^https?://~i',$v) || $v[0]==='/') return $v;
-  // ไฟล์นี้อยู่ /admin/parts/ ดังนั้นรูปจริงอยู่ ../../uploads/parts/
-  return '../../uploads/parts/'.$v;
+  return '/uploads/parts/'.$v;
 }
 
-/**
- * -------- บันทึกประวัติลง parts_docs (แบบสั้น ไม่ใช้ meta_json) --------
- * doc_type = 'DONOR'
- * ref_no   = 'DONOR:<id>'
- * remarks  = สรุปสั้น อ่านง่าย ไม่เกิน 255 ตัวอักษร
- */
+// ========== 2. LOGIC: PRE-CALCULATE NEXT ID FOR ALL PREFIXES ==========
+// ฟังก์ชันนี้จะเตรียม "เลขถัดไป" ของทุก Prefix (MB, IP, PD...) เพื่อส่งให้ JS
+function get_next_suffix_map($pdo) {
+    // 1. ดึง Asset Tag ทั้งหมดในระบบ
+    $sql = "SELECT internal_id FROM parts_donors 
+            WHERE internal_id LIKE '%-%-%' AND internal_id IS NOT NULL";
+    $stmt = $pdo->query($sql);
+    $allTags = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+    // เก็บค่าสูงสุดของแต่ละ Prefix (เช่น MB => 112, PD => 0)
+    $maxCounts = []; 
+
+    foreach ($allTags as $tag) {
+        $parts = explode('-', $tag);
+        // ต้องมีอย่างน้อย 3 ส่วน: PREFIX-YM-SUFFIX
+        if (count($parts) >= 3) {
+            $prefix = $parts[0];   // MB, PD
+            $suffix = end($parts); // A0112
+            
+            if (preg_match('/^([A-Z])(\d+)$/', $suffix, $matches)) {
+                $char = $matches[1]; // A
+                $num  = (int)$matches[2]; // 112
+                
+                $charIndex = ord($char) - 65; 
+                if ($charIndex < 0) continue;
+                
+                $currentVal = ($charIndex * 9999) + $num;
+                
+                // อัปเดตค่าสูงสุดของ Prefix นั้นๆ
+                if (!isset($maxCounts[$prefix]) || $currentVal > $maxCounts[$prefix]) {
+                    $maxCounts[$prefix] = $currentVal;
+                }
+            }
+        }
+    }
+
+    // สร้าง Map ของ Suffix ถัดไป (เช่น MB => A0113, PD => A0001)
+    $nextSuffixes = [];
+    // รายชื่อ Prefix ที่เป็นไปได้ทั้งหมด
+    $allPrefixes = ['MB','IP','PD','IM','WA','PC','MN','OT']; 
+    
+    foreach ($allPrefixes as $p) {
+        $max = $maxCounts[$p] ?? 0; // ถ้าไม่มีใน DB ให้เริ่มที่ 0
+        $next = $max + 1;
+        
+        $setIndex = floor(($next - 1) / 9999); 
+        $numIndex = ($next - 1) % 9999 + 1;
+        $char = chr(65 + $setIndex);
+        
+        $nextSuffixes[$p] = $char . sprintf('%04d', $numIndex);
+    }
+    
+    return $nextSuffixes;
+}
+
+// เตรียมข้อมูลส่งให้ JS
+$nextSuffixMap = get_next_global_suffix_map($pdo); // ชื่อฟังก์ชันแก้เป็น get_next_suffix_map
+function get_next_global_suffix_map($pdo){ return get_next_suffix_map($pdo); } // wrapper
+
+// Helper Log
 function donor_doc(PDO $pdo, string $action, int $donor_id, array $item_or_diff, $user_id): void {
   try {
     $action = strtoupper($action);
-
+    $txt = "$action donor #$donor_id";
     if ($action === 'CREATE') {
-      $txt = "เพิ่มเครื่อง: ".($item_or_diff['device_models'] ?? '');
-      if (!empty($item_or_diff['location_index'])) {
-        $txt .= " [ที่เก็บ: ".$item_or_diff['location_index']."]";
-      }
+      $modelStr = trim(($item_or_diff['device_type']??'') . ' ' . ($item_or_diff['device_series']??'') . ' ' . ($item_or_diff['model_code']??''));
+      $txt = "เพิ่มเครื่อง: {$modelStr} [Tag: ".($item_or_diff['internal_id']??'')."]";
     } elseif ($action === 'UPDATE') {
       $changed = array_keys($item_or_diff['changed'] ?? []);
       $txt = "แก้ไขเครื่อง (#{$donor_id}) ".($changed ? 'fields: '.implode(',', $changed) : '');
     } elseif ($action === 'DELETE') {
       $txt = "ลบเครื่อง (#{$donor_id})";
-    } else {
-      $txt = "{$action} donor #{$donor_id}";
     }
-
     $remarks = short_remarks($txt, 255);
-
     $sql = "INSERT INTO parts_docs (doc_type, ref_no, remarks, user_id, created_at)
             VALUES ('DONOR', :ref, :remarks, :uid, NOW())";
-    $pdo->prepare($sql)->execute([
-      ':ref'     => 'DONOR:'.$donor_id,
-      ':remarks' => $remarks,
-      ':uid'     => $user_id,
-    ]);
-  } catch (Throwable $e) {
-    error_log("[donor_doc] ".$e->getMessage());
-  }
+    $pdo->prepare($sql)->execute([':ref'=>'DONOR:'.$donor_id, ':remarks'=>$remarks, ':uid'=>$user_id]);
+  } catch (Throwable $e) {}
 }
 
+// ========== 3. INIT STATE ==========
+$typeOptions = ['MacBook','iMac','iPhone','iPad','Apple Watch','Surface/PC','Other'];
+$seriesOptions = ['Air','Pro','12','Mini','Pro Max','Plus']; 
+$statusOptions = ['in_stock'=>'พร้อมแยก (in_stock)', 'reserved'=>'จอง (reserved)', 'for_sale'=>'กำลังขาย (for_sale)', 'stripped'=>'แยกแล้ว (stripped)', 'sold'=>'ขายแล้ว (sold)'];
 
-// -------- Options --------
-$deviceOptions = ['MacBook','iMac','iPhone','iPad','Apple Watch','อื่นๆ'];
-
-// [!!! G-CODE-EDIT-1: แก้ $statusOptions เป็น Key=>Value !!!]
-$statusOptions = [
-  'in_stock' => 'พร้อมแยก (in_stock)',
-  'reserved' => 'จอง (reserved)',
-  'for_sale' => 'กำลังขาย (for_sale)',
-  'stripped' => 'แยกแล้ว (stripped)',
-  'sold'     => 'ขายแล้ว (sold)'
-];
-
-// -------- State --------
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-
 $item = [
-  'device_name'    => 'MacBook',
-  'device_models'  => '',
-  'category'       => '',
-  'serial_no'      => '',
-  'status'         => 'in_stock',
-  'purchase_cost'  => null,
-  'reserved_ref'   => '',
-  'image_url'      => null,
-  'remarks'        => '',
-  'location_index' => ''
+  'internal_id'=>'', 'device_type'=>'MacBook', 'device_series'=>'', 'model_code'=>'', 
+  'serial_no'=>'', 'status'=>'in_stock', 'image_url'=>null, 'remarks'=>'', 'location_index'=>''
 ];
 
 $beforeRow = null;
 if ($id) {
-  $st = $pdo->prepare("SELECT * FROM parts_donors WHERE id=? LIMIT 1");
-  $st->execute([$id]);
-  $row = $st->fetch(PDO::FETCH_ASSOC);
-  if (!$row) {
-    header("Location: index.php?tab=donor&err=".urlencode("ไม่พบเครื่อง"));
-    exit;
-  }
-  $beforeRow = $row;
-  $item = array_merge($item, $row);
+    $st = $pdo->prepare("SELECT * FROM parts_donors WHERE id=? LIMIT 1");
+    $st->execute([$id]);
+    $beforeRow = $st->fetch(PDO::FETCH_ASSOC);
+    if(!$beforeRow) { header("Location: index.php?tab=donor&err=".urlencode("ไม่พบเครื่อง")); exit; }
+    $item = array_merge($item, $beforeRow);
 }
 
 $errors = [];
 
-// -------- Actions (POST) --------
+// ========== 4. ACTION HANDLER (POST) ==========
 if ($_SERVER['REQUEST_METHOD']==='POST') {
-  $action = val($_POST,'action');
+    $action = val($_POST,'action');
 
-  // ลบ
-  if ($action==='delete_donor' && $id) {
-    try {
-      // กันลบถ้ามี parts_used ผูกอยู่
-      $chk = $pdo->prepare("SELECT COUNT(*) FROM parts_used WHERE donor_id=?");
-      $chk->execute([$id]);
-      if ((int)$chk->fetchColumn() > 0) {
-        $errors[] = "ลบไม่ได้: มีอะไหล่มือ 2 ผูกกับเครื่องนี้";
-      } else {
-        donor_doc($pdo, 'DELETE', $id, ['before'=>$beforeRow], $user_id);
-        $pdo->prepare("DELETE FROM parts_donors WHERE id=? LIMIT 1")->execute([$id]);
-        header("Location: index.php?tab=donor&msg=".urlencode("ลบเครื่องเรียบร้อย"));
-        exit;
-      }
-    } catch(Throwable $e){
-      $errors[] = $e->getMessage();
-    }
-  }
-
-  // บันทึก (สร้าง/แก้ไข)
-  if ($action==='save_donor') {
-    $form_id                = (int)($_POST['id'] ?? 0);
-    $item['device_name']    = val($_POST,'device_name','MacBook');
-    $item['device_models']  = val($_POST,'device_models');
-    $item['category']       = val($_POST,'category');
-    $item['serial_no']      = val($_POST,'serial_no');
-    $item['status']         = val($_POST,'status','in_stock');
-    $item['purchase_cost']  = ($_POST['purchase_cost'] ?? '') === '' ? null : (float)$_POST['purchase_cost'];
-    $item['reserved_ref']   = val($_POST,'reserved_ref');
-    $item['remarks']        = val($_POST,'remarks');
-    $item['location_index'] = mb_substr(val($_POST,'location_index'), 0, 60);
-    $remove_image_flag      = (int)($_POST['remove_image'] ?? 0);
-
-    // validate
-    if ($item['device_models']==='') $errors[] = "กรุณากรอกชื่ออะไหล่/รุ่น";
-    if (!in_array($item['device_name'], $deviceOptions, true)) $errors[] = "อุปกรณ์ไม่ถูกต้อง";
-    
-    // [!!! G-CODE-EDIT-2: แก้ Validation เป็น !isset() !!!]
-    if (!isset($statusOptions[$item['status']]))   $errors[] = "สถานะไม่ถูกต้อง";
-
-    // อัปโหลดรูป (ถ้ามี)
-    $newImage = null;
-    if (!empty($_FILES['image']['name'])) {
-      $f = $_FILES['image'];
-      if ($f['error'] === UPLOAD_ERR_OK) {
-        $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
-        if (!in_array($ext, ['jpg','jpeg','png','webp'], true)) {
-          $errors[] = "ไฟล์รูปต้องเป็น jpg, jpeg, png หรือ webp";
-        } elseif ($f['size'] > 5*1024*1024) {
-          $errors[] = "ไฟล์รูปใหญ่เกิน 5MB";
-        } else {
-          $new = safeUploadName($f['name']);
-          if (!move_uploaded_file($f['tmp_name'], PARTS_UPLOAD_DIR.$new)) {
-            $errors[] = "อัปโหลดรูปไม่สำเร็จ";
-          } else {
-            $newImage = $new;
-            $remove_image_flag = 0;
-          }
+    // --- DELETE ---
+    if ($action==='delete_donor' && $id) {
+        $chk = $pdo->prepare("SELECT COUNT(*) FROM parts_used WHERE donor_id=?");
+        $chk->execute([$id]);
+        if ((int)$chk->fetchColumn() > 0) $errors[] = "ลบไม่ได้: มีอะไหล่มือ 2 ผูกกับเครื่องนี้";
+        else {
+            donor_doc($pdo, 'DELETE', $id, ['before'=>$beforeRow], $user_id);
+            $pdo->prepare("DELETE FROM parts_donors WHERE id=? LIMIT 1")->execute([$id]);
+            header("Location: index.php?tab=donor&msg=".urlencode("ลบเครื่องเรียบร้อย")); exit;
         }
-      } elseif ($f['error'] !== UPLOAD_ERR_NO_FILE) {
-        $errors[] = "อัปโหลดรูปผิดพลาด (code {$f['error']})";
-      }
     }
 
-    if (!$errors) {
-      try {
-        if ($form_id) {
-          // ============== UPDATE ==============
-          if (!$beforeRow) {
-            $stB = $pdo->prepare("SELECT * FROM parts_donors WHERE id=? LIMIT 1");
-            $stB->execute([$form_id]);
-            $beforeRow = $stB->fetch(PDO::FETCH_ASSOC) ?: [];
-          }
+    // --- SAVE (INSERT / UPDATE) ---
+    if ($action==='save_donor') {
+        $form_id = (int)($_POST['id'] ?? 0);
+        
+        $rawTag = trim(val($_POST,'internal_id'));
+        $item['internal_id']    = strtoupper($rawTag); 
+        $item['device_type']    = val($_POST,'device_type','MacBook');
+        $item['device_series']  = val($_POST,'device_series');
+        $item['model_code']     = strtoupper(val($_POST,'model_code')); 
+        $item['serial_no']      = val($_POST,'serial_no');
+        $item['status']         = val($_POST,'status','in_stock');
+        $item['remarks']        = val($_POST,'remarks');
+        $item['location_index'] = mb_substr(val($_POST,'location_index'), 0, 60);
+        $remove_image_flag      = (int)($_POST['remove_image'] ?? 0);
 
-          if ($newImage !== null) {
-            $sql = "UPDATE parts_donors
-                       SET device_name=?, device_models=?, category=?, serial_no=?, status=?,
-                           purchase_cost=?, reserved_ref=?, image_url=?, remarks=?, location_index=?, updated_at=NOW()
-                     WHERE id=?";
-            $params = [
-              $item['device_name'], $item['device_models'], $item['category'], $item['serial_no'], $item['status'],
-              $item['purchase_cost'], $item['reserved_ref'], $newImage, $item['remarks'], $item['location_index'], $form_id
-            ];
-          } elseif ($remove_image_flag===1) {
-            $sql = "UPDATE parts_donors
-                       SET device_name=?, device_models=?, category=?, serial_no=?, status=?,
-                           purchase_cost=?, reserved_ref=?, image_url=NULL, remarks=?, location_index=?, updated_at=NOW()
-                     WHERE id=?";
-            $params = [
-              $item['device_name'], $item['device_models'], $item['category'], $item['serial_no'], $item['status'],
-              $item['purchase_cost'], $item['reserved_ref'], $item['remarks'], $item['location_index'], $form_id
-            ];
-          } else {
-            $sql = "UPDATE parts_donors
-                       SET device_name=?, device_models=?, category=?, serial_no=?, status=?,
-                           purchase_cost=?, reserved_ref=?, remarks=?, location_index=?, updated_at=NOW()
-                     WHERE id=?";
-            $params = [
-              $item['device_name'], $item['device_models'], $item['category'], $item['serial_no'], $item['status'],
-              $item['purchase_cost'], $item['reserved_ref'], $item['remarks'], $item['location_index'], $form_id
-            ];
-          }
-          $pdo->prepare($sql)->execute($params);
+        if ($item['device_type']==='') $errors[] = "กรุณาระบุประเภทอุปกรณ์";
+        if (!isset($statusOptions[$item['status']])) $errors[] = "สถานะไม่ถูกต้อง";
+        if ($item['internal_id']==='') $errors[] = "กรุณาระบุ Asset Tag (หรือรอให้ระบบ Autofill)";
 
-          // หา field ที่เปลี่ยนเพื่อลง log แบบสั้น
-          $changed = [];
-          foreach (['device_name','device_models','category','serial_no','status','purchase_cost','reserved_ref','image_url','remarks','location_index'] as $k) {
-            $afterVal = ($k==='image_url')
-              ? ($newImage !== null ? $newImage : (($remove_image_flag===1) ? null : ($beforeRow[$k] ?? null)))
-              : $item[$k];
-            if (($beforeRow[$k] ?? null) !== $afterVal) $changed[$k] = true;
-          }
-          donor_doc($pdo, 'UPDATE', $form_id, ['changed'=>$changed], $user_id);
-
-          header("Location: index.php?tab=donor&msg=".urlencode("บันทึกการแก้ไขแล้ว"));
-          exit;
-
-        } else {
-          // ============== INSERT ==============
-          $sql = "INSERT INTO parts_donors
-                    (device_name, device_models, category, serial_no, status,
-                     purchase_cost, reserved_ref, image_url, remarks, location_index,
-                     created_at, updated_at)
-                  VALUES (?,?,?,?,?, ?,?,?,?, ?, NOW(), NOW())";
-          $pdo->prepare($sql)->execute([
-            $item['device_name'], $item['device_models'], $item['category'], $item['serial_no'], $item['status'],
-            $item['purchase_cost'], $item['reserved_ref'], $newImage, $item['remarks'], $item['location_index']
-          ]);
-          $new_id = (int)$pdo->lastInsertId();
-
-          donor_doc($pdo, 'CREATE', $new_id, [
-            'device_models'  => $item['device_models'],
-            'location_index' => $item['location_index'],
-          ], $user_id);
-
-          header("Location: index.php?tab=donor&msg=".urlencode("เพิ่มเครื่องแล้ว"));
-          exit;
+        // Check Duplicate (Prefix+Suffix Only)
+        if ($item['internal_id'] !== '') {
+            $parts = explode('-', $item['internal_id']);
+            if (count($parts) >= 3) {
+                $prefix = $parts[0]; $suffix = end($parts);
+                // หาคนที่มี Prefix นี้ และ Suffix นี้ (ไม่สนตรงกลาง)
+                $sqlCheck = "SELECT internal_id FROM parts_donors 
+                             WHERE internal_id LIKE ? AND internal_id LIKE ? AND id != ? LIMIT 1";
+                $stmtCheck = $pdo->prepare($sqlCheck);
+                $stmtCheck->execute([$prefix . '-%', '%-' . $suffix, $form_id]);
+                $duplicate = $stmtCheck->fetchColumn();
+                if ($duplicate) $errors[] = "⛔ บันทึกไม่ได้! เลขรัน '{$suffix}' ซ้ำกับหมวด {$prefix} (ชนกับ {$duplicate})";
+            } else {
+                // Fallback check
+                $stmtFull = $pdo->prepare("SELECT id FROM parts_donors WHERE internal_id = ? AND id != ?");
+                $stmtFull->execute([$item['internal_id'], $form_id]);
+                if ($stmtFull->fetch()) $errors[] = "⛔ Asset Tag '{$item['internal_id']}' มีอยู่แล้ว";
+            }
         }
-      } catch(Throwable $e){
-        $errors[] = $e->getMessage();
-      }
-    }
 
-    if ($newImage !== null) $item['image_url'] = $newImage;
-  }
+        // Upload Image
+        $newImage = null;
+        if (!empty($_FILES['image']['name'])) {
+            $f = $_FILES['image'];
+            if ($f['error'] === UPLOAD_ERR_OK) {
+                $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
+                if (in_array($ext, ['jpg','jpeg','png','webp']) && $f['size'] <= 5*1024*1024) {
+                    $new = safeUploadName($f['name']);
+                    if (move_uploaded_file($f['tmp_name'], PARTS_UPLOAD_DIR.$new)) {
+                        $newImage = $new; $remove_image_flag = 0;
+                    } else $errors[] = "อัปโหลดรูปไม่สำเร็จ";
+                } else $errors[] = "ไฟล์รูปต้องเป็น jpg, png, webp ขนาดไม่เกิน 5MB";
+            } elseif ($f['error'] !== UPLOAD_ERR_NO_FILE) {
+                $errors[] = "อัปโหลดรูปผิดพลาด (code {$f['error']})";
+            }
+        }
+
+        if (!$errors) {
+            try {
+                if ($form_id) { // UPDATE
+                    if (!$beforeRow) {
+                        $stB = $pdo->prepare("SELECT * FROM parts_donors WHERE id=? LIMIT 1");
+                        $stB->execute([$form_id]);
+                        $beforeRow = $stB->fetch(PDO::FETCH_ASSOC) ?: [];
+                    }
+                    $sql = "UPDATE parts_donors SET 
+                            internal_id=?, device_type=?, device_series=?, model_code=?, serial_no=?, status=?,
+                            remarks=?, location_index=?, updated_at=NOW()";
+                    $params = [$item['internal_id'], $item['device_type'], $item['device_series'], $item['model_code'], $item['serial_no'], $item['status'], $item['remarks'], $item['location_index']];
+                    
+                    if ($newImage !== null) { $sql .= ", image_url=?"; $params[] = $newImage; } 
+                    elseif ($remove_image_flag===1) { $sql .= ", image_url=NULL"; }
+                    
+                    $sql .= " WHERE id=?"; $params[] = $form_id;
+                    $pdo->prepare($sql)->execute($params);
+
+                    // Log
+                    $changed = [];
+                    foreach (['internal_id','device_type','device_series','model_code','serial_no','status','image_url','remarks','location_index'] as $k) {
+                        $afterVal = ($k==='image_url') ? ($newImage!==null?$newImage:(($remove_image_flag===1)?null:($beforeRow[$k]??null))) : $item[$k];
+                        if (($beforeRow[$k]??null) !== $afterVal) $changed[$k] = true;
+                    }
+                    donor_doc($pdo, 'UPDATE', $form_id, ['changed'=>$changed], $user_id);
+                    header("Location: index.php?tab=donor&msg=".urlencode("บันทึกการแก้ไขแล้ว ({$item['internal_id']})")); exit;
+
+                } else { // INSERT
+                    $sql = "INSERT INTO parts_donors
+                            (internal_id, device_type, device_series, model_code, serial_no, status,
+                             image_url, remarks, location_index, created_at, updated_at)
+                            VALUES (?,?,?,?,?,?, ?,?,?, NOW(), NOW())";
+                    $pdo->prepare($sql)->execute([
+                        $item['internal_id'], $item['device_type'], $item['device_series'], $item['model_code'], 
+                        $item['serial_no'], $item['status'], $newImage, $item['remarks'], $item['location_index']
+                    ]);
+                    $new_id = (int)$pdo->lastInsertId();
+                    donor_doc($pdo, 'CREATE', $new_id, $item, $user_id);
+                    header("Location: index.php?tab=donor&msg=".urlencode("เพิ่มเครื่องแล้ว ({$item['internal_id']})")); exit;
+                }
+            } catch(Throwable $e){
+                if (strpos($e->getMessage(), 'Duplicate entry') !== false) $errors[] = "⛔ Database Error: Asset Tag ซ้ำ!";
+                else $errors[] = $e->getMessage();
+            }
+        }
+        if ($newImage !== null) $item['image_url'] = $newImage;
+    }
 }
 
-// ========== TEMPLATE ==========
+// ========== 5. TEMPLATE & LOADING CSS ==========
 include __DIR__ . '/../../templates/header_admin.php';
 include __DIR__ . '/../../templates/sidebar_admin.php';
 ?>
+
+<style>
+  #loading-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(255, 255, 255, 0.85);
+    z-index: 9999;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    backdrop-filter: blur(2px);
+  }
+  .spinner {
+    width: 50px; height: 50px;
+    border: 5px solid #e2e8f0;
+    border-top: 5px solid #2563eb;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 15px;
+  }
+  .loading-text { font-size: 1.1rem; color: #1e293b; font-weight: 600; animation: pulse 1.5s infinite; }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+  @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+  .restock-form .form-hint{grid-column:2/3;margin-top:6px;color:#6B7280;font-size:12px;line-height:1.35}
+</style>
+
 <main class="main" id="main-content">
   <div class="topbar">
     <span><?= h($pageTitle) ?> <?= $id ? '(แก้ไข #' . (int)$id . ')' : '(เพิ่มรายการใหม่)' ?></span>
@@ -305,14 +311,21 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     </div>
   <?php endif; ?>
 
-  <style>.restock-form .form-hint{grid-column:2/3;margin-top:6px;color:#6B7280;font-size:12px;line-height:1.35}</style>
-
   <form id="donorForm" method="post" enctype="multipart/form-data" class="card restock-form" style="margin-top:16px;" novalidate>
     <input type="hidden" name="action" id="donorAction" value="save_donor">
     <input type="hidden" name="id" value="<?= (int)$id ?>">
     <input type="hidden" name="remove_image" id="remove_image" value="0">
 
     <div class="form-grid">
+      <div class="form-item">
+        <label class="form-label" for="internal_id">Asset Tag (รหัสร้าน)</label>
+        <input id="internal_id" name="internal_id" class="input filter-input" 
+               value="<?= h($item['internal_id']) ?>" 
+               placeholder="เช่น MB-202512-A0113"
+               style="font-family: monospace; font-weight: bold; letter-spacing: 1px; color: #2563eb;">
+        <small class="form-hint">ระบบจะใส่เลขถัดไปให้อัตโนมัติ (แยกตามชนิดอุปกรณ์)</small>
+      </div>
+
       <div class="form-item">
         <label class="form-label">รูป</label>
         <div class="image-upload-ui" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
@@ -334,22 +347,23 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
       </div>
 
       <div class="form-item">
-        <label class="form-label" for="device_name">อุปกรณ์</label>
-        <select id="device_name" name="device_name" class="input filter-input">
-          <?php foreach ($deviceOptions as $opt): ?>
-            <option value="<?= h($opt) ?>" <?= $item['device_name']===$opt ? 'selected' : '' ?>><?= h($opt) ?></option>
+        <label class="form-label" for="device_type">ประเภท *</label>
+        <select id="device_type" name="device_type" class="input filter-input">
+          <?php foreach ($typeOptions as $opt): ?>
+            <option value="<?= h($opt) ?>" <?= $item['device_type']===$opt ? 'selected' : '' ?>><?= h($opt) ?></option>
           <?php endforeach; ?>
         </select>
       </div>
 
       <div class="form-item">
-        <label class="form-label" for="device_models">ชื่ออะไหล่/รุ่น *</label>
-        <input id="device_models" name="device_models" class="input filter-input" required value="<?= h($item['device_models']) ?>" placeholder='เช่น "MacBook Pro 13 2019 A2159"'>
+        <label class="form-label" for="device_series">ซีรีส์/รุ่นย่อย</label>
+        <input id="device_series" name="device_series" class="input filter-input" value="<?= h($item['device_series']) ?>" placeholder="เช่น Air, Pro, 12, Pro Max" list="seriesList">
+        <datalist id="seriesList"><?php foreach($seriesOptions as $s): ?><option value="<?= h($s) ?>"><?php endforeach; ?></datalist>
       </div>
 
       <div class="form-item">
-        <label class="form-label" for="category">หมวด</label>
-        <input id="category" name="category" class="input filter-input" value="<?= h($item['category']) ?>" placeholder="screen/battery/board/...">
+        <label class="form-label" for="model_code">รหัสโมเดล (Axxxx)</label>
+        <input id="model_code" name="model_code" class="input filter-input" value="<?= h($item['model_code']) ?>" placeholder="เช่น A1708, A2338">
       </div>
 
       <div class="form-item">
@@ -365,16 +379,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
           <?php endforeach; ?>
         </select>
         <small class="form-hint">ตั้งเป็น <code>stripped</code> เมื่อแยกอะไหล่แล้ว</small>
-      </div>
-
-      <div class="form-item">
-        <label class="form-label" for="purchase_cost">ทุน (บาท)</label>
-        <input id="purchase_cost" name="purchase_cost" class="input filter-input" type="number" step="0.01" value="<?= h($item['purchase_cost']) ?>" placeholder="เช่น 1500.00" inputmode="decimal">
-      </div>
-
-      <div class="form-item">
-        <label class="form-label" for="reserved_ref">อ้างอิง/ผู้ขาย</label>
-        <input id="reserved_ref" name="reserved_ref" class="input filter-input" value="<?= h($item['reserved_ref']) ?>" placeholder="PO/ชื่อร้าน/เลขบิล">
       </div>
 
       <div class="form-item">
@@ -400,10 +404,67 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
   </form>
 </main>
 
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text">กำลังบันทึกข้อมูล...</div>
+</div>
+
 <?php include __DIR__ . '/../../templates/footer_admin.php'; ?>
 
 <script>
-  // Image UI
+  function showLoading() {
+      document.getElementById('loading-overlay').style.display = 'flex';
+  }
+
+  // ---[ JS: AUTOFILL ID (Client-Side) ]---
+  
+  // 1. รับค่า Next Suffix Map จาก PHP (แปลงเป็น JSON)
+  const suffixMap = <?= json_encode($nextSuffixMap) ?>; 
+  // ตัวอย่างผลลัพธ์: { 'MB': 'A0113', 'PD': 'A0001', 'IP': 'A0050', ... }
+
+  const currentYM = '<?= date('Ym') ?>';
+  
+  // Mapping ชื่อประเภท -> Prefix
+  const typeToPrefix = {
+      'MacBook': 'MB', 'iPhone': 'IP', 'iPad': 'PD', 'iMac': 'IM',
+      'Apple Watch': 'WA', 'Surface/PC': 'PC', 'Monitor': 'MN', 'Other': 'OT'
+  };
+
+  const typeSelect = document.getElementById('device_type');
+  const inputId = document.getElementById('internal_id');
+  
+  // ฟังก์ชันคำนวณและใส่ค่าลงใน input
+  function autofillID() {
+      // ถ้าเป็นโหมดแก้ไข (มี ID เดิมอยู่แล้ว) ไม่ต้องทำอะไร
+      // หรือถ้า User พิมพ์เองไปแล้วก็ไม่ทับ (ยกเว้นว่าง)
+      if (inputId.value.trim() !== '' && <?= $id ? 'true' : 'false' ?>) return;
+
+      const selectedType = typeSelect.value;
+      const prefix = typeToPrefix[selectedType] || 'OT';
+      
+      // หา Suffix ถัดไปของ Prefix นี้ (ถ้าไม่มีให้เริ่ม A0001)
+      const nextSuffix = suffixMap[prefix] || 'A0001';
+      
+      // ใส่ค่าลงใน input
+      inputId.value = `${prefix}-${currentYM}-${nextSuffix}`;
+  }
+
+  // เรียกใช้เมื่อเปลี่ยนประเภท
+  typeSelect.addEventListener('change', () => {
+      // เมื่อเปลี่ยนประเภท บังคับเปลี่ยนเลขใหม่เสมอ (ถ้ายังไม่ได้ Save)
+      // แต่เช็คหน่อยว่าถ้าเป็นหน้า Edit อาจจะไม่ควรเปลี่ยนมั่วซั่ว
+      if (<?= $id ? 'false' : 'true' ?>) {
+          inputId.value = ''; // เคลียร์ของเก่าก่อน
+          autofillID();       // เจนฯ ของใหม่
+      }
+  });
+
+  // เรียกใช้ครั้งแรกตอนโหลดหน้า (เฉพาะหน้าเพิ่มใหม่)
+  if (<?= $id ? 'false' : 'true' ?>) {
+      autofillID();
+  }
+
+  // ---[ IMAGE PREVIEW ]---
   (function() {
     var input   = document.getElementById('image');
     var wrap    = document.getElementById('dImgWrap');
@@ -470,8 +531,14 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     if (remove) remove.addEventListener('click', clearImage);
   })();
 
+  document.getElementById('donorForm').addEventListener('submit', function() {
+      showLoading();
+  });
+
   function deleteDonor(){
     if(!confirm('ยืนยันลบเครื่องนี้ถาวร?')) return false;
+    document.querySelector('#loading-overlay .loading-text').textContent = 'กำลังลบข้อมูล...';
+    showLoading();
     document.getElementById('donorAction').value = 'delete_donor';
     document.getElementById('donorForm').submit();
     return false;

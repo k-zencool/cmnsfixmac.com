@@ -2,6 +2,7 @@
 /********************************************************************
  * admin/parts/form_used.php
  * ฟอร์ม "อะไหล่มือ 2"
+ * Update: แก้ Logic Gen SKU ให้หาค่า MAX แทนหา ID ล่าสุด (แก้ปัญหารันเลขซ้ำ)
  ********************************************************************/
 
 // ========== SETUP ==========
@@ -33,16 +34,41 @@ function img_src($v){
   return '../../uploads/parts/'.$v;
 }
 
+/** * ฟังก์ชันสร้างรหัส SKU (U-YYYYMM-Axxxx)
+ * [UPDATED] ใช้ ORDER BY used_sku DESC เพื่อหาเลขที่สูงที่สุดจริงๆ
+ */
+function generateUsedSKU(PDO $pdo) {
+    // 1. Prefix: U-202512-A
+    $prefix = "U-" . date('Ym') . "-A";
+    
+    // 2. หาเลขที่ "มากที่สุด" ในเดือนนี้ (เปลี่ยนจาก id DESC เป็น used_sku DESC)
+    $stmt = $pdo->prepare("SELECT used_sku FROM parts_used WHERE used_sku LIKE :p ORDER BY used_sku DESC LIMIT 1");
+    $stmt->execute([':p' => $prefix . '%']);
+    $maxSku = $stmt->fetchColumn();
+
+    $nextNum = 1;
+    if ($maxSku) {
+        // ดึง 4 ตัวท้ายมาบวก 1
+        $lastNum = (int)substr($maxSku, -4);
+        $nextNum = $lastNum + 1;
+    }
+
+    // 3. คืนค่า U-202512-A0001
+    return $prefix . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
+}
+
 /** -------- บันทึกประวัติลง parts_docs -------- */
 function used_doc(PDO $pdo, string $action, int $used_id, array $item, $user_id): void {
   try {
+    $refInfo = !empty($item['used_sku']) ? $item['used_sku'] : "USED:{$used_id}";
     $ref = 'USED:' . $used_id;
+
     if ($action === 'CREATE') {
-      $remarks = 'เพิ่มมือ 2: ' . (($item['part_name'] ?? '') ?: ($item['part_code'] ?? ''));
+      $remarks = "เพิ่มมือ 2 [{$refInfo}]: " . (($item['part_name'] ?? '') ?: ($item['part_code'] ?? ''));
     } elseif ($action === 'UPDATE') {
-      $remarks = 'แก้ไขมือ 2 #' . $used_id;
+      $remarks = "แก้ไขมือ 2 [{$refInfo}]";
     } elseif ($action === 'DELETE') {
-      $remarks = 'ลบมือ 2 #' . $used_id;
+      $remarks = "ลบมือ 2 [{$refInfo}]";
     } else {
       $remarks = strtoupper($action)." USED #{$used_id}";
     }
@@ -68,18 +94,12 @@ function used_doc(PDO $pdo, string $action, int $used_id, array $item, $user_id)
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $donor_id = isset($_GET['donor_id']) ? (int)$_GET['donor_id'] : 0;
 
-
-// [แก้ใหม่: LOGIC หาเลขหน้าแบบฉลาด]
-// 1. ดูจาก POST ก่อน (กรณี submit แล้ว error)
-// 2. ถ้าไม่มี ดูจาก GET (กรณีลิงก์ส่งมาถูก)
-// 3. ถ้าไม่มี ดูจาก Referer (กรณีลิงก์ไม่ได้ส่งมา แต่อยู่หน้าเดิม)
 $currentPage = 1;
 if (isset($_POST['page']) && is_numeric($_POST['page'])) {
     $currentPage = (int)$_POST['page'];
 } elseif (isset($_GET['page']) && is_numeric($_GET['page'])) {
     $currentPage = (int)$_GET['page'];
 } elseif (isset($_SERVER['HTTP_REFERER'])) {
-    // แกะ URL ของหน้าที่แล้ว หา query string ว่ามี page= ไหม
     $parts = parse_url($_SERVER['HTTP_REFERER']);
     if (isset($parts['query'])) {
         parse_str($parts['query'], $qs);
@@ -93,6 +113,7 @@ $currentPage = max(1, $currentPage);
 
 // ค่าเริ่มต้น
 $item = [
+  'used_sku'     => '', 
   'donor_id'     => $donor_id ?: null,
   'part_code'    => '',
   'part_name'    => '',
@@ -105,7 +126,9 @@ $item = [
 ];
 
 $beforeRow = null;
+
 if ($id) {
+  // --- กรณีแก้ไข: ดึงข้อมูลเดิม ---
   $st = $pdo->prepare("SELECT * FROM parts_used WHERE id=? LIMIT 1");
   $st->execute([$id]);
   $row = $st->fetch(PDO::FETCH_ASSOC);
@@ -115,6 +138,15 @@ if ($id) {
   }
   $beforeRow = $row;
   $item = array_merge($item, $row);
+
+  // [UPDATED] ถ้ายังไม่มี SKU ให้ Gen ใหม่
+  if (empty($item['used_sku'])) {
+      $item['used_sku'] = generateUsedSKU($pdo);
+  }
+
+} else {
+  // --- กรณีเพิ่มใหม่ ---
+  $item['used_sku'] = generateUsedSKU($pdo);
 }
 
 $errors = [];
@@ -122,11 +154,8 @@ $errors = [];
 // -------- Actions (POST) --------
 if ($_SERVER['REQUEST_METHOD']==='POST') {
   $action = val($_POST,'action');
-  
-  // รับค่า page จากฟอร์ม POST เพื่อใช้ตอน redirect กลับ
   $redirectPage = isset($_POST['page']) ? (int)$_POST['page'] : 1;
 
-  // ลบ
   if ($action==='delete_used' && $id) {
     try {
       used_doc($pdo, 'DELETE', $id, $item, $user_id);
@@ -138,9 +167,9 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     }
   }
 
-  // บันทึก
   if ($action==='save_used') {
     $form_id                = (int)($_POST['id'] ?? 0);
+    $item['used_sku']       = val($_POST, 'used_sku'); // รับค่าจากฟอร์ม
     $item['donor_id']       = ($_POST['donor_id'] ?? '') === '' ? null : (int)$_POST['donor_id'];
     $item['part_code']      = val($_POST,'part_code');
     $item['part_name']      = val($_POST,'part_name');
@@ -180,6 +209,18 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
 
     if (!$errors) {
       try {
+        // [ANTI-COLLISION] ถ้า SKU ซ้ำกับคนอื่น (ที่ไม่ใช่ตัวเอง) ให้ Gen ใหม่ทันที
+        if (!empty($item['used_sku'])) {
+            $chk = $pdo->prepare("SELECT id FROM parts_used WHERE used_sku = ? AND id != ?");
+            $chk->execute([$item['used_sku'], $form_id]);
+            if ($chk->fetch()) {
+                // ซ้ำ! Gen ใหม่เลย
+                $item['used_sku'] = generateUsedSKU($pdo);
+            }
+        } else {
+             $item['used_sku'] = generateUsedSKU($pdo);
+        }
+
         if ($form_id) {
           // ============== UPDATE ==============
           if (!$beforeRow) {
@@ -189,37 +230,60 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
           }
 
           if ($newImage !== null) {
-            $sql = "UPDATE parts_used SET donor_id=?, part_code=?, part_name=?, part_number=?, device_models=?, category=?, image_url=?, location=?, remarks=?, updated_at=NOW() WHERE id=?";
-            $params = [$item['donor_id'], $item['part_code'], $item['part_name'], $item['part_number'], $item['device_models'], $item['category'], $newImage, $item['location'], $item['remarks'], $form_id];
+            $sql = "UPDATE parts_used SET used_sku=?, donor_id=?, part_code=?, part_name=?, part_number=?, device_models=?, category=?, image_url=?, location=?, remarks=?, updated_at=NOW() WHERE id=?";
+            $params = [$item['used_sku'], $item['donor_id'], $item['part_code'], $item['part_name'], $item['part_number'], $item['device_models'], $item['category'], $newImage, $item['location'], $item['remarks'], $form_id];
           } elseif ($remove_image_flag===1) {
-            $sql = "UPDATE parts_used SET donor_id=?, part_code=?, part_name=?, part_number=?, device_models=?, category=?, image_url=NULL, location=?, remarks=?, updated_at=NOW() WHERE id=?";
-            $params = [$item['donor_id'], $item['part_code'], $item['part_name'], $item['part_number'], $item['device_models'], $item['category'], $item['location'], $item['remarks'], $form_id];
+            $sql = "UPDATE parts_used SET used_sku=?, donor_id=?, part_code=?, part_name=?, part_number=?, device_models=?, category=?, image_url=NULL, location=?, remarks=?, updated_at=NOW() WHERE id=?";
+            $params = [$item['used_sku'], $item['donor_id'], $item['part_code'], $item['part_name'], $item['part_number'], $item['device_models'], $item['category'], $item['location'], $item['remarks'], $form_id];
           } else {
-            $sql = "UPDATE parts_used SET donor_id=?, part_code=?, part_name=?, part_number=?, device_models=?, category=?, location=?, remarks=?, updated_at=NOW() WHERE id=?";
-            $params = [$item['donor_id'], $item['part_code'], $item['part_name'], $item['part_number'], $item['device_models'], $item['category'], $item['location'], $item['remarks'], $form_id];
+            $sql = "UPDATE parts_used SET used_sku=?, donor_id=?, part_code=?, part_name=?, part_number=?, device_models=?, category=?, location=?, remarks=?, updated_at=NOW() WHERE id=?";
+            $params = [$item['used_sku'], $item['donor_id'], $item['part_code'], $item['part_name'], $item['part_number'], $item['device_models'], $item['category'], $item['location'], $item['remarks'], $form_id];
           }
           $pdo->prepare($sql)->execute($params);
           used_doc($pdo, 'UPDATE', $form_id, $item, $user_id);
 
-          header("Location: index.php?tab=used&page={$redirectPage}&msg=".urlencode("บันทึกการแก้ไขแล้ว"));
+          header("Location: index.php?tab=used&page={$redirectPage}&msg=".urlencode("บันทึกการแก้ไขแล้ว (SKU: {$item['used_sku']})"));
           exit;
 
         } else {
           // ============== INSERT ==============
-          $sql = "INSERT INTO parts_used (donor_id, part_code, part_name, part_number, device_models, category, image_url, location, remarks, created_at, updated_at) VALUES (?,?,?,?,?,?, ?, ?, ?, NOW(), NOW())";
-          $pdo->prepare($sql)->execute([
-            $item['donor_id'], $item['part_code'], $item['part_name'], $item['part_number'], $item['device_models'],
-            $item['category'], $newImage, $item['location'], $item['remarks']
-          ]);
-          $new_id = (int)$pdo->lastInsertId();
-          used_doc($pdo, 'CREATE', $new_id, $item, $user_id);
+          // พยายามบันทึก ถ้าซ้ำให้ Gen ใหม่แล้วลองอีกที (Max 3 รอบ)
+          $maxRetries = 3;
+          $success = false;
+          
+          while($maxRetries > 0) {
+              try {
+                  $sql = "INSERT INTO parts_used (used_sku, donor_id, part_code, part_name, part_number, device_models, category, image_url, location, remarks, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?, ?, ?, NOW(), NOW())";
+                  $pdo->prepare($sql)->execute([
+                    $item['used_sku'],
+                    $item['donor_id'], $item['part_code'], $item['part_name'], $item['part_number'], $item['device_models'],
+                    $item['category'], $newImage, $item['location'], $item['remarks']
+                  ]);
+                  $new_id = (int)$pdo->lastInsertId();
+                  used_doc($pdo, 'CREATE', $new_id, $item, $user_id);
+                  $success = true;
+                  break;
 
-          // ถ้าสร้างใหม่ จะกลับไปหน้าเดิม หรือหน้า 1 ก็ได้ (อันนี้ใส่ให้กลับหน้าเดิมถ้ามีค่ามา)
-          header("Location: index.php?tab=used&page={$redirectPage}&msg=".urlencode("เพิ่มชิ้นมือ 2 แล้ว"));
-          exit;
+              } catch (PDOException $ex) {
+                  // Code 1062 = Duplicate Entry
+                  if ($ex->errorInfo[1] == 1062) {
+                      $item['used_sku'] = generateUsedSKU($pdo); // Gen ใหม่
+                      $maxRetries--;
+                  } else {
+                      throw $ex; 
+                  }
+              }
+          }
+
+          if ($success) {
+            header("Location: index.php?tab=used&page={$redirectPage}&msg=".urlencode("เพิ่มชิ้นมือ 2 แล้ว รหัส: {$item['used_sku']}"));
+            exit;
+          } else {
+            $errors[] = "ระบบไม่สามารถสร้างรหัส SKU ได้ (มีการชนกันของข้อมูล) กรุณาลองใหม่อีกครั้ง";
+          }
         }
       } catch(Throwable $e){
-        $errors[] = $e->getMessage();
+        $errors[] = "Error: " . $e->getMessage();
       }
     }
 
@@ -243,16 +307,33 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     </div>
   <?php endif; ?>
 
-  <style>.restock-form .form-hint{grid-column:2/3;margin-top:6px;color:#6B7280;font-size:12px;line-height:1.35}</style>
+  <style>
+    .restock-form .form-hint{grid-column:2/3;margin-top:6px;color:#6B7280;font-size:12px;line-height:1.35}
+    .sku-input {
+        background-color: #1f2937; 
+        color: #fbbf24; 
+        font-family: monospace; 
+        font-size: 1.1em; 
+        letter-spacing: 1px;
+        font-weight: bold;
+        border-color: #374151;
+    }
+  </style>
 
   <form id="usedForm" method="post" enctype="multipart/form-data" class="card restock-form" style="margin-top:16px;" novalidate>
     <input type="hidden" name="action" id="usedAction" value="save_used">
     <input type="hidden" name="id" value="<?= (int)$id ?>">
     <input type="hidden" name="remove_image" id="remove_image" value="0">
-    
     <input type="hidden" name="page" value="<?= $currentPage ?>">
 
     <div class="form-grid">
+      
+      <div class="form-item">
+        <label class="form-label">SKU / รหัสทรัพย์สิน</label>
+        <input type="text" name="used_sku" class="input sku-input" value="<?= h($item['used_sku']) ?>" readonly>
+        <small class="form-hint">ระบบสร้างให้อัตโนมัติ (U-ปีเดือน-Axxxx)</small>
+      </div>
+
       <div class="form-item">
         <label class="form-label">รูป</label>
         <div class="image-upload-ui" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">

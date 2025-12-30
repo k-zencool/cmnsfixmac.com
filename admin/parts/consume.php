@@ -2,13 +2,9 @@
 
 /********************************************************************
  * admin/parts/consume.php  (RBAC-ready: มือ 1 + มือ 2)
- * เบิก/ตัดจ่ายอะไหล่:
- *   - มือ 1 (parts_new) : หักจำนวนจาก location ที่เลือก + เอกสาร CONSUME
- *   - มือ 2 (parts_used): สร้าง CONSUME (qty=1, from 'used') แล้วลบแถวออกเลย
- *
- * รองรับพารามฯ:
- *   มือ 1: ?type=new&part_code=...
- *   มือ 2: ?type=used&used_id=...  (หรือ ?mode=used&id=...)
+ * Update:
+ * - บังคับกรอก Ref No. (ห้ามว่าง)
+ * - รูปแบบอิสระ (ไม่จำเป็นต้องขึ้นต้นด้วย V)
  ********************************************************************/
 
 // ========================== [SETUP & GUARD] ==========================
@@ -84,9 +80,10 @@ if ($type === 'new' && $code !== '') {
 // ========================== [LOAD: มือ 2 ITEM] =======================
 $used = null;
 if ($type === 'used' && $used_id > 0) {
+  // เพิ่ม used_sku เข้าไปใน query เพื่อเอาไปใช้ log
   $st = $pdo->prepare("
-    SELECT id, part_code, part_name, part_number, device_models, category,
-           image_url, location, remarks, created_at, updated_at
+    SELECT id, used_sku, part_code, part_name, part_number, device_models, category,
+           image_url, location, remarks, created_at, updated_at, donor_id
     FROM parts_used
     WHERE id=? LIMIT 1
   ");
@@ -114,6 +111,9 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     if ($location==='') $errors[] = "กรอก/เลือกที่เก็บ";
     if ($qty<=0)        $errors[] = "จำนวนต้องมากกว่า 0";
     if (!$user_id)      $errors[] = "ไม่พบผู้ใช้งานในระบบ";
+    
+    // [VALIDATION] บังคับกรอก Ref No.
+    if ($ref_no === '') $errors[] = "กรุณากรอกเลขอ้างอิง (ห้ามว่าง)";
 
     if (!$errors) {
       try {
@@ -129,7 +129,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
         $pdo->prepare("
           INSERT INTO parts_docs (doc_type, ref_no, remarks, user_id, created_at)
           VALUES ('CONSUME', ?, ?, ?, NOW())
-        ")->execute([$ref_no ?: null, $remarks !== '' ? $remarks : "consume from {$location}", $user_id]);
+        ")->execute([$ref_no, $remarks !== '' ? $remarks : "consume from {$location}", $user_id]);
         $doc_id = (int)$pdo->lastInsertId();
 
         // Line
@@ -145,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
         ")->execute([$qty, $code, $location]);
 
         $pdo->commit();
-        back_to('new','msg=ตัดจ่ายเรียบร้อย');
+        back_to('new',"msg=ตัดจ่ายเรียบร้อย (อ้างอิง: $ref_no)");
       } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         $errors[] = $e->getMessage();
@@ -162,6 +162,9 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
     if ($used_id <= 0) $errors[] = "ไม่พบรายการมือ 2 ที่จะตัดจ่าย";
     if (!$user_id)     $errors[] = "ไม่พบผู้ใช้งานในระบบ";
 
+    // [VALIDATION] บังคับกรอก Ref No.
+    if ($ref_no === '') $errors[] = "กรุณากรอกเลขอ้างอิง (ห้ามว่าง)";
+
     if (!$errors) {
       try {
         $pdo->beginTransaction();
@@ -172,11 +175,14 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
         $row = $st->fetch(PDO::FETCH_ASSOC);
         if (!$row) throw new Exception("ไม่พบข้อมูลชิ้นมือ 2");
 
-        // Header เอกสาร
+        // Header เอกสาร (ใช้ SKU ใน log ถ้ามี)
+        $skuRef = !empty($row['used_sku']) ? $row['used_sku'] : "used #{$used_id}";
+        $logRemark = $remarks !== '' ? $remarks : "consume ({$skuRef})";
+
         $pdo->prepare("
           INSERT INTO parts_docs (doc_type, ref_no, remarks, user_id, created_at)
           VALUES ('CONSUME', ?, ?, ?, NOW())
-        ")->execute([$ref_no ?: null, $remarks !== '' ? $remarks : "consume (used item #{$used_id})", $user_id]);
+        ")->execute([$ref_no, $logRemark, $user_id]);
         $doc_id = (int)$pdo->lastInsertId();
 
         // Line (qty=1 จาก location 'used')
@@ -188,11 +194,12 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
         // LOG ลง parts_used_log ก่อนลบ
         $pdo->prepare("
           INSERT INTO parts_used_log
-            (used_id, donor_id, part_code, part_name, part_number, device_models, category,
+            (used_id, used_sku, donor_id, part_code, part_name, part_number, device_models, category,
              image_url, location, remarks, action, consumed_at, created_at)
-          VALUES (?,?,?,?,?,?,?,?,?,?, 'CONSUME', NOW(), NOW())
+          VALUES (?,?,?,?,?,?,?,?,?,?,?, 'CONSUME', NOW(), NOW())
         ")->execute([
           $row['id'] ?? null,
+          $row['used_sku'] ?? null,
           $row['donor_id'] ?? null,
           $row['part_code'] ?? null,
           $row['part_name'] ?? null,
@@ -208,7 +215,7 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
         $pdo->prepare("DELETE FROM parts_used WHERE id=?")->execute([$used_id]);
 
         $pdo->commit();
-        back_to('used','msg=ตัดจ่ายชิ้นมือ2แล้ว');
+        back_to('used',"msg=ตัดจ่ายชิ้นมือ2เรียบร้อย (อ้างอิง: $ref_no)");
       } catch (Throwable $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         $errors[] = $e->getMessage();
@@ -248,7 +255,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 
   <?php if ($type==='new'): ?>
     <?php if ($part_new): ?>
-      <!-- สรุปสินค้า (มือ 1) : สไตล์เดียวกับ restock.php -->
       <section class="card part-summary">
         <?php $img = img_src($part_new['image_url'] ?? ''); ?>
         <div class="part-summary__media">
@@ -273,7 +279,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
       </section>
     <?php endif; ?>
 
-    <!-- ฟอร์มเบิก มือ 1 -->
     <form method="post" class="card restock-form" novalidate>
       <input type="hidden" name="mode" value="new">
       <div class="form-grid">
@@ -304,8 +309,8 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
         </div>
 
         <div class="form-item">
-          <label class="form-label" for="ref_no">เลขอ้างอิง</label>
-          <input id="ref_no" class="filter-input input" name="ref_no" placeholder="ใบงาน, ชื่อช่าง ฯลฯ">
+          <label class="form-label" for="ref_no" style="color:#d97706;">เลขอ้างอิง *</label>
+          <input id="ref_no" class="filter-input input" name="ref_no" placeholder="ห้ามปล่อยว่าง" required style="border:1px solid #f59e0b;">
         </div>
 
         <div class="form-item">
@@ -322,7 +327,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 
   <?php else: ?>
     <?php if ($used): ?>
-      <!-- สรุปสินค้า (มือ 2) -->
       <section class="card part-summary">
         <?php $img = img_src($used['image_url'] ?? ''); ?>
         <div class="part-summary__media">
@@ -339,13 +343,15 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
           <?php if (trim((string)$used['remarks'])!==''): ?>
             <div class="muted small">หมายเหตุ: <?= h($used['remarks']) ?></div>
           <?php endif; ?>
+          <?php if (!empty($used['used_sku'])): ?>
+            <div style="margin-top:5px;"><span class="badge" style="background:#1f2937; color:#fbbf24;"><?= h($used['used_sku']) ?></span></div>
+          <?php endif; ?>
         </div>
       </section>
     <?php else: ?>
       <div class="alert alert-info">เลือกชิ้นมือ 2 จากหน้า “มือ 2” แล้วกลับเข้าหน้านี้</div>
     <?php endif; ?>
 
-    <!-- ฟอร์มเบิก มือ 2 -->
     <form method="post" class="card restock-form" novalidate>
       <input type="hidden" name="mode" value="used">
       <input type="hidden" name="used_id" value="<?= (int)$used_id ?>">
@@ -361,8 +367,8 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
         </div>
 
         <div class="form-item">
-          <label class="form-label" for="ref_no_u">เลขอ้างอิง</label>
-          <input id="ref_no_u" class="filter-input input" name="ref_no" placeholder="ใบงาน, ชื่อช่าง ฯลฯ">
+          <label class="form-label" for="ref_no_u" style="color:#d97706;">เลขอ้างอิง *</label>
+          <input id="ref_no_u" class="filter-input input" name="ref_no" placeholder="ห้ามปล่อยว่าง" required style="border:1px solid #f59e0b;">
         </div>
 
         <div class="form-item">

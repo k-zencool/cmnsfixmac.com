@@ -460,13 +460,13 @@ $videos = $stmt->fetchAll();
                 <div class="reviewer-profile">
                     <div class="avatar av-8">T</div>
                     <div class="info">
-                        <h4 style="margin:0; font-size:1rem; color:#333;">Thanawat</h4>
-                        <span style="color:#999; font-size:0.8rem;">2 เดือนที่ผ่านมา</span>
+                        <h4 style="margin:0; font-size:1rem; color:#333;">Hemmawan Wyatt-Carter</h4>
+                        <span style="color:#999; font-size:0.8rem;">5 ปีที่แล้ว</span>
                     </div>
                     <img src="https://fonts.gstatic.com/s/i/productlogos/googleg/v6/24px.svg" width="20" height="20" alt="Google" class="google-icon-corner">
                 </div>
                 <div class="stars" style="color:#fbbc04; margin-bottom:10px;">★★★★★</div>
-                <p class="review-text">"ช่างมีความรู้จริง อธิบายอาการเสียละเอียด ไม่หลอกฟันราคา ใครหาที่ซ่อมแมคในเชียงใหม่ แนะนำที่นี่ครับ"</p>
+                <p class="review-text">"เป็นลูกค้าร้านนี้มากกว่า ๑๐ ปี ตั้งแต่ แฟนคนต่างชาติหาร้านซ๋อมคอมพิวเตอรื ไปเดินดูเยอะมาก แต่ร้านนี้เจ้าของสื่อสารภาษาอังกฤษได้ ทำให้แฟนเลือก และไปใช้บริการตลอด ราคาไม่แพง ไม่เอาเปรียบลูกค้า จะแจ้งราคาบอกลูกค้าก่อน ว่า ตกลงจะซ่อมหรือไม่  บริการหลังการขายดีเยี่ยม"</p>
             </div>
 
             <div class="review-card" onclick="window.open('https://surl.li/pmpvgr', '_blank')">
