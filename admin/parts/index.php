@@ -8,7 +8,7 @@ error_reporting(E_ALL);
  * admin/parts/index.php
  *
  * Update:
- * - Used Tab: ปรับสไตล์ SKU ให้เหมือน Asset Tag (หน้าเครื่อง) เป๊ะๆ
+ * - Tab New: เพิ่มค้นหา part_code + เพิ่มคอลัมน์ SKU สไตล์ Asset Tag
  ********************************************************************/
 
 // =========================[ 0) SETUP & GUARD ]========================
@@ -135,7 +135,10 @@ try {
     if ($tab==='new'){
       require_perms(['parts.new.view']);
       $params=[]; $where=[];
-      if ($w=whereSearch($q,['part_name','part_number','device_models','category','location'],$params,'qn')) $where[]=$w;
+      
+      // เพิ่ม part_code ในการค้นหา
+      if ($w=whereSearch($q,['part_code','part_name','part_number','device_models','category','location'],$params,'qn')) $where[]=$w;
+      
       if ($w=whereDevices($devices,['part_name','device_models','category'],$params,'dn')) $where[]=$w;
       if ($w=whereKinds($kinds,$KIND_KEYWORDS,$params,'kn')) $where[]=$w;
       $where_sql=$where?("WHERE ".implode(' AND ',$where)):"";
@@ -174,7 +177,6 @@ try {
       require_perms(['parts.used.view']);
       $params=[]; $where=[];
       
-      // เพิ่ม used_sku ในการค้นหา
       if ($w=whereSearch($q,['part_code','part_name','part_number','device_models','category','location','remarks','used_sku'],$params,'qu')) $where[]=$w;
       
       if ($w=whereDevices($devices,['part_name','device_models','category'],$params,'du')) $where[]=$w;
@@ -187,7 +189,6 @@ try {
       $pages=max(1,(int)ceil($total/$per));
       if ($page>$pages){ $page=$pages; $offset=($page-1)*$per; }
 
-      // เพิ่ม used_sku ใน SELECT
       $sql="
         SELECT id, used_sku, part_code, part_name, part_number, device_models, category,
                image_url, location, remarks, created_at, updated_at
@@ -262,7 +263,6 @@ try {
       $df=getv('date_from',''); if ($df!==''){ $where[]="DATE(d.created_at)>=:df"; $params[':df']=$df; }
       $dt=getv('date_to','');   if ($dt!==''){ $where[]="DATE(d.created_at)<=:dt2"; $params[':dt2']=$dt; }
 
-      // 1. นับจำนวนรวมก่อน (เพื่อ Pagination)
       $sqlCount = "SELECT COUNT(*)
         FROM parts_docs d
         LEFT JOIN parts_doc_lines l ON l.doc_id=d.doc_id
@@ -279,7 +279,6 @@ try {
       $pages=max(1,(int)ceil($total/$per));
       if ($page>$pages){ $page=$pages; $offset=($page-1)*$per; }
 
-      // 2. ดึงข้อมูลจริง (Join ครบทุกตาราง)
       $sql="
         SELECT
           d.created_at, d.doc_type, d.ref_no, d.remarks,
@@ -397,7 +396,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 .btn-icon-copy:active { transform: translateY(1px); }
 .icon-svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-/* --- [ADDED] Custom Style for Filter Dropdown --- */
+/* Filter Dropdown */
 #filterMenuHist select.input {
     width: 100%;
     box-sizing: border-box;
@@ -407,7 +406,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     background-color: #f9fafb;
     color: #1f2937;
     font-size: 0.95rem;
-    appearance: none; /* ลบลูกศร default */
+    appearance: none; 
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
     background-position: right 0.5rem center;
     background-repeat: no-repeat;
@@ -419,10 +418,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     border-color: #3b82f6;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
-/* Style for options (some browsers) */
-#filterMenuHist option {
-    padding: 8px;
-}
+#filterMenuHist option { padding: 8px; }
 </style>
 
 <div id="global-loader">
@@ -457,7 +453,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     <form action="index.php" method="GET" class="search-form-bind">
       <input type="hidden" name="tab" value="new">
       <div class="search-and-filter-group">
-        <input class="filter-input" name="q" value="<?= h($q) ?>" placeholder="ค้นหาชื่อ/เบอร์/รุ่น/หมวด...">
+        <input class="filter-input" name="q" value="<?= h($q) ?>" placeholder="ค้นหา รหัส/ชื่อ/เบอร์/รุ่น...">
         <div class="filter-dropdown">
           <button type="button" class="btn-secondary" onclick="toggleMenu('filterMenuNew')">ตัวกรอง</button>
           <div id="filterMenuNew" class="filter-menu">
@@ -469,13 +465,37 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     </form>
     <div class="table-container">
       <table class="data-table">
-        <thead><tr><th>#</th><th>รูป</th><th>ชื่ออะไหล่</th><th>เลขอะไหล่</th><th>รุ่น</th><th>หมวด</th><th>ที่เก็บ</th><th>ขั้นต่ำ</th><th>คงเหลือ</th><th>จัดการ</th></tr></thead>
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>รูป</th>
+                <th>รหัสสินค้า (SKU)</th>
+                <th>ชื่ออะไหล่</th>
+                <th>เลขอะไหล่</th>
+                <th>รุ่น</th>
+                <th>หมวด</th>
+                <th>ที่เก็บ</th>
+                <th>ขั้นต่ำ</th>
+                <th>คงเหลือ</th>
+                <th>จัดการ</th>
+            </tr>
+        </thead>
         <tbody>
           <?php if ($parts): foreach ($parts as $i=>$p): $img=img_src($p['image_url']??''); $qty=(int)$p['qty']; $min=(int)$p['min_stock']; $low=$min>0 && $qty<$min; $locs=array_filter(array_map('trim',explode(',',(string)($p['locations']??'')))); ?>
             <tr>
               <td><?= ($offset+$i+1) ?></td>
               <td><?php if ($img): ?><button type="button" class="thumb-btn" data-src="<?= h($img) ?>"><img src="<?= h($img) ?>" class="thumb" alt=""></button><?php else: ?><div class="thumb"></div><?php endif; ?></td>
-              <td><strong><?= h($p['part_name'] ?: $p['part_code']) ?></strong></td>
+              
+              <td>
+                <div class="asset-group">
+                    <span class="asset-text"><?= h($p['part_code']) ?></span>
+                    <button type="button" class="btn-icon-copy" title="Copy" onclick="copyTag('<?= h($p['part_code']) ?>', this)">
+                        <svg class="icon-svg" width="14" height="14" viewBox="0 0 24 24"><path d="M8 4v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7.242a2 2 0 0 0-.602-1.43L16.083 2.57A2 2 0 0 0 14.685 2H10a2 2 0 0 0-2 2z"/><path d="M16 18v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h2"/></svg>
+                    </button>
+                </div>
+              </td>
+              
+              <td><strong><?= h($p['part_name']) ?></strong></td>
               <td class="muted"><?= h($p['part_number']) ?></td>
               <td><?= h($p['device_models']) ?></td>
               <td><span class="badge"><?= h($p['category'] ?: 'Other') ?></span></td>
@@ -488,7 +508,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                 <?php if (can('parts.new.update')): ?><a href="form.php?part_code=<?= h($p['part_code']) ?>" class="btn-edit">แก้ไข</a><?php endif; ?>
               </td>
             </tr>
-          <?php endforeach; else: ?><tr><td colspan="10" class="text-center">ยังไม่มีข้อมูล</td></tr><?php endif; ?>
+          <?php endforeach; else: ?><tr><td colspan="11" class="text-center">ยังไม่มีข้อมูล</td></tr><?php endif; ?>
         </tbody>
       </table>
     </div>

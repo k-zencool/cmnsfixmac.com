@@ -1,5 +1,5 @@
 <?php
-// warranty.php — เช็คประกันด้วย เลขประกัน / Serial / เลขงานซ่อม
+// warranty.php — เช็คประกันด้วย เลขประกัน / Serial เท่านั้น (ตัดเลขงานซ่อมออก)
 include 'includes/db.php';
 
 // Helpers
@@ -14,26 +14,26 @@ $results = [];
 $msgErr  = '';
 
 if ($q !== '') {
-  // 1) หาแบบตรงตัว
+  // 1) หาแบบตรงตัว (ค้นหาแค่ warranty_no หรือ sn)
   $st = $pdo->prepare("
     SELECT id, warranty_no, repair_no, customer_name, device_model, sn,
            base_date, warranty_until, warranty_status,
            DATEDIFF(warranty_until,CURDATE()) AS days_left
     FROM warranty_jobs
-    WHERE warranty_no = :q OR sn = :q OR repair_no = :q
+    WHERE warranty_no = :q OR sn = :q 
     ORDER BY id DESC
   ");
   $st->execute([':q'=>$q]);
   $results = $st->fetchAll(PDO::FETCH_ASSOC);
 
-  // 2) ไม่เจอค่อย LIKE
+  // 2) ไม่เจอค่อย LIKE (ค้นหาแค่ warranty_no หรือ sn)
   if (!$results){
     $st = $pdo->prepare("
       SELECT id, warranty_no, repair_no, customer_name, device_model, sn,
              base_date, warranty_until, warranty_status,
              DATEDIFF(warranty_until,CURDATE()) AS days_left
       FROM warranty_jobs
-      WHERE warranty_no LIKE :s OR sn LIKE :s OR repair_no LIKE :s
+      WHERE warranty_no LIKE :s OR sn LIKE :s
       ORDER BY id DESC
       LIMIT 50
     ");
@@ -41,7 +41,7 @@ if ($q !== '') {
     $results = $st->fetchAll(PDO::FETCH_ASSOC);
   }
 
-  if (!$results) $msgErr = 'ไม่พบข้อมูลประกันตามเลขที่ค้นหา';
+  if (!$results) $msgErr = 'ไม่พบข้อมูลประกัน (ค้นหาได้เฉพาะเลขประกัน หรือ Serial Number เท่านั้น)';
 }
 
 $result = (count($results) === 1) ? $results[0] : null;
@@ -53,7 +53,7 @@ $result = (count($results) === 1) ? $results[0] : null;
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <title>ตรวจสอบประกันงานซ่อม | CMNS FixMac</title>
-  <meta name="description" content="กรอกเลขประกัน (WJ-xxxx) / Serial Number / เลขงานซ่อม (Vxxxx) เพื่อดูรายละเอียดประกันงานซ่อมจาก CMNS FixMac">
+  <meta name="description" content="กรอกเลขประกัน (WJ-xxxx) หรือ Serial Number เพื่อดูรายละเอียดประกันงานซ่อมจาก CMNS FixMac">
   <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/warranty.php" />
   <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/warranty.php" />
   <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/warranty.php" />
@@ -152,41 +152,16 @@ $result = (count($results) === 1) ? $results[0] : null;
   }
 
   /* ====== Print ====== */
-  /* ---- FIX: พิมพ์เฉพาะใบพิมพ์ ไม่เอาการ์ดบนจอ ---- */
 @media print{
   @page{ size:A4; margin:14mm }
-
-  /* ซ่อนทุกอย่างที่ไม่ใช่ใบพิมพ์ */
-  header,
-  .hero,
-  .no-print,
-  .alert,
-  .card, /* ซ่อน .card ทั้งหมดในโหมดพิมพ์ */
-  .list-table,
-  .card-head,
-  .section .card, /* ซ่อน .card ใน section */
-  .section .list-table,
-  .container > *:not(.print-sheet) {
-    display: none !important;
-  }
-
-  /* แสดงใบพิมพ์เท่านั้น */
-  .print-sheet{
-    display:block !important;
-  }
-
-  /* สไตล์เอกสารให้คมชัด */
-  body{
-    background:#fff;
-    color:#000;
-    font:12pt/1.5 "Sarabun", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
-  }
+  header, .hero, .no-print, .alert, .card, .list-table, .card-head, 
+  .section .card, .section .list-table, .container > *:not(.print-sheet) { display: none !important; }
+  .print-sheet{ display:block !important; }
+  body{ background:#fff; color:#000; font:12pt/1.5 "Sarabun", system-ui, sans-serif; }
   .container{max-width:100%; padding:0}
   .section{padding:0}
-  /* .card{box-shadow:none; border:none} <-- เอาออกเพราะซ่อน .card ไปแล้ว */
   table, tr, td, th{ page-break-inside:avoid }
 }
-
   </style>
 
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
@@ -204,10 +179,10 @@ $result = (count($results) === 1) ? $results[0] : null;
 <section class="hero" style="background-image:url('<?= h($HERO_IMG) ?>')">
   <div class="hero-content" data-aos="fade-up">
     <h1>ตรวจสอบประกันงานซ่อม</h1>
-    <p>กรอก <b>เลขประกัน (WJ-xxxx)</b> / <b>Serial Number</b> / <b>เลขงานซ่อม (Vxxxx)</b> แล้วกดตรวจสอบ</p>
+    <p>กรอก <b>เลขประกัน (WJ-xxxx)</b> หรือ <b>Serial Number</b> เท่านั้น</p>
 
     <form action="#result" method="get" class="search-wrap">
-      <input type="text" name="q" class="search-input" placeholder="เช่น WJ-2025-0001 / C02XXXXXXX / V12345" value="<?= h($q) ?>" required>
+      <input type="text" name="q" class="search-input" placeholder="เช่น WJ-2025-0001 หรือ Serial Number" value="<?= h($q) ?>" required>
       <button class="btn" type="submit"><span class="material-symbols-rounded">search</span>ตรวจสอบ</button>
     </form>
 
@@ -255,10 +230,11 @@ $result = (count($results) === 1) ? $results[0] : null;
           </tr>
         </tbody>
       </table>
-    </div> <div class="card no-print" data-aos="fade-up" style="margin-top:24px;" data-aos-delay="100">
+    </div> 
+    
+    <div class="card no-print" data-aos="fade-up" style="margin-top:24px;" data-aos-delay="100">
       <div style="padding: 18px 20px 20px 20px;">
         <strong style="font-size: 1.1rem; font-weight: 700; display: block; margin-bottom: 12px;">เงื่อนไขการรับประกัน</strong>
-        
         <div class="terms-display" style="font-size: 15px; line-height: 1.65; color: var(--ink);">
           <ol style="margin: 0 0 0 18px; padding: 0; list-style-position: outside;">
             <li>ประกันครอบคลุมเฉพาะอาการที่ระบุในใบงานซ่อม และอะไหล่ที่ทางร้านเปลี่ยนให้เท่านั้น</li>
@@ -270,6 +246,7 @@ $result = (count($results) === 1) ? $results[0] : null;
         </div>
       </div>
     </div>
+
     <section class="print-sheet">
       <div class="print-header">
         <img src="assets/img/apple-logo.png" alt="CMNS FixMac">

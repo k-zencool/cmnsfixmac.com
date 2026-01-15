@@ -1,11 +1,10 @@
 <?php
 /********************************************************************
  * admin/parts/form_used.php
- * ฟอร์ม "อะไหล่มือ 2"
- * Update: แก้ Logic Gen SKU ให้หาค่า MAX แทนหา ID ล่าสุด (แก้ปัญหารันเลขซ้ำ)
+ * ฟอร์ม "อะไหล่มือ 2" (Organized Layout)
+ * Update: จัดระเบียบปุ่มเลือกชื่ออะไหล่ (Quick Tags) ให้เรียงสวยงามใต้ช่องกรอก
  ********************************************************************/
 
-// ========== SETUP ==========
 session_start();
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
@@ -17,308 +16,196 @@ function val($arr,$k,$d=''){ return isset($arr[$k]) ? trim((string)$arr[$k]) : $
 
 $user_id = $_SESSION['admin_id'] ?? ($_SESSION['user']['id'] ?? null);
 
-// -------- Upload helpers --------
+// -------- CONFIG --------
 define('PARTS_UPLOAD_DIR', __DIR__ . '/../../uploads/parts/');
 if (!is_dir(PARTS_UPLOAD_DIR)) @mkdir(PARTS_UPLOAD_DIR, 0775, true);
 
+// 1. หมวดหมู่
+$categories = [
+    'MacBook', 'iPhone', 'iPad', 'iMac', 
+    'Apple Watch', 'AirPods', 'Apple Pencil', 
+    'Mac mini', 'Mac Studio', 'Accessories', 'Other'
+];
+
+// 2. ชื่ออะไหล่ยอดฮิต (จัดกลุ่มให้กดง่ายๆ)
+$commonParts = [
+    'Screen (จอ)', 'Battery (แบต)', 'Logic Board', 'Top Case', 
+    'Keyboard', 'Trackpad', 'Fan (พัดลม)', 'Speaker', 'Camera', 
+    'Flex Cable', 'Housing', 'Charging Case', 'Left Side (L)', 'Right Side (R)'
+];
+
+// -------- SKU Logic --------
+function detectPrefix($name, $model, $cat) {
+    $text = strtolower($name . ' ' . $model . ' ' . $cat);
+    if (strpos($text, 'iphone') !== false)     return 'IP';
+    if (strpos($text, 'ipad') !== false)       return 'PD';
+    if (strpos($text, 'imac') !== false)       return 'IM';
+    if (strpos($text, 'watch') !== false)      return 'WA';
+    if (strpos($text, 'airpods') !== false)    return 'AP';
+    if (strpos($text, 'pencil') !== false)     return 'PE';
+    if (strpos($text, 'mac mini') !== false)   return 'MM';
+    if (strpos($text, 'adapter') !== false)    return 'AC';
+    return 'MB'; // Default
+}
+
+function generateUsedSKU(PDO $pdo, $partName, $deviceModel, $cat) {
+    $prefixType = detectPrefix($partName, $deviceModel, $cat);
+    $ym = date('Ym');
+    $sql = "SELECT CAST(SUBSTRING_INDEX(used_sku, '-A', -1) AS UNSIGNED) as max_seq 
+            FROM parts_used WHERE used_sku LIKE '%-A%' ORDER BY max_seq DESC LIMIT 1";
+    $stmt = $pdo->query($sql);
+    $maxSeq = (int)$stmt->fetchColumn(); 
+    return sprintf("U-%s-%s-A%04d", $prefixType, $ym, $maxSeq + 1);
+}
+
+$nextSeqStr = "0001";
+$currentYM = date('Ym');
+if (!isset($_GET['id'])) {
+    $sqlMax = "SELECT CAST(SUBSTRING_INDEX(used_sku, '-A', -1) AS UNSIGNED) as max_seq 
+               FROM parts_used WHERE used_sku LIKE '%-A%' ORDER BY max_seq DESC LIMIT 1";
+    $stMax = $pdo->query($sqlMax);
+    $nextSeqStr = str_pad(((int)$stMax->fetchColumn() + 1), 4, '0', STR_PAD_LEFT);
+}
+
+// -------- Helpers & Actions --------
 function safeUploadName(string $orig): string {
-  $ext  = strtolower(pathinfo($orig, PATHINFO_EXTENSION));
-  $base = preg_replace('/[^a-z0-9\-_]+/i','-', pathinfo($orig, PATHINFO_FILENAME));
-  if ($base==='') $base='used';
+  $ext = strtolower(pathinfo($orig, PATHINFO_EXTENSION)); $base='used';
   return $base.'_'.date('Ymd_His').'_'.substr(bin2hex(random_bytes(6)),0,12).'.'.$ext;
 }
 function img_src($v){
-  $v = trim((string)$v);
-  if ($v==='') return '';
-  if (preg_match('~^https?://~i',$v) || $v[0]==='/') return $v;
-  return '../../uploads/parts/'.$v;
+  $v=trim((string)$v); if($v==='')return ''; if(preg_match('~^https?://~i',$v)||$v[0]==='/')return $v; return '../../uploads/parts/'.$v;
 }
-
-/** * ฟังก์ชันสร้างรหัส SKU (U-YYYYMM-Axxxx)
- * [UPDATED] ใช้ ORDER BY used_sku DESC เพื่อหาเลขที่สูงที่สุดจริงๆ
- */
-function generateUsedSKU(PDO $pdo) {
-    // 1. Prefix: U-202512-A
-    $prefix = "U-" . date('Ym') . "-A";
-    
-    // 2. หาเลขที่ "มากที่สุด" ในเดือนนี้ (เปลี่ยนจาก id DESC เป็น used_sku DESC)
-    $stmt = $pdo->prepare("SELECT used_sku FROM parts_used WHERE used_sku LIKE :p ORDER BY used_sku DESC LIMIT 1");
-    $stmt->execute([':p' => $prefix . '%']);
-    $maxSku = $stmt->fetchColumn();
-
-    $nextNum = 1;
-    if ($maxSku) {
-        // ดึง 4 ตัวท้ายมาบวก 1
-        $lastNum = (int)substr($maxSku, -4);
-        $nextNum = $lastNum + 1;
-    }
-
-    // 3. คืนค่า U-202512-A0001
-    return $prefix . str_pad($nextNum, 4, '0', STR_PAD_LEFT);
-}
-
-/** -------- บันทึกประวัติลง parts_docs -------- */
-function used_doc(PDO $pdo, string $action, int $used_id, array $item, $user_id): void {
+function used_doc(PDO $pdo, string $act, int $id, array $item, $uid): void {
   try {
-    $refInfo = !empty($item['used_sku']) ? $item['used_sku'] : "USED:{$used_id}";
-    $ref = 'USED:' . $used_id;
-
-    if ($action === 'CREATE') {
-      $remarks = "เพิ่มมือ 2 [{$refInfo}]: " . (($item['part_name'] ?? '') ?: ($item['part_code'] ?? ''));
-    } elseif ($action === 'UPDATE') {
-      $remarks = "แก้ไขมือ 2 [{$refInfo}]";
-    } elseif ($action === 'DELETE') {
-      $remarks = "ลบมือ 2 [{$refInfo}]";
-    } else {
-      $remarks = strtoupper($action)." USED #{$used_id}";
-    }
-    $remarks = function_exists('mb_strimwidth') ? mb_strimwidth($remarks, 0, 250, '', 'UTF-8') : substr($remarks, 0, 250);
-
-    $pdo->prepare("INSERT INTO parts_docs (doc_type, ref_no, remarks, user_id, created_at) VALUES ('USED', :ref_no, :remarks, :uid, NOW())")
-        ->execute([':ref_no' => $ref, ':remarks' => $remarks, ':uid' => $user_id]);
-    $doc_id = (int)$pdo->lastInsertId();
-
-    $loc = trim((string)($item['location'] ?? ''));
-    $pc  = $item['part_code'] ?? null;
-
-    if ($action === 'CREATE') {
-      $pdo->prepare("INSERT INTO parts_doc_lines (doc_id, part_code, qty, location_from, location_to) VALUES (?, ?, 1, NULL, ?)")->execute([$doc_id, ($pc ?: null), ($loc ?: null)]);
-    } elseif ($action === 'DELETE') {
-      $pdo->prepare("INSERT INTO parts_doc_lines (doc_id, part_code, qty, location_from, location_to) VALUES (?, ?, -1, ?, NULL)")->execute([$doc_id, ($pc ?: null), ($loc ?: null)]);
-    }
+    $ref = !empty($item['used_sku']) ? $item['used_sku'] : "USED:$id";
+    if ($act==='CREATE') $rem="เพิ่มมือ 2 [$ref]: ".($item['part_name']??'');
+    elseif ($act==='UPDATE') $rem="แก้ไขมือ 2 [$ref]";
+    elseif ($act==='DELETE') $rem="ลบมือ 2 [$ref]";
+    else $rem="$act #$id";
+    $pdo->prepare("INSERT INTO parts_docs (doc_type,ref_no,remarks,user_id,created_at) VALUES ('USED',?,?,?,NOW())")->execute(["USED:$id",mb_strimwidth($rem,0,250),$uid]);
+    $qty = ($act==='DELETE') ? -1 : 1;
+    $pdo->prepare("INSERT INTO parts_doc_lines (doc_id,part_code,qty,location_to) VALUES (?,?,?,?)")->execute([$pdo->lastInsertId(), $item['part_code']??null, $qty, $item['location']??null]);
   } catch (Throwable $e) {}
 }
 
-
-// -------- State --------
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $donor_id = isset($_GET['donor_id']) ? (int)$_GET['donor_id'] : 0;
+$currentPage = max(1, (int)($_REQUEST['page'] ?? 1));
 
-$currentPage = 1;
-if (isset($_POST['page']) && is_numeric($_POST['page'])) {
-    $currentPage = (int)$_POST['page'];
-} elseif (isset($_GET['page']) && is_numeric($_GET['page'])) {
-    $currentPage = (int)$_GET['page'];
-} elseif (isset($_SERVER['HTTP_REFERER'])) {
-    $parts = parse_url($_SERVER['HTTP_REFERER']);
-    if (isset($parts['query'])) {
-        parse_str($parts['query'], $qs);
-        if (isset($qs['page']) && is_numeric($qs['page'])) {
-            $currentPage = (int)$qs['page'];
-        }
-    }
-}
-$currentPage = max(1, $currentPage);
-
-
-// ค่าเริ่มต้น
-$item = [
-  'used_sku'     => '', 
-  'donor_id'     => $donor_id ?: null,
-  'part_code'    => '',
-  'part_name'    => '',
-  'part_number'  => '',
-  'device_models'=> '',
-  'category'     => '',
-  'image_url'    => null,
-  'location'     => 'main',
-  'remarks'      => '',
-];
-
+$item = ['used_sku'=>'', 'donor_id'=>$donor_id?:null, 'part_code'=>'', 'part_name'=>'', 'part_number'=>'', 'device_models'=>'', 'category'=>'MacBook', 'image_url'=>null, 'location'=>'main', 'remarks'=>''];
 $beforeRow = null;
 
 if ($id) {
-  // --- กรณีแก้ไข: ดึงข้อมูลเดิม ---
-  $st = $pdo->prepare("SELECT * FROM parts_used WHERE id=? LIMIT 1");
-  $st->execute([$id]);
-  $row = $st->fetch(PDO::FETCH_ASSOC);
-  if (!$row) {
-    header("Location: index.php?tab=used&page={$currentPage}&err=".urlencode("ไม่พบอะไหล่มือ 2"));
-    exit;
-  }
-  $beforeRow = $row;
-  $item = array_merge($item, $row);
-
-  // [UPDATED] ถ้ายังไม่มี SKU ให้ Gen ใหม่
-  if (empty($item['used_sku'])) {
-      $item['used_sku'] = generateUsedSKU($pdo);
-  }
-
-} else {
-  // --- กรณีเพิ่มใหม่ ---
-  $item['used_sku'] = generateUsedSKU($pdo);
+  $st=$pdo->prepare("SELECT * FROM parts_used WHERE id=?"); $st->execute([$id]);
+  $row=$st->fetch(PDO::FETCH_ASSOC);
+  if(!$row){ header("Location: index.php?tab=used"); exit; }
+  $beforeRow=$row; $item=array_merge($item,$row);
 }
 
 $errors = [];
-
-// -------- Actions (POST) --------
 if ($_SERVER['REQUEST_METHOD']==='POST') {
   $action = val($_POST,'action');
-  $redirectPage = isset($_POST['page']) ? (int)$_POST['page'] : 1;
-
   if ($action==='delete_used' && $id) {
-    try {
-      used_doc($pdo, 'DELETE', $id, $item, $user_id);
-      $pdo->prepare("DELETE FROM parts_used WHERE id=? LIMIT 1")->execute([$id]);
-      header("Location: index.php?tab=used&page={$redirectPage}&msg=".urlencode("ลบชิ้นมือ 2 เรียบร้อย"));
-      exit;
-    } catch(Throwable $e){
-      $errors[] = $e->getMessage();
-    }
+    used_doc($pdo, 'DELETE', $id, $item, $user_id);
+    $pdo->prepare("DELETE FROM parts_used WHERE id=?")->execute([$id]);
+    header("Location: index.php?tab=used&page={$currentPage}&msg=".urlencode("ลบเรียบร้อย")); exit;
   }
-
   if ($action==='save_used') {
-    $form_id                = (int)($_POST['id'] ?? 0);
-    $item['used_sku']       = val($_POST, 'used_sku'); // รับค่าจากฟอร์ม
-    $item['donor_id']       = ($_POST['donor_id'] ?? '') === '' ? null : (int)$_POST['donor_id'];
-    $item['part_code']      = val($_POST,'part_code');
-    $item['part_name']      = val($_POST,'part_name');
-    $item['part_number']    = val($_POST,'part_number');
-    $item['device_models']  = val($_POST,'device_models');
-    $item['category']       = val($_POST,'category');
-    $item['location']       = val($_POST,'location','main');
-    $item['remarks']        = val($_POST,'remarks');
-    $remove_image_flag      = (int)($_POST['remove_image'] ?? 0);
+    $item['donor_id'] = ($_POST['donor_id']??'')===''?null:(int)$_POST['donor_id'];
+    foreach(['part_code','part_name','part_number','device_models','category','location','remarks'] as $k) $item[$k] = val($_POST, $k);
+    if ($item['part_name']==='' && $item['part_code']==='') $errors[] = "กรุณากรอกชื่ออะไหล่";
 
-    if ($item['part_name']==='' && $item['part_code']==='') $errors[] = "กรุณากรอกชื่ออะไหล่หรือรหัสอะไหล่อย่างน้อยอย่างใดอย่างหนึ่ง";
-    if (!$user_id) $errors[] = "ไม่พบผู้ใช้งาน (session)";
-
-    // อัปโหลดรูป
     $newImage = null;
-    if (!empty($_FILES['image']['name'])) {
-      $f = $_FILES['image'];
-      if ($f['error'] === UPLOAD_ERR_OK) {
-        $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
-        if (!in_array($ext, ['jpg','jpeg','png','webp'], true)) {
-          $errors[] = "ไฟล์รูปต้องเป็น jpg, jpeg, png หรือ webp";
-        } elseif ($f['size'] > 5*1024*1024) {
-          $errors[] = "ไฟล์รูปใหญ่เกิน 5MB";
-        } else {
-          $new = safeUploadName($f['name']);
-          if (!move_uploaded_file($f['tmp_name'], PARTS_UPLOAD_DIR.$new)) {
-            $errors[] = "อัปโหลดรูปไม่สำเร็จ";
-          } else {
-            $newImage = $new;
-            $remove_image_flag = 0;
-          }
+    if (!empty($_FILES['image']['name']) && $_FILES['image']['error']===0) {
+        $ext = strtolower(pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION));
+        if (in_array($ext, ['jpg','jpeg','png','webp'])) {
+            $new = safeUploadName($_FILES['image']['name']);
+            if (move_uploaded_file($_FILES['image']['tmp_name'], PARTS_UPLOAD_DIR.$new)) $newImage = $new;
         }
-      } elseif ($f['error'] !== UPLOAD_ERR_NO_FILE) {
-        $errors[] = "อัปโหลดรูปผิดพลาด (code {$f['error']})";
-      }
     }
-
+    
     if (!$errors) {
-      try {
-        // [ANTI-COLLISION] ถ้า SKU ซ้ำกับคนอื่น (ที่ไม่ใช่ตัวเอง) ให้ Gen ใหม่ทันที
-        if (!empty($item['used_sku'])) {
-            $chk = $pdo->prepare("SELECT id FROM parts_used WHERE used_sku = ? AND id != ?");
-            $chk->execute([$item['used_sku'], $form_id]);
-            if ($chk->fetch()) {
-                // ซ้ำ! Gen ใหม่เลย
-                $item['used_sku'] = generateUsedSKU($pdo);
+        if (empty($item['used_sku'])) $item['used_sku'] = generateUsedSKU($pdo, $item['part_name'], $item['device_models'], $item['category']);
+        elseif (!$id) $item['used_sku'] = generateUsedSKU($pdo, $item['part_name'], $item['device_models'], $item['category']);
+
+        if ($id) {
+            $sql = "UPDATE parts_used SET donor_id=?, part_code=?, part_name=?, part_number=?, device_models=?, category=?, location=?, remarks=?, updated_at=NOW()";
+            $p = [$item['donor_id'], $item['part_code'], $item['part_name'], $item['part_number'], $item['device_models'], $item['category'], $item['location'], $item['remarks']];
+            if ($newImage) { $sql.=", image_url=?"; $p[]=$newImage; }
+            elseif (($_POST['remove_image']??0)==1) { $sql.=", image_url=NULL"; }
+            $sql.=" WHERE id=?"; $p[]=$id;
+            $pdo->prepare($sql)->execute($p);
+            used_doc($pdo, 'UPDATE', $id, $item, $user_id);
+            header("Location: index.php?tab=used&page={$currentPage}&msg=".urlencode("แก้ไขแล้ว")); exit;
+        } else {
+            $r=3; $done=false;
+            while($r>0){
+                try{
+                    $sql="INSERT INTO parts_used (used_sku,donor_id,part_code,part_name,part_number,device_models,category,image_url,location,remarks,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,NOW(),NOW())";
+                    $pdo->prepare($sql)->execute([$item['used_sku'], $item['donor_id'], $item['part_code'], $item['part_name'], $item['part_number'], $item['device_models'], $item['category'], $newImage, $item['location'], $item['remarks']]);
+                    used_doc($pdo, 'CREATE', $pdo->lastInsertId(), $item, $user_id);
+                    $done=true; break;
+                }catch(PDOException $e){
+                    if($e->errorInfo[1]==1062){ $item['used_sku']=generateUsedSKU($pdo,$item['part_name'],$item['device_models'],$item['category']); $r--; } else throw $e;
+                }
             }
-        } else {
-             $item['used_sku'] = generateUsedSKU($pdo);
+            if($done) { header("Location: index.php?tab=used&page={$currentPage}&msg=".urlencode("เพิ่มสำเร็จ SKU: {$item['used_sku']}")); exit; }
+            else $errors[]="SKU ชนกัน กรุณาลองใหม่";
         }
-
-        if ($form_id) {
-          // ============== UPDATE ==============
-          if (!$beforeRow) {
-            $stB = $pdo->prepare("SELECT * FROM parts_used WHERE id=? LIMIT 1");
-            $stB->execute([$form_id]);
-            $beforeRow = $stB->fetch(PDO::FETCH_ASSOC) ?: [];
-          }
-
-          if ($newImage !== null) {
-            $sql = "UPDATE parts_used SET used_sku=?, donor_id=?, part_code=?, part_name=?, part_number=?, device_models=?, category=?, image_url=?, location=?, remarks=?, updated_at=NOW() WHERE id=?";
-            $params = [$item['used_sku'], $item['donor_id'], $item['part_code'], $item['part_name'], $item['part_number'], $item['device_models'], $item['category'], $newImage, $item['location'], $item['remarks'], $form_id];
-          } elseif ($remove_image_flag===1) {
-            $sql = "UPDATE parts_used SET used_sku=?, donor_id=?, part_code=?, part_name=?, part_number=?, device_models=?, category=?, image_url=NULL, location=?, remarks=?, updated_at=NOW() WHERE id=?";
-            $params = [$item['used_sku'], $item['donor_id'], $item['part_code'], $item['part_name'], $item['part_number'], $item['device_models'], $item['category'], $item['location'], $item['remarks'], $form_id];
-          } else {
-            $sql = "UPDATE parts_used SET used_sku=?, donor_id=?, part_code=?, part_name=?, part_number=?, device_models=?, category=?, location=?, remarks=?, updated_at=NOW() WHERE id=?";
-            $params = [$item['used_sku'], $item['donor_id'], $item['part_code'], $item['part_name'], $item['part_number'], $item['device_models'], $item['category'], $item['location'], $item['remarks'], $form_id];
-          }
-          $pdo->prepare($sql)->execute($params);
-          used_doc($pdo, 'UPDATE', $form_id, $item, $user_id);
-
-          header("Location: index.php?tab=used&page={$redirectPage}&msg=".urlencode("บันทึกการแก้ไขแล้ว (SKU: {$item['used_sku']})"));
-          exit;
-
-        } else {
-          // ============== INSERT ==============
-          // พยายามบันทึก ถ้าซ้ำให้ Gen ใหม่แล้วลองอีกที (Max 3 รอบ)
-          $maxRetries = 3;
-          $success = false;
-          
-          while($maxRetries > 0) {
-              try {
-                  $sql = "INSERT INTO parts_used (used_sku, donor_id, part_code, part_name, part_number, device_models, category, image_url, location, remarks, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?, ?, ?, NOW(), NOW())";
-                  $pdo->prepare($sql)->execute([
-                    $item['used_sku'],
-                    $item['donor_id'], $item['part_code'], $item['part_name'], $item['part_number'], $item['device_models'],
-                    $item['category'], $newImage, $item['location'], $item['remarks']
-                  ]);
-                  $new_id = (int)$pdo->lastInsertId();
-                  used_doc($pdo, 'CREATE', $new_id, $item, $user_id);
-                  $success = true;
-                  break;
-
-              } catch (PDOException $ex) {
-                  // Code 1062 = Duplicate Entry
-                  if ($ex->errorInfo[1] == 1062) {
-                      $item['used_sku'] = generateUsedSKU($pdo); // Gen ใหม่
-                      $maxRetries--;
-                  } else {
-                      throw $ex; 
-                  }
-              }
-          }
-
-          if ($success) {
-            header("Location: index.php?tab=used&page={$redirectPage}&msg=".urlencode("เพิ่มชิ้นมือ 2 แล้ว รหัส: {$item['used_sku']}"));
-            exit;
-          } else {
-            $errors[] = "ระบบไม่สามารถสร้างรหัส SKU ได้ (มีการชนกันของข้อมูล) กรุณาลองใหม่อีกครั้ง";
-          }
-        }
-      } catch(Throwable $e){
-        $errors[] = "Error: " . $e->getMessage();
-      }
     }
-
-    if ($newImage !== null) $item['image_url'] = $newImage;
   }
 }
 
-// ========== TEMPLATE ==========
 include __DIR__ . '/../../templates/header_admin.php';
 include __DIR__ . '/../../templates/sidebar_admin.php';
 ?>
+
+<style>
+    .sku-input { background-color: #1f2937; color: #fbbf24; font-family: monospace; font-size: 1.1em; font-weight: bold; border-color: #374151; }
+    
+    /* Quick Tags Wrapper: จัดให้ปุ่มอยู่เป็นกลุ่มก้อน ไม่กระจัดกระจาย */
+    .quick-tags-wrapper {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 8px; /* เว้นระยะจากช่องกรอก */
+        padding: 4px 0;
+    }
+    
+    /* ตัวปุ่ม Tag */
+    .quick-tag {
+        font-size: 0.85rem;
+        padding: 4px 10px;
+        background-color: #f3f4f6;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        color: #374151;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        user-select: none;
+    }
+    .quick-tag:hover {
+        background-color: #dbeafe;
+        color: #1d4ed8;
+        border-color: #93c5fd;
+        transform: translateY(-1px);
+    }
+    .quick-tag:active {
+        transform: translateY(0);
+        background-color: #2563eb;
+        color: #fff;
+    }
+</style>
+
 <main class="main" id="main-content">
   <div class="topbar">
-    <span><?= h($pageTitle) ?> <?= $id ? '(แก้ไข #' . (int)$id . ')' : '(เพิ่มรายการใหม่)' ?></span>
-    <a href="index.php?tab=used&page=<?= $currentPage ?>" class="view-site">← กลับรายการมือ 2</a>
+    <span><?= h($pageTitle) ?></span>
+    <a href="index.php?tab=used&page=<?= $currentPage ?>" class="view-site">← กลับ</a>
   </div>
 
   <?php if ($errors): ?>
-    <div class="alert alert-danger" style="margin-top:12px;">
-      <?php foreach ($errors as $e): ?><div><?= h($e) ?></div><?php endforeach; ?>
-    </div>
+    <div class="alert alert-danger" style="margin-top:12px;"><?= implode('<br>', $errors) ?></div>
   <?php endif; ?>
-
-  <style>
-    .restock-form .form-hint{grid-column:2/3;margin-top:6px;color:#6B7280;font-size:12px;line-height:1.35}
-    .sku-input {
-        background-color: #1f2937; 
-        color: #fbbf24; 
-        font-family: monospace; 
-        font-size: 1.1em; 
-        letter-spacing: 1px;
-        font-weight: bold;
-        border-color: #374151;
-    }
-  </style>
 
   <form id="usedForm" method="post" enctype="multipart/form-data" class="card restock-form" style="margin-top:16px;" novalidate>
     <input type="hidden" name="action" id="usedAction" value="save_used">
@@ -330,69 +217,71 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
       
       <div class="form-item">
         <label class="form-label">SKU / รหัสทรัพย์สิน</label>
-        <input type="text" name="used_sku" class="input sku-input" value="<?= h($item['used_sku']) ?>" readonly>
-        <small class="form-hint">ระบบสร้างให้อัตโนมัติ (U-ปีเดือน-Axxxx)</small>
+        <input type="text" id="used_sku_display" name="used_sku" class="input sku-input" 
+               value="<?= $id ? h($item['used_sku']) : "U-MB-{$currentYM}-A{$nextSeqStr}" ?>" readonly>
+        <small class="muted" style="font-size:0.8em; margin-top:4px;">ระบบสร้างให้อัตโนมัติ (รหัสเปลี่ยนตามหมวดหมู่)</small>
       </div>
 
       <div class="form-item">
-        <label class="form-label">รูป</label>
+        <label class="form-label">รูปภาพ</label>
         <div class="image-upload-ui" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
           <div id="uImgWrap" style="position:relative;width:100px;height:100px;border:1px dashed #cbd5e1;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fafafa;cursor:pointer;" title="คลิกหรือลากไฟล์มาวาง">
             <?php if (!empty($item['image_url'])): ?>
-              <img id="uImg" src="<?= h(img_src($item['image_url'])) ?>" alt="preview" style="width:100%;height:100%;object-fit:cover;">
-              <button type="button" id="uRemoveBtn" style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:#ef4444;color:#fff;border:0;cursor:pointer;font-weight:700;line-height:22px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.15);">×</button>
+              <img id="uImg" src="<?= h(img_src($item['image_url'])) ?>" style="width:100%;height:100%;object-fit:cover;">
+              <button type="button" id="uRemoveBtn" onclick="clearImage()" style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:#ef4444;color:#fff;border:0;cursor:pointer;font-weight:700;">×</button>
             <?php else: ?>
               <span id="uImgText" class="muted small">ลากรูปมาวาง</span>
-              <button type="button" id="uRemoveBtn" style="display:none;position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:#ef4444;color:#fff;border:0;cursor:pointer;font-weight:700;line-height:22px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.15);">×</button>
+              <button type="button" id="uRemoveBtn" onclick="clearImage()" style="display:none;position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:#ef4444;color:#fff;border:0;cursor:pointer;">×</button>
             <?php endif; ?>
           </div>
           <div style="display:flex;flex-direction:column;gap:8px;min-width:220px;">
             <label for="image" class="btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:8px;">เลือกรูปจากเครื่อง</label>
             <input type="file" name="image" id="image" accept=".jpg,.jpeg,.png,.webp" style="display:none">
-            <div class="muted small">รองรับ jpg, jpeg, png, webp ≤ 5MB</div>
           </div>
         </div>
       </div>
 
       <div class="form-item">
-        <label class="form-label" for="donor_id">เชื่อมกับเครื่อง (ถ้ามี)</label>
-        <input id="donor_id" name="donor_id" class="input filter-input" type="number" min="0" value="<?= h($item['donor_id']) ?>" placeholder="ID เครื่อง">
-        <small class="form-hint">ปล่อยว่างได้ หากชิ้นนี้ไม่ได้มาจากเครื่อง</small>
+        <label class="form-label">ชื่ออะไหล่ *</label>
+        <div style="display:flex; flex-direction:column;">
+            <input type="text" id="part_name" name="part_name" class="input" value="<?= h($item['part_name']) ?>" required placeholder="พิมพ์เอง หรือกดเลือก..." oninput="updateSkuPreview()">
+            
+            <div class="quick-tags-wrapper">
+                <?php foreach($commonParts as $cp): ?>
+                    <span class="quick-tag" onclick="fillPart('<?= h($cp) ?>')"><?= h($cp) ?></span>
+                <?php endforeach; ?>
+            </div>
+        </div>
       </div>
+
       <div class="form-item">
-        <label class="form-label" for="part_name">ชื่ออะไหล่</label>
-        <input id="part_name" name="part_name" class="input filter-input" value="<?= h($item['part_name']) ?>" placeholder="เช่น Top Case, Screen, Battery">
+        <label class="form-label">รุ่นอุปกรณ์</label>
+        <input type="text" id="device_models" name="device_models" class="input" value="<?= h($item['device_models']) ?>" placeholder="เช่น iPhone 13, A1708" oninput="updateSkuPreview()">
       </div>
+
       <div class="form-item">
-        <label class="form-label" for="part_code">รหัสอะไหล่ (ภายใน)</label>
-        <input id="part_code" name="part_code" class="input filter-input" value="<?= h($item['part_code']) ?>" placeholder="ถ้ามี ใช้ช่วยค้นหา">
+        <label class="form-label">หมวดหมู่</label>
+        <select name="category" id="category" class="input" onchange="updateSkuPreview()">
+            <?php foreach($categories as $cat): ?>
+                <option value="<?= h($cat) ?>" <?= $item['category']===$cat ? 'selected' : '' ?>><?= h($cat) ?></option>
+            <?php endforeach; ?>
+        </select>
       </div>
-      <div class="form-item">
-        <label class="form-label" for="part_number">เลขอะไหล่</label>
-        <input id="part_number" name="part_number" class="input filter-input" value="<?= h($item['part_number']) ?>" placeholder="เช่น 661-xxxx, Axxxx">
-      </div>
-      <div class="form-item">
-        <label class="form-label" for="device_models">รุ่นอุปกรณ์</label>
-        <input id="device_models" name="device_models" class="input filter-input" value="<?= h($item['device_models']) ?>" placeholder="เช่น A1706, A2159">
-      </div>
-      <div class="form-item">
-        <label class="form-label" for="category">หมวด</label>
-        <input id="category" name="category" class="input filter-input" value="<?= h($item['category']) ?>" placeholder="screen/battery/board/...">
-      </div>
-      <div class="form-item">
-        <label class="form-label" for="location">ที่เก็บ</label>
-        <input id="location" name="location" class="input filter-input" value="<?= h($item['location']) ?>" placeholder="เช่น main, shelf-A3">
-      </div>
+
+      <div class="form-item"><label class="form-label">เลขอะไหล่ (Part No.)</label><input name="part_number" class="input" value="<?= h($item['part_number']) ?>" placeholder="เช่น 661-xxxx"></div>
+      <div class="form-item"><label class="form-label">ที่เก็บ</label><input name="location" class="input" value="<?= h($item['location']) ?>" placeholder="เช่น ตู้กระจก"></div>
+      <div class="form-item"><label class="form-label">Donor ID (ถ้ามี)</label><input type="number" name="donor_id" class="input" value="<?= h($item['donor_id']) ?>" placeholder="ID เครื่อง"></div>
+      
       <div class="form-item" style="grid-column:1 / -1">
-        <label class="form-label" for="remarks">หมายเหตุ</label>
-        <textarea id="remarks" name="remarks" class="input filter-input" rows="3" placeholder="รายละเอียด/สภาพ/ที่มา ฯลฯ"><?= h($item['remarks']) ?></textarea>
+        <label class="form-label">หมายเหตุ</label>
+        <textarea name="remarks" class="input" rows="3"><?= h($item['remarks']) ?></textarea>
       </div>
 
       <div class="form-actions" style="grid-column:1 / -1">
-        <button class="btn-primary" type="submit"><?= $id ? 'บันทึกการแก้ไข' : 'เพิ่มชิ้นมือ 2' ?></button>
+        <button class="btn-primary" type="submit">บันทึก</button>
         <a class="btn-secondary" href="index.php?tab=used&page=<?= $currentPage ?>">ยกเลิก</a>
         <?php if ($id): ?>
-          <button type="button" class="btn-secondary" onclick="return deleteUsed();">ลบรายการ</button>
+          <button type="button" class="btn-secondary" onclick="deleteUsed()">ลบรายการ</button>
         <?php endif; ?>
       </div>
     </div>
@@ -402,60 +291,78 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 <?php include __DIR__ . '/../../templates/footer_admin.php'; ?>
 
 <script>
-  (function() {
-    var input = document.getElementById('image');
-    var wrap = document.getElementById('uImgWrap');
-    var remove = document.getElementById('uRemoveBtn');
-    var img = document.getElementById('uImg');
-    var rmField = document.getElementById('remove_image');
-    var existed = <?= json_encode(!empty($item['image_url'])) ?>;
+// Logic: จิ้มแล้วเติม
+function fillPart(val) {
+    const el = document.getElementById('part_name');
+    el.value = val;
+    updateSkuPreview();
+}
 
-    function showPreview(file) {
-      if (!file) return;
-      if (!/image\/(png|jpe?g|webp)/i.test(file.type)) { alert('ไฟล์ไม่ใช่รูปภาพที่รองรับ'); return; }
-      var reader = new FileReader();
-      reader.onload = function(e) {
-        if (!img) {
-          img = document.createElement('img');
-          img.id = 'uImg'; img.alt = 'preview';
-          img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
-        }
-        wrap.innerHTML = ''; wrap.appendChild(img); img.src = e.target.result;
-        if (!remove) {
-          remove = document.createElement('button');
-          remove.id = 'uRemoveBtn'; remove.type = 'button'; remove.textContent = '×';
-          remove.style.cssText = 'position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:#ef4444;color:#fff;border:0;cursor:pointer;font-weight:700;line-height:22px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.15);';
-          remove.addEventListener('click', clearImage);
-        }
-        wrap.appendChild(remove); remove.style.display = '';
-        if (rmField) rmField.value = 0;
-      };
-      reader.readAsDataURL(file);
-    }
-    function clearImage(e) {
-      if (e) e.stopPropagation();
-      if (input) input.value = '';
-      wrap.innerHTML = '<span id="uImgText" class="muted small">ลากรูปมาวาง</span>';
-      if (remove) { wrap.appendChild(remove); remove.style.display = 'none'; }
-      img = null;
-      if (rmField && existed) rmField.value = 1;
-    }
-    wrap.addEventListener('click', function(){ if (input) input.click(); });
-    wrap.addEventListener('dragover', function(e){ e.preventDefault(); wrap.style.borderColor = '#3b82f6'; });
-    wrap.addEventListener('dragleave', function(){ wrap.style.borderColor = '#cbd5e1'; });
-    wrap.addEventListener('drop', function(e){
-      e.preventDefault(); wrap.style.borderColor = '#cbd5e1';
-      var f = e.dataTransfer.files && e.dataTransfer.files[0];
-      if (f){ input.files = e.dataTransfer.files; showPreview(f); }
-    });
-    if (input) input.addEventListener('change', function(){ var f = input.files && input.files[0]; if (f) showPreview(f); });
-    if (remove) remove.addEventListener('click', clearImage);
-  })();
+// Logic: Preview SKU
+const isEditMode = <?= $id ? 'true' : 'false' ?>;
+const nextSeq = "<?= $nextSeqStr ?>";
+const currentYM = "<?= $currentYM ?>";
 
-  function deleteUsed(){
-    if(!confirm('ยืนยันลบรายการมือ 2 นี้ถาวร?')) return false;
-    document.getElementById('usedAction').value = 'delete_used';
-    document.getElementById('usedForm').submit();
-    return false;
-  }
+function updateSkuPreview() {
+    if (isEditMode) return; 
+
+    const name = document.getElementById('part_name').value.toLowerCase();
+    const model = document.getElementById('device_models').value.toLowerCase();
+    const cat = document.getElementById('category').value;
+    const text = name + ' ' + model + ' ' + cat.toLowerCase();
+
+    let prefix = 'MB'; 
+    if (text.includes('iphone')) prefix = 'IP';
+    else if (text.includes('ipad')) prefix = 'PD';
+    else if (text.includes('imac')) prefix = 'IM';
+    else if (text.includes('watch')) prefix = 'WA';
+    else if (text.includes('airpods')) prefix = 'AP';
+    else if (text.includes('pencil')) prefix = 'PE';
+    else if (text.includes('mac mini')) prefix = 'MM';
+    else if (text.includes('adapter') || text.includes('accessories')) prefix = 'AC';
+    
+    if (prefix === 'MB') { 
+        if(cat === 'iPhone') prefix = 'IP';
+        if(cat === 'iPad') prefix = 'PD';
+        if(cat === 'AirPods') prefix = 'AP';
+        if(cat === 'Apple Pencil') prefix = 'PE';
+        if(cat === 'Apple Watch') prefix = 'WA';
+        if(cat === 'Mac mini') prefix = 'MM';
+    }
+
+    document.getElementById('used_sku_display').value = `U-${prefix}-${currentYM}-A${nextSeq}`;
+}
+
+// Upload Logic
+var input = document.getElementById('image');
+var wrap = document.getElementById('uImgWrap');
+var rmField = document.getElementById('remove_image');
+
+function preview(f) {
+    if(!f) return;
+    var r = new FileReader();
+    r.onload = function(e) {
+        wrap.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;">` +
+                         `<button type="button" onclick="clearImage()" style="position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:#ef4444;color:#fff;border:0;font-weight:700;">×</button>`;
+        rmField.value = 0;
+    };
+    r.readAsDataURL(f);
+}
+input.addEventListener('change', function(){ if(input.files[0]) preview(input.files[0]); });
+wrap.addEventListener('click', function(e){ if(e.target.tagName!=='BUTTON') input.click(); });
+
+function clearImage() {
+    event.stopPropagation();
+    input.value = '';
+    wrap.innerHTML = '<span id="uImgText" class="muted small">ลากรูปมาวาง</span>';
+    rmField.value = 1;
+}
+
+function deleteUsed(){
+    if(confirm('ยืนยันลบ?')) {
+        const f = document.getElementById('usedForm');
+        const i = document.createElement('input'); i.type='hidden'; i.name='action'; i.value='delete_used';
+        f.appendChild(i); f.submit();
+    }
+}
 </script>

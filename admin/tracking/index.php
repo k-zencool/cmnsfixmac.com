@@ -1,531 +1,521 @@
 <?php
-
 /********************************************************************
  * admin/tracking/index.php
- *
- * ฉบับสมบูรณ์ (Final Ultimate Fixed - Date Logic Update):
- * - แก้ไข: แยก "นัดแจ้งราคา" กับ "นัดรับเครื่อง" ตามสถานะงาน
- * - แก้ไข: หัวตารางเปลี่ยนเป็น "กำหนดนัด" ให้สื่อความหมายตรง
- * - Style: ใช้ CSS แยกเหมือนเดิม
+ * หน้ารายการงานซ่อม (Tracking List) - Final Ultimate Fixed Layout
+ * Features:
+ * - Device Display: Type + Series (Top Line), Model (Bottom Line)
+ * - Loader Fix: Robust logic for navigation & back button
+ * - Filters: Group, Search, Date
  ********************************************************************/
 
-// =========================[ 0) SETUP & GUARD ]========================
-if (session_status() === PHP_SESSION_NONE) {
-    session_start();
-}
+session_start();
+// ตั้งเวลาไทย
+date_default_timezone_set('Asia/Bangkok');
 
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_login();
 
-$pageTitle = "ติดตามงานซ่อม";
+/* ======================= Helpers ======================= */
+function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
+function getv($k,$d=null){ return isset($_GET[$k]) ? trim($_GET[$k]) : $d; }
 
-// =========================[ 1) CONSTANTS / MAPS ]=====================
-$STATUS_LABELS = [
-    'QS'  => 'รอเช็คราคา',
-    'WC'  => 'รอคอนเฟิร์ม',
-    'OK'  => 'กำลังซ่อม',
-    'RW'  => 'งานแก้/เคลม',
-    'FN'  => 'ซ่อมเสร็จ (รอรับ)',
-    'DV'  => 'ส่งมอบแล้ว',
-    'NCF' => 'ติดต่อไม่ได้ (เสร็จ)',
-    'NCS' => 'ติดต่อไม่ได้ (เสนอ)',
-    'XX'  => 'ยกเลิก',
-    'RT'  => 'รับคืนแล้ว'
+// ฟังก์ชันตัด HTML Tags (แก้ปัญหา CKEditor แสดง tag รกๆ)
+function strip_html_content($text) {
+    if (!$text) return '-';
+    return trim(strip_tags(html_entity_decode($text)));
+}
+
+function get_pager(): array{
+  $per  = max(5, min(200, (int)getv('per', 20)));
+  $page = max(1, (int)getv('page', 1));
+  return [$per, $page, ($page-1)*$per];
+}
+function page_url($i){
+  $q = $_GET; $q['page'] = max(1,(int)$i);
+  return '?'.http_build_query($q);
+}
+
+/* ======================= State & Logic ======================= */
+$q = getv('q','');
+$dfrom = getv('date_from','');
+$dto = getv('date_to','');
+$group = getv('group', 'all'); 
+
+$statusFilter = isset($_GET['status']) ? (array)$_GET['status'] : [];
+
+$pageTitle = "รายการงานซ่อมทั้งหมด";
+
+// Auto Group Logic (ถ้าไม่ได้เลือกสถานะเอง ให้ใช้ Group จากเมนู)
+if (empty($statusFilter)) {
+    if ($group === 'active') {
+        $statusFilter = ['QS', 'WC', 'OK', 'RW'];
+        $pageTitle = "รายการกำลังดำเนินการ";
+    } elseif ($group === 'done') {
+        $statusFilter = ['FN'];
+        $pageTitle = "รายการซ่อมเสร็จ/รอรับ";
+    }
+}
+
+[$per,$page,$offset] = get_pager();
+
+/* ======================= Status Map ======================= */
+$statusMap = [
+    'QS'  => ['label'=>'รอเช็คราคา',      'class'=>'badge-amber'],
+    'WC'  => ['label'=>'รอคอนเฟิร์ม',     'class'=>'badge-blue'],
+    'OK'  => ['label'=>'กำลังซ่อม',       'class'=>'badge-purple'],
+    'RW'  => ['label'=>'งานแก้/เคลม',     'class'=>'badge-red'],
+    'FN'  => ['label'=>'ซ่อมเสร็จ (รอรับ)', 'class'=>'badge-green'],
+    'NCF' => ['label'=>'ติดต่อไม่ได้(เสร็จ)', 'class'=>'badge-gray'],
+    'NCS' => ['label'=>'ติดต่อไม่ได้(เสนอ)',  'class'=>'badge-gray'],
+    'XX'  => ['label'=>'ยกเลิก (รอรับคืน)', 'class'=>'badge-red'],
+    'DV'  => ['label'=>'ส่งมอบ (ซ่อมเสร็จ)', 'class'=>'badge-dark'],
+    'RT'  => ['label'=>'ยกเลิก (คืนแล้ว)',   'class'=>'badge-dark']
 ];
 
-$STATUS_COLORS = [
-    'QS'  => 'badge-blue',
-    'WC'  => 'badge-orange',
-    'OK'  => 'badge-amber',
-    'RW'  => 'badge-purple',
-    'FN'  => 'badge-green',
-    'DV'  => 'badge-black',
-    'NCF' => 'badge-red',
-    'NCS' => 'badge-orange',
-    'XX'  => 'badge-red',
-    'RT'  => 'badge-gray'
-];
-
-$DEVICE_TYPES = ['iPhone', 'iPad', 'MacBook', 'iMac', 'Apple Watch', 'AirPods', 'Notebook', 'PC', 'Other'];
-$FINISHED_STATUSES = ['FN', 'DV', 'XX', 'RT', 'NCF'];
-
-// =========================[ 2) HELPERS ]==============================
-function h($s)
-{
-    return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8');
-}
-function getv($k, $d = null)
-{
-    return isset($_GET[$k]) ? trim($_GET[$k]) : $d;
+/* ======================= Action: Delete ======================= */
+$msg = getv('msg','');
+if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['id'])) {
+    $delId = (int)$_POST['id'];
+    $pdo->prepare("DELETE FROM tracking WHERE id = ?")->execute([$delId]);
+    header("Location: index.php?msg=" . urlencode("ลบรายการเรียบร้อย"));
+    exit;
 }
 
-function getvArray($key, array $allowKeys = null): array
-{
-    $v = isset($_GET[$key]) ? $_GET[$key] : [];
-    if (!is_array($v)) $v = [];
-    if ($allowKeys !== null) return array_values(array_intersect($v, $allowKeys));
-    return array_values($v);
-}
-
-function whereSearch(string $q, array $cols, array &$params, string $pfx): ?string
-{
-    if ($q === '') return null;
-    $ors = [];
-    $i = 0;
-    foreach ($cols as $c) {
-        $ph = ":{$pfx}{$i}";
-        $ors[] = "$c LIKE $ph";
-        $params[$ph] = "%{$q}%";
-        $i++;
-    }
-    return '(' . implode(' OR ', $ors) . ')';
-}
-
-function whereIn(string $col, array $vals, array &$params, string $pfx): ?string
-{
-    if (empty($vals)) return null;
-    $in = [];
-    foreach ($vals as $i => $v) {
-        $ph = ":{$pfx}{$i}";
-        $params[$ph] = $v;
-        $in[] = $ph;
-    }
-    return "$col IN (" . implode(',', $in) . ")";
-}
-
-function get_pager(): array
-{
-    $per = max(5, min(200, (int)getv('per', 20)));
-    $page = max(1, (int)getv('page', 1));
-    $off = ($page - 1) * $per;
-    return [$per, $page, $off];
-}
-
-function page_url($i)
-{
-    $q = $_GET;
-    $q['page'] = max(1, (int)$i);
-    return '?' . http_build_query($q);
-}
-
-function getDaysRemaining($dateStr)
-{
-    if (!$dateStr) return null;
-    $today = new DateTime();
-    $today->setTime(0, 0, 0);
-    $target = new DateTime($dateStr);
-    $target->setTime(0, 0, 0);
-    $diff = $today->diff($target);
-    return (int)$diff->format('%r%a');
-}
-
-// =========================[ 3) STATE ]================================
-$q = getv('q', '');
-$filterStatus = getvArray('status', array_keys($STATUS_LABELS));
-$filterTypes  = getvArray('type');
-$dfrom = getv('date_from', '');
-$dto   = getv('date_to', '');
-$sort  = getv('sort', 'deadline_asc');
-
-[$per, $page, $offset] = get_pager();
-
-// =========================[ 4) LOAD DATA ]============================
-$jobs = [];
-$total = 0;
-$pages = 1;
-$params = [];
+/* ======================= Query Builder ======================= */
 $where = [];
+$params = [];
 
-// 4.1 Search
-if ($w = whereSearch($q, ['ticket_number', 'customer_name', 'customer_phone', 'device_model', 'problem_details', 'serial_number', 'technician_note'], $params, 'q')) {
-    $where[] = $w;
+if ($q) {
+    $where[] = "(ticket_number LIKE :q OR customer_name LIKE :q OR customer_phone LIKE :q OR serial_number LIKE :q)";
+    $params[':q'] = "%$q%";
 }
-// 4.2 Filter Status
-if ($w = whereIn('status', $filterStatus, $params, 'st')) {
-    $where[] = $w;
+if (!empty($statusFilter)) {
+    $in = [];
+    foreach($statusFilter as $i => $s) {
+        $key = ":s$i"; $in[] = $key; $params[$key] = $s;
+    }
+    $where[] = "status IN (" . implode(',', $in) . ")";
 }
-// 4.3 Filter Device Type
-if ($w = whereIn('device_type', $filterTypes, $params, 'dt')) {
-    $where[] = $w;
-}
-// 4.4 Filter Date
-if ($dfrom !== '') {
-    $where[] = "DATE(created_at) >= :df";
-    $params[':df'] = $dfrom;
-}
-if ($dto !== '') {
-    $where[] = "DATE(created_at) <= :dt";
-    $params[':dt'] = $dto;
-}
+if ($dfrom !== '') { $where[] = "DATE(created_at) >= :df"; $params[':df'] = $dfrom; }
+if ($dto   !== '') { $where[] = "DATE(created_at) <= :dt"; $params[':dt'] = $dto; }
 
-$where_sql = $where ? ("WHERE " . implode(' AND ', $where)) : "";
+$whereSql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 
-// 4.5 Count
-$stc = $pdo->prepare("SELECT COUNT(*) FROM tracking {$where_sql}");
-foreach ($params as $k => $v) $stc->bindValue($k, $v);
-$stc->execute();
-$total = (int)($stc->fetchColumn() ?: 0);
-$pages = max(1, (int)ceil($total / $per));
-if ($page > $pages) {
-    $page = $pages;
-    $offset = ($page - 1) * $per;
-}
+// Count Total
+$stmtCount = $pdo->prepare("SELECT COUNT(*) FROM tracking $whereSql");
+foreach($params as $k => $v) $stmtCount->bindValue($k, $v);
+$stmtCount->execute();
+$total = (int)($stmtCount->fetchColumn() ?: 0);
 
-// 4.6 Sort Logic
-$orderBy = "created_at DESC";
-switch ($sort) {
-    case 'deadline_asc':
-        $orderBy = "
-            CASE WHEN status IN ('FN', 'DV', 'XX', 'RT', 'NCF') THEN 1 ELSE 0 END ASC, 
-            (appointment_date IS NULL) ASC, 
-            appointment_date ASC, 
-            created_at DESC";
-        break;
-    case 'status_priority':
-        $orderBy = "
-            CASE status
-                WHEN 'RW' THEN 1 WHEN 'OK' THEN 2 WHEN 'QS' THEN 3 WHEN 'WC' THEN 4 
-                WHEN 'NCS' THEN 5 WHEN 'NCF' THEN 6 WHEN 'FN' THEN 7 WHEN 'DV' THEN 99 ELSE 8
-            END ASC, created_at DESC";
-        break;
-    case 'created_desc':
-        $orderBy = "created_at DESC";
-        break;
-    case 'created_asc':
-        $orderBy = "created_at ASC";
-        break;
-}
+// Pagination
+$pages = max(1, (int)ceil($total/$per));
+if ($page > $pages){ $page = $pages; $offset = ($page-1)*$per; }
 
-// 4.7 Fetch Data
-$sql = "
-    SELECT * FROM tracking
-    {$where_sql}
-    ORDER BY {$orderBy}
-    LIMIT :limit OFFSET :off
-";
+// Fetch Data (SELECT * เพื่อดึง device_series ด้วย)
+$sql = "SELECT * FROM tracking $whereSql ORDER BY created_at DESC LIMIT :limit OFFSET :off";
+$stmt = $pdo->prepare($sql);
+foreach($params as $k => $v) $stmt->bindValue($k, $v);
+$stmt->bindValue(':limit', $per, PDO::PARAM_INT);
+$stmt->bindValue(':off', $offset, PDO::PARAM_INT);
+$stmt->execute();
+$jobs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-$st = $pdo->prepare($sql);
-foreach ($params as $k => $v) $st->bindValue($k, $v);
-$st->bindValue(':limit', $per, PDO::PARAM_INT);
-$st->bindValue(':off', $offset, PDO::PARAM_INT);
-$st->execute();
-$jobs = $st->fetchAll(PDO::FETCH_ASSOC);
-
-// =========================[ 5) TEMPLATE ]=============================
 include __DIR__ . '/../../templates/header_admin.php';
 include __DIR__ . '/../../templates/sidebar_admin.php';
 ?>
 
-<link rel="stylesheet" href="assets/css/style.css?v=<?= time() ?>">
+<style>
+/* --- Badge Styles --- */
+.badge { 
+    padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: 600; 
+    display: inline-block; width: 140px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+    text-align: center; border: 1px solid transparent; 
+}
+.badge-amber { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+.badge-blue { background: #e0f2fe; color: #075985; border-color: #bae6fd; }
+.badge-purple { background: #f3e8ff; color: #6b21a8; border-color: #d8b4fe; }
+.badge-red { background: #fee2e2; color: #991b1b; border-color: #fecaca; }
+.badge-green { background: #dcfce7; color: #166534; border-color: #bbf7d0; }
+.badge-dark { background: #1f2937; color: #fff; border-color: #374151; }
+.badge-gray { background: #f3f4f6; color: #4b5563; border-color: #e5e7eb; }
+
+/* --- Table Text Styles --- */
+.job-link { font-family: monospace; font-weight: 700; color: #2563eb; text-decoration: none; font-size: 0.95rem; }
+.job-link:hover { text-decoration: underline; }
+.cust-info { line-height: 1.3; }
+.cust-name { font-weight: 600; color: #1e293b; display: block; }
+.cust-phone { font-size: 0.8rem; color: #64748b; }
+
+/* --- Device Info Styles (UPDATED) --- */
+.device-wrapper { line-height: 1.25; text-align: center; }
+.dev-top-line { font-size: 0.95rem; color: #1e293b; } /* บรรทัดบน */
+.dev-type { font-weight: 700; } /* ตัวหนา */
+.dev-series { font-weight: 400; color: #334155; margin-left: 4px; } /* ตัวปกติ */
+.dev-bottom-line { font-size: 0.8rem; color: #94a3b8; display: block; margin-top: 2px; } /* บรรทัดล่าง (Model) */
+
+.prob-text { font-size: 0.85rem; color: #ef4444; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: inline-block; vertical-align: bottom; }
+.sn-text { font-family: monospace; font-size: 0.85rem; color: #475569; display: block; }
+.pass-text { font-family: monospace; font-size: 0.85rem; color: #dc2626; font-weight: 600; display: block; margin-top: 2px; }
+
+/* --- Time Remaining Colors --- */
+.text-ok { color: #16a34a; font-weight: 600; font-size: 0.85rem; }
+.text-warn { color: #d97706; font-weight: 600; font-size: 0.85rem; }
+.text-danger { color: #dc2626; font-weight: 600; font-size: 0.85rem; }
+
+/* --- Row Highlights --- */
+.tr-done { background-color: #f8fafc; }
+.tr-done td { color: #94a3b8; }
+.tr-done .cust-name, .tr-done .dev-top-line, .tr-done .dev-series, .tr-done .dev-bottom-line, .tr-done .sn-text, .tr-done .pass-text, .tr-done .prob-text { color: #94a3b8 !important; }
+.tr-done a.job-link { color: #94a3b8 !important; text-decoration: line-through; }
+.tr-done .badge { opacity: 0.6; filter: grayscale(100%); }
+.tr-overdue { background-color: #fef2f2; } 
+.tr-today { background-color: #fff7ed; }
+
+/* --- Utils --- */
+.data-table th { white-space: nowrap; }
+.text-left { text-align: left !important; }
+.text-right { text-align: right !important; }
+.text-center { text-align: center !important; }
+
+/* --- Buttons --- */
+.btn-icon { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid #e2e8f0; background: white; color: #64748b; cursor: pointer; transition: all 0.2s; text-decoration: none; padding: 0; }
+.btn-icon:hover { background: #f8fafc; border-color: #cbd5e1; color: #0f172a; }
+.btn-icon.print:hover { color: #475569; border-color: #94a3b8; background: #f1f5f9; }
+.btn-icon.edit:hover { color: #2563eb; background: #eff6ff; border-color: #bfdbfe; }
+.btn-icon.del:hover { color: #ef4444; background: #fef2f2; border-color: #fecaca; }
+.material-symbols-rounded { font-size: 18px; line-height: 1; }
+
+/* --- Modal --- */
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); z-index: 1000; display: none; align-items: center; justify-content: center; opacity: 0; transition: opacity 0.2s ease-in-out; }
+.modal-overlay.show { display: flex; opacity: 1; }
+.modal-content { background: white; width: 90%; max-width: 400px; border-radius: 12px; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1); transform: scale(0.95); transition: transform 0.2s ease-in-out; overflow: hidden; }
+.modal-overlay.show .modal-content { transform: scale(1); }
+.modal-header { padding: 20px; text-align: center; background: #fef2f2; border-bottom: 1px solid #fee2e2; }
+.modal-icon { width: 50px; height: 50px; background: #fee2e2; color: #dc2626; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 10px auto; }
+.modal-title { font-size: 1.25rem; font-weight: 700; color: #991b1b; margin: 0; }
+.modal-body { padding: 25px 20px; text-align: center; color: #4b5563; font-size: 1rem; line-height: 1.5; }
+.modal-body strong { color: #1f2937; }
+.modal-footer { padding: 15px 20px; background: #f9fafb; border-top: 1px solid #f3f4f6; display: flex; gap: 10px; justify-content: center; }
+.btn-modal-cancel { padding: 8px 16px; border-radius: 6px; border: 1px solid #d1d5db; background: white; color: #374151; font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.btn-modal-cancel:hover { background: #f3f4f6; }
+.btn-modal-confirm { padding: 8px 16px; border-radius: 6px; border: none; background: #dc2626; color: white; font-weight: 600; cursor: pointer; box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05); transition: all 0.2s; }
+.btn-modal-confirm:hover { background: #b91c1c; }
+
+/* --- Loading Spinner --- */
+#global-loader { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 9999; flex-direction: column; align-items: center; justify-content: center; }
+.loader-spinner { border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin-bottom: 10px; }
+@keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+</style>
+
+<div id="global-loader">
+  <div class="loader-spinner"></div>
+  <div style="font-weight:600; color:#4b5563;">กำลังโหลด...</div>
+</div>
 
 <main class="main" id="main-content">
-    <div class="topbar">
-        <span><?= h($pageTitle) ?></span>
-        <a href="../../" class="view-site" target="_blank">ดูเว็บไซต์</a>
+  <div class="topbar">
+    <span><?= h($pageTitle) ?></span>
+    <a href="../../" class="view-site" target="_blank">ดูเว็บไซต์</a>
+  </div>
+
+  <div class="section-header">
+    <h2><?= h($pageTitle) ?></h2>
+    <div>
+        <a href="create.php" class="btn-primary" onclick="showLoader(event)">+ เปิดงานซ่อมใหม่</a>
     </div>
+  </div>
 
-    <div class="section-header">
-        <h2>รายการงานซ่อมทั้งหมด</h2>
-        <div><a href="create.php" class="btn-primary">+ เปิดงานซ่อมใหม่</a></div>
-    </div>
+  <?php if ($msg): ?><div class="alert alert-success"><?= h($msg) ?></div><?php endif; ?>
 
-    <form action="index.php" method="get" id="searchForm" class="search-and-filter-group">
-        <input class="filter-input" name="q" value="<?= h($q) ?>" placeholder="ค้นหา เลขงาน/ลูกค้า/Serial/อาการ...">
-
-        <select name="sort" class="filter-input" onchange="document.getElementById('searchForm').submit()" style="min-width: 180px;">
-            <option value="deadline_asc" <?= $sort === 'deadline_asc' ? 'selected' : '' ?>>งานด่วน (ใกล้กำหนดส่ง)</option>
-            <option value="status_priority" <?= $sort === 'status_priority' ? 'selected' : '' ?>>เรียงตามสถานะงาน</option>
-            <option value="created_desc" <?= $sort === 'created_desc' ? 'selected' : '' ?>>วันที่รับงาน (ใหม่ → เก่า)</option>
-            <option value="created_asc" <?= $sort === 'created_asc' ? 'selected' : '' ?>>วันที่รับงาน (เก่า → ใหม่)</option>
-        </select>
+  <form action="index.php" method="GET" class="search-form-bind" onsubmit="showLoader(event)">
+    <div class="search-and-filter-group">
+        <input class="filter-input" name="q" value="<?= h($q) ?>" placeholder="ค้นหา Job No. / ลูกค้า / เบอร์โทร...">
+        
+        <?php if($group != 'all'): ?><input type="hidden" name="group" value="<?= h($group) ?>"><?php endif; ?>
 
         <div class="filter-dropdown">
-            <button type="button" class="btn-secondary" onclick="toggleMenu('filterMenuJobs')">ตัวกรอง</button>
+          <button type="button" class="btn-secondary" onclick="toggleMenu('filterMenuTrack')">ตัวกรอง</button>
+          <div id="filterMenuTrack" class="filter-menu">
+            <div class="filter-section">
+              <div class="filter-title">สถานะงาน (Override)</div>
+              <?php foreach ($statusMap as $k => $v): $checked = in_array($k, $statusFilter) ? 'checked' : ''; ?>
+                <label class="checkline">
+                    <input type="checkbox" name="status[]" value="<?= $k ?>" <?= $checked ?>>
+                    <span><?= h($v['label']) ?></span>
+                </label>
+              <?php endforeach; ?>
+            </div>
+            <div class="filter-section">
+              <div class="filter-title">วันที่รับงาน</div>
+              <div class="range-inline">
+                <input type="date" name="date_from" value="<?= h($dfrom) ?>">
+                <span class="mx-4">ถึง</span>
+                <input type="date" name="date_to" value="<?= h($dto) ?>">
+              </div>
+            </div>
+            <div class="filter-actions">
+              <button type="button" class="btn-secondary" onclick="clearMenu('filterMenuTrack')">ล้างค่า</button>
+              <button type="submit" class="btn-primary">ค้นหา</button>
+            </div>
+          </div>
+        </div>
 
-            <div id="filterMenuJobs" class="filter-menu">
-                <div class="filter-section">
-                    <div class="filter-title">สถานะงาน</div>
-                    <?php foreach ($STATUS_LABELS as $key => $label):
-                        $checked = in_array($key, $filterStatus) ? 'checked' : '';
-                        $colorClass = $STATUS_COLORS[$key] ?? 'badge-gray';
-                        $dotColor = '#9ca3af';
-                        if (strpos($colorClass, 'blue') !== false) $dotColor = '#3b82f6';
-                        elseif (strpos($colorClass, 'amber') !== false) $dotColor = '#f59e0b';
-                        elseif (strpos($colorClass, 'orange') !== false) $dotColor = '#f97316';
-                        elseif (strpos($colorClass, 'green') !== false) $dotColor = '#10b981';
-                        elseif (strpos($colorClass, 'red') !== false) $dotColor = '#ef4444';
-                        elseif (strpos($colorClass, 'purple') !== false) $dotColor = '#8b5cf6';
-                        elseif (strpos($colorClass, 'black') !== false) $dotColor = '#1f2937';
-                    ?>
-                        <label class="checkline">
-                            <input type="checkbox" name="status[]" value="<?= h($key) ?>" <?= $checked ?>>
-                            <span style="width:8px; height:8px; border-radius:50%; background:<?= $dotColor ?>; display:inline-block; margin-right:6px;"></span>
-                            <span><?= h($label) ?></span>
-                        </label>
-                    <?php endforeach; ?>
+        <button class="btn-search">ค้นหา</button>
+        <?php if($q || !empty($_GET['status']) || $dfrom): ?>
+            <a href="index.php?group=<?= h($group) ?>" class="btn-secondary" style="color:#ef4444;" onclick="showLoader(event)">Reset</a>
+        <?php endif; ?>
+    </div>
+  </form>
+
+  <div class="table-container">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th width="110">Job No.</th>
+          <th width="90">วันที่รับ</th>
+          <th>ลูกค้า</th>
+          <th class="text-center">อุปกรณ์</th>
+          <th class="text-left">S/N & Pass</th>
+          <th>อาการเสีย</th>
+          <th width="100">กำหนดนัด</th>
+          <th width="90">เหลือเวลา</th> <th width="90" class="text-right">ราคา</th>
+          <th width="160" class="text-center">สถานะ</th>
+          <th width="130" class="text-center">จัดการ</th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php if(empty($jobs)): ?>
+          <tr><td colspan="11" class="text-center" style="padding:40px; color:#94a3b8;">ไม่พบข้อมูลงานซ่อม</td></tr>
+        <?php else: foreach($jobs as $row): 
+            $stCode = $row['status'] ?? 'QS';
+            $stData = $statusMap[$stCode] ?? ['label'=>$stCode, 'class'=>'badge-gray'];
+            $dateIn = date('d/m/y', strtotime($row['created_at']));
+            $dateApp = $row['appointment_date'] ? date('d/m/y', strtotime($row['appointment_date'])) : '-';
+            
+            $isDone = in_array($stCode, ['DV', 'RT']); 
+            
+            // Clean HTML
+            $cleanProblem = strip_html_content($row['problem_details']);
+            
+            $rowClass = '';
+            $timeText = '-';
+            $timeClass = '';
+            
+            if ($isDone) {
+                $rowClass = 'tr-done';
+            } else {
+                if (!empty($row['appointment_date'])) {
+                    $today = strtotime(date('Y-m-d'));
+                    $target = strtotime(date('Y-m-d', strtotime($row['appointment_date'])));
+                    $diff = $target - $today;
+                    $days = $diff / 86400;
+
+                    if ($days > 0) {
+                        $timeText = "อีก " . number_format($days) . " วัน";
+                        $timeClass = "text-ok";
+                    } elseif ($days == 0) {
+                        $timeText = "วันนี้";
+                        $timeClass = "text-warn";
+                        $rowClass = "tr-today"; 
+                    } else {
+                        $timeText = "เกิน " . number_format(abs($days)) . " วัน";
+                        $timeClass = "text-danger";
+                        $rowClass = "tr-overdue";
+                    }
+                }
+            }
+        ?>
+          <tr class="<?= $rowClass ?>">
+            <td>
+              <a href="edit.php?id=<?= $row['id'] ?>" class="job-link" onclick="showLoader(event)"><?= h($row['ticket_number']) ?></a>
+            </td>
+            <td class="muted"><?= $dateIn ?></td>
+            <td>
+                <div class="cust-info">
+                    <span class="cust-name"><?= h($row['customer_name']) ?></span>
+                    <span class="cust-phone"><?= h($row['customer_phone']) ?></span>
                 </div>
-
-                <div class="filter-section">
-                    <div class="filter-title">ประเภทเครื่อง</div>
-                    <?php foreach ($DEVICE_TYPES as $type):
-                        $checked = in_array($type, $filterTypes) ? 'checked' : '';
-                    ?>
-                        <label class="checkline">
-                            <input type="checkbox" name="type[]" value="<?= h($type) ?>" <?= $checked ?>>
-                            <span><?= h($type) ?></span>
-                        </label>
-                    <?php endforeach; ?>
-                </div>
-
-                <div class="filter-section">
-                    <div class="filter-title">วันที่รับงาน</div>
-                    <div class="range-inline">
-                        <input type="date" name="date_from" value="<?= h($dfrom) ?>">
-                        <span class="mx-2">-</span>
-                        <input type="date" name="date_to" value="<?= h($dto) ?>">
+            </td>
+            
+            <td class="text-center">
+                <div class="device-wrapper">
+                    <div class="dev-top-line">
+                        <span class="dev-type"><?= h($row['device_type']) ?></span>
+                        <span class="dev-series"><?= h($row['device_series'] ?? '') ?></span>
                     </div>
+                    <span class="dev-bottom-line"><?= h($row['device_model']) ?></span>
                 </div>
+            </td>
+            
+            <td class="text-left">
+                <span class="sn-text">SN: <?= h($row['serial_number']?:'-') ?></span>
+                <span class="pass-text">Pass: <?= h($row['device_password']?:'-') ?></span>
+            </td>
 
-                <div class="filter-actions">
-                    <button type="button" class="btn-secondary" onclick="clearMenu('filterMenuJobs')">ล้าง</button>
-                    <button type="submit" class="btn-primary">ค้นหา</button>
+            <td>
+              <span class="prob-text" title="<?= h($cleanProblem) ?>">
+                <?= h($cleanProblem) ?>
+              </span>
+            </td>
+            <td class="muted"><?= $dateApp ?></td>
+            
+            <td>
+                <span class="<?= $timeClass ?>"><?= $timeText ?></span>
+            </td>
+
+            <td class="text-right" style="font-weight:600;"><?= number_format($row['estimated_cost']) ?></td>
+            <td class="text-center">
+              <span class="badge <?= $stData['class'] ?>"><?= $stData['label'] ?></span>
+            </td>
+            
+            <td class="text-center">
+                <div style="display:flex; justify-content:center; gap:6px;">
+                    <a href="print_job.php?id=<?= $row['id'] ?>" target="_blank" class="btn-icon print" title="พิมพ์ใบรับซ่อม">
+                        <span class="material-symbols-rounded" style="font-size:18px;">print</span>
+                    </a>
+                    
+                    <a href="edit.php?id=<?= $row['id'] ?>" class="btn-icon edit" title="แก้ไข" onclick="showLoader(event)">
+                        <span class="material-symbols-rounded" style="font-size:18px;">edit</span>
+                    </a>
+                    
+                    <button type="button" class="btn-icon del" title="ลบ" 
+                        onclick="openDeleteModal(<?= $row['id'] ?>, '<?= h($row['ticket_number']) ?>')">
+                        <span class="material-symbols-rounded" style="font-size:18px;">delete</span>
+                    </button>
                 </div>
-            </div>
-        </div>
+            </td>
 
-        <input type="hidden" name="page" value="1">
-        <button type="submit" class="btn-search">ค้นหา</button>
-    </form>
+          </tr>
+        <?php endforeach; endif; ?>
+      </tbody>
+    </table>
+  </div>
 
-    <div class="table-container">
-        <table class="data-table">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th style="white-space: nowrap;">เลขที่ซ่อม</th>
-                    <th>ลูกค้า</th>
-                    <th style="text-align:center;">อุปกรณ์ / รุ่น</th>
-                    <th style="text-align:center;">Serial / Password</th>
-                    <th>อาการเสีย</th>
-                    <th>หมายเหตุ</th>
-                    <th style="text-align:center;">สถานะ</th>
-                    <th>กำหนดนัด</th>
-                    <th style="text-align:center;">เหลือเวลา</th>
-                    <th>ราคา</th>
-                    <th>จัดการ</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if ($jobs): foreach ($jobs as $i => $row):
-                        $badgeColor = $STATUS_COLORS[$row['status']] ?? 'badge-gray';
-                        $statusText = $STATUS_LABELS[$row['status']] ?? $row['status'];
-                        $daysLeft = getDaysRemaining($row['appointment_date']);
-                        $timeLeftBadge = '<span class="muted">-</span>';
-                        $isFinished = in_array($row['status'], $FINISHED_STATUSES);
-
-                        // Logic คำนวณ Badge เวลาที่เหลือ
-                        if (!$isFinished && $row['appointment_date']) {
-                            if ($daysLeft < 0) {
-                                $timeLeftBadge = '<span class="badge badge-red-outline">เกิน ' . abs($daysLeft) . ' วัน</span>';
-                            } elseif ($daysLeft == 0) {
-                                $timeLeftBadge = '<span class="badge badge-red-flash">วันนี้!</span>';
-                            } elseif ($daysLeft <= 2) {
-                                $timeLeftBadge = '<span class="badge badge-orange">อีก ' . $daysLeft . ' วัน</span>';
-                            } else {
-                                $timeLeftBadge = '<span class="badge badge-green">อีก ' . $daysLeft . ' วัน</span>';
-                            }
-                        } elseif ($row['status'] === 'FN') {
-                            $timeLeftBadge = '<span class="badge badge-green-outline">รอรับ</span>';
-                        } elseif ($row['status'] === 'DV') {
-                            $timeLeftBadge = '<span class="badge badge-gray-outline">จบงาน</span>';
-                        }
-
-                        // Logic แยกประเภทวันนัด (นัดแจ้งราคา หรือ นัดรับเครื่อง)
-                        $appointmentLabel = 'นัดรับเครื่อง'; // Default
-                        if (in_array($row['status'], ['QS', 'NCS'])) {
-                            $appointmentLabel = 'นัดแจ้งราคา';
-                        }
-                ?>
-                        <tr>
-                            <td><?= ($offset + $i + 1) ?></td>
-
-                            <td>
-                                <div style="font-family:monospace; font-weight:600; color:var(--primary-color); font-size:1.1em; line-height:1.2;">
-                                    <?= h($row['ticket_number']) ?>
-                                </div>
-                                <div class="muted" style="font-size:0.8em; color: #9ca3af; margin-top: 2px;">
-                                    <?= date('d/m/y H:i', strtotime($row['created_at'])) ?>
-                                </div>
-                            </td>
-
-                            <td>
-                                <strong><?= h($row['customer_name']) ?></strong>
-                                <div class="muted" style="font-size:0.85em;">
-                                    <span class="material-symbols-rounded" style="font-size:14px; vertical-align:text-bottom;">call</span>
-                                    <?= h($row['customer_phone']) ?>
-                                </div>
-                            </td>
-
-                            <td style="text-align: center;">
-                                <div style="font-weight: 600; color: #374151; margin-bottom: 4px;">
-                                    <?= h($row['device_type']) ?>
-                                </div>
-                                <span class="badge-model" title="<?= h($row['device_model']) ?>">
-                                    <?= h($row['device_model']) ?>
-                                </span>
-                            </td>
-
-                            <td style="text-align:left;">
-                                <div style="font-size:0.85em; color:#4b5563; font-family:monospace;">
-                                    <span style="color:#9ca3af;">SN:</span> <?= h($row['serial_number'] ?? '-') ?>
-                                </div>
-                                <div style="font-size:0.85em; font-family:monospace; margin-top:2px;">
-                                    <span style="color:#9ca3af;">PW:</span>
-                                    <span style="color:#ef4444; font-weight:bold;"><?= h($row['device_password'] ?? '-') ?></span>
-                                </div>
-                            </td>
-
-                            <td class="clickable-cell" onclick="openTextModal(this)" data-fulltext="<?= h($row['problem_details']) ?>" data-title="อาการเสีย">
-                                <div class="truncate-text"><?= h($row['problem_details']) ?></div>
-                            </td>
-
-                            <td class="clickable-cell" onclick="openTextModal(this)" data-fulltext="<?= h($row['technician_note']) ?>" data-title="หมายเหตุ">
-                                <div class="truncate-text" style="color:#6b7280; font-style:italic;">
-                                    <?= h($row['technician_note'] ?: '-') ?>
-                                </div>
-                            </td>
-
-                            <td style="text-align:center;"><span class="badge <?= $badgeColor ?>"><?= $statusText ?></span></td>
-
-                            <td>
-                                <?php if ($row['appointment_date']): ?>
-                                    <div style="font-size:0.75em; color:#6b7280; margin-bottom:2px;">
-                                        <?= $appointmentLabel ?>
-                                    </div>
-                                    <div style="font-weight:500;">
-                                        <?= date('d/m/Y', strtotime($row['appointment_date'])) ?>
-                                    </div>
-                                <?php else: ?>
-                                    <span class="muted">-</span>
-                                <?php endif; ?>
-                            </td>
-                            <td style="text-align:center; white-space:nowrap;"><?= $timeLeftBadge ?></td>
-                            <td><?= $row['estimated_cost'] > 0 ? number_format($row['estimated_cost']) : '<span class="muted">-</span>' ?></td>
-                            <td class="no-wrap">
-                                <a href="edit.php?id=<?= (int)$row['id'] ?>" class="btn-edit">
-                                    <span class="material-symbols-rounded" style="font-size:18px;">edit_document</span> แก้ไข
-                                </a>
-                            </td>
-                        </tr>
-                    <?php endforeach;
-                else: ?>
-                    <tr>
-                        <td colspan="12" class="text-center" style="padding:40px; color:#9ca3af;">
-                            <span class="material-symbols-rounded" style="font-size:48px; display:block; margin-bottom:10px;">search_off</span>
-                            ไม่พบงานซ่อมตามเงื่อนไข
-                        </td>
-                    </tr>
-                <?php endif; ?>
-            </tbody>
-        </table>
+  <div class="pager-bar">
+    <div class="pager-left">
+      <span class="pager-total">พบ <?= (int)$total ?> รายการ</span>
+      <span class="divider">•</span>
+      <span>หน้า <?= (int)$page ?> / <?= (int)$pages ?></span>
     </div>
+    <nav class="pager-nav">
+      <a class="page-btn <?= $page<=1?'is-disabled':''?>" href="<?= $page>1?page_url($page-1):'#'?>" onclick="showLoader(event)">‹</a>
+      <?php 
+      $start=max(1,$page-2); $end=min($pages,$page+2);
+      if($start>1) echo '<span class="page-ellipsis">…</span>';
+      for($i=$start;$i<=$end;$i++): ?>
+        <a class="page-btn <?= $i==$page?'is-active':''?>" href="<?= page_url($i) ?>" onclick="showLoader(event)"><?= $i ?></a>
+      <?php endfor; 
+      if($end<$pages) echo '<span class="page-ellipsis">…</span>'; ?>
+      <a class="page-btn <?= $page>=$pages?'is-disabled':''?>" href="<?= $page<$pages?page_url($page+1):'#'?>" onclick="showLoader(event)">›</a>
+      <div class="page-size">
+        <select id="ppSelect" class="pager-select">
+          <?php foreach([20,50,100] as $pp): ?>
+            <option value="<?= $pp ?>" <?= (int)$per===$pp?'selected':'' ?>><?= $pp ?>/หน้า</option>
+          <?php endforeach; ?>
+        </select>
+      </div>
+    </nav>
+  </div>
 
-    <div class="pager-bar">
-        <div class="pager-left">
-            <span class="pager-total">พบ <?= number_format($total) ?> รายการ</span>
-            <span class="divider">•</span>
-            <span>หน้า <?= (int)$page ?> / <?= (int)$pages ?></span>
+  <div id="deleteModal" class="modal-overlay">
+    <div class="modal-content">
+        <div class="modal-header">
+            <div class="modal-icon">
+                <span class="material-symbols-rounded" style="font-size: 32px;">warning</span>
+            </div>
+            <h3 class="modal-title">ยืนยันการลบ?</h3>
         </div>
-        <nav class="pager-nav">
-            <a class="page-btn <?= $page <= 1 ? 'is-disabled' : '' ?>" href="<?= $page > 1 ? page_url($page - 1) : '#' ?>">‹</a>
-            <?php
-            $start = max(1, $page - 2);
-            $end = min($pages, $page + 2);
-            if ($start > 1) echo '<span class="page-ellipsis">…</span>';
-            for ($i = $start; $i <= $end; $i++): ?>
-                <a class="page-btn <?= $i == $page ? 'is-active' : '' ?>" href="<?= page_url($i) ?>"><?= $i ?></a>
-            <?php endfor;
-            if ($end < $pages) echo '<span class="page-ellipsis">…</span>'; ?>
-            <a class="page-btn <?= $page >= $pages ? 'is-disabled' : '' ?>" href="<?= $page < $pages ? page_url($page + 1) : '#' ?>">›</a>
-            <div class="page-size">
-                <select id="ppSelect" class="pager-select">
-                    <?php foreach ([20, 50, 100] as $pp): ?><option value="<?= $pp ?>" <?= (int)$per === $pp ? 'selected' : '' ?>><?= $pp ?>/หน้า</option><?php endforeach; ?>
-                </select>
-            </div>
-        </nav>
-    </div>
-
-    <div id="textModal" class="modal-overlay" aria-hidden="true" onclick="closeTextModal(event)">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="modalTitle">รายละเอียด</h3>
-                <button type="button" class="close-btn" onclick="closeTextModal()">✕</button>
-            </div>
-            <div class="modal-body" id="modalTextContent"></div>
+        <div class="modal-body">
+            คุณต้องการลบรายการ <strong id="delTicketNum">...</strong> ใช่หรือไม่?<br>
+            <span style="font-size:0.9em; color:#ef4444;">การกระทำนี้ไม่สามารถย้อนกลับได้</span>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn-modal-cancel" onclick="closeDeleteModal()">ยกเลิก</button>
+            <form method="post" id="deleteForm" onsubmit="showLoader(event)">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="id" id="delInputId" value="">
+                <button type="submit" class="btn-modal-confirm">ลบรายการ</button>
+            </form>
         </div>
     </div>
+  </div>
 
 </main>
 
 <?php include __DIR__ . '/../../templates/footer_admin.php'; ?>
 
 <script>
-    function toggleMenu(id) {
-        var m = document.getElementById(id);
-        if (m) m.classList.toggle('show');
-    }
+  // Robust Loader
+  function showLoader(e) {
+      if (e && (e.metaKey || e.ctrlKey || e.shiftKey)) return;
+      
+      const target = e.currentTarget || e.target;
+      if (target.tagName === 'A' && (target.getAttribute('href') === '#' || target.getAttribute('href') === 'javascript:void(0)')) return;
 
-    function clearMenu(id) {
-        var root = document.getElementById(id);
-        if (!root) return;
-        root.querySelectorAll('input[type="checkbox"]').forEach(el => el.checked = false);
-        root.querySelectorAll('input[type="date"]').forEach(el => el.value = '');
-    }
-    document.addEventListener('click', function(e) {
-        var dd = e.target.closest ? e.target.closest('.filter-dropdown') : null;
-        document.querySelectorAll('.filter-menu.show').forEach(function(m) {
-            if (!dd || !dd.contains(m)) m.classList.remove('show');
-        });
+      document.getElementById('global-loader').style.display = 'flex';
+      
+      // Auto Hide (Safety)
+      setTimeout(function(){
+          document.getElementById('global-loader').style.display = 'none';
+      }, 5000);
+  }
+
+  // Hide on Back Button / Page Show
+  window.addEventListener('pageshow', function(event) {
+      document.getElementById('global-loader').style.display = 'none';
+  });
+
+  // Filter
+  function toggleMenu(id){ var m=document.getElementById(id); if(m) m.classList.toggle('show'); }
+  function clearMenu(id){
+    var root=document.getElementById(id); if(!root) return;
+    root.querySelectorAll('input[type="checkbox"]').forEach(el=>el.checked=false);
+    root.querySelectorAll('input[type="date"]').forEach(el=>el.value='');
+  }
+  document.addEventListener('click', function(e){
+    var dd = e.target.closest('.filter-dropdown');
+    if(!dd) document.querySelectorAll('.filter-menu.show').forEach(m => m.classList.remove('show'));
+  });
+
+  // Modal
+  function openDeleteModal(id, ticket) {
+      document.getElementById('delInputId').value = id;
+      document.getElementById('delTicketNum').innerText = ticket;
+      
+      const modal = document.getElementById('deleteModal');
+      modal.style.display = 'flex';
+      modal.offsetHeight; // trigger reflow
+      modal.classList.add('show');
+  }
+  function closeDeleteModal() {
+      const m = document.getElementById('deleteModal');
+      m.classList.remove('show');
+      setTimeout(() => { m.style.display = 'none'; }, 200); 
+  }
+  document.getElementById('deleteModal').addEventListener('click', function(e) {
+      if (e.target === this) closeDeleteModal();
+  });
+
+  // Pagination Select
+  (function(){
+    const sel=document.getElementById('ppSelect'); if(!sel) return;
+    sel.addEventListener('change',function(){
+      showLoader();
+      const u=new URL(location.href);
+      u.searchParams.set('per',this.value);
+      u.searchParams.set('page','1');
+      location=u.toString();
     });
+  })();
 
-    function openTextModal(element) {
-        var text = element.getAttribute('data-fulltext');
-        var title = element.getAttribute('data-title') || 'รายละเอียด';
-        if (!text || text === '-') return;
-        document.getElementById('modalTextContent').innerText = text;
-        document.getElementById('modalTitle').innerText = title;
-        var modal = document.getElementById('textModal');
-        modal.classList.add('show');
-        modal.setAttribute('aria-hidden', 'false');
-    }
-
-    function closeTextModal(e) {
-        if (e && e.target !== e.currentTarget && !e.target.classList.contains('close-btn')) return;
-        var modal = document.getElementById('textModal');
-        modal.classList.remove('show');
-        modal.setAttribute('aria-hidden', 'true');
-    }
-    document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape') {
-            var modal = document.getElementById('textModal');
-            if (modal && modal.classList.contains('show')) closeTextModal();
-        }
+  // Arrow Keys
+  (function(){
+    document.addEventListener('keydown',function(e){
+      if(e.altKey||e.metaKey||e.ctrlKey) return;
+      if(document.activeElement.tagName === 'INPUT') return;
+      if(e.key==='ArrowRight') { const next = document.querySelector('.page-btn[href*="page="]:not(.is-disabled):last-of-type'); if(next) { showLoader(); next.click(); } }
+      if(e.key==='ArrowLeft')  { const prev = document.querySelector('.page-btn[href*="page="]:not(.is-disabled):first-of-type'); if(prev) { showLoader(); prev.click(); } }
     });
-
-    (function() {
-        const sel = document.getElementById('ppSelect');
-        if (!sel) return;
-        sel.addEventListener('change', function() {
-            const u = new URL(location.href);
-            u.searchParams.set('per', this.value);
-            u.searchParams.set('page', '1');
-            location = u.toString();
-        });
-        document.addEventListener('keydown', function(e) {
-            if (e.altKey || e.metaKey || e.ctrlKey || e.target.tagName === 'INPUT') return;
-            if (e.key === 'ArrowRight') document.querySelector('.page-btn[rel="next"]')?.click();
-            if (e.key === 'ArrowLeft') document.querySelector('.page-btn[rel="prev"]')?.click();
-        });
-    })();
+  })();
 </script>

@@ -1,6 +1,10 @@
 <?php
 /********************************************************************
  * admin/parts/form.php  (มือ 1)
+ * Update: 
+ * - Show SKU field (Readonly)
+ * - Smart SKU Generation (P-{TYPE}-{YYYYMM}-Axxxx)
+ * - Show Generated SKU in success message
  ********************************************************************/
 
 session_start();
@@ -57,32 +61,60 @@ function normalize_local_image($v): string {
 }
 function is_local_image($v): bool { return normalize_local_image($v) !== ''; }
 
-/* ---------------- genPartCode ---------------- */
-function genPartCode(PDO $pdo): string {
-  for ($i=0;$i<5;$i++){
-    $c = 'AUTO-'.date('Ymd-His').'-'.substr(bin2hex(random_bytes(3)),0,6);
-    $st=$pdo->prepare("SELECT 1 FROM parts_new WHERE part_code=? LIMIT 1");
-    $st->execute([$c]);
-    if (!$st->fetch()) return $c;
-    usleep(120000);
-  }
-  return 'AUTO-'.date('Ymd-His').'-'.substr(bin2hex(random_bytes(6)),0,12);
+/* ---------------- SMART SKU LOGIC ---------------- */
+function detectPrefix($name, $model) {
+    $text = strtolower($name . ' ' . $model);
+    if (strpos($text, 'iphone') !== false) return 'IP';
+    if (strpos($text, 'ipad') !== false)   return 'PD';
+    if (strpos($text, 'imac') !== false)   return 'IM';
+    if (strpos($text, 'watch') !== false)  return 'WA';
+    return 'MB'; // Default = MacBook/Other
 }
 
-/* ---------------- บันทึกเอกสาร ADJUST ---------------- */
+function genSmartSKU(PDO $pdo, string $partName, string $deviceModel): string {
+    $prefix = detectPrefix($partName, $deviceModel);
+    $ym = date('Ym'); 
+
+    // หาเลข Axxxx สูงสุดที่มีอยู่ในระบบ (Global Running)
+    $stmt = $pdo->query("SELECT part_code FROM parts_new WHERE part_code LIKE 'P-%-A%'");
+    $codes = $stmt->fetchAll(PDO::FETCH_COLUMN);
+
+    $maxSeq = 0;
+    foreach ($codes as $c) {
+        if (preg_match('/-A(\d+)$/', $c, $m)) {
+            $val = (int)$m[1];
+            if ($val > $maxSeq) $maxSeq = $val;
+        }
+    }
+
+    $nextSeq = $maxSeq + 1;
+
+    // ลอง Gen และเช็คซ้ำ
+    for ($i=0; $i<10; $i++) {
+        $sku = sprintf("P-%s-%s-A%04d", $prefix, $ym, $nextSeq);
+        
+        $chk = $pdo->prepare("SELECT 1 FROM parts_new WHERE part_code = ? LIMIT 1");
+        $chk->execute([$sku]);
+        
+        if (!$chk->fetch()) return $sku; // ไม่ซ้ำ ใช้ได้เลย
+        
+        $nextSeq++; // ถ้าซ้ำ ให้บวกเพิ่มแล้ววนใหม่
+    }
+
+    // Fallback กรณีซ้ำรัวๆ (ไม่ควรเกิด)
+    return 'P-' . $prefix . '-' . date('YmdHis');
+}
+
+/* ---------------- LOG ADJUST ---------------- */
 function log_adjust(PDO $pdo, int $user_id, string $location, string $part_code, int $delta): int {
   $remarks = "manual adjust (@{$location})";
   if (strlen($remarks) > 255) $remarks = substr($remarks, 0, 255);
-
   $pdo->prepare("INSERT INTO parts_docs (doc_type, ref_no, remarks, user_id, created_at) VALUES ('ADJUST', NULL, ?, ?, NOW())")->execute([$remarks, $user_id]);
   $doc_id = (int)$pdo->lastInsertId();
-
   $pdo->prepare("INSERT INTO parts_doc_lines (doc_id, part_code, qty, location_from, location_to, unit_cost) VALUES (?, ?, ?, ?, ?, NULL)")->execute([$doc_id, $part_code, $delta, $delta<0 ? $location : NULL, $delta>0 ? $location : NULL]);
-
   return $doc_id;
 }
 
-// [ADDED] Logic หาเลขหน้าแบบฉลาด (Copy มาจาก form_used.php)
 $currentPage = 1;
 if (isset($_POST['page']) && is_numeric($_POST['page'])) {
     $currentPage = (int)$_POST['page'];
@@ -99,11 +131,10 @@ if (isset($_POST['page']) && is_numeric($_POST['page'])) {
 }
 $currentPage = max(1, $currentPage);
 
-
 /* ---------------- UI base ---------------- */
 $categories = ['MacBook','iMac','iPhone','iPad','Apple Watch','Other'];
 
-/* ---------------- load (edit) ---------------- */
+/* ---------------- load ---------------- */
 $pc = isset($_GET['part_code']) ? trim($_GET['part_code']) : '';
 
 $meta = [
@@ -126,7 +157,6 @@ if ($pc!=='') {
   $meta['min_stock'] = (int)$st->fetchColumn();
 }
 
-/* ---------------- โหลดยอดตามโลเคชัน ---------------- */
 $locations=[];
 if ($meta['part_code']!=='') {
   $st=$pdo->prepare("SELECT location, SUM(quantity) AS qty FROM parts_new WHERE part_code=? GROUP BY location ORDER BY location");
@@ -134,7 +164,6 @@ if ($meta['part_code']!=='') {
   $locations=$st->fetchAll(PDO::FETCH_ASSOC);
 }
 
-/* ---------------- datalist โลเคชัน ---------------- */
 $knownLocs=[];
 foreach($locations as $r){
   $L = isset($r['location'])? trim((string)$r['location']) : '';
@@ -142,7 +171,6 @@ foreach($locations as $r){
 }
 if (!in_array('main',$knownLocs,true)) $knownLocs[]='main';
 
-/* ---------------- เดาโลเคชัน/ยอดเริ่ม ---------------- */
 $curLoc='main'; $curQty=0;
 if (!empty($locations)) {
   $curLoc = $locations[0]['location']; $curQty=(int)$locations[0]['qty'];
@@ -155,9 +183,7 @@ if (!empty($locations)) {
 $errors=[];
 
 if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='delete') {
-  // [ADDED] รับค่า page สำหรับ redirect
   $redirectPage = isset($_POST['page']) ? (int)$_POST['page'] : 1;
-
   $del_code = trim($_POST['del_code'] ?? '');
   if ($del_code==='') $errors[]="ไม่พบรหัสที่จะลบ";
   else {
@@ -170,7 +196,6 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='delete') {
       $pdo->prepare("DELETE FROM parts_new WHERE part_code=?")->execute([$del_code]);
       $pdo->commit();
       
-      // [MODIFIED] ส่ง page กลับไปด้วย
       header("Location: index.php?tab=new&page={$redirectPage}&msg=".urlencode("ลบ {$del_code} แล้ว"));
       exit;
     }catch(Throwable $e){
@@ -181,7 +206,6 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='delete') {
 }
 
 if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='save_all') {
-  // [ADDED] รับค่า page สำหรับ redirect
   $redirectPage = isset($_POST['page']) ? (int)$_POST['page'] : 1;
 
   $old_code      = trim($_POST['existing_code'] ?? '');
@@ -215,61 +239,45 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='save_all') 
     if ($st->fetch(PDO::FETCH_ASSOC)) $errors[]="เลขอะไหล่นี้ถูกใช้แล้วโดยรายการอื่น";
   }
 
-  /* -------- อัปโหลด/ลบรูป -------- */
   $old_image   = $meta['image_url'] ?? null;
   $want_remove = isset($_POST['remove_image']) && $_POST['remove_image']=='1';
   $new_image   = null;
 
   if (!empty($_FILES['image']['name'])) {
     $f = $_FILES['image'];
-    $errmap = [
-      UPLOAD_ERR_INI_SIZE   => 'ขนาดไฟล์เกิน upload_max_filesize',
-      UPLOAD_ERR_FORM_SIZE  => 'ขนาดไฟล์เกิน MAX_FILE_SIZE',
-      UPLOAD_ERR_PARTIAL    => 'อัปโหลดไฟล์มาไม่ครบ',
-      UPLOAD_ERR_NO_FILE    => 'ไม่ได้เลือกไฟล์',
-      UPLOAD_ERR_NO_TMP_DIR => 'เซิร์ฟเวอร์ไม่มีโฟลเดอร์ temp',
-      UPLOAD_ERR_CANT_WRITE => 'เขียนไฟล์ลงดิสก์ไม่ได้',
-      UPLOAD_ERR_EXTENSION  => 'ส่วนขยาย PHP บล็อกไว้',
-    ];
     if ($f['error'] !== UPLOAD_ERR_OK) {
-      if ($f['error'] !== UPLOAD_ERR_NO_FILE) {
-        $errors[] = 'อัปโหลดรูปผิดพลาด: ' . ($errmap[$f['error']] ?? ('code '.$f['error']));
-      }
+        if ($f['error'] !== UPLOAD_ERR_NO_FILE) $errors[] = 'อัปโหลดรูปผิดพลาด Code: '.$f['error'];
     } else {
       $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
-      $allowed = ['jpg','jpeg','png','webp'];
-      if (!in_array($ext, $allowed, true)) {
-        $errors[] = "ไฟล์รูปต้องเป็น jpg, jpeg, png หรือ webp";
-      } elseif ($f['size'] > 5*1024*1024) {
-        $errors[] = "ไฟล์รูปใหญ่เกิน 5MB";
-      } elseif (!is_uploaded_file($f['tmp_name'])) {
-        $errors[] = "ระบบไม่พบไฟล์อัปโหลด";
-      } else {
+      if (!in_array($ext, ['jpg','jpeg','png','webp'])) $errors[] = "รองรับเฉพาะ jpg, png, webp";
+      elseif ($f['size'] > 5*1024*1024) $errors[] = "ไฟล์ใหญ่เกิน 5MB";
+      elseif (!is_uploaded_file($f['tmp_name'])) $errors[] = "ไม่พบไฟล์";
+      else {
         $new = safeUploadName($f['name']);
-        if (!@move_uploaded_file($f['tmp_name'], UPLOAD_DIR . $new)) {
-          $errors[] = "อัปโหลดรูปไม่สำเร็จ: เขียนไฟล์ลง " . UPLOAD_DIR . " ไม่ได้";
-        } else {
+        if (@move_uploaded_file($f['tmp_name'], UPLOAD_DIR . $new)) {
           @chmod(UPLOAD_DIR . $new, 0644);
           $new_image = $new;
+        } else {
+          $errors[] = "เขียนไฟล์ไม่สำเร็จ";
         }
       }
     }
   }
 
-  $imgMode  = 'keep';
+  $imgMode = 'keep';
   $imgValue = null;
-  if ($new_image) {
-    $imgMode = 'set';
-    $imgValue = $new_image;
-  } elseif ($want_remove) {
-    $imgMode = 'clear';
-  }
+  if ($new_image) { $imgMode = 'set'; $imgValue = $new_image; }
+  elseif ($want_remove) { $imgMode = 'clear'; }
 
   if (!$errors){
     try{
       $pdo->beginTransaction();
 
-      if ($part_code==='') $part_code = genPartCode($pdo);
+      // [Generate SKU] ถ้าเป็นของใหม่ ให้เจนรหัส
+      $isNew = ($part_code === '');
+      if ($isNew) {
+        $part_code = genSmartSKU($pdo, $part_name, $device_models);
+      }
 
       if ($imgMode === 'set') $imgForInsert = $imgValue;
       elseif ($imgMode === 'clear') $imgForInsert = null;
@@ -320,8 +328,9 @@ if ($_SERVER['REQUEST_METHOD']==='POST' && ($_POST['action']??'')==='save_all') 
 
       $pdo->commit();
       
-      // [MODIFIED] ส่ง page กลับไปด้วย
-      header("Location: index.php?tab=new&page={$redirectPage}&msg=".urlencode("บันทึกเรียบร้อย"));
+      // [Success Message] บอกเลข SKU ในข้อความแจ้งเตือน
+      $msgText = $isNew ? "เพิ่มสำเร็จ! รหัสสินค้าคือ {$part_code}" : "บันทึกเรียบร้อย ({$part_code})";
+      header("Location: index.php?tab=new&page={$redirectPage}&msg=".urlencode($msgText));
       exit;
     }catch(Throwable $e){
       if ($pdo->inTransaction()) $pdo->rollBack();
@@ -355,50 +364,21 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     </div>
   <?php endif; ?>
 
-  <?php if ($meta['part_code']): ?>
-  <section class="card part-summary" style="margin-top:16px;">
-    <?php $img=img_src($meta['image_url']??''); ?>
-    <div class="part-summary__media">
-      <?php if ($img): ?>
-        <img src="<?= h($img) ?>" class="part-summary__img" alt="">
-      <?php else: ?>
-        <div class="part-summary__placeholder">ไม่มีรูป</div>
-      <?php endif; ?>
-    </div>
-    <div class="part-summary__body">
-      <strong class="part-summary__title"><?= h($meta['part_name'] ?: $meta['part_code']) ?></strong>
-      <div class="muted small">เลข: <?= h($meta['part_number'] ?? '—') ?> | หมวด: <?= h($meta['category']) ?></div>
-      <div class="muted small">รุ่น: <?= h($meta['device_models']) ?></div>
-      <?php
-        $locRows=[];
-        if ($meta['part_code']!==''){
-          $st=$pdo->prepare("SELECT location,SUM(quantity) qty FROM parts_new WHERE part_code=? GROUP BY location ORDER BY location");
-          $st->execute([$meta['part_code']]);
-          $locRows=$st->fetchAll(PDO::FETCH_ASSOC);
-        }
-      ?>
-      <?php if (!empty($locRows)): ?>
-        <div class="chips" style="margin-top:6px">
-          <?php foreach($locRows as $l): ?>
-            <span class="badge"><?= h($l['location']) ?>: <?= (int)$l['qty'] ?></span>
-          <?php endforeach; ?>
-        </div>
-      <?php endif; ?>
-    </div>
-  </section>
-  <?php endif; ?>
-
   <form id="mainForm" method="post" enctype="multipart/form-data" class="card restock-form" style="margin-top:16px;" novalidate>
     <input type="hidden" name="action" id="actionField" value="save_all">
     <input type="hidden" name="existing_code" value="<?= h($meta['part_code']) ?>">
     <input type="hidden" name="del_code" id="del_codeField" value="">
     <input type="hidden" name="remove_image" id="remove_image" value="0">
-    
     <input type="hidden" name="page" value="<?= $currentPage ?>">
 
     <div class="form-grid">
       <div class="form-item">
-        <label class="form-label">รูป</label>
+        <label class="form-label" style="font-weight:bold; color:#374151;">รหัสสินค้า (SKU)</label>
+        <input class="input filter-input" value="<?= $meta['part_code'] ? h($meta['part_code']) : '(ระบบจะสร้างอัตโนมัติ: P-XX-YYYYMM-Axxxx)' ?>" readonly style="background-color:#f3f4f6; color:#6b7280; cursor:not-allowed; border-color:#e5e7eb; font-family:monospace; font-weight:600;">
+      </div>
+
+      <div class="form-item">
+        <label class="form-label">รูปภาพ</label>
         <div class="image-upload-ui" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
           <div id="imgPreviewWrap" style="position:relative;width:120px;height:120px;border:1px dashed #cbd5e1;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fafafa;cursor:pointer;" title="คลิกหรือลากไฟล์มาวาง">
             <?php if (!empty($meta['image_url'])): ?>
@@ -413,7 +393,6 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
             <label for="image" class="btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:8px;">เลือกรูปจากเครื่อง</label>
             <input type="file" name="image" id="image" accept=".jpg,.jpeg,.png,.webp" style="display:none">
             <div class="muted small">รองรับ jpg, jpeg, png, webp ≤ 5MB</div>
-            <div class="muted small">กดปุ่ม × เพื่อลบรูปปัจจุบัน</div>
           </div>
         </div>
       </div>
@@ -429,12 +408,12 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
       </div>
 
       <div class="form-item">
-        <label class="form-label" for="device_models">รุ่น</label>
-        <input id="device_models" name="device_models" class="input filter-input" value="<?= h($meta['device_models']) ?>" placeholder="เช่น A1706, A1708">
+        <label class="form-label" for="device_models">รุ่นที่รองรับ</label>
+        <input id="device_models" name="device_models" class="input filter-input" value="<?= h($meta['device_models']) ?>" placeholder="เช่น A1706, A1708 (มีผลต่อรหัส SKU)">
       </div>
 
       <div class="form-item">
-        <label class="form-label" for="category">หมวด</label>
+        <label class="form-label" for="category">หมวดหมู่</label>
         <select id="category" name="category" class="input filter-input">
           <?php foreach($categories as $c): ?>
             <option value="<?= h($c) ?>" <?= $meta['category']===$c ? 'selected' : '' ?>><?= h($c) ?></option>
@@ -443,12 +422,12 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
       </div>
 
       <div class="form-item">
-        <label class="form-label" for="min_stock">ขั้นต่ำ (เตือน)</label>
+        <label class="form-label" for="min_stock">ขั้นต่ำ (แจ้งเตือน)</label>
         <input type="number" id="min_stock" name="min_stock" class="input filter-input" min="0" value="<?= (int)$meta['min_stock'] ?>" placeholder="0" style="max-width:160px;">
       </div>
 
       <div class="form-item">
-        <label class="form-label" for="location">ที่เก็บ (โลเคชัน) *</label>
+        <label class="form-label" for="location">ที่เก็บหลัก *</label>
         <input id="location" name="location" class="input filter-input" list="locs" required value="<?= h($curLoc) ?>" placeholder="เช่น main, shelf-A3">
         <datalist id="locs">
           <?php foreach($knownLocs as $L): ?><option value="<?= h($L) ?>"></option><?php endforeach; ?>
@@ -456,20 +435,20 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
       </div>
 
       <div class="form-item">
-        <label class="form-label">คงเหลือ (ที่โลเคชันนี้) *</label>
+        <label class="form-label">จำนวนตั้งต้น *</label>
         <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
           <span class="muted small">ปัจจุบัน</span>
-          <input id="curQty" class="input filter-input" value="<?= (int)$curQty ?>" readonly style="max-width:120px;">
+          <input id="curQty" class="input filter-input" value="<?= (int)$curQty ?>" readonly style="max-width:120px; background:#f9fafb;">
           <span class="muted small">ปรับเป็น</span>
           <input type="number" name="desired_qty" id="desired_qty" class="input filter-input" min="0" required value="<?= (int)$curQty ?>" style="max-width:160px;">
         </div>
       </div>
 
       <div class="form-actions">
-        <button class="btn-primary" type="submit">บันทึก</button>
+        <button class="btn-primary" type="submit">บันทึกข้อมูล</button>
         <a class="btn-secondary" href="index.php?tab=new&page=<?= $currentPage ?>">ยกเลิก</a>
         <?php if ($meta['part_code']): ?>
-          <button type="button" class="btn-secondary" onclick="return confirmDelete('<?= h($meta['part_code']) ?>');">ลบอะไหล่นี้</button>
+          <button type="button" class="btn-secondary" onclick="return confirmDelete('<?= h($meta['part_code']) ?>');" style="color:#ef4444; border-color:#ef4444;">ลบรายการนี้</button>
         <?php endif; ?>
       </div>
     </div>
