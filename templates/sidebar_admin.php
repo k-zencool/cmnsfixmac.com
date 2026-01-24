@@ -71,10 +71,6 @@ $trackingOpen = has('/admin/tracking/');
             <span class="material-symbols-rounded">collections_bookmark</span> ผลงานทั้งหมด
         </a>
 
-        <a class="<?php echo has('/admin/before_after/') ? 'active' : ''; ?>" href="/admin/before_after/">
-            <span class="material-symbols-rounded">compare</span> รูป Before-After
-        </a>
-
         <a class="<?php echo has('/admin/articles/') ? 'active' : ''; ?>" href="/admin/articles/">
             <span class="material-symbols-rounded">article</span> จัดการบทความ
         </a>
