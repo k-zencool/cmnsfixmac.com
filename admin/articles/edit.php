@@ -208,8 +208,7 @@ $excerpt_en = $article['excerpt_en'];
 
 $success = isset($_GET['updated']) ? 'บันทึกข้อมูลเรียบร้อย!' : '';
 
-include __DIR__ . '/../../templates/header_admin.php';
-include __DIR__ . '/../../templates/sidebar_admin.php';
+include __DIR__ . '/../templates/header_admin.php';
 ?>
 
 
@@ -685,7 +684,9 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     </div>
 </div>
 
-<?php include '../../templates/footer_admin.php'; ?>
+<?php include __DIR__ . '/../templates/footer_admin.php'; ?>
+
+
 <link rel="stylesheet" href="https://unpkg.com/trix@2.0.0/dist/trix.css">
 <script src="https://unpkg.com/trix@2.0.0/dist/trix.umd.min.js"></script>
 

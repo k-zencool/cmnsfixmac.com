@@ -275,8 +275,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // ================================================================
 // 4) HTML Output
 // ================================================================
-include __DIR__ . '/../../templates/header_admin.php';
-include __DIR__ . '/../../templates/sidebar_admin.php';
+require_once __DIR__ . '/../templates/header_admin.php';
+
 ?>
 
 <style>
@@ -532,7 +532,8 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     </div>
   </div>
 </div>
-<?php include __DIR__ . '/../../templates/footer_admin.php'; ?>
+
+<?php include __DIR__ . '/../templates/footer_admin.php'; ?>
 
 <script src="https://cdn.jsdelivr.net/npm/tinymce@6/tinymce.min.js"></script>
 <script>

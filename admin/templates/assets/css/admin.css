@@ -1,0 +1,436 @@
+/* =========================================================
+   MASTER CSS: Admin Panel (Ultimate Responsive Fix)
+   Path: admin/templates/assets/css/admin.css
+   ========================================================= */
+
+/* ---------------------------------------------------------
+   1. VARIABLES & THEMES
+--------------------------------------------------------- */
+:root {
+    /* --- Light Theme --- */
+    --primary: #2563eb;
+    --primary-hover: #1d4ed8;
+    --primary-light: #eff6ff;
+
+    --bg-body: #f1f5f9;
+    --bg-surface: #ffffff;
+    --bg-surface-alt: #f8fafc;
+
+    --text-main: #0f172a;
+    --text-muted: #64748b;
+
+    --border: #e2e8f0;
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+
+    --c-folder: var(--primary);
+
+    /* Dimensions */
+    --sidebar-w: 260px;
+    --sidebar-w-collapsed: 72px;
+    --header-h: 64px;
+
+    /* Animation Easing */
+    --ease-out: cubic-bezier(0.25, 0.8, 0.25, 1);
+    --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* --- 🌑 DARK THEME (Deep Black) --- */
+[data-theme="dark"] {
+    --primary: #60a5fa;
+    --primary-hover: #93c5fd;
+    --primary-light: rgba(96, 165, 250, 0.1);
+
+    --bg-body: #0a0a0a;
+    --bg-surface: #171717;
+    --bg-surface-alt: #262626;
+
+    --text-main: #e5e5e5;
+    --text-muted: #a3a3a3;
+
+    --border: #333333;
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+}
+
+/* ---------------------------------------------------------
+   2. GLOBAL RESET & BASE
+--------------------------------------------------------- */
+* { box-sizing: border-box; }
+
+/* 🔴 เพิ่มส่วนนี้: สั่งให้ html มีพื้นหลังตามตัวแปรธีมทันที */
+html {
+    background-color: var(--bg-body);
+}
+
+body {
+    font-family: 'Sarabun', sans-serif;
+    background: var(--bg-body);
+    color: var(--text-main);
+    margin: 0;
+    /* ⚠️ เอา background ออกจาก transition เพื่อหยุดอาการ Flashbang */
+    transition: color 0.2s; 
+    overflow-x: hidden;
+}
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+/* ---------------------------------------------------------
+   3. LAYOUT STRUCTURE (Foundation)
+--------------------------------------------------------- */
+.wrapper {
+    display: block !important;
+    min-height: 100vh;
+    width: 100%;
+    position: relative;
+}
+
+.sidebar {
+    width: var(--sidebar-w);
+    height: 100vh;
+    background: var(--bg-surface);
+    border-right: 1px solid var(--border);
+    position: fixed;
+    top: 0; left: 0;
+    z-index: 1000;
+    display: flex; flex-direction: column;
+    transition: width 0.3s var(--ease-out), transform 0.3s var(--ease-out);
+}
+
+.main {
+    margin-left: var(--sidebar-w);
+    width: auto;
+    min-height: 100vh;
+    display: flex; flex-direction: column;
+    transition: margin-left 0.3s var(--ease-out);
+}
+
+/* ---------------------------------------------------------
+   4. COMPONENT STYLING
+--------------------------------------------------------- */
+.sidebar-header {
+    height: var(--header-h); min-height: var(--header-h);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 20px; border-bottom: 1px solid var(--border);
+}
+.logo-area { display: flex; align-items: center; color: var(--primary); font-weight: bold; font-size: 1.2rem; gap: 10px; }
+
+.sidebar-nav { padding: 15px 10px; overflow-y: auto; flex: 1; }
+.sidebar-nav a, .sub-head {
+    display: flex; align-items: center; gap: 12px; padding: 12px 16px;
+    color: var(--text-muted); text-decoration: none; border-radius: 8px;
+    margin-bottom: 4px; cursor: pointer; transition: 0.2s; font-weight: 500;
+}
+.sidebar-nav a:hover, .sub-head:hover { background: var(--bg-surface-alt); color: var(--text-main); }
+.sidebar-nav a.active { background: var(--primary-light); color: var(--primary); font-weight: 600; }
+.sidebar-nav .material-symbols-rounded { font-size: 22px; }
+
+/* Submenu */
+.submenu-wrapper { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.3s var(--ease-out); opacity: 0; }
+.has-sub.open .submenu-wrapper { grid-template-rows: 1fr; opacity: 1; }
+.submenu-inner { overflow: hidden; }
+.submenu-inner a { padding-left: 24px; font-size: 0.9rem; opacity: 0.9; }
+.sub-toggle { transition: transform 0.3s var(--ease-spring); }
+
+/* Topbar */
+.topbar {
+    height: var(--header-h);
+    background: var(--bg-surface);
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 25px;
+    position: sticky; top: 0; z-index: 900;
+}
+.page-title { font-size: 1.25rem; font-weight: 700; margin: 0; color: var(--text-main); }
+.topbar-left, .topbar-right { display: flex; align-items: center; gap: 10px; }
+
+/* Buttons */
+.toggle-btn, .close-btn, .mobile-toggle-btn {
+    background: transparent; border: 1px solid transparent; cursor: pointer;
+    color: var(--text-muted); width: 36px; height: 36px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+}
+.toggle-btn:hover, .mobile-toggle-btn:hover { background: var(--bg-surface-alt); color: var(--text-main); }
+
+/* ---------------------------------------------------------
+   5. CONTENT & GAP FIX
+--------------------------------------------------------- */
+.content-padding {
+    padding: 30px !important;
+    width: 100% !important;
+    animation: fadeUp 0.5s var(--ease-out);
+    flex: 1; /* ดันเนื้อหาให้เต็มพื้นที่ถ้ามี Footer */
+    display: flex;
+    flex-direction: column;
+}
+
+.main .container, .main .container-fluid {
+    width: 100% !important; max-width: none !important;
+    padding-left: 0 !important; padding-right: 0 !important;
+    margin-left: 0 !important; margin-right: 0 !important;
+}
+.main .row { margin-left: -10px !important; margin-right: -10px !important; }
+.main div[class*="col-"] { padding-left: 10px !important; padding-right: 10px !important; }
+
+/* ---------------------------------------------------------
+   6. CARD & DARK MODE FIX
+--------------------------------------------------------- */
+.card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    box-shadow: var(--shadow);
+    color: var(--text-main);
+    margin-bottom: 20px;
+}
+
+[data-theme="dark"] .card,
+[data-theme="dark"] .card-body,
+[data-theme="dark"] div[class*="bg-white"],
+[data-theme="dark"] div[class*="bg-light"] {
+    background-color: var(--bg-surface) !important;
+    background: var(--bg-surface) !important;
+    color: var(--text-main) !important;
+    border-color: var(--border) !important;
+    box-shadow: var(--shadow) !important;
+}
+
+@keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+/* =========================================================
+   7. RESPONSIVE LOGIC
+   ========================================================= */
+@media (min-width: 992px) {
+    body.sidebar-collapsed .sidebar { width: var(--sidebar-w-collapsed); }
+    body.sidebar-collapsed .main   { margin-left: var(--sidebar-w-collapsed) !important; }
+    body.sidebar-collapsed .logo-text,
+    body.sidebar-collapsed .link-text,
+    body.sidebar-collapsed .sub-toggle { display: none; }
+    body.sidebar-collapsed .sidebar-header { justify-content: center; padding: 0; }
+    body.sidebar-collapsed .logo-area     { display: none; }
+    body.sidebar-collapsed .submenu-wrapper { display: none !important; }
+    .mobile-toggle-btn { display: none; }
+    .close-btn         { display: none; }
+    .overlay           { display: none !important; }
+}
+
+@media (max-width: 991px) {
+    .sidebar { transform: translateX(-100%); width: 260px; left: 0; box-shadow: none; }
+    .sidebar.show { transform: translateX(0); box-shadow: 10px 0 25px rgba(0,0,0,0.5); }
+    .main { margin-left: 0 !important; width: 100% !important; min-width: 100vw !important; }
+    .content-padding { padding: 15px !important; }
+    .topbar { padding: 0 15px; }
+    .mobile-toggle-btn { display: flex; }
+    .close-btn         { display: flex; }
+    .toggle-btn        { display: none; }
+    .theme-btn         { display: flex !important; }
+    .overlay {
+        position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 998;
+        display: none; opacity: 0; transition: opacity 0.3s;
+        backdrop-filter: blur(2px);
+    }
+    .overlay.show { display: block; opacity: 1; }
+}
+
+/* =========================================================
+   8. GLASSMORPHISM (Sidebar & Topbar)
+   ========================================================= */
+.sidebar, .topbar {
+    background: rgba(255, 255, 255, 0.9) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+[data-theme="dark"] .sidebar,
+[data-theme="dark"] .topbar {
+    background: rgba(23, 23, 23, 0.9) !important;
+}
+
+/* =========================================================
+   9. USER DROPDOWN
+   ========================================================= */
+.user-dropdown-wrapper { position: relative; margin-left: 10px; }
+.user-profile {
+    display: flex; align-items: center; gap: 10px; cursor: pointer; padding: 6px 12px;
+    border-radius: 30px; border: 1px solid transparent; transition: 0.2s;
+}
+.user-profile:hover, .user-dropdown-wrapper.active .user-profile {
+    background: var(--bg-surface-alt); border-color: var(--border);
+}
+.user-avatar {
+    width: 32px; height: 32px; background: linear-gradient(135deg, var(--primary), var(--primary-hover));
+    color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 0.9rem; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+.user-info { display: flex; flex-direction: column; line-height: 1.2; }
+.user-info .name { font-weight: 600; font-size: 0.85rem; color: var(--text-main); }
+.user-info .role { font-size: 0.75rem; color: var(--text-muted); }
+.chevron { font-size: 20px; color: var(--text-muted); transition: transform 0.2s; }
+.user-dropdown-wrapper.active .chevron { transform: rotate(180deg); }
+@media (max-width: 576px) { .user-info, .chevron { display: none; } .user-profile { padding: 0; border: none; } }
+
+.dropdown-menu {
+    position: absolute; top: 130%; right: 0; width: 220px;
+    background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: 0 10px 30px -5px rgba(0,0,0,0.15); padding: 8px; z-index: 1000;
+    opacity: 0; visibility: hidden; transform: translateY(-10px) scale(0.95);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.user-dropdown-wrapper.active .dropdown-menu { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
+.dropdown-item {
+    display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+    color: var(--text-main); text-decoration: none; border-radius: 8px; font-size: 0.9rem; font-weight: 500; transition: 0.1s;
+}
+.dropdown-item:hover { background: var(--bg-surface-alt); color: var(--primary); }
+.dropdown-item .material-symbols-rounded { font-size: 20px; color: var(--text-muted); }
+.dropdown-item:hover .material-symbols-rounded { color: var(--primary); }
+.dropdown-item.text-danger:hover { background: #fee2e2; color: #dc2626; }
+.dropdown-item.text-danger:hover .material-symbols-rounded { color: #dc2626; }
+[data-theme="dark"] .dropdown-item.text-danger:hover { background: rgba(220, 38, 38, 0.15); }
+.dropdown-divider { height: 1px; background: var(--border); margin: 6px 0; }
+
+
+/* ==========================================================================
+   10. CMNS GLOBAL PAGINATION (แถบแบ่งหน้ายึดติดฐานล่างสุดของหน้าจอ)
+   ========================================================================== */
+/* 🔥 1. ท่าไม้ตาย! สั่งให้ Wrapper กลายเป็น Flexbox (เพิ่ม padding-bottom กันมันไปทับเนื้อหา) */
+.cmns-wrapper {
+    display: flex;
+    flex-direction: column;
+    flex: 1; 
+    padding: 30px;
+    padding-bottom: 10px !important; /* 🔥 เผื่อที่ด้านล่างไว้ 20px ให้กล่องลอยตัว */
+    color: var(--text-main);
+    font-family: inherit;
+    min-height: calc(100vh - var(--header-h) - 40px); 
+    position: relative;
+}
+
+/* 🔥 2. ตัวกล่อง Pagination ลอยขึ้นมา 20px โค้งมน 4 มุม */
+.cmns-footer-pagination {
+    margin-top: auto !important; 
+    position: sticky;
+    bottom: 20px; 
+    background: var(--bg-surface);
+    border: 1px solid var(--border); 
+    
+    /* 🔴 แก้บรรทัดนี้บรรทัดเดียวเลยสัส! */
+    border-radius: 16px !important; 
+    
+    padding: 12px 20px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08); 
+    z-index: 900; 
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    backdrop-filter: blur(10px);
+    width: 100%; 
+    color: var(--text-main);
+}
+
+.pagination-info { 
+    font-size: 14px; 
+    color: var(--text-muted); 
+}
+
+.pagination-controls { 
+    display: flex; 
+    align-items: center; 
+    gap: 15px; 
+}
+
+.page-nav-btn {
+    width: 36px; 
+    height: 36px; 
+    border-radius: 50%; 
+    border: 1px solid var(--border);
+    background: var(--bg-surface); 
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    color: var(--text-main); 
+    text-decoration: none; 
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.page-nav-btn:hover:not(.disabled) {
+    background: var(--bg-surface-alt); 
+    border-color: var(--primary); 
+    color: var(--primary); 
+    transform: translateY(-2px);
+}
+
+.page-nav-btn.disabled { 
+    opacity: 0.3; 
+    cursor: not-allowed; 
+    background: var(--bg-surface-alt); 
+}
+
+.per-page-select {
+    padding: 6px 12px; 
+    border-radius: 8px; 
+    border: 1px solid var(--border);
+    background: var(--bg-surface); 
+    color: var(--text-main); 
+    font-size: 13px;
+    outline: none; 
+    cursor: pointer; 
+    transition: 0.2s;
+}
+
+.per-page-select:focus { 
+    border-color: var(--primary); 
+    box-shadow: 0 0 0 3px var(--primary-light); 
+}
+
+@media (max-width: 768px) {
+    .cmns-footer-pagination {
+        flex-direction: column; 
+        gap: 15px; 
+        padding: 15px; 
+        border-radius: 16px 16px 0 0; /* คงความโค้งด้านบนไว้ในมือถือ */
+        width: 100%; 
+    }
+}
+
+/* =========================================================
+   11. ADDITIONAL COMPONENTS (SALE & LOADER)
+   ========================================================= */
+
+/* --- SALE Category (Red Theme) --- */
+.stat-sale { 
+    background: rgba(239, 68, 68, 0.12); 
+    color: #ef4444; 
+    border: 1px solid rgba(239, 68, 68, 0.2); 
+}
+.cmns-tab.active-sale { 
+    background: #ef4444 !important; 
+    color: #fff !important; 
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+.cmns-filter-btn[data-filter="sale"].active {
+    background: #ef4444 !important;
+    color: #fff !important;
+    border-color: #ef4444 !important;
+}
+
+/* --- Global Loader (Anti-Flashbang) --- */
+#global-loader {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background-color: var(--bg-body) !important; /* 👈 บังคับให้ใช้สีตามธีมเสมอ */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    transition: opacity 0.2s;
+}
+.loader-text {
+    margin-top: 15px;
+    color: var(--primary);
+    font-weight: 600;
+    font-size: 14px;
+    letter-spacing: 1px;
+}

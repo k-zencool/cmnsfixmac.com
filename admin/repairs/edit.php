@@ -238,8 +238,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // ================================================================
 // 4) HTML Output
 // ================================================================
-include __DIR__ . '/../../templates/header_admin.php';
-include __DIR__ . '/../../templates/sidebar_admin.php';
+include __DIR__ . '/../templates/header_admin.php';
 ?>
 
 <style>
@@ -455,7 +454,8 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 <div id="loadingOverlay" class="loading-overlay"> ... </div>
 <div id="alertOverlay" class="alert-overlay"> ... </div>
 <div id="confirmOverlay" class="confirm-overlay"> ... </div>
-<?php include '../../templates/footer_admin.php'; ?>
+
+<?php include '/../templates/footer_admin.php'; ?>
 
 <link rel="stylesheet" type="text/css" href="https://unpkg.com/trix@2.0.0/dist/trix.css">
 <script type="text/javascript" src="https://unpkg.com/trix@2.0.0/dist/trix.umd.min.js"></script>

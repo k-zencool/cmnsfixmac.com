@@ -1,11 +1,10 @@
 <?php
 /********************************************************************
  * admin/tracking/index.php
- * หน้ารายการงานซ่อม (Tracking List) - Final Ultimate Fixed Layout
+ * หน้ารายการงานซ่อม (Tracking List) - Smart Search Version
  * Features:
- * - Device Display: Type + Series (Top Line), Model (Bottom Line)
- * - Loader Fix: Robust logic for navigation & back button
- * - Filters: Group, Search, Date
+ * - Smart Search: ค้นหาด้วยการเว้นวรรค (Keyword Splitting)
+ * - Coverage: Job, Name, Phone, SN, Model, Series, Problem
  ********************************************************************/
 
 session_start();
@@ -20,7 +19,7 @@ require_login();
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 function getv($k,$d=null){ return isset($_GET[$k]) ? trim($_GET[$k]) : $d; }
 
-// ฟังก์ชันตัด HTML Tags (แก้ปัญหา CKEditor แสดง tag รกๆ)
+// ฟังก์ชันตัด HTML Tags
 function strip_html_content($text) {
     if (!$text) return '-';
     return trim(strip_tags(html_entity_decode($text)));
@@ -46,7 +45,7 @@ $statusFilter = isset($_GET['status']) ? (array)$_GET['status'] : [];
 
 $pageTitle = "รายการงานซ่อมทั้งหมด";
 
-// Auto Group Logic (ถ้าไม่ได้เลือกสถานะเอง ให้ใช้ Group จากเมนู)
+// Auto Group Logic
 if (empty($statusFilter)) {
     if ($group === 'active') {
         $statusFilter = ['QS', 'WC', 'OK', 'RW'];
@@ -82,14 +81,34 @@ if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['id
     exit;
 }
 
-/* ======================= Query Builder ======================= */
+/* ======================= Query Builder (Smart Search) ======================= */
 $where = [];
 $params = [];
 
 if ($q) {
-    $where[] = "(ticket_number LIKE :q OR customer_name LIKE :q OR customer_phone LIKE :q OR serial_number LIKE :q)";
-    $params[':q'] = "%$q%";
+    // 1. หั่นคำค้นหาด้วยช่องว่าง (เช่น "A2337 จอแตก" => ["A2337", "จอแตก"])
+    $keywords = preg_split('/\s+/', $q, -1, PREG_SPLIT_NO_EMPTY);
+    
+    // 2. วนลูปสร้างเงื่อนไข "ต้องเจอทุกคำ" (AND Logic ระหว่างคำ)
+    foreach ($keywords as $index => $word) {
+        $keyParam = ":q{$index}"; // สร้างชื่อตัวแปร SQL เช่น :q0, :q1
+        
+        // แต่ละคำ ต้องไปโผล่ในคอลัมน์ไหนก็ได้ (OR Logic ภายในคำนั้น)
+        $where[] = "(
+            ticket_number   LIKE $keyParam OR 
+            customer_name   LIKE $keyParam OR 
+            customer_phone  LIKE $keyParam OR 
+            serial_number   LIKE $keyParam OR 
+            device_model    LIKE $keyParam OR 
+            device_series   LIKE $keyParam OR 
+            problem_details LIKE $keyParam
+        )";
+        
+        $params[$keyParam] = "%{$word}%";
+    }
 }
+
+// Filter สถานะ
 if (!empty($statusFilter)) {
     $in = [];
     foreach($statusFilter as $i => $s) {
@@ -97,6 +116,8 @@ if (!empty($statusFilter)) {
     }
     $where[] = "status IN (" . implode(',', $in) . ")";
 }
+
+// Filter วันที่
 if ($dfrom !== '') { $where[] = "DATE(created_at) >= :df"; $params[':df'] = $dfrom; }
 if ($dto   !== '') { $where[] = "DATE(created_at) <= :dt"; $params[':dt'] = $dto; }
 
@@ -112,7 +133,7 @@ $total = (int)($stmtCount->fetchColumn() ?: 0);
 $pages = max(1, (int)ceil($total/$per));
 if ($page > $pages){ $page = $pages; $offset = ($page-1)*$per; }
 
-// Fetch Data (SELECT * เพื่อดึง device_series ด้วย)
+// Fetch Data
 $sql = "SELECT * FROM tracking $whereSql ORDER BY created_at DESC LIMIT :limit OFFSET :off";
 $stmt = $pdo->prepare($sql);
 foreach($params as $k => $v) $stmt->bindValue($k, $v);
@@ -121,8 +142,10 @@ $stmt->bindValue(':off', $offset, PDO::PARAM_INT);
 $stmt->execute();
 $jobs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-include __DIR__ . '/../../templates/header_admin.php';
-include __DIR__ . '/../../templates/sidebar_admin.php';
+include __DIR__ . '/../templates/header_admin.php';
+
+// ❌ ลบ Sidebar ออก (เพราะ header เรียกให้แล้ว)
+// include __DIR__ . '/../../templates/sidebar_admin.php'; 
 ?>
 
 <style>
@@ -230,7 +253,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 
   <form action="index.php" method="GET" class="search-form-bind" onsubmit="showLoader(event)">
     <div class="search-and-filter-group">
-        <input class="filter-input" name="q" value="<?= h($q) ?>" placeholder="ค้นหา Job No. / ลูกค้า / เบอร์โทร...">
+        <input class="filter-input" name="q" value="<?= h($q) ?>" placeholder="ค้นหา... (Job / ชื่อ / เบอร์ / รุ่น / อาการ)">
         
         <?php if($group != 'all'): ?><input type="hidden" name="group" value="<?= h($group) ?>"><?php endif; ?>
 
@@ -443,7 +466,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 
 </main>
 
-<?php include __DIR__ . '/../../templates/footer_admin.php'; ?>
+<?php include __DIR__ . '/../templates/footer_admin.php'; ?>
 
 <script>
   // Robust Loader

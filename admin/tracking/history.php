@@ -1,13 +1,14 @@
 <?php
 /********************************************************************
  * admin/tracking/history.php
- * Final Fix V3: เวลาตรงเป๊ะ (ไม่ต้องบวกเพิ่มเพราะ DB เป็นเวลาไทยแล้ว)
+ * ประวัติความเคลื่อนไหว (History) - Fixed Include Paths
  ********************************************************************/
 
 session_start();
 // ตั้งเวลา Server เป็นไทย
 date_default_timezone_set('Asia/Bangkok');
 
+// 1. เรียกไฟล์ระบบ (Database อยู่ข้างนอก admin ถอย 2 ชั้น ถูกแล้ว)
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_login();
@@ -18,7 +19,7 @@ $pageTitle = "ประวัติความเคลื่อนไหว (H
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 function getv($k,$d=null){ return isset($_GET[$k]) ? trim($_GET[$k]) : $d; }
 
-// ** แก้ไขล่าสุด: ไม่ต้องบวก 25200 แล้ว เพราะใน DB เป็นเวลาไทยอยู่แล้ว **
+// แปลงวันที่ (ไม่ต้องบวกเพิ่มเพราะ DB เป็นเวลาไทยแล้ว)
 function get_thai_timestamp($strDate) {
     if(!$strDate) return false;
     return strtotime($strDate); 
@@ -42,14 +43,14 @@ function th_time($ts) {
 $statusMap = [
     'QS'  => ['label'=>'รอเช็คราคา',      'class'=>'badge-amber'],
     'WC'  => ['label'=>'รอคอนเฟิร์ม',     'class'=>'badge-blue'],
-    'OK'  => ['label'=>'กำลังซ่อม',       'class'=>'badge-purple'],
+    'OK'  => ['label'=>'กำลังซ่อม',       'class'=>'badge-blue'],
     'RW'  => ['label'=>'งานแก้/เคลม',     'class'=>'badge-red'],
     'FN'  => ['label'=>'ซ่อมเสร็จ (รอรับ)', 'class'=>'badge-green'],
     'NCF' => ['label'=>'ติดต่อไม่ได้(เสร็จ)', 'class'=>'badge-gray'],
     'NCS' => ['label'=>'ติดต่อไม่ได้(เสนอ)',  'class'=>'badge-gray'],
     'XX'  => ['label'=>'ยกเลิก (รอรับคืน)', 'class'=>'badge-red'],
-    'DV'  => ['label'=>'ส่งมอบ (ซ่อมเสร็จ)', 'class'=>'badge-dark'],
-    'RT'  => ['label'=>'ยกเลิก (คืนแล้ว)',   'class'=>'badge-dark']
+    'DV'  => ['label'=>'ส่งมอบ (ซ่อมเสร็จ)', 'class'=>'badge-gray'],
+    'RT'  => ['label'=>'ยกเลิก (คืนแล้ว)',   'class'=>'badge-gray']
 ];
 
 /* --- Filter & Query --- */
@@ -85,25 +86,17 @@ $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-include __DIR__ . '/../../templates/header_admin.php';
-include __DIR__ . '/../../templates/sidebar_admin.php';
+// ✅ แก้ไขตรงนี้: ถอยแค่ 1 ชั้น (../templates/) เพราะ templates อยู่ใน admin
+require_once __DIR__ . '/../templates/header_admin.php';
 ?>
 
 <style>
-/* Layout */
-.table-container { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-.data-table { width: 100%; border-collapse: collapse; table-layout: fixed; } 
+/* Table Specifics */
+.data-table { table-layout: fixed; } 
+.data-table th { white-space: nowrap; }
+.data-table td { vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Columns */
-.data-table th { background: #f8fafc; padding: 12px 14px; text-align: left; font-weight: 600; color: #475569; font-size: 0.9rem; border-bottom: 1px solid #e2e8f0; white-space: nowrap; }
-.data-table td { padding: 12px 14px; border-bottom: 1px solid #f1f5f9; font-size: 0.9rem; color: #1e293b; vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.data-table tr:last-child td { border-bottom: none; }
-
-/* Alignments */
-.text-center { text-align: center !important; }
-.text-left { text-align: left !important; }
-
-/* Specific Text */
+/* Custom Text */
 .time-text { font-family: monospace; color: #64748b; font-weight: 600; font-size: 0.9rem; }
 .job-link { font-family: monospace; font-weight: 700; color: #2563eb; text-decoration: none; font-size: 0.95rem; }
 .job-link:hover { text-decoration: underline; }
@@ -112,37 +105,19 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
 .device-main { font-weight: 700; color: #334155; }
 .device-sub { font-size: 0.85rem; color: #64748b; margin-left: 4px; }
 
-/* Badge */
-.badge { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; display: inline-block; min-width: 90px; text-align: center; }
-.badge-amber { background: #fef3c7; color: #92400e; }
-.badge-blue { background: #e0f2fe; color: #075985; }
-.badge-purple { background: #f3e8ff; color: #6b21a8; }
-.badge-red { background: #fee2e2; color: #991b1b; }
-.badge-green { background: #dcfce7; color: #166534; }
-.badge-dark { background: #1f2937; color: #fff; }
-.badge-gray { background: #f3f4f6; color: #4b5563; }
-
-/* Date Row */
+/* Date Header Row */
 .date-header { background: #f1f5f9; color: #334155; font-weight: 700; font-size: 0.9rem; padding: 10px 16px; border-bottom: 1px solid #e2e8f0; }
 .date-header.today { background: #eff6ff; color: #1d4ed8; border-bottom: 1px solid #dbeafe; }
 .date-header span { display: flex; align-items: center; gap: 8px; }
 
-/* Search Bar */
-.search-form-bind { margin-bottom: 20px; }
-.search-and-filter-group { display: flex; gap: 10px; align-items: center; background: #fff; padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 10px; box-shadow: 0 1px 2px rgba(0,0,0,0.03); }
-.filter-input { flex-grow: 1; padding: 8px 12px; border: none; font-size: 0.95rem; outline: none; }
-.filter-dropdown { position: relative; border-left: 1px solid #e5e7eb; padding-left: 10px; }
-.filter-menu { position: absolute; top: 100%; right: 0; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); padding: 15px; width: 280px; z-index: 50; display: none; margin-top: 10px; }
-.filter-menu.show { display: block; }
-.filter-section { margin-bottom: 15px; }
-.checkline { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-size: 0.9rem; color: #4b5563; cursor: pointer; }
-.range-inline { display: flex; gap: 5px; align-items: center; }
-.range-inline input { width: 100%; padding: 6px; border: 1px solid #d1d5db; border-radius: 4px; }
-.filter-actions { display: flex; justify-content: space-between; margin-top: 15px; pt: 10px; border-top: 1px solid #f3f4f6; }
-.btn-secondary { background: #fff; border: 1px solid #d1d5db; color: #374151; padding: 6px 12px; border-radius: 6px; cursor: pointer; font-weight: 500; font-size: 0.9rem; display: flex; align-items: center; gap: 4px; }
-.btn-primary { background: #2563eb; border: 1px solid #2563eb; color: #fff; padding: 6px 14px; border-radius: 6px; cursor: pointer; }
-.btn-search { background: #2563eb; color: #fff; border: none; padding: 8px 20px; border-radius: 8px; cursor: pointer; font-weight: 600; margin-left: 5px; }
+/* Override Filter Menu width for this page */
+.filter-menu { width: 300px; }
 </style>
+
+<div id="global-loader" style="display:none; position:fixed; inset:0; background:rgba(255,255,255,0.8); z-index:9999; align-items:center; justify-content:center;">
+  <div style="border:4px solid #f3f3f3; border-top:4px solid #3b82f6; border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite;"></div>
+</div>
+<style>@keyframes spin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}</style>
 
 <main class="main" id="main-content">
     <div class="topbar">
@@ -150,36 +125,41 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
         <a href="index.php" class="view-site">← กลับหน้ารายการ</a>
     </div>
 
-    <form action="" method="GET" class="search-form-bind">
+    <form action="" method="GET" class="search-form-bind" onsubmit="document.getElementById('global-loader').style.display='flex'">
         <div class="search-and-filter-group">
-            <span class="material-symbols-rounded" style="color:#9ca3af; margin-left:5px;">search</span>
             <input class="filter-input" name="q" value="<?= h($q) ?>" placeholder="ค้นหา Job No. / ลูกค้า / รุ่น...">
             
             <div class="filter-dropdown">
-                <button type="button" class="btn-secondary" onclick="document.getElementById('filterMenu').classList.toggle('show')">
-                    <span class="material-symbols-rounded" style="font-size:18px;">filter_list</span> ตัวกรอง
+                <button type="button" class="btn-secondary" onclick="document.getElementById('filterMenuHistory').classList.toggle('show')">
+                    <span class="material-symbols-rounded">filter_list</span> ตัวกรอง
                 </button>
-                <div id="filterMenu" class="filter-menu">
+                <div id="filterMenuHistory" class="filter-menu">
                     <div class="filter-section">
-                        <div style="font-weight:600; margin-bottom:8px;">สถานะงาน</div>
+                        <div class="filter-title">สถานะงาน</div>
                         <div style="max-height:150px; overflow-y:auto;">
                             <?php foreach ($statusMap as $code => $info): $chk = in_array($code, $statusFilter) ? 'checked' : ''; ?>
-                                <label class="checkline"><input type="checkbox" name="status[]" value="<?= $code ?>" <?= $chk ?>> <?= h($info['label']) ?></label>
+                                <label class="checkline">
+                                    <input type="checkbox" name="status[]" value="<?= $code ?>" <?= $chk ?>> 
+                                    <?= h($info['label']) ?>
+                                </label>
                             <?php endforeach; ?>
                         </div>
                     </div>
                     <div class="filter-section">
-                        <div style="font-weight:600; margin-bottom:8px;">ช่วงเวลา</div>
-                        <div class="range-inline">
-                            <input type="date" name="date_from" value="<?= h($dFrom) ?>"><span>-</span><input type="date" name="date_to" value="<?= h($dTo) ?>">
+                        <div class="filter-title">ช่วงเวลา</div>
+                        <div style="display:flex; align-items:center; gap:5px;">
+                            <input type="date" name="date_from" value="<?= h($dFrom) ?>" style="width:100%; padding:6px; border:1px solid #e5e7eb; border-radius:6px;">
+                            <span>-</span>
+                            <input type="date" name="date_to" value="<?= h($dTo) ?>" style="width:100%; padding:6px; border:1px solid #e5e7eb; border-radius:6px;">
                         </div>
                     </div>
                     <div class="filter-actions">
-                        <a href="history.php" style="color:#ef4444; text-decoration:none; font-size:0.9rem; align-self:center;">ล้างค่า</a>
+                        <a href="history.php" class="btn-secondary" style="color:#ef4444; justify-content:center;">ล้างค่า</a>
                         <button type="submit" class="btn-primary">ใช้ตัวกรอง</button>
                     </div>
                 </div>
             </div>
+            
             <button type="submit" class="btn-search">ค้นหา</button>
         </div>
     </form>
@@ -187,7 +167,14 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     <div class="table-container">
         <table class="data-table">
             <colgroup>
-                <col style="width: 10%;"> <col style="width: 12%;"> <col style="width: 20%;"> <col style="width: 25%;"> <col style="width: 13%;"> <col style="width: 15%;"> <col style="width: 5%;">  </colgroup>
+                <col style="width: 100px;"> 
+                <col style="width: 120px;"> 
+                <col style="width: 20%;"> 
+                <col style="width: 25%;"> 
+                <col style="width: 15%;"> 
+                <col style="width: 140px;"> 
+                <col style="width: 60px;">  
+            </colgroup>
             <thead>
                 <tr>
                     <th class="text-left">เวลา</th>
@@ -210,13 +197,12 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                     $todayDate = date('Y-m-d'); 
 
                     foreach ($logs as $row): 
-                        // ** ตรงนี้ไม่ต้องบวก 25200 แล้ว **
                         $ts = get_thai_timestamp($row['updated_at']);
-                        
                         $rawDate = date('Y-m-d', $ts);
                         $timeText = th_time($ts);
                         $st = $statusMap[$row['status']] ?? $statusMap['QS'];
 
+                        // Grouping Date Header
                         if ($rawDate !== $currDate) {
                             $isToday = ($rawDate === $todayDate);
                             $headerClass = $isToday ? 'date-header today' : 'date-header';
@@ -228,7 +214,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                 ?>
                     <tr>
                         <td class="text-left time-text"><?= $timeText ?></td>
-                        <td class="text-left"><a href="edit.php?id=<?= $row['id'] ?>" class="job-link"><?= h($row['ticket_number']) ?></a></td>
+                        <td class="text-left"><a href="edit.php?id=<?= $row['id'] ?>" class="job-link" onclick="document.getElementById('global-loader').style.display='flex'"><?= h($row['ticket_number']) ?></a></td>
                         <td class="text-left">
                             <span class="cust-name"><?= h($row['customer_name']) ?></span>
                             <span class="cust-phone"><?= h($row['customer_phone']) ?></span>
@@ -249,7 +235,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                             <span class="badge <?= $st['class'] ?>"><?= $st['label'] ?></span>
                         </td>
                         <td class="text-center">
-                            <a href="edit.php?id=<?= $row['id'] ?>" style="color:#94a3b8; text-decoration:none;" title="ดูรายละเอียด">
+                            <a href="edit.php?id=<?= $row['id'] ?>" class="btn-icon" title="ดูรายละเอียด" onclick="document.getElementById('global-loader').style.display='flex'">
                                 <span class="material-symbols-rounded">chevron_right</span>
                             </a>
                         </td>
@@ -260,7 +246,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     </div>
 </main>
 
-<?php include __DIR__ . '/../../templates/footer_admin.php'; ?>
+<?php include __DIR__ . '/../templates/footer_admin.php'; ?>
 
 <script>
     function toggleMenu(id) { document.getElementById(id).classList.toggle('show'); }

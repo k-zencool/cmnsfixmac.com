@@ -1,0 +1,322 @@
+/* =========================================================
+   PROFILE PAGE STYLES (Full Option)
+   Path: admin/templates/assets/css/profile.css
+   ========================================================= */
+
+/* --- 1. โครงสร้างหลัก (Layout) --- */
+.profile-container {
+    max-width: 1200px; /* ขยายให้กว้างขึ้น */
+    margin: 0 auto;
+    padding-bottom: 40px;
+}
+
+.profile-grid {
+    display: grid;
+    grid-template-columns: 280px 1fr; /* ซ้ายเมนู ขวาเนื้อหา */
+    gap: 25px;
+    margin-top: -60px; /* ดึงสวนขึ้นไปทับ Banner */
+    position: relative;
+    z-index: 10;
+    align-items: stretch; /* บังคับให้สูงเท่ากัน */
+}
+
+/* --- 2. แบนเนอร์ด้านบน (Banner) --- */
+.profile-banner {
+    height: 200px;
+    background: linear-gradient(45deg, var(--primary), var(--primary-hover));
+    border-radius: 0 0 20px 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+.banner-overlay {
+    position: absolute;
+    inset: 0;
+    background-image: 
+        radial-gradient(circle at 10% 20%, rgba(255,255,255,0.1) 0%, transparent 20%),
+        radial-gradient(circle at 90% 80%, rgba(255,255,255,0.1) 0%, transparent 20%);
+}
+
+/* --- 3. การ์ดเมนูฝั่งซ้าย (Sidebar Card) --- */
+.profile-menu-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: visible; /* ห้าม hidden เดี๋ยวรูปแหว่ง */
+    box-shadow: var(--shadow);
+    position: sticky;
+    top: 90px;
+    z-index: 20;
+    display: flex;
+    flex-direction: column;
+}
+
+.profile-header-info {
+    text-align: center;
+    padding: 30px 20px 20px;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+}
+
+/* --- 4. รูปโปรไฟล์ (Avatar) --- */
+.big-avatar {
+    width: 100px;
+    height: 100px;
+    background: var(--bg-surface);
+    border: 4px solid var(--bg-surface);
+    border-radius: 50%;
+    margin: -80px auto 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--primary);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    position: relative;
+    z-index: 30; 
+}
+
+.user-role-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    background: var(--primary-light);
+    color: var(--primary);
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    margin-top: 5px;
+}
+
+/* --- 5. เมนู Tabs --- */
+.tab-item {
+    padding: 15px 20px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+    transition: all 0.2s ease;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+.tab-item:last-child { border-bottom: none; }
+.tab-item:hover { background: var(--bg-surface-alt); color: var(--text-main); }
+.tab-item.active {
+    background: var(--primary-light);
+    color: var(--primary);
+    font-weight: 600;
+    border-left: 4px solid var(--primary);
+}
+
+/* --- 6. เนื้อหาฟอร์ม (ปรับให้ยืดเต็ม) --- */
+.profile-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.tab-content { display: none; }
+.tab-content.active { 
+    display: flex; 
+    flex-direction: column; 
+    flex-grow: 1; /* ยืดให้เต็มพื้นที่ */
+    animation: fadeIn 0.3s ease; 
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.form-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 30px;
+    box-shadow: var(--shadow);
+    height: 100%;       /* สูงเต็ม */
+    flex-grow: 1;       /* ยืดรับกับ Flex */
+}
+
+.form-section-header {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid var(--border);
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+/* --- 7. Input Fields & Info Box --- */
+.form-control {
+    background: var(--bg-surface-alt);
+    border: 1px solid var(--border);
+    color: var(--text-main);
+    border-radius: 8px;
+    padding: 10px 15px;
+    width: 100%;
+    transition: border-color 0.2s;
+}
+.form-control:focus {
+    border-color: var(--primary);
+    outline: none;
+    box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.info-box {
+    padding: 20px;
+    background: var(--bg-surface-alt);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    border: 1px solid var(--border);
+}
+
+/* --- 8. ปุ่มกด (Save Button) --- */
+.save-btn {
+    width: auto !important;
+    height: auto !important;
+    background: var(--primary);
+    color: white;
+    padding: 12px 30px;
+    border-radius: 8px;
+    border: none;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    white-space: nowrap;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 6px rgba(37, 99, 235, 0.2);
+}
+.save-btn:hover {
+    background: var(--primary-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(37, 99, 235, 0.3);
+}
+.save-btn:active { transform: translateY(0); }
+
+/* --- 9. Stats Grid (ส่วนสถิติ) --- */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 20px;
+    margin-top: 30px;
+    padding-top: 25px;
+    border-top: 1px solid var(--border);
+}
+
+.stat-card {
+    background: var(--bg-surface-alt);
+    padding: 20px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    transition: transform 0.2s;
+}
+.stat-card:hover {
+    transform: translateY(-3px);
+    border-color: var(--primary);
+}
+
+.stat-value {
+    font-size: 1.8rem;
+    font-weight: 700;
+    color: var(--primary);
+    margin: 10px 0 5px;
+}
+.stat-label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+/* --- 10. Activity Timeline (ส่วนกิจกรรม) --- */
+.section-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 30px 0 15px;
+    color: var(--text-main);
+}
+
+.activity-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.activity-item {
+    display: flex;
+    gap: 15px;
+    padding: 15px;
+    background: var(--bg-surface-alt);
+    border-radius: 10px;
+    border-left: 4px solid var(--border);
+    transition: 0.2s;
+}
+.activity-item:hover {
+    background: var(--bg-surface);
+    border-left-color: var(--primary);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+.activity-icon {
+    width: 40px;
+    height: 40px;
+    background: var(--bg-surface);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.activity-info h5 {
+    margin: 0 0 4px;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+.activity-info p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+.activity-time {
+    margin-left: auto;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    white-space: nowrap;
+}
+
+/* --- 11. Mobile Responsive --- */
+@media (max-width: 991px) {
+    .profile-grid {
+        grid-template-columns: 1fr;
+        margin-top: -40px;
+    }
+    .profile-menu-card {
+        position: static;
+        margin-bottom: 20px;
+        z-index: 1;
+    }
+    .big-avatar {
+        margin-top: -60px;
+        width: 80px;
+        height: 80px;
+        font-size: 2rem;
+    }
+    .activity-item {
+        flex-direction: column;
+        gap: 10px;
+    }
+    .activity-time {
+        margin-left: 0;
+    }
+}

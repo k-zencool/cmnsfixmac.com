@@ -1,13 +1,14 @@
 <?php
 /********************************************************************
  * admin/tracking/create.php
- * เปิดงานซ่อมใหม่ (Create Job) + บันทึกคนทำรายการ (Modern UI)
+ * เปิดงานซ่อมใหม่ (Create Job) - Fixed Include Paths
  ********************************************************************/
 
 session_start();
 // ตั้งเวลาเป็นไทย
 date_default_timezone_set('Asia/Bangkok');
 
+// 1. เรียกไฟล์ระบบ (Database อยู่ข้างนอก admin ถอย 2 ชั้น ถูกแล้ว)
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_login();
@@ -87,12 +88,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $app_date = !empty($_POST['appointment_date']) ? $_POST['appointment_date'] : null;
 
             // ** หา ID คนทำรายการ (จาก Session) **
-            // ดักไว้หลายชื่อเผื่อระบบ Auth มึงใช้ตัวแปรอื่น
             $admin_id = $_SESSION['user_id'] ?? $_SESSION['admin_id'] ?? $_SESSION['id'] ?? null;
 
             if ($cust_name && $cust_phone && $model_code) {
                 try {
-                    // SQL Insert (เพิ่ม updated_by และ updated_at)
+                    // SQL Insert
                     $sql = "INSERT INTO tracking
                     (ticket_number, customer_name, customer_phone, device_type, device_model, device_series, serial_number, device_password,
                      problem_details, technician_note, accessories, estimated_cost, appointment_date, status, created_at, updated_at, updated_by)
@@ -114,7 +114,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $app_date,
                         $status,
                         $job_date,
-                        $admin_id // บันทึกคนสร้าง
+                        $admin_id
                     ]);
 
                     header("Location: index.php?msg=" . urlencode("เปิดงาน $ticket เรียบร้อย"));
@@ -130,11 +130,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-include __DIR__ . '/../../templates/header_admin.php';
-include __DIR__ . '/../../templates/sidebar_admin.php';
+// ✅ แก้ไขตรงนี้: ถอยแค่ 1 ชั้น (../templates/) เพราะ templates อยู่ใน admin
+require_once __DIR__ . '/../templates/header_admin.php'; 
 ?>
 
-<link rel="stylesheet" href="/admin/tracking/assets/css/create-style.css">
+<link rel="stylesheet" href="assets/css/create-style.css?v=<?= time() ?>">
 
 <style>
 /* Footer Actions Bar */
@@ -435,4 +435,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     });
 </script>
 
-<?php include __DIR__ . '/../../templates/footer_admin.php'; ?>
+<?php 
+// ✅ แก้ไขตรงนี้: ถอยแค่ 1 ชั้น (../templates/) เพราะ templates อยู่ใน admin
+include __DIR__ . '/../templates/footer_admin.php'; 
+?>

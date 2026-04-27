@@ -1,0 +1,114 @@
+/* ==========================================================================
+   CMNS MODAL: Ultimate Clean & Modern Popup
+   Path: admin/templates/assets/css/modal.css
+   ========================================================================== */
+
+/* -----------------------------------------
+   1. BACKDROP (ฉากหลังเบลอๆ ล็อกหน้าจอ)
+----------------------------------------- */
+.cmns-modal {
+    display: none; /* 🛑 ซ่อนตัวไว้ก่อน พลัง JS ค่อยเรียกมา */
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5); /* สีดำโปร่งแสง */
+    backdrop-filter: blur(8px); /* เบลอหลังให้ดูแพง */
+    -webkit-backdrop-filter: blur(8px); /* รองรับ Safari */
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+/* เวลาจะให้โชว์ (ใส่ !important บังคับแสดงผล) */
+.cmns-modal.show {
+    display: flex !important;
+    opacity: 1;
+}
+
+/* -----------------------------------------
+   2. MODAL BOX (ตัวกล่องฟอร์ม)
+----------------------------------------- */
+.modal-content {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    width: 100%;
+    max-width: 800px; /* ให้กว้างพอสำหรับฟอร์ม 2 ฝั่ง */
+    max-height: 85vh; /* อย่าให้ล้นจอ */
+    overflow-y: auto; /* ล้นแล้วให้ไถลงได้ */
+    padding: 30px;
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.3);
+    color: var(--text-main);
+    
+    /* สภาพก่อนโชว์: ย่อลงนิดนึงและดึงลงต่ำ */
+    transform: translateY(20px) scale(0.95);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* แอนิเมชันเด้งดึ๋งตอนเปิด */
+.cmns-modal.show .modal-content {
+    transform: translateY(0) scale(1);
+}
+
+/* -----------------------------------------
+   3. CUSTOM SCROLLBAR (เฉพาะใน Modal)
+----------------------------------------- */
+.modal-content::-webkit-scrollbar {
+    width: 6px;
+}
+.modal-content::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 10px 0; /* เว้นหัวท้ายนิดนึง */
+}
+.modal-content::-webkit-scrollbar-thumb {
+    background: var(--border);
+    border-radius: 10px;
+}
+.modal-content::-webkit-scrollbar-thumb:hover {
+    background: var(--text-muted);
+}
+
+/* -----------------------------------------
+   4. CLOSE BUTTON (ปุ่มกากบาท)
+----------------------------------------- */
+.modal-close-btn {
+    background: var(--bg-surface-alt);
+    border: 1px solid var(--border);
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+    padding: 0;
+}
+
+.modal-close-btn:hover {
+    background: #ef4444; /* แดงเตือนใจ */
+    color: #ffffff;
+    border-color: #ef4444;
+    transform: rotate(90deg); /* ลูกเล่นหมุนเท่ๆ */
+}
+
+/* -----------------------------------------
+   5. RESPONSIVE (จอมือถือ)
+----------------------------------------- */
+@media (max-width: 768px) {
+    .modal-content {
+        padding: 20px;
+        border-radius: 20px;
+        max-height: 90vh;
+    }
+    .modal-close-btn {
+        width: 32px;
+        height: 32px;
+    }
+}

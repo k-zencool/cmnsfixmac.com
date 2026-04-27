@@ -1,390 +1,247 @@
 <?php
 /********************************************************************
- * admin/warranty/policy_form.php — Create/Edit/Delete Warranty Policy
- * [GEMINI BUILT v1.1 - Corrected Version]
- * - Handles Create, Update, and Delete in one file.
- * - Fixes 'is_default' logic (unsets others).
- * - Includes CSRF protection.
- * - Retains form data on validation error (Fixes UX bug).
+ * admin/warranty/policy_form.php
+ * เพิ่ม / แก้ไข / ปิดการใช้งาน / เปิดใช้งาน / ลบนโยบาย
  ********************************************************************/
 session_start();
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
-require_once __DIR__ . '/../../includes/warranty_lib.php'; // กูassume มึงมี w_h() หรือ h() ในนี้
 require_login();
-require_perms(['warranty.policy.update']); // ต้องมีสิทธิ์นี้เท่านั้น
+require_perms(['warranty.policy.update']);
 
-// Helper function (เผื่อมึงยังไม่มี)
-if (!function_exists('w_h')) {
-  function w_h($s)
-  {
-    return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8');
-  }
+function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
+
+$id     = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+$action = isset($_POST['action']) ? $_POST['action'] : '';
+$msg = $err = '';
+
+/* ---------- โหลดของเดิม ---------- */
+$policy = null;
+if ($id) {
+    $st = $pdo->prepare("SELECT * FROM warranty_terms WHERE id=?");
+    $st->execute([$id]);
+    $policy = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$policy) { $err = 'ไม่พบนโยบาย'; $id = 0; }
 }
-if (!function_exists('w_getv')) {
-  function w_getv($k, $d = null)
-  {
-    return isset($_GET[$k]) ? trim($_GET[$k]) : $d;
-  }
-}
 
-/* ---------------- STATE ---------------- */
-$id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
-$isEdit = $id > 0;
-$pageTitle = $isEdit ? "แก้ไขนโยบาย (ID: $id)" : "เพิ่มนโยบายใหม่";
-$err = w_getv('err', '');
-$msg = w_getv('msg', '');
-
-// Data structure for the form
-$data = [
-  'version' => '',
-  'title' => '',
-  'body' => '',
-  'effective_from' => date('Y-m-d'), // Default to today
-  'effective_to' => '',
-  'is_default' => 0
-];
-
-/* ---------------- HANDLE POST (SAVE/DELETE) ---------------- */
+/* ---------- ACTION ---------- */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-  // 1. CSRF Check (โคตรสำคัญ)
-  if (!isset($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
-    $err = 'Token ไม่ถูกต้อง, กรุณาลองใหม่';
-    $data = $_POST; // Repopulate form
-  } else {
-    $action = $_POST['action'] ?? 'save';
 
-    try {
-      /* ===== DELETE ACTION ===== */
-      if ($action === 'delete' && $isEdit) {
-        $st_check = $pdo->prepare("SELECT is_default FROM warranty_terms WHERE id = :id");
-        $st_check->execute([':id' => $id]);
-        $policy = $st_check->fetch(PDO::FETCH_ASSOC);
+    // บันทึก/แก้ไข
+    if ($action === 'save') {
+        $ver   = trim(isset($_POST['version']) ? $_POST['version'] : '');
+        $title = trim(isset($_POST['title']) ? $_POST['title'] : '');
+        $body  = trim(isset($_POST['body'])   ? $_POST['body']   : '');
+        $from  = isset($_POST['effective_from']) && $_POST['effective_from'] !== '' ? $_POST['effective_from'] : null;
+        $to    = isset($_POST['effective_to'])   && $_POST['effective_to']   !== '' ? $_POST['effective_to']   : null;
+        $def   = isset($_POST['is_default']) ? 1 : 0;
 
-        if ($policy && $policy['is_default'] == 1) {
-          // ป้องกันการลบตัว Default
-          header("Location: policy_form.php?id=$id&err=" . urlencode('ลบเวอร์ชันที่เป็น "ค่าเริ่มต้น" ไม่ได้!'));
-          exit;
-        }
-
-        $st = $pdo->prepare("DELETE FROM warranty_terms WHERE id = :id");
-        $st->execute([':id' => $id]);
-
-        unset($_SESSION['csrf_token']); // ใช้ token แล้วลบทิ้ง
-        header("Location: index.php?tab=policy&msg=" . urlencode('ลบนโยบาย (ID: ' . $id . ') สำเร็จ'));
-        exit;
-      }
-
-      /* ===== SAVE ACTION (CREATE/UPDATE) ===== */
-      // 1. Get data from POST
-      $version = trim($_POST['version']);
-      $title = trim($_POST['title']);
-      $body = trim($_POST['body']);
-      $effective_from = empty($_POST['effective_from']) ? null : $_POST['effective_from'];
-      $effective_to = empty($_POST['effective_to']) ? null : $_POST['effective_to'];
-      $is_default = isset($_POST['is_default']) ? 1 : 0;
-
-      // 2. Validation
-      $errors = [];
-      if (empty($version)) $errors[] = 'ต้องระบุ "เวอร์ชัน"';
-      if (empty($title)) $errors[] = 'ต้องระบุ "ชื่อเรื่อง"';
-      // if (empty($body)) $errors[] = 'ต้องระบุ "เนื้อหานโยบาย"'; // กูเอาออก เผื่อมึงอยากเว้นว่าง
-
-      if (!empty($errors)) {
-        $err = implode(', ', $errors);
-        // [FIX UX] คืนค่าที่มึงกรอกพลาดไป
-        $data = $_POST;
-      } else {
-        // 3. Database Operation
-        $pdo->beginTransaction();
-
-        // 3a. [FIX LOGIC BUG] ถ้าติ๊ก 'is_default', ต้องล้างค่า default เก่าทั้งหมดออกก่อน
-        if ($is_default == 1) {
-          $st_clear = $pdo->prepare("UPDATE warranty_terms SET is_default = 0 WHERE is_default = 1 AND id != :current_id");
-          $st_clear->execute([':current_id' => $id]); // กันเหนียว ไม่ล้างตัวเอง
-        }
-
-        // 3b. Prepare SQL
-        if ($isEdit) {
-          // UPDATE
-          $sql = "UPDATE warranty_terms SET 
-                    version = :v, 
-                    title = :t, 
-                    body = :b, 
-                    effective_from = :f, 
-                    effective_to = :t2, 
-                    is_default = :d 
-                  WHERE id = :id";
-          $params = [
-            ':v' => $version,
-            ':t' => $title,
-            ':b' => $body,
-            ':f' => $effective_from,
-            ':t2' => $effective_to,
-            ':d' => $is_default,
-            ':id' => $id
-          ];
+        if ($ver === '' || $title === '') {
+            $err = 'กรอกเวอร์ชันและชื่อเรื่อง';
         } else {
-          // INSERT
-          $sql = "INSERT INTO warranty_terms 
-                    (version, title, body, effective_from, effective_to, is_default, created_at) 
-                  VALUES 
-                    (:v, :t, :b, :f, :t2, :d, NOW())";
-          $params = [
-            ':v' => $version,
-            ':t' => $title,
-            ':b' => $body,
-            ':f' => $effective_from,
-            ':t2' => $effective_to,
-            ':d' => $is_default
-          ];
+            if ($id) {
+                $sql = "UPDATE warranty_terms
+                           SET version=?, title=?, body=?, effective_from=?, effective_to=?, is_default=?
+                         WHERE id=?";
+                $pdo->prepare($sql)->execute([$ver,$title,$body,$from,$to,$def,$id]);
+                $msg = 'บันทึกการแก้ไขแล้ว';
+            } else {
+                $sql = "INSERT INTO warranty_terms(version,title,body,effective_from,effective_to,is_default)
+                        VALUES (?,?,?,?,?,?)";
+                $pdo->prepare($sql)->execute([$ver,$title,$body,$from,$to,$def]);
+                $id  = (int)$pdo->lastInsertId();
+                $msg = 'เพิ่มนโยบายใหม่แล้ว';
+            }
         }
-
-        // 3c. Execute
-        $st = $pdo->prepare($sql);
-        $st->execute($params);
-        if (!$isEdit) $id = $pdo->lastInsertId(); // เอา ID ใหม่มาใช้ต่อ
-
-        $pdo->commit();
-        unset($_SESSION['csrf_token']); // ใช้ token แล้วลบทิ้ง
-        
-        // ส่งกลับไปหน้า index หรือหน้า edit ตัวเองก็ได้ (กูเลือกกลับ index)
-        header("Location: index.php?tab=policy&msg=" . urlencode($isEdit ? 'บันทึกการแก้ไขแล้ว' : 'เพิ่มนโยบายใหม่สำเร็จ'));
-        exit;
-      }
-    } catch (PDOException $e) {
-      if ($pdo->inTransaction()) $pdo->rollBack();
-      $err = "Database Error: " . $e->getMessage();
-      // [FIX UX] คืนค่าที่มึงกรอกพลาดไป
-      $data = $_POST;
     }
-  }
+
+    // ปิดการใช้งาน: ตั้ง effective_to เมื่อวาน และยกเลิก default
+    if ($action === 'close' && $policy) {
+        $pdo->prepare("
+            UPDATE warranty_terms
+               SET effective_to = DATE_SUB(CURDATE(), INTERVAL 1 DAY),
+                   is_default   = 0
+             WHERE id=?
+        ")->execute([$policy['id']]);
+        $msg = 'ปิดการใช้งานแล้ว';
+    }
+
+    // เปิดใช้งาน: ตั้ง effective_from = วันนี้, effective_to = NULL
+    // พร้อมปิดฉบับอื่นที่กำลังมีผลอยู่ให้สิ้นสุดเมื่อวาน เพื่อไม่ให้ช่วงเวลาทับกัน
+    if ($action === 'activate' && $policy) {
+        $pdo->beginTransaction();
+        try {
+            // ปิดฉบับอื่นที่กำลังมีผลอยู่
+            $pdo->exec("
+                UPDATE warranty_terms
+                   SET effective_to = DATE_SUB(CURDATE(), INTERVAL 1 DAY)
+                 WHERE COALESCE(effective_from,'1000-01-01') <= CURDATE()
+                   AND COALESCE(effective_to,'9999-12-31') >= CURDATE()
+                   AND id <> ".(int)$policy['id']."
+            ");
+            // เปิดฉบับนี้
+            $st = $pdo->prepare("
+                UPDATE warranty_terms
+                   SET effective_from = CURDATE(),
+                       effective_to   = NULL
+                 WHERE id=?
+            ");
+            $st->execute([$policy['id']]);
+            $pdo->commit();
+            $msg = 'เปิดใช้งานนโยบายแล้ว';
+        } catch (Throwable $e) {
+            $pdo->rollBack();
+            $err = 'ไม่สามารถเปิดใช้งานได้: '.$e->getMessage();
+        }
+    }
+
+    // ลบ (ห้ามลบถ้ากำลังมีผลหรือเป็นค่าเริ่มต้น)
+    if ($action === 'delete' && $policy) {
+        $chk = $pdo->prepare("
+            SELECT
+              (COALESCE(effective_from,'1000-01-01') <= CURDATE()
+               AND COALESCE(effective_to,'9999-12-31') >= CURDATE()) AS is_active,
+              is_default
+            FROM warranty_terms WHERE id=?");
+        $chk->execute([$policy['id']]);
+        $row = $chk->fetch(PDO::FETCH_ASSOC);
+        if (!empty($row['is_active'])) {
+            $err = 'ห้ามลบนโยบายที่กำลังมีผลอยู่';
+        } elseif (!empty($row['is_default'])) {
+            $err = 'ห้ามลบนโยบายที่เป็นค่าเริ่มต้น';
+        } else {
+            $pdo->prepare("DELETE FROM warranty_terms WHERE id=?")->execute([$policy['id']]);
+            header('Location: index.php?tab=policy&msg=ลบนโยบายแล้ว');
+            exit;
+        }
+    }
+
+    // reload after action
+    if ($id) {
+        $st = $pdo->prepare("SELECT * FROM warranty_terms WHERE id=?");
+        $st->execute([$id]);
+        $policy = $st->fetch(PDO::FETCH_ASSOC);
+    }
 }
 
-/* ---------------- LOAD DATA FOR EDIT (GET) ---------------- */
-// ต้องเช็คด้วยว่าไม่ใช่ POST ที่ error (ไม่งั้น $data ที่กรอกพลาดจะโดนทับ)
-if ($isEdit && $_SERVER['REQUEST_METHOD'] === 'GET') {
-  $st = $pdo->prepare("SELECT * FROM warranty_terms WHERE id = :id");
-  $st->execute([':id' => $id]);
-  $policyData = $st->fetch(PDO::FETCH_ASSOC);
-
-  if (!$policyData) {
-    header("Location: index.php?tab=policy&err=" . urlencode('ไม่พบนโยบาย ID: ' . $id));
-    exit;
-  }
-  // Load fetched data into form array
-  $data = $policyData;
+/* ---------- สถานะปัจจุบันเพื่อโชว์ปุ่ม ---------- */
+$is_active = false;
+if ($policy) {
+    $st = $pdo->prepare("
+        SELECT (COALESCE(effective_from,'1000-01-01') <= CURDATE()
+            AND COALESCE(effective_to,'9999-12-31') >= CURDATE()) AS a
+        FROM warranty_terms WHERE id=?");
+    $st->execute([$policy['id']]);
+    $is_active = (bool)$st->fetchColumn();
 }
-
-// Generate CSRF token if it doesn't exist or was used
-if (empty($_SESSION['csrf_token'])) {
-  $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
-$csrf_token = $_SESSION['csrf_token'];
-
-/* ---------------- TEMPLATE ---------------- */
-include __DIR__ . '/../../templates/header_admin.php';
-include __DIR__ . '/../../templates/sidebar_admin.php';
 ?>
+<?php include __DIR__ . '/../../templates/header_admin.php'; ?>
+<?php include __DIR__ . '/../../templates/sidebar_admin.php'; ?>
+
 <main class="main" id="main-content">
   <div class="topbar">
-    <span><?= w_h($pageTitle) ?></span>
-    <a href="../../" class="view-site" target="_blank">ดูเว็บไซต์</a>
+    <span><?= $id ? 'แก้ไขนโยบาย' : 'เพิ่มนโยบาย' ?></span>
+    <a href="index.php?tab=policy" class="view-site">กลับรายการนโยบาย</a>
   </div>
 
-  <div class="page-header">
-    <h2 class="page-title"><?= w_h($pageTitle) ?></h2>
-    <a href="index.php?tab=policy" class="btn-secondary">‹ กลับไปหน้ารายการ</a>
-  </div>
+  <?php if ($msg): ?><div class="alert alert-success"><?= h($msg) ?></div><?php endif; ?>
+  <?php if ($err): ?><div class="alert alert-danger"><?= h($err) ?></div><?php endif; ?>
 
-  <?php if ($msg): ?><div class="alert alert-success"><?= w_h($msg) ?></div><?php endif; ?>
-  <?php if ($err): ?><div class="alert alert-danger"><?= w_h($err) ?></div><?php endif; ?>
+  <form method="post" class="policy-form card">
+    <input type="hidden" name="action" value="save">
 
-  <div class="form-card">
-    <form action="policy_form.php<?= $isEdit ? '?id=' . $id : '' ?>" method="POST" id="policyForm">
-      <input type="hidden" name="csrf_token" value="<?= w_h($csrf_token) ?>">
-
-      <div class="form-grid-2">
-        <div class="form-group">
-          <label for="version">เวอร์ชัน (เช่น 1.0, 2025.11) <span class="req">*</span></label>
-          <input type="text" id="version" name="version" value="<?= w_h($data['version']) ?>" required>
-        </div>
-        <div class="form-group">
-          <label for="title">ชื่อเรื่อง / หัวข้อ <span class="req">*</span></label>
-          <input type="text" id="title" name="title" value="<?= w_h($data['title']) ?>" required>
-        </div>
+    <div class="form-grid">
+      <div class="form-row">
+        <label>เวอร์ชัน <span class="req">*</span></label>
+        <input class="input" type="text" name="version" value="<?= h(isset($policy['version'])?$policy['version']:'') ?>" placeholder="เช่น 1.0 / 2025.01">
+      </div>
+      <div class="form-row">
+        <label>ชื่อเรื่อง <span class="req">*</span></label>
+        <input class="input" type="text" name="title" value="<?= h(isset($policy['title'])?$policy['title']:'') ?>" placeholder="เช่น เงื่อนไขรับประกันสินค้า">
       </div>
 
-      <div class="form-group">
-        <label for="body">เนื้อหานโยบาย (ใส่ข้อความเป็น text ธรรมดา)</label>
-        <textarea id="body" name="body" rows="15" class="mono-font"><?= w_h($data['body']) ?></textarea>
+      <div class="form-row full">
+        <label>เนื้อหา</label>
+        <textarea class="textarea" name="body" rows="10" placeholder="พิมพ์เงื่อนไขนโยบาย..."><?= h(isset($policy['body'])?$policy['body']:'') ?></textarea>
       </div>
 
-      <div class="form-grid-2">
-        <div class="form-group">
-          <label for="effective_from">มีผลตั้งแต่ (YYYY-MM-DD)</label>
-          <input type="date" id="effective_from" name="effective_from" value="<?= w_h($data['effective_from']) ?>">
-          <div class="check-hint">ว่างไว้ = มีผลย้อนหลังได้ทั้งหมด</div>
-        </div>
-        <div class="form-group">
-          <label for="effective_to">สิ้นสุด (เว้นว่าง = ไม่มีกำหนด)</label>
-          <input type="date" id="effective_to" name="effective_to" value="<?= w_h($data['effective_to']) ?>">
-           <div class="check-hint">ว่างไว้ = ไม่มีวันหมดอายุ</div>
-        </div>
+      <div class="form-row">
+        <label>มีผลตั้งแต่</label>
+        <input class="input" type="date" name="effective_from" value="<?= h(isset($policy['effective_from'])?$policy['effective_from']:'') ?>">
+        <div class="hint">ว่างไว้ = ใช้ย้อนหลังไม่ได้</div>
+      </div>
+      <div class="form-row">
+        <label>สิ้นสุด</label>
+        <input class="input" type="date" name="effective_to" value="<?= h(isset($policy['effective_to'])?$policy['effective_to']:'') ?>">
+        <div class="hint">ว่างไว้ = ไม่มีกำหนด</div>
       </div>
 
-      <div class="form-group-check">
-        <label>
-          <input type="checkbox" name="is_default" value="1" <?= !empty($data['is_default']) ? 'checked' : '' ?>>
-          <span>ตั้งเป็นนโยบาย "ค่าเริ่มต้น"</span>
+      <div class="form-row full">
+        <label class="checkline">
+          <input type="checkbox" name="is_default" <?= !empty($policy['is_default'])?'checked':'' ?>>
+          <span>ตั้งเป็น “ฉบับค่าเริ่มต้น”</span>
         </label>
-        <div class="check-hint">
-          หากเลือก, ระบบจะยกเลิก "ค่าเริ่มต้น" จากเวอร์ชันอื่นทันที<br>
-          "ค่าเริ่มต้น" จะถูกใช้เมื่อไม่มีนโยบายใดที่ตรงกับช่วงเวลาปัจจุบัน
-        </div>
       </div>
+    </div>
 
-      <hr class="form-divider">
+    <div class="card-foot actions">
+      <div></div>
+      <div>
+        <button class="btn-primary" type="submit">บันทึก</button>
+      </div>
+    </div>
+  </form>
 
-      <div class="form-actions">
-        <button type="submit" name="action" value="save" class="btn-primary">
-          <?= $isEdit ? 'บันทึกการแก้ไข' : 'สร้างนโยบาย' ?>
-        </button>
-        <a href="index.php?tab=policy" class="btn-secondary">ยกเลิก</a>
-
-        <?php if ($isEdit): ?>
-          <button type="button" class="btn-danger" id="btn-delete" style="margin-left: auto;">
-            ลบนโยบายนี้
-          </button>
+  <?php if ($policy): ?>
+    <div class="card actions-row">
+      <div class="btn-group">
+        <?php if ($is_active): ?>
+          <form method="post" class="inline" onsubmit="return confirm('ยืนยันปิดการใช้งานนโยบายนี้?');">
+            <input type="hidden" name="action" value="close">
+            <button type="submit" class="btn-secondary">ปิดการใช้งาน</button>
+          </form>
+        <?php else: ?>
+          <form method="post" class="inline" onsubmit="return confirm('ยืนยันเปิดใช้งานนโยบายนี้ตั้งแต่วันนี้?');">
+            <input type="hidden" name="action" value="activate">
+            <button type="submit" class="btn-secondary">เปิดใช้งาน</button>
+          </form>
         <?php endif; ?>
-      </div>
 
-    </form>
-  </div>
+        <form method="post" class="inline" onsubmit="return confirm('ลบนโยบายนี้ถาวร? ระบบจะไม่ให้ลบหากกำลังมีผลหรือเป็นค่าเริ่มต้น');">
+          <input type="hidden" name="action" value="delete">
+          <button type="submit" class="btn-danger">ลบ</button>
+        </form>
+      </div>
+      <div class="muted small">
+        เปิดใช้งานจะตั้ง “มีผลตั้งแต่วันนี้” และปิดฉบับอื่นที่กำลังมีผลโดยอัตโนมัติ
+      </div>
+    </div>
+  <?php endif; ?>
 </main>
 
 <style>
-  .req { color: #ef4444; }
-  .page-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: 12px;
-  }
-  .page-title {
-    margin: 0;
-  }
-  .form-card {
-    background: #fff;
-    padding: 24px;
-    border-radius: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, .06);
-    max-width: 900px;
-    margin: 0 auto;
-  }
-  .form-group {
-    margin-bottom: 16px;
-  }
-  .form-group label {
-    display: block;
-    font-weight: 600;
-    margin-bottom: 6px;
-  }
-  .form-group input[type="text"],
-  .form-group input[type="date"],
-  .form-group textarea {
-    width: 100%;
-    padding: 10px 12px;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    box-sizing: border-box; /* Important */
-  }
-  .form-group textarea {
-    line-height: 1.6;
-  }
-  .mono-font {
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  }
-  .form-grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
-  .form-group-check {
-    margin: 16px 0;
-    background: #f8fafc;
-    border: 1px solid #eef2f7;
-    padding: 12px;
-    border-radius: 8px;
-  }
-  .form-group-check label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-weight: 600;
-  }
-  .form-group-check input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-  }
-  .check-hint {
-    font-size: 13px;
-    color: #64748b;
-    margin-top: 6px;
-    padding-left: 2px;
-    line-height: 1.5;
-  }
-  .form-divider {
-    border: 0;
-    border-top: 1px solid #e5e7eb;
-    margin: 24px 0;
-  }
-  .form-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  
-  /* Buttons from your code */
-  .btn-primary{background:#2563eb;border:none;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer}
-  .btn-secondary{background:#f3f4f6;border:1px solid #e5e7eb;color:#374151;padding:8px 12px;border-radius:8px;cursor:pointer;text-decoration:none}
-  .btn-danger{background:#dc2626;border:none;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer}
-  
-  /* Alerts from your code */
-  .alert{margin:12px 0;padding:10px;border-radius:8px}
-  .alert-success{background:#e7f7ef;color:#065f46;border:1px solid #a7f3d0}
-  .alert-danger{background:#fde8e8;color:#7f1d1d;border:1px solid #fecaca}
-
-  @media (max-width: 768px) {
-    .form-grid-2 {
-      grid-template-columns: 1fr;
-      gap: 0;
-    }
-  }
+/* layout basics */
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.04);margin:12px 0}
+.policy-form .input,.policy-form .textarea{width:100%;border:1px solid #e5e7eb;border-radius:8px;padding:10px 12px;background:#fff}
+.policy-form .textarea{resize:vertical}
+.req{color:#ef4444}
+.form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;padding:12px}
+.form-row.full{grid-column:1/-1}
+.checkline{display:inline-flex;align-items:center;gap:8px}
+.hint{color:#6b7280;font-size:12px;margin-top:4px}
+.card-foot.actions{display:flex;align-items:center;justify-content:space-between;padding:12px;border-top:1px solid #eee;background:#fafafa}
+.inline{display:inline}
+.actions-row{display:flex;align-items:center;justify-content:space-between;padding:12px}
+.btn-group{display:flex;gap:8px}
+.btn-primary{background:#2563eb;border:none;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer}
+.btn-secondary{background:#f3f4f6;border:1px solid #e5e7eb;color:#374151;padding:8px 12px;border-radius:8px;cursor:pointer;text-decoration:none}
+.btn-danger{background:#dc2626;border:none;color:#fff;padding:8px 12px;border-radius:8px;cursor:pointer}
+.alert{margin:12px 0;padding:10px;border-radius:8px}
+.alert-success{background:#e7f7ef;color:#065f46;border:1px solid #a7f3d0}
+.alert-danger{background:#fde8e8;color:#7f1d1d;border:1px solid #fecaca}
+.muted{color:#6b7280}
+.small{font-size:12px}
+@media (max-width: 900px){ .form-grid{grid-template-columns:1fr} }
 </style>
-
-<script>
-  document.addEventListener('DOMContentLoaded', function() {
-    var deleteBtn = document.getElementById('btn-delete');
-    var form = document.getElementById('policyForm');
-
-    if (deleteBtn) {
-      deleteBtn.addEventListener('click', function(e) {
-        e.preventDefault();
-        
-        var version = document.getElementById('version').value || '???';
-        if (confirm('มึงแน่ใจนะ? \nจะลบนโยบาย v' + version + ' นี้ทิ้งจริงๆ เหรอ? \nกู้คืนไม่ได้นะสัส!')) {
-          // สร้าง input 'action' = 'delete' แล้ว submit form
-          var input = document.createElement('input');
-          input.type = 'hidden';
-          input.name = 'action';
-          input.value = 'delete';
-          form.appendChild(input);
-          form.submit();
-        }
-      });
-    }
-  });
-</script>
 
 <?php include __DIR__ . '/../../templates/footer_admin.php'; ?>

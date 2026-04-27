@@ -150,8 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 if (empty($_SESSION['csrf_token'])) $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 $CSRF = $_SESSION['csrf_token'];
 
-include __DIR__ . '/../../templates/header_admin.php';
-include __DIR__ . '/../../templates/sidebar_admin.php';
+include __DIR__ . '/../templates/header_admin.php';
 ?>
 
 <style>
@@ -537,7 +536,8 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     </div>
 </div>
 
-<?php include '../../templates/footer_admin.php'; ?>
+<?php include '../templates/footer_admin.php'; ?>
+
 <link rel="stylesheet" href="https://unpkg.com/trix@2.0.0/dist/trix.css">
 <script src="https://unpkg.com/trix@2.0.0/dist/trix.umd.min.js"></script>
 

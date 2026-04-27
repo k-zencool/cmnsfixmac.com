@@ -1,0 +1,287 @@
+/* =========================================================
+   Inventory Dashboard Styles (Ultimate Pro Solid Edition)
+   Path: admin/templates/assets/css/inventory-dashboard.css
+
+   ⚠️ ไฟล์นี้ต้องโหลดหลัง admin.css เสมอ เพื่อดึงตัวแปรธีมมาใช้
+   ========================================================= */
+
+:root {
+    --c-bg-card:    var(--bg-surface);
+    --c-border:     var(--border);
+    --c-text-main:  var(--text-main);
+    --c-text-muted: var(--text-muted);
+    --c-hover-bg:   var(--bg-surface-alt);
+    --c-shadow:     var(--shadow);
+    --c-primary:    var(--primary);
+}
+
+/* ---------------------------------------------------------
+   2. WRAPPER & THEME COLOR
+--------------------------------------------------------- */
+.cmns-wrapper {
+    padding: 30px;
+    padding-bottom: 0; 
+    color: var(--c-text-main);
+    font-family: inherit;
+    min-height: calc(100vh - 80px);
+    position: relative;
+    /* 🎨 สีไอคอนจะเปลี่ยนตาม --active-theme-color ที่ PHP ส่งมา */
+    --c-folder: var(--active-theme-color, var(--primary));
+}
+
+/* ---------------------------------------------------------
+   3. HEADER & BUTTONS
+--------------------------------------------------------- */
+.cmns-header-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 20px; flex-wrap: wrap; gap: 15px;
+}
+.cmns-page-title {
+    margin: 0; font-size: 24px; font-weight: 700;
+    display: flex; align-items: center; gap: 12px;
+}
+
+.cmns-action-buttons { display: flex; gap: 12px; }
+
+.cmns-btn {
+    padding: 10px 20px; border-radius: 10px; border: none;
+    font-weight: 600; cursor: pointer; transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    display: inline-flex; align-items: center; gap: 8px;
+    text-decoration: none; font-size: 14px;
+}
+.cmns-btn-primary { background: var(--c-primary); color: #fff; }
+.cmns-btn-primary:hover {
+    filter: brightness(1.1);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+.cmns-btn-secondary {
+    background: var(--c-bg-card);
+    color: var(--c-text-main);
+    border: 1px solid var(--c-border);
+}
+.cmns-btn-secondary:hover { background: var(--c-hover-bg); transform: translateY(-2px); }
+
+/* ---------------------------------------------------------
+   4. CONTROLS BAR (Pro Solid Tabs & Glow)
+--------------------------------------------------------- */
+.cmns-controls-bar {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 30px; border-bottom: 2px solid var(--c-border);
+    padding-bottom: 12px; flex-wrap: wrap; gap: 10px;
+}
+
+.cmns-tabs { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.cmns-tab {
+    padding: 8px 18px; border-radius: 10px; font-size: 14px; font-weight: 700;
+    color: var(--c-text-muted); text-decoration: none; transition: 0.2s;
+    display: flex; align-items: center; gap: 6px; border: 1px solid transparent;
+}
+.cmns-tab:hover { background: var(--c-hover-bg); color: var(--text-main); }
+
+/* Solid Active States with Shadow Glow */
+.cmns-tab.active-all     { background: var(--c-primary); color: #fff; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3); }
+.cmns-tab.active-new     { background: #10b981; color: #fff; box-shadow: 0 4px 12px rgba(16, 185, 129, 0.35); }
+.cmns-tab.active-used    { background: #f59e0b; color: #fff; box-shadow: 0 4px 12px rgba(245, 158, 11, 0.35); }
+.cmns-tab.active-machine { background: #8b5cf6; color: #fff; box-shadow: 0 4px 12px rgba(139, 92, 246, 0.35); }
+.cmns-tab.active-sale    { background: #ef4444; color: #fff; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.35); }
+
+/* View Toggle */
+.cmns-view-toggle {
+    display: flex; background: var(--c-bg-card);
+    border: 1px solid var(--c-border); border-radius: 8px; overflow: hidden;
+}
+.cmns-view-btn {
+    padding: 6px 12px; cursor: pointer; color: var(--c-text-muted);
+    background: transparent; border: none; display: flex; align-items: center; transition: 0.2s;
+}
+.cmns-view-btn.active { background: var(--c-primary); color: #fff; }
+
+/* ---------------------------------------------------------
+   🔥 5. GRID VIEW (Auto-fit เฉลี่ยพอดีจอ)
+--------------------------------------------------------- */
+.cmns-container.view-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 24px;
+}
+
+.cmns-folder-card {
+    background: var(--c-bg-card);
+    border: 1px solid var(--c-border);
+    border-radius: 20px;
+    cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: var(--c-shadow);
+    text-decoration: none; 
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 40px 24px; text-align: center; min-height: 220px;
+    position: relative; overflow: hidden;
+}
+
+.cmns-folder-card:hover {
+    border-color: var(--c-folder);
+    transform: translateY(-5px);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.15);
+}
+[data-theme="dark"] .cmns-folder-card:hover {
+    box-shadow: 0 12px 30px rgba(0,0,0,0.4);
+    background: var(--c-hover-bg);
+}
+
+.cmns-folder-icon { font-size: 64px; color: var(--c-folder); margin-bottom: 15px; transition: 0.3s; }
+.cmns-folder-name { font-size: 19px; font-weight: 700; color: var(--c-text-main); margin-bottom: 15px; letter-spacing: -0.2px; }
+
+/* ---------------------------------------------------------
+   6. LIST VIEW
+--------------------------------------------------------- */
+.cmns-container.view-list { display: flex; flex-direction: column; gap: 12px; }
+.cmns-container.view-list .cmns-folder-card {
+    width: 100%; flex-direction: row; align-items: center; justify-content: flex-start;
+    padding: 18px 28px; text-align: left; min-height: auto;
+}
+.cmns-container.view-list .cmns-folder-card:hover  { transform: translateX(8px); }
+.cmns-container.view-list .cmns-folder-icon        { font-size: 42px; margin-right: 24px; margin-bottom: 0; }
+.cmns-container.view-list .cmns-folder-name        { font-size: 18px; flex-grow: 1; margin-bottom: 0; }
+.cmns-container.view-list .cmns-stats-container    { justify-content: flex-end; width: auto; }
+
+/* ---------------------------------------------------------
+   7. STATS BADGES (Bold & High Contrast)
+--------------------------------------------------------- */
+.cmns-stats-container { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+
+.cmns-stat-badge {
+    display: inline-flex; align-items: center;
+    padding: 4px 10px; border-radius: 6px;
+    font-size: 11px; font-weight: 800; letter-spacing: 0.5px;
+}
+.stat-new     { background: rgba(16, 185, 129, 0.1); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.25); }
+.stat-used    { background: rgba(245, 158, 11, 0.1);  color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.25); }
+.stat-machine { background: rgba(139, 92, 246, 0.1);  color: #8b5cf6; border: 1px solid rgba(139, 92, 246, 0.25); }
+.stat-sale    { background: rgba(239, 68, 68, 0.1);  color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.25); }
+.stat-empty   { border: 1px dashed var(--c-border); color: var(--c-text-muted); opacity: 0.6; font-weight: 600; }
+
+/* ---------------------------------------------------------
+   8. SEARCH BAR & PRO FILTERS
+--------------------------------------------------------- */
+.cmns-search-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+
+.cmns-search-input-wrap { position: relative; flex: 1; min-width: 250px; }
+.cmns-search-input-wrap .search-icon {
+    position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+    color: var(--c-text-muted); font-size: 20px; pointer-events: none;
+}
+.cmns-search-input {
+    width: 100%; padding: 12px 16px 12px 48px;
+    border-radius: 14px; border: 1.5px solid var(--c-border);
+    background: var(--c-bg-card); color: var(--c-text-main);
+    font-size: 14px; font-weight: 500; outline: none; transition: 0.2s;
+}
+.cmns-search-input:focus {
+    border-color: var(--c-primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.cmns-filter-group { display: flex; gap: 8px; flex-wrap: wrap; }
+
+.cmns-filter-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 10px 16px; border-radius: 12px;
+    border: 1.5px solid var(--c-border);
+    background: var(--c-bg-card); color: var(--c-text-muted);
+    font-size: 13px; font-weight: 700; cursor: pointer; transition: 0.2s;
+}
+
+/* Filter Active States with Solid Colors */
+.cmns-filter-btn.active { border-color: transparent !important; color: #fff !important; }
+.cmns-filter-btn[data-filter="new"].active     { background: #10b981; box-shadow: 0 4px 10px rgba(16, 185, 129, 0.2); }
+.cmns-filter-btn[data-filter="used"].active    { background: #f59e0b; box-shadow: 0 4px 10px rgba(245, 158, 11, 0.2); }
+.cmns-filter-btn[data-filter="machine"].active { background: #8b5cf6; box-shadow: 0 4px 10px rgba(139, 92, 246, 0.2); }
+.cmns-filter-btn[data-filter="sale"].active    { background: #ef4444; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.2); }
+.cmns-filter-btn[data-filter="empty"].active   { background: var(--c-text-muted); }
+
+/* ---------------------------------------------------------
+   9. GLOBAL PAGINATION (Dock Bottom)
+--------------------------------------------------------- */
+.cmns-footer-pagination {
+    position: sticky; bottom: 0; background: var(--c-bg-card);
+    border: 1px solid var(--c-border); border-bottom: none;
+    border-radius: 20px 20px 0 0; padding: 14px 24px;
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.08); z-index: 99;
+    display: flex; justify-content: space-between; align-items: center;
+    margin-top: 30px; backdrop-filter: blur(12px);
+}
+
+[data-theme="dark"] .cmns-footer-pagination {
+    background: rgba(23, 23, 23, 0.85);
+    box-shadow: 0 -10px 30px rgba(0, 0, 0, 0.4);
+}
+
+/* ---------------------------------------------------------
+   10. ANTI-FLASHBANG LOADER (Dark Fix)
+--------------------------------------------------------- */
+#global-loader {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background-color: var(--bg-body) !important; /* บังคับดำตามธีม */
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    z-index: 99999;
+}
+
+.search-hidden { display: none !important; }
+
+/* ---------------------------------------------------------
+   11. RESPONSIVE
+--------------------------------------------------------- */
+@media (max-width: 768px) {
+    .cmns-footer-pagination { flex-direction: column; gap: 15px; padding: 20px; border-radius: 0; }
+}
+
+@media (max-width: 640px) {
+    .cmns-wrapper { padding: 20px; }
+    .cmns-container.view-grid { grid-template-columns: 1fr; }
+    .cmns-container.view-grid .cmns-folder-card { min-height: 180px; }
+}
+
+
+/* -----------------------------------------
+   ปุ่ม BACK (สไตล์ Text-Link คลีนสุดขั้ว)
+----------------------------------------- */
+.cmns-back-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px; /* ลดช่องไฟลงนิดนึงให้ดูเป็นคำเดียวกัน */
+    color: var(--text-muted); /* สีเทาหม่นๆ ไม่แย่งซีน */
+    text-decoration: none;
+    font-size: 13px; /* ขยายฟอนต์ขึ้นนิดนึงเพราะไม่มีกรอบแล้ว */
+    font-weight: 800;
+    padding: 4px 8px; /* ลด Padding ลง ให้กดยังโดนอยู่แต่ไม่เกะกะ */
+    background: transparent; /* โปร่งใส 100% */
+    border: none; /* ไร้ขอบ 100% */
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    letter-spacing: 0.5px;
+}
+
+/* ไอคอนลูกศร */
+.cmns-back-link .material-symbols-rounded {
+    font-size: 18px;
+    transition: transform 0.2s ease;
+}
+
+/* เวลาเอาเมาส์ชี้ (Hover) - ให้เรืองแสงนิดๆ แต่ยังเป็น Text อยู่ */
+.cmns-back-link:hover {
+    color: var(--primary); /* เปลี่ยนเป็นสีฟ้า (หรือสีหลักมึง) */
+    background: transparent; /* ยังคงโปร่งใสอยู่ */
+    box-shadow: none; /* ไม่มีเงา */
+    text-shadow: 0 0 10px rgba(37, 99, 235, 0.3); /* เรืองแสงบางๆ ที่ตัวหนังสือแทน */
+}
+
+/* ลูกเล่นให้ลูกศรสไลด์ถอยหลังตอน Hover */
+.cmns-back-link:hover .material-symbols-rounded {
+    transform: translateX(-4px); /* ถอยหลังไปนิดนึง */
+}
+
+/* เวลากดคลิก (Active) */
+.cmns-back-link:active {
+    transform: scale(0.95);
+    opacity: 0.7; /* จางลงนิดนึงตอนกด */
+}

@@ -205,8 +205,8 @@ function format_listing_status($status, $in_stock, $stock_qty)
 }
 
 // =======================[ Template ]=================================
-include __DIR__ . '/../../templates/header_admin.php';
-include __DIR__ . '/../../templates/sidebar_admin.php';
+require_once __DIR__ . '/../templates/header_admin.php';
+
 ?>
 <main class="main" id="main-content">
     <div class="topbar">
@@ -320,15 +320,15 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
                             <td class="no-wrap">
                                 <a href="edit_listing.php?id=<?= (int)$l['id'] ?>" class="btn-edit">แก้ไข</a>
 
-  <form action="delete_listing.php" method="post" style="display:inline">
-    <input type="hidden" name="csrf_token" value="<?= h($CSRF) ?>">
-    <input type="hidden" name="id" value="<?= (int)$l['id'] ?>">
-    
-    <a href="#" class="btn-delete" 
-       onclick="if (confirm('ต้องการลบรายการสินค้านี้ใช่หรือไม่?')) { this.closest('form').submit(); } return false;">
-       ลบ
-    </a>
-</form>
+                                <form action="delete_listing.php" method="post" style="display:inline">
+                                    <input type="hidden" name="csrf_token" value="<?= h($CSRF) ?>">
+                                    <input type="hidden" name="id" value="<?= (int)$l['id'] ?>">
+
+                                    <a href="#" class="btn-delete"
+                                        onclick="if (confirm('ต้องการลบรายการสินค้านี้ใช่หรือไม่?')) { this.closest('form').submit(); } return false;">
+                                        ลบ
+                                    </a>
+                                </form>
                             </td>
                         </tr>
                     <?php endforeach;
@@ -375,7 +375,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     </div>
 </main>
 
-<?php include __DIR__ . '/../../templates/footer_admin.php'; ?>
+<?php include __DIR__ . '/../templates/footer_admin.php'; ?>
 
 <script>
     // Dropdown filter

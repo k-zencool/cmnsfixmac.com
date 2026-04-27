@@ -120,8 +120,8 @@ $st->execute();
 $repairs = $st->fetchAll(PDO::FETCH_ASSOC);
 
 /* =================== Template ========================== */
-include __DIR__ . '/../../templates/header_admin.php';
-include __DIR__ . '/../../templates/sidebar_admin.php';
+include __DIR__ . '/../templates/header_admin.php';
+
 ?>
 <main class="main" id="main-content">
   <div class="topbar">
@@ -255,7 +255,7 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
   </div>
 </main>
 
-<?php include __DIR__ . '/../../templates/footer_admin.php'; ?>
+<?php include __DIR__ . '/../templates/footer_admin.php'; ?>
 
 <script>
   // Dropdown

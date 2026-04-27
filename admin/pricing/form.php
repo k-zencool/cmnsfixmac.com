@@ -1,132 +1,256 @@
 <?php
+/********************************************************************
+ * admin/pricing/form.php
+ * ฟอร์มเพิ่ม/แก้ไขราคา (Enterprise Edition)
+ ********************************************************************/
+
 session_start();
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
-require_login(); 
+require_login();
 
-function e($string) { return htmlspecialchars((string) $string, ENT_QUOTES, 'UTF-8'); }
+$id = isset($_GET['id']) ? $_GET['id'] : '';
 
-// --- Configuration for all pricing tables ---
-$allowed_tables = [
-    'macbook_fix_pricing'    => 'ราคาซ่อม MacBook',
-    'imac_fix_pricing'       => 'ราคาซ่อม iMac',
-    'iphone_fix_pricing'     => 'ราคาซ่อม iPhone',
-    'ipad_fix_pricing'       => 'ราคาซ่อม iPad',
-    'applewatch_fix_pricing' => 'ราคาซ่อม Apple Watch',
-    'airpods_fix_pricing'    => 'ราคาซ่อม AirPods',
-    'software_fix_pricing'   => 'ค่าบริการ Software'
+// --- ค่าเริ่มต้น (Default Values) ---
+$data = [
+    'service_code' => '', 
+    'device_type' => '', 
+    'device_series' => '', 
+    'device_model' => '', 
+    'service_name' => '', 
+    'price' => '', 
+    'warranty_days' => 90, 
+    'is_active' => 1,
+    'show_on_web' => 0
 ];
 
-// Define categories for each table's dropdown
-$table_categories = [
-    'macbook_fix_pricing' => ['display' => 'เปลี่ยนจอ', 'battery' => 'เปลี่ยนแบตเตอรี่', 'board' => 'ซ่อมบอร์ด'],
-
-    'imac_fix_pricing' => ['display' => 'เปลี่ยนจอ', 'upgrade' => 'อัปเกรด SSD / RAM', 'board' => 'ซ่อมบอร์ด'],
-
-    'iphone_fix_pricing' => ['display' => 'เปลี่ยนจอ', 'battery' => 'เปลี่ยนแบตเตอรี่', 'board' => 'ซ่อมบอร์ด'],
-
-    'ipad_fix_pricing' => ['display' => 'เปลี่ยนจอ', 'battery' => 'เปลี่ยนแบตเตอรี่', 'board' => 'ซ่อมบอร์ด'],
-    
-    'applewatch_fix_pricing' => ['display' => 'เปลี่ยนจอ', 'battery' => 'เปลี่ยนแบตเตอรี่', 'board' => 'ซ่อมบอร์ด'],
-
-    'airpods_fix_pricing' => ['earpiece' => 'ซ่อมหูฟัง', 'case' => 'ซ่อมเคสชาร์จ', 'board' => 'ซ่อมบอร์ด'],
-    
-    'software_fix_pricing' => ['os' => 'ลง macOS ใหม่', 'apps' => 'ลงโปรแกรมทำงาน', 'clean' => 'ล้างเครื่อง / แก้ไวรัส']
-];
-// --- End Configuration ---
-
-
-$table = $_GET['table'] ?? '';
-if (!array_key_exists($table, $allowed_tables)) {
-    die("ตารางไม่ถูกต้องหรือไม่ได้รับอนุญาต");
-}
-
-// Get the specific categories for the current table being edited
-$current_categories = $table_categories[$table] ?? [];
-
-$id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
-$item = ['category' => '', 'model' => '', 'detail' => '', 'detail_en' => '', 'price' => ''];
-$pageTitle = "เพิ่มรายการใหม่ใน " . $allowed_tables[$table];
-$isEditMode = false;
-
-if ($id) {
-    $isEditMode = true;
-    $stmt = $pdo->prepare("SELECT * FROM `{$table}` WHERE id = ?");
-    $stmt->execute([$id]);
-    $item = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$item) { header("Location: index.php"); exit; } // Redirect to main pricing menu
-    $pageTitle = "แก้ไขรายการ #" . e($id) . " ใน " . $allowed_tables[$table];
-}
-
+// --- 1. บันทึกข้อมูล (Save) ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $category = $_POST['category'] ?? '';
-    $model = $_POST['model'] ?? '';
-    $detail = $_POST['detail'] ?? '';
-    $detail_en = $_POST['detail_en'] ?? '';
-    $price = $_POST['price'] ?? '';
+    $service_code = trim($_POST['service_code']);
+    $device_type = trim($_POST['device_type']);
+    $device_series = trim($_POST['device_series']);
+    $device_model = trim($_POST['device_model']);
+    $service_name = trim($_POST['service_name']);
+    $price = floatval($_POST['price']);
+    $warranty = intval($_POST['warranty_days']);
+    $is_active = isset($_POST['is_active']) ? intval($_POST['is_active']) : 0;
+    $show_on_web = isset($_POST['show_on_web']) ? intval($_POST['show_on_web']) : 0;
 
-    if ($isEditMode) {
-        $stmt = $pdo->prepare("UPDATE `{$table}` SET category=?, model=?, detail=?, detail_en=?, price=? WHERE id=?");
-        $stmt->execute([$category, $model, $detail, $detail_en, $price, $id]);
-    } else {
-        // For INSERT, we need to ensure created_at is handled if the table has it and it's not auto-updating
-        // This simplified version assumes no created_at on INSERT, but can be added
-        $stmt = $pdo->prepare("INSERT INTO `{$table}` (category, model, detail, detail_en, price) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$category, $model, $detail, $detail_en, $price]);
+    if ($id) { // Update
+        $sql = "UPDATE service_pricing SET service_code=?, device_type=?, device_series=?, device_model=?, service_name=?, price=?, warranty_days=?, is_active=?, show_on_web=?, updated_at=NOW() WHERE id=?";
+        $pdo->prepare($sql)->execute([$service_code, $device_type, $device_series, $device_model, $service_name, $price, $warranty, $is_active, $show_on_web, $id]);
+    } else { // Insert
+        $sql = "INSERT INTO service_pricing (service_code, device_type, device_series, device_model, service_name, price, warranty_days, is_active, show_on_web) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        $pdo->prepare($sql)->execute([$service_code, $device_type, $device_series, $device_model, $service_name, $price, $warranty, $is_active, $show_on_web]);
     }
-    header("Location: index.php"); // Redirect back to the main pricing menu
-    exit;
+    header("Location: index.php");
+    exit();
 }
+
+// --- 2. ดึงข้อมูลมาแก้ไข (Edit Mode) ---
+if ($id) {
+    $stmt = $pdo->prepare("SELECT * FROM service_pricing WHERE id = ?");
+    $stmt->execute([$id]);
+    $res = $stmt->fetch(PDO::FETCH_ASSOC);
+    if($res) $data = $res;
+}
+
+// --- 3. ดึงงานล่าสุด (Smart Suggestion) ---
+// ✅ แก้ไข: ใช้ estimated_cost แทน price ตามตาราง tracking จริง
+$recent_jobs = $pdo->query("
+    SELECT * FROM tracking 
+    WHERE status = 'DV' AND estimated_cost > 0 
+    ORDER BY updated_at DESC LIMIT 10
+")->fetchAll(PDO::FETCH_ASSOC);
+
+include __DIR__ . '/../templates/header_admin.php'; 
 ?>
 
-<?php include '../../templates/header_admin.php'; ?>
-<?php include '../../templates/sidebar_admin.php'; ?>
+<style>
+    /* Layout */
+    .layout-grid { display: grid; grid-template-columns: 2fr 1.3fr; gap: 25px; }
+    .card { background: #fff; padding: 25px; border-radius: 16px; border: 1px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); }
+    
+    /* Inputs */
+    .form-group { margin-bottom: 20px; position: relative; }
+    .form-label { display: flex; align-items: center; gap: 6px; font-weight: 600; margin-bottom: 8px; color: #334155; font-size: 0.9rem; }
+    .form-label .material-symbols-rounded { font-size: 18px; color: #64748b; }
+    .form-control { width: 100%; padding: 12px 12px 12px 40px; border: 1px solid #cbd5e1; border-radius: 10px; transition: 0.2s; font-size: 1rem; }
+    .form-control:focus { border-color: #3b82f6; outline: none; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
+    
+    /* Input Icons */
+    .input-icon { position: absolute; left: 12px; top: 42px; color: #94a3b8; font-size: 20px; pointer-events: none; }
+    
+    /* Buttons */
+    .btn-submit { background: #2563eb; color: #fff; padding: 14px; border: none; border-radius: 10px; width: 100%; cursor: pointer; font-size: 1rem; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; }
+    .btn-submit:hover { background: #1d4ed8; transform: translateY(-1px); }
 
-<main class="main" id="main-content">
+    /* Smart List Items */
+    .job-item { padding: 15px; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 10px; cursor: pointer; transition: 0.2s; background: #fff; position: relative; }
+    .job-item:hover { border-color: #3b82f6; background: #eff6ff; transform: translateX(-2px); }
+    .job-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+    .job-id { font-size: 0.8rem; font-weight: 700; color: #64748b; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; }
+    .job-price { font-weight: 700; color: #059669; font-size: 0.95rem; }
+    .job-model { font-weight: 600; color: #1e293b; font-size: 0.9rem; display: flex; align-items: center; gap: 5px; }
+    .job-problem { font-size: 0.85rem; color: #64748b; margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+    .btn-add-mini { position: absolute; right: 10px; bottom: 10px; background: #dbeafe; color: #2563eb; border: none; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s; }
+    .job-item:hover .btn-add-mini { opacity: 1; }
+
+    /* Section Header */
+    .section-head { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; color: #1e293b; font-size: 1.1rem; font-weight: 700; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px; }
+</style>
+
+<main class="main">
     <div class="topbar">
-        <span><?= e($pageTitle) ?></span>
-        <a href="index.php" class="view-site">← กลับหน้าเมนูราคา</a>
+        <span style="display: flex; align-items: center; gap: 10px;">
+            <span class="material-symbols-rounded" style="color:#3b82f6;">price_check</span>
+            <?= $id ? 'แก้ไขราคา' : 'เพิ่มราคาใหม่' ?>
+        </span>
+        <a href="index.php" style="color: #64748b; text-decoration: none; display: flex; align-items: center; gap: 5px;">
+            <span class="material-symbols-rounded">arrow_back</span> กลับ
+        </a>
     </div>
 
-    <div class="form-section">
-        <form method="POST">
-            <fieldset>
-                <legend>ข้อมูลราคา</legend>
+    <div class="layout-grid">
+        
+        <div class="card">
+            <h3 class="section-head"><span class="material-symbols-rounded">edit_note</span> ข้อมูลราคามาตรฐาน</h3>
+            <form method="POST">
                 
-                <label for="category">หมวดหมู่ (Category):</label>
-                <select id="category" name="category" required>
-                    <option value="">-- เลือกหมวดหมู่ --</option>
-                    <?php foreach ($current_categories as $key => $label): ?>
-                        <option value="<?= e($key) ?>" <?= ($item['category'] ?? '') === $key ? 'selected' : '' ?>>
-                            <?= e($label) ?> (key: <?= e($key) ?>)
-                        </option>
-                    <?php endforeach; ?>
-                </select>
+                <div class="form-group">
+                    <label class="form-label">รหัสบริการ (Service Code / SN)</label>
+                    <span class="material-symbols-rounded input-icon">qr_code_2</span>
+                    <input type="text" name="service_code" id="inpCode" class="form-control" placeholder="เช่น FIX-IP13-LCD (ไม่บังคับ)" value="<?= htmlspecialchars($data['service_code']) ?>">
+                </div>
 
-                <label for="model">รุ่น (Model):</label>
-                <input type="text" id="model" name="model" value="<?= e($item['model']) ?>" placeholder="e.g., MacBook Pro 13-inch M1 2020">
-                
-                <label for="price">ราคา (Price):</label>
-                <input type="text" id="price" name="price" value="<?= e($item['price']) ?>" required placeholder="e.g., 2,900.-">
-            </fieldset>
+                <div class="form-group">
+                    <label class="form-label">ประเภทอุปกรณ์ (Type)</label>
+                    <span class="material-symbols-rounded input-icon">devices</span>
+                    <input type="text" name="device_type" id="inpType" class="form-control" placeholder="เช่น iPhone" value="<?= htmlspecialchars($data['device_type']) ?>" list="typeList" required>
+                    <datalist id="typeList"><option value="iPhone"><option value="iPad"><option value="MacBook"></datalist>
+                </div>
 
-            <hr style="margin: 20px 0;">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label class="form-label">ชื่อรุ่น (Series)</label>
+                        <span class="material-symbols-rounded input-icon">smartphone</span>
+                        <input type="text" name="device_series" id="inpSeries" class="form-control" placeholder="เช่น 13 Pro" value="<?= htmlspecialchars($data['device_series']) ?>" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">โมเดล (Axxxx)</label>
+                        <span class="material-symbols-rounded input-icon">tag</span>
+                        <input type="text" name="device_model" id="inpModel" class="form-control" placeholder="เช่น A2638" value="<?= htmlspecialchars($data['device_model']) ?>">
+                    </div>
+                </div>
 
-            <fieldset>
-                <legend>รายละเอียด (Details)</legend>
-                <label for="detail">รายละเอียด (ไทย):</label>
-                <textarea id="detail" name="detail" rows="4"><?= e($item['detail']) ?></textarea>
+                <div class="form-group">
+                    <label class="form-label">รายการซ่อม (Service)</label>
+                    <span class="material-symbols-rounded input-icon">build_circle</span>
+                    <input type="text" name="service_name" id="inpService" class="form-control" placeholder="เช่น เปลี่ยนจอแท้" value="<?= htmlspecialchars($data['service_name']) ?>" required>
+                </div>
 
-                <label for="detail_en">รายละเอียด (English):</label>
-                <textarea id="detail_en" name="detail_en" rows="4"><?= e($item['detail_en']) ?></textarea>
-            </fieldset>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div class="form-group">
+                        <label class="form-label">ราคา (บาท)</label>
+                        <span class="material-symbols-rounded input-icon">payments</span>
+                        <input type="number" name="price" id="inpPrice" class="form-control" placeholder="0.00" value="<?= htmlspecialchars($data['price']) ?>" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">ประกัน (วัน)</label>
+                        <span class="material-symbols-rounded input-icon">verified_user</span>
+                        <input type="number" name="warranty_days" class="form-control" value="<?= htmlspecialchars($data['warranty_days']) ?>">
+                    </div>
+                </div>
+
+                <div style="background: #f8fafc; padding: 15px; border-radius: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                    <div>
+                        <label class="form-label"><span class="material-symbols-rounded">store</span> สถานะหน้าร้าน</label>
+                        <select name="is_active" class="form-control" style="padding-left: 12px;">
+                            <option value="1" <?= $data['is_active'] == 1 ? 'selected' : '' ?>>เปิดใช้งาน</option>
+                            <option value="0" <?= $data['is_active'] == 0 ? 'selected' : '' ?>>ปิดใช้งาน</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label"><span class="material-symbols-rounded">public</span> หน้าเว็บไซต์</label>
+                        <select name="show_on_web" class="form-control" style="padding-left: 12px;">
+                            <option value="1" <?= $data['show_on_web'] == 1 ? 'selected' : '' ?>>โชว์ราคา</option>
+                            <option value="0" <?= $data['show_on_web'] == 0 ? 'selected' : '' ?>>ซ่อนราคา</option>
+                        </select>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-submit" style="margin-top: 20px;">
+                    <span class="material-symbols-rounded">save</span> บันทึกข้อมูล
+                </button>
+            </form>
+        </div>
+
+        <div class="card" style="background: #f8fafc; border: none;">
+            <h3 class="section-head" style="font-size: 1rem; color:#475569;">
+                <span class="material-symbols-rounded">history</span> งานที่เพิ่งส่งมอบ (DV)
+            </h3>
             
-            <div style="margin-top: 20px;">
-                <button type="submit">บันทึกข้อมูล</button>
-                <a href="index.php" class="back-link" style="margin-left: 10px;">← ย้อนกลับ</a>
+            <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 15px;">คลิกที่รายการเพื่อดึงราคามาใช้ได้ทันที</p>
+
+            <div style="max-height: 600px; overflow-y: auto; padding-right: 5px;">
+                <?php if (empty($recent_jobs)): ?>
+                    <div style="text-align: center; color: #94a3b8; padding: 30px;">
+                        <span class="material-symbols-rounded" style="font-size: 40px; opacity: 0.5;">inbox</span>
+                        <br>ยังไม่มีงานที่เสร็จและมีราคา
+                    </div>
+                <?php endif; ?>
+
+                <?php foreach ($recent_jobs as $job): 
+                    $clean_problem = htmlspecialchars(strip_tags($job['problem_details']));
+                    $clean_model = htmlspecialchars($job['device_model']); // เช่น iPhone 13 Pro
+                    $clean_type = htmlspecialchars($job['device_type']);
+                    
+                    // ✅ แก้ไข: ใช้ estimated_cost ตรงนี้ด้วย
+                    $j_price = $job['estimated_cost'];
+                ?>
+                <div class="job-item" onclick="importData('<?= $clean_type ?>', '<?= $clean_model ?>', '<?= $clean_problem ?>', '<?= $j_price ?>')">
+                    <div class="job-header">
+                        <span class="job-id"><?= $job['ticket_number'] ?></span>
+                        <span class="job-price">฿<?= number_format($j_price) ?></span>
+                    </div>
+                    <div class="job-model">
+                        <span class="material-symbols-rounded" style="font-size: 16px; color:#64748b;">smartphone</span>
+                        <?= $job['device_model'] ?>
+                    </div>
+                    <div class="job-problem">
+                        <span class="material-symbols-rounded" style="font-size: 14px; vertical-align: middle;">build</span>
+                        <?= $clean_problem ?>
+                    </div>
+                    <button class="btn-add-mini"><span class="material-symbols-rounded">add</span></button>
+                </div>
+                <?php endforeach; ?>
             </div>
-        </form>
+        </div>
+
     </div>
 </main>
 
-<?php include '../../templates/footer_admin.php'; ?>
+<?php include __DIR__ . '/../templates/footer_admin.php'; ?>
+
+<script>
+    function importData(type, series, service, price) {
+        // เอฟเฟกต์เล็กน้อยให้รู้ว่ากดแล้ว
+        document.body.style.cursor = 'wait';
+        
+        // เติมข้อมูล
+        document.getElementById('inpType').value = type;
+        document.getElementById('inpSeries').value = series;
+        document.getElementById('inpService').value = service;
+        document.getElementById('inpPrice').value = price;
+        
+        // Reset Model & Code เพราะต้องกรอกใหม่ให้ตรงกับมาตรฐาน
+        document.getElementById('inpModel').value = ''; 
+        document.getElementById('inpCode').value = ''; 
+
+        setTimeout(() => {
+            document.body.style.cursor = 'default';
+            // Focus ที่ช่อง Service Code เผื่ออยากตั้งรหัสเลย
+            document.getElementById('inpCode').focus();
+        }, 200);
+    }
+</script>

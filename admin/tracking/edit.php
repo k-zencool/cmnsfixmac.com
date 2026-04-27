@@ -160,8 +160,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-include __DIR__ . '/../../templates/header_admin.php';
-include __DIR__ . '/../../templates/sidebar_admin.php';
+require_once __DIR__ . '/../templates/header_admin.php'; 
+
 ?>
 
 <link rel="stylesheet" href="/admin/tracking/assets/css/create-style.css">
@@ -522,4 +522,4 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
     });
 </script>
 
-<?php include __DIR__ . '/../../templates/footer_admin.php'; ?>
+<?php include __DIR__ . '/../templates/footer_admin.php'; ?>

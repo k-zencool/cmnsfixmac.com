@@ -2,8 +2,10 @@
 /********************************************************************
  * admin/parts/donor_split.php
  * แยกอะไหล่จากเครื่อง (ทีละชิ้น) -> เข้า "อะไหล่มือ 2"
- *
- * แก้ไขล่าสุด: รองรับ Schema ใหม่ของ parts_donors (type, series, code)
+ * * UPDATE: 
+ * - เปลี่ยนระบบจาก part_code เป็น used_sku ตามมาตรฐาน
+ * - รองรับ Schema ใหม่ของ parts_donors (Type, Series, Code)
+ * - UI แบบเดิมพร้อมระบบ Preview รูปภาพ
  ********************************************************************/
 
 session_start();
@@ -21,12 +23,40 @@ function val($arr, $k, $d = '') { return isset($arr[$k]) ? trim((string)$arr[$k]
 define('PARTS_UPLOAD_DIR', __DIR__ . '/../../uploads/parts/');
 if (!is_dir(PARTS_UPLOAD_DIR)) @mkdir(PARTS_UPLOAD_DIR, 0775, true);
 
+// ========================== [SKU LOGIC] ==========================
+// ดึง Logic มาจากหน้า form_used.php เพื่อให้รหัสรันต่อกัน
+
+function detectPrefix($name, $model, $cat) {
+    $text = strtolower($name . ' ' . $model . ' ' . $cat);
+    if (strpos($text, 'iphone') !== false)     return 'IP';
+    if (strpos($text, 'ipad') !== false)       return 'PD';
+    if (strpos($text, 'imac') !== false)       return 'IM';
+    if (strpos($text, 'watch') !== false)      return 'WA';
+    if (strpos($text, 'airpods') !== false)    return 'AP';
+    if (strpos($text, 'pencil') !== false)     return 'PE';
+    if (strpos($text, 'mac mini') !== false)   return 'MM';
+    if (strpos($text, 'adapter') !== false)    return 'AC';
+    return 'MB'; // Default เป็น MacBook
+}
+
+function generateUsedSKU(PDO $pdo, $partName, $deviceModel, $cat) {
+    $prefixType = detectPrefix($partName, $deviceModel, $cat);
+    $ym = date('Ym');
+    // ค้นหาลำดับล่าสุดจากเลขท้าย SKU
+    $sql = "SELECT CAST(SUBSTRING_INDEX(used_sku, '-A', -1) AS UNSIGNED) as max_seq 
+            FROM parts_used WHERE used_sku LIKE '%-A%' ORDER BY max_seq DESC LIMIT 1";
+    $stmt = $pdo->query($sql);
+    $maxSeq = (int)$stmt->fetchColumn(); 
+    return sprintf("U-%s-%s-A%04d", $prefixType, $ym, $maxSeq + 1);
+}
+
 function safeUploadName(string $orig): string {
   $ext  = strtolower(pathinfo($orig, PATHINFO_EXTENSION));
   $base = preg_replace('/[^a-z0-9\-_]+/i', '-', pathinfo($orig, PATHINFO_FILENAME));
   if ($base === '') $base = 'used';
   return $base . '-' . date('Ymd_His') . '-' . substr(bin2hex(random_bytes(4)), 0, 6) . '.' . $ext;
 }
+
 function img_src_any($v) {
   $v = trim((string)$v);
   if ($v === '') return '';
@@ -34,7 +64,7 @@ function img_src_any($v) {
   return '../../uploads/parts/' . $v;
 }
 
-/* --------------------- STATE --------------------- */
+// ========================== [STATE & LOAD] ==========================
 $donor_id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if (!$donor_id) {
   header("Location: index.php?tab=donor&err=" . urlencode("ไม่ได้ระบุ id"));
@@ -42,7 +72,7 @@ if (!$donor_id) {
 }
 $user_id = $_SESSION['admin_id'] ?? ($_SESSION['user']['id'] ?? null);
 
-/* --------------------- LOAD DONOR --------------------- */
+/* LOAD DONOR */
 $st = $pdo->prepare("SELECT * FROM parts_donors WHERE id=? LIMIT 1");
 $st->execute([$donor_id]);
 $donor = $st->fetch(PDO::FETCH_ASSOC);
@@ -51,28 +81,22 @@ if (!$donor) {
   exit;
 }
 
-// [UPDATED] สร้างชื่อรุ่นจากคอลัมน์ใหม่ (Type + Series + Code)
+// สร้างชื่อรุ่นจาก Type + Series + Code
 $donor_model_str = trim(
     ($donor['device_type'] ?? '') . ' ' . 
     ($donor['device_series'] ?? '') . ' ' . 
     ($donor['model_code'] ?? '')
 );
-// ถ้าไม่มีข้อมูลเลย ให้ใช้ ID แทน
 if ($donor_model_str === '') $donor_model_str = 'Donor #' . $donor_id;
 
-
-// ข้อความหมายเหตุเริ่มต้น: "แยกจาก (Asset Tag)"
-$default_remark = 'แยกจาก';
-if(!empty($donor['internal_id'])) {
-    $default_remark .= ' (' . $donor['internal_id'] . ')';
-} else {
-    $default_remark .= ' (Donor #' . $donor_id . ')';
-}
+$default_remark = 'แยกจาก ' . (!empty($donor['internal_id']) ? $donor['internal_id'] : "Donor #$donor_id");
 
 $errors = [];
 $msg = val($_GET, 'msg');
 
-/* --------------------- POST: MOVE LOCATION --------------------- */
+// ========================== [ACTIONS] ==========================
+
+/* MOVE LOCATION */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && val($_POST, 'action') === 'move_location') {
   require_perms(['parts.donor.split']);
   $used_id  = (int)($_POST['used_id'] ?? 0);
@@ -81,46 +105,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && val($_POST, 'action') === 'move_loc
   try {
     $pdo->prepare("UPDATE parts_used SET location=?, updated_at=NOW() WHERE id=? AND donor_id=?")
       ->execute([$location, $used_id, $donor_id]);
-    header("Location: donor_split.php?id=" . $donor_id . "&msg=" . urlencode("อัปเดตที่เก็บเรียบร้อย"));
+    header("Location: donor_split.php?id=$donor_id&msg=" . urlencode("อัปเดตที่เก็บเรียบร้อย"));
     exit;
-  } catch (Throwable $e) {
-    $errors[] = $e->getMessage();
-  }
+  } catch (Throwable $e) { $errors[] = $e->getMessage(); }
 }
 
-/* --------------------- POST: SAVE ONE (แยก 1 ชิ้น) --------------------- */
+/* SAVE ONE (แยกอะไหล่) */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && val($_POST, 'action') === 'save_one') {
   require_perms(['parts.donor.split']);
 
   $part_name     = val($_POST, 'part_name');
-  $part_code     = strtoupper(val($_POST, 'part_code'));
-  $part_number   = val($_POST, 'part_number');
-  
-  // [UPDATED] ใช้ค่าจากตัวแปรที่สร้างใหม่เป็น Default
   $device_models = val($_POST, 'device_models', $donor_model_str);
-  
-  $category      = val($_POST, 'category', 'Other');
+  $category      = val($_POST, 'category', 'MacBook');
+  $part_number   = val($_POST, 'part_number');
   $remarks       = val($_POST, 'remarks', $default_remark);
   $location      = val($_POST, 'location', 'used');
 
-  // อัปโหลดรูป
+  // GEN SKU ใหม่ตามมาตรฐาน U-XX-YYYYMM-AXXXX
+  $used_sku = generateUsedSKU($pdo, $part_name, $device_models, $category);
+
   $image_url = null;
-  if (!empty($_FILES['image']['name'])) {
-    $f = $_FILES['image'];
-    if ($f['error'] === UPLOAD_ERR_OK) {
-      $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
-      if (!in_array($ext, ['jpg', 'jpeg', 'png', 'webp'], true)) {
-        $errors[] = "ไฟล์รูปต้องเป็น jpg, jpeg, png หรือ webp";
-      } elseif ($f['size'] > 5 * 1024 * 1024) {
-        $errors[] = "ไฟล์รูปใหญ่เกิน 5MB";
-      } else {
-        $new = safeUploadName($f['name']);
-        if (!move_uploaded_file($f['tmp_name'], PARTS_UPLOAD_DIR . $new)) $errors[] = "อัปโหลดรูปไม่สำเร็จ";
-        else $image_url = $new;
-      }
-    } elseif ($f['error'] !== UPLOAD_ERR_NO_FILE) {
-      $errors[] = "อัปโหลดรูปผิดพลาด (code {$f['error']})";
-    }
+  if (!empty($_FILES['image']['name']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+      $new = safeUploadName($_FILES['image']['name']);
+      if (move_uploaded_file($_FILES['image']['tmp_name'], PARTS_UPLOAD_DIR . $new)) $image_url = $new;
   }
 
   if ($part_name === '') $errors[] = "กรุณากรอกชื่ออะไหล่";
@@ -129,44 +136,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && val($_POST, 'action') === 'save_one
     try {
       $pdo->beginTransaction();
 
-      // บันทึกเข้าตาราง parts_used
+      /* 1. บันทึกลง parts_used */
       $pdo->prepare("
         INSERT INTO parts_used
-          (part_code, part_name, part_number, device_models, category,
+          (used_sku, part_name, part_number, device_models, category,
            image_url, location, remarks, donor_id, created_at, updated_at)
         VALUES (?,?,?,?,?,?,?,?,?, NOW(), NOW())
-      ")->execute([
-        $part_code,
-        $part_name,
-        $part_number,
-        $device_models,
-        $category,
-        $image_url,
-        $location,
-        $remarks,
-        $donor_id
-      ]);
+      ")->execute([$used_sku, $part_name, $part_number, $device_models, $category, $image_url, $location, $remarks, $donor_id]);
       $used_id = (int)$pdo->lastInsertId();
 
-      // Log เอกสาร
-      $ref  = 'DONOR:' . $donor_id;
-      $note = 'เพิ่มชิ้นมือ 2: ' . ($part_name ?: $part_code) . ' (จาก donor #' . $donor_id . ')';
-      $pdo->prepare("
-        INSERT INTO parts_docs (doc_type, ref_no, remarks, user_id, created_at)
-        VALUES ('USED', ?, ?, ?, NOW())
-      ")->execute([$ref, $note, $user_id]);
-      $doc_id = (int)$pdo->lastInsertId();
+      /* 2. Log ลงเอกสาร (parts_docs) */
+      $note = "เพิ่มชิ้นมือ 2 [$used_sku]: $part_name (จาก Donor #$donor_id)";
+      $pdo->prepare("INSERT INTO parts_docs (doc_type, ref_no, remarks, user_id, created_at) VALUES ('USED', ?, ?, ?, NOW())")
+          ->execute(["DONOR:$donor_id", $note, $user_id]);
 
-      $pdo->prepare("
-        INSERT INTO parts_doc_lines (doc_id, part_code, qty, location_from, location_to, unit_cost)
-        VALUES (?, ?, 1, NULL, ?, NULL)
-      ")->execute([$doc_id, $part_code, $location]);
-
-      // อัปเดตสถานะ donor เป็น stripped ถ้ายังไม่ใช่
+      /* 3. อัปเดตสถานะเครื่อง Donor */
       if (($donor['status'] ?? '') !== 'stripped') {
-        $pdo->prepare("UPDATE parts_donors SET status='stripped', updated_at=NOW() WHERE id=?")
-          ->execute([$donor_id]);
-        $donor['status'] = 'stripped';
+        $pdo->prepare("UPDATE parts_donors SET status='stripped', updated_at=NOW() WHERE id=?")->execute([$donor_id]);
       }
 
       $pdo->commit();
@@ -174,57 +160,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && val($_POST, 'action') === 'save_one
       if (!empty($_POST['consume_now'])) {
         header("Location: consume.php?type=used&used_id=" . $used_id);
       } else {
-        header("Location: donor_split.php?id=" . $donor_id . "&msg=" . urlencode("เพิ่มชิ้นเข้ามือ 2 แล้ว"));
+        header("Location: donor_split.php?id=$donor_id&msg=" . urlencode("สำเร็จ! SKU: $used_sku"));
       }
       exit;
-    } catch (Throwable $e) {
-      if ($pdo->inTransaction()) $pdo->rollBack();
-      $errors[] = $e->getMessage();
-    }
+    } catch (Throwable $e) { if ($pdo->inTransaction()) $pdo->rollBack(); $errors[] = $e->getMessage(); }
   }
 }
 
-/* --------------------- LOAD: รายการที่แยกแล้ว --------------------- */
+/* LOAD LIST: อะไหล่ที่แยกแล้ว + อะไหล่ที่เคยเบิกไปแล้ว (Log) */
 $st2 = $pdo->prepare("
-  SELECT 
-    id, donor_id, part_code, part_name, device_models, category, image_url, location,
-    0 AS is_log, NULL AS consumed_at
-  FROM parts_used
-  WHERE donor_id=?
+  SELECT id, used_sku, part_name, device_models, category, image_url, location, 0 AS is_log, NULL AS consumed_at
+  FROM parts_used WHERE donor_id=?
   UNION ALL
-  SELECT
-    NULL AS id, donor_id, part_code, part_name, device_models, category, image_url, location,
-    1 AS is_log, consumed_at
-  FROM parts_used_log
-  WHERE donor_id=?
-  ORDER BY is_log ASC, COALESCE(consumed_at, '1970-01-01') DESC
+  SELECT NULL, used_sku, part_name, device_models, category, image_url, location, 1, consumed_at
+  FROM parts_used_log WHERE donor_id=?
+  ORDER BY is_log ASC, id DESC
 ");
 $st2->execute([$donor_id, $donor_id]);
 $used_parts = $st2->fetchAll(PDO::FETCH_ASSOC);
 
-/* --------------------- TEMPLATE --------------------- */
+// ========================== [TEMPLATE] ==========================
 include __DIR__ . '/../../templates/header_admin.php';
 include __DIR__ . '/../../templates/sidebar_admin.php';
 ?>
 
 <style>
-.asset-tag {
-    font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
-    font-weight: 700;
-    font-size: 0.9rem; 
-    color: #1e3a8a;
-    background-color: #dbeafe;
-    border: 1px solid #93c5fd;
-    padding: 2px 8px;
-    border-radius: 4px;
-    letter-spacing: 0px;
-    white-space: nowrap; 
-    display: inline-block;
-}
+/* CSS Styling */
+.asset-tag { font-family: 'SFMono-Regular', monospace; font-weight: 700; color: #1e3a8a; background: #dbeafe; border: 1px solid #93c5fd; padding: 2px 8px; border-radius: 4px; }
+.sku-badge { background: #1f2937; color: #fbbf24; font-family: monospace; padding: 3px 7px; border-radius: 4px; font-weight: bold; font-size: 0.85rem; }
+.imgpv-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 9999; }
+.imgpv-overlay.show { display: flex; }
+.imgpv-img { max-width: 90%; max-height: 90%; border-radius: 8px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+.imgpv-close { position: absolute; top: 20px; right: 20px; color: #fff; font-size: 30px; cursor: pointer; }
+.thumb-btn { background: none; border: none; padding: 0; cursor: pointer; }
 </style>
 
 <main class="main" id="main-content">
-
   <div class="topbar">
     <span><?= h($pageTitle) ?></span>
     <a href="index.php?tab=donor" class="view-site">← กลับรายการเครื่อง</a>
@@ -234,354 +205,164 @@ include __DIR__ . '/../../templates/sidebar_admin.php';
   <?php if ($errors): ?><div class="alert alert-danger"><?php foreach ($errors as $e): ?><div><?= h($e) ?></div><?php endforeach; ?></div><?php endif; ?>
 
   <div class="card part-summary">
-    <?php $dsrc = img_src_any($donor['image_url'] ?? ''); ?>
     <div class="part-summary__media">
-      <?php if ($dsrc): ?>
-        <img src="<?= h($dsrc) ?>" class="part-summary__img" alt="">
-      <?php else: ?>
-        <div class="part-summary__placeholder">ไม่มีรูป</div>
-      <?php endif; ?>
+      <?php $dsrc = img_src_any($donor['image_url'] ?? ''); ?>
+      <?php if ($dsrc): ?><img src="<?= h($dsrc) ?>" class="part-summary__img"><?php else: ?><div class="part-summary__placeholder">ไม่มีรูป</div><?php endif; ?>
     </div>
-    
     <div class="part-summary__meta">
-      <div style="margin-bottom: 8px;">
-        <span style="color:#666; margin-right:5px;">รหัสร้าน:</span>
-        <?php if(!empty($donor['internal_id'])): ?>
-            <span class="asset-tag"><?= h($donor['internal_id']) ?></span>
-        <?php else: ?>
-            <span class="muted">-</span>
-        <?php endif; ?>
-      </div>
-
+      <div style="margin-bottom: 8px;"><span class="muted small">Asset Tag:</span> <?php if(!empty($donor['internal_id'])): ?><span class="asset-tag"><?= h($donor['internal_id']) ?></span><?php else: ?>-<?php endif; ?></div>
       <div><strong>รุ่น:</strong> <?= h($donor_model_str) ?></div>
-      
       <div><strong>Serial:</strong> <?= h($donor['serial_no']) ?></div>
       <div><strong>สถานะ:</strong> <span class="badge"><?= h($donor['status']) ?></span></div>
     </div>
   </div>
 
-  <h3 class="card-title" style="margin-top:20px;">รายการที่แยกแล้ว</h3>
-
+  <h3 class="card-title" style="margin-top:25px;">🛠 รายการอะไหล่ที่แยกออกแล้ว</h3>
   <div class="table-container">
     <table class="data-table">
       <thead>
         <tr>
           <th>#</th>
           <th>รูป</th>
-          <th>Part Code</th>
+          <th>Used SKU</th>
           <th>ชื่ออะไหล่</th>
           <th>รุ่น</th>
-          <th>หมวด</th>
           <th>ที่เก็บ</th>
           <th>จัดการ</th>
         </tr>
       </thead>
-
       <tbody>
-        <?php if ($used_parts): foreach ($used_parts as $i => $p): ?>
-            <?php $psrc = img_src_any($p['image_url'] ?? '');
-            $isLog = (int)($p['is_log'] ?? 0) === 1; ?>
+        <?php if ($used_parts): foreach ($used_parts as $i => $p): 
+            $psrc = img_src_any($p['image_url']); $isLog = (int)$p['is_log'] === 1; ?>
             <tr>
               <td><?= $i + 1 ?></td>
               <td>
                 <?php if ($psrc): ?>
-                  <button type="button" class="thumb-btn" data-src="<?= h($psrc) ?>">
-                    <img src="<?= h($psrc) ?>" class="thumb thumb--sm" alt="">
-                  </button>
-                <?php else: ?>
-                  <div class="thumb thumb--sm thumb--empty">-</div>
-                <?php endif; ?>
+                  <button type="button" class="thumb-btn" data-src="<?= h($psrc) ?>"><img src="<?= h($psrc) ?>" class="thumb thumb--sm"></button>
+                <?php else: ?>-<?php endif; ?>
               </td>
-
-              <td><?= h($p['part_code']) ?></td>
+              <td><span class="sku-badge"><?= h($p['used_sku']) ?></span></td>
               <td>
                 <?= h($p['part_name']) ?>
-                <?php if ($isLog && !empty($p['consumed_at'])): ?>
-                  <div class="muted small">(เบิกแล้ว: <?= h($p['consumed_at']) ?>)</div>
-                <?php endif; ?>
+                <?php if ($isLog): ?><div class="muted small">(เบิกไปแล้วเมื่อ: <?= h($p['consumed_at']) ?>)</div><?php endif; ?>
               </td>
               <td><?= h($p['device_models']) ?></td>
-              <td><span class="badge"><?= h($p['category'] ?: 'Other') ?></span></td>
               <td>
-                <?php if (!$isLog && can('parts.donor.split')): ?>
-                  <form method="post" class="inline-group">
+                <?php if (!$isLog): ?>
+                  <form method="post" class="inline-group" style="display:flex; gap:5px;">
                     <input type="hidden" name="action" value="move_location">
-                    <input type="hidden" name="used_id" value="<?= (int)($p['id'] ?? 0) ?>">
-                    <input name="location" class="input filter-input" value="<?= h($p['location']) ?>" style="max-width:160px;">
-                    <button class="btn-secondary" type="submit">บันทึก</button>
+                    <input type="hidden" name="used_id" value="<?= (int)$p['id'] ?>">
+                    <input name="location" class="input filter-input" value="<?= h($p['location']) ?>" style="max-width:100px; padding:4px 8px; font-size:13px;">
+                    <button class="btn-secondary btn-sm" type="submit">OK</button>
                   </form>
-                <?php else: ?>
-                  <span class="muted"><?= h($p['location']) ?></span>
-                <?php endif; ?>
+                <?php else: ?><?= h($p['location']) ?><?php endif; ?>
               </td>
-              <td class="no-wrap actions-cell">
-                <?php if ($isLog): ?>
-                  <span class="badge badge-gray">เบิกแล้ว</span>
-                <?php else: ?>
-                  <?php if (can('parts.used.consume')): ?>
-                    <a class="btn-primary" href="consume.php?type=used&used_id=<?= (int)($p['id'] ?? 0) ?>">เบิก</a>
-                  <?php endif; ?>
-                  <?php if (can('parts.used.update')): ?>
-                    <a class="btn-secondary" href="form_used.php?id=<?= (int)($p['id'] ?? 0) ?>">เปิดในมือ 2</a>
-                  <?php endif; ?>
-                <?php endif; ?>
+              <td class="actions-cell">
+                <?php if (!$isLog): ?>
+                  <a class="btn-primary" href="consume.php?type=used&used_id=<?= (int)$p['id'] ?>">เบิก</a>
+                  <a class="btn-secondary" href="form_used.php?id=<?= (int)$p['id'] ?>">แก้ไข</a>
+                <?php else: ?><span class="badge badge-gray">จ่ายออกแล้ว</span><?php endif; ?>
               </td>
             </tr>
-          <?php endforeach;
-        else: ?>
-          <tr>
-            <td colspan="8" class="text-center">ยังไม่มีรายการที่แยก</td>
-          </tr>
+        <?php endforeach; else: ?>
+          <tr><td colspan="7" class="text-center muted">ยังไม่มีการแยกอะไหล่จากเครื่องนี้</td></tr>
         <?php endif; ?>
       </tbody>
     </table>
   </div>
 
-  <div id="imgPreviewOverlay" class="imgpv-overlay" aria-hidden="true">
-    <div class="imgpv-dialog" role="dialog" aria-modal="true" aria-label="ตัวอย่างรูป">
-      <button type="button" class="imgpv-close" aria-label="ปิด">✕</button>
-      <img id="imgPreview" src="" alt="" class="imgpv-img">
-    </div>
-  </div>
-
-  <h3 class="card-title" style="margin-top:30px;">เพิ่มชิ้นอะไหล่</h3>
-  <form id="usedForm" method="post" enctype="multipart/form-data" class="card restock-form" style="margin-top:10px;" novalidate>
-    <input type="hidden" name="action" id="usedAction" value="save_one">
-    <input type="hidden" name="id" value="">
-    <input type="hidden" name="remove_image" id="remove_image" value="0">
-
+  <h3 class="card-title" style="margin-top:35px;">➕ เพิ่มชิ้นส่วนอะไหล่ (แยกเข้าคลังมือ 2)</h3>
+  <form id="usedForm" method="post" enctype="multipart/form-data" class="card restock-form" novalidate>
+    <input type="hidden" name="action" value="save_one">
     <div class="form-grid">
       <div class="form-item">
-        <label class="form-label">รูป</label>
-        <div class="image-upload-ui" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
-          <div id="uImgWrap" style="position:relative;width:100px;height:100px;border:1px dashed #cbd5e1;border-radius:12px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#fafafa;cursor:pointer;" title="คลิกหรือลากไฟล์มาวาง">
-            <span id="uImgText" class="muted small">ลากรูปมาวาง</span>
-            <button type="button" id="uRemoveBtn" style="display:none;position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;background:#ef4444;color:#fff;border:0;cursor:pointer;font-weight:700;line-height:22px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.15);">×</button>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:8px;min-width:220px;">
-            <label for="image" class="btn-secondary" style="cursor:pointer;display:inline-flex;align-items:center;gap:8px;">เลือกรูปจากเครื่อง</label>
-            <input type="file" name="image" id="image" accept=".jpg,.jpeg,.png,.webp" style="display:none">
-            <div class="muted small">รองรับ jpg, jpeg, png, webp ≤ 5MB</div>
-          </div>
+        <label class="form-label">รูปภาพอะไหล่</label>
+        <div id="uImgWrap" style="width:100%; height:120px; border:2px dashed #cbd5e1; border-radius:12px; display:flex; align-items:center; justify-content:center; cursor:pointer; overflow:hidden; background:#fafafa;">
+          <span class="muted small">คลิกหรือลากรูปมาวาง</span>
         </div>
+        <input type="file" name="image" id="imageInput" style="display:none;" accept="image/*">
       </div>
 
       <div class="form-item">
-        <label class="form-label" for="donor_id_display">ดึงจากเครื่อง (Asset Tag)</label>
-        <input id="donor_id_display" class="input filter-input" 
-               value="<?= !empty($donor['internal_id']) ? h($donor['internal_id']) : '#' . (int)$donor_id ?>" disabled 
-               style="font-weight:bold; color:#1e3a8a; background:#e0e7ff;">
+        <label class="form-label">ชื่ออะไหล่ *</label>
+        <input name="part_name" class="input" required placeholder="เช่น หน้าจอ LCD, แบตเตอรี่, บอร์ด">
       </div>
 
       <div class="form-item">
-        <label class="form-label" for="part_name">ชื่ออะไหล่ *</label>
-        <input id="part_name" name="part_name" class="input filter-input" required placeholder="เช่น Top Case, Screen, Battery">
+        <label class="form-label">หมวดหมู่</label>
+        <select name="category" class="input">
+          <option value="MacBook">MacBook</option>
+          <option value="iPhone">iPhone</option>
+          <option value="iPad">iPad</option>
+          <option value="iMac">iMac</option>
+          <option value="Watch">Apple Watch</option>
+          <option value="Other">Other</option>
+        </select>
       </div>
 
       <div class="form-item">
-        <label class="form-label">รหัสอะไหล่ (ภายใน)</label>
-        <input name="part_code" id="part_code" class="input filter-input"
-          placeholder="เว้นว่างไว้ ระบบจะสร้างให้อัตโนมัติ">
+        <label class="form-label">รุ่นอุปกรณ์ (Model)</label>
+        <input name="device_models" class="input" value="<?= h($donor_model_str) ?>">
       </div>
 
       <div class="form-item">
-        <label class="form-label" for="part_number">เลขอะไหล่ (Part No.)</label>
-        <input id="part_number" name="part_number" class="input filter-input" placeholder="661-xxxx / Axxxx">
+        <label class="form-label">Part Number / Serial อะไหล่</label>
+        <input name="part_number" class="input" placeholder="ถ้ามีรหัสเฉพาะชิ้นส่วน">
       </div>
 
       <div class="form-item">
-        <label class="form-label" for="device_models">รุ่นอุปกรณ์</label>
-        <input id="device_models" name="device_models" class="input filter-input" value="<?= h($donor_model_str) ?>" placeholder="เช่น MacBook Pro A1706">
+        <label class="form-label">ที่เก็บ (Location)</label>
+        <input name="location" class="input" value="used" placeholder="เช่น กล่องมือ 2">
       </div>
 
-      <div class="form-item">
-        <label class="form-label" for="category">หมวด</label>
-        <input id="category" name="category" class="input filter-input" placeholder="screen/battery/board/..." list="catlist">
+      <div class="form-item" style="grid-column: 1 / -1;">
+        <label class="form-label">หมายเหตุ / สภาพอะไหล่</label>
+        <textarea name="remarks" class="input" rows="2"><?= h($default_remark) ?></textarea>
       </div>
 
-      <div class="form-item">
-        <label class="form-label" for="location">ที่เก็บ</label>
-        <input id="location" name="location" class="input filter-input" value="used" placeholder="เช่น used, shelf-A3">
-      </div>
-
-      <div class="form-item" style="grid-column:1 / -1">
-        <label class="form-label" for="remarks">หมายเหตุ</label>
-        <textarea id="remarks" name="remarks" class="input filter-input" rows="3" placeholder="รายละเอียด/สภาพ/ที่มา ฯลฯ"><?= h($default_remark) ?></textarea>
-      </div>
-
-      <div class="form-actions" style="grid-column:1 / -1">
-        <button class="btn-primary" type="submit">เพิ่มชิ้นเข้ามือ 2</button>
-        <label class="checkbox-inline" style="margin-left:8px;">
-          <input type="checkbox" name="consume_now" value="1">
-          <span>บันทึกแล้วเบิกทันที</span>
+      <div class="form-actions" style="grid-column: 1 / -1; display:flex; align-items:center; gap:20px;">
+        <button class="btn-primary" type="submit" style="padding:12px 30px;">บันทึกเข้าสต็อกมือ 2</button>
+        <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+          <input type="checkbox" name="consume_now" value="1" style="width:18px; height:18px;">
+          <span>บันทึกแล้วไปหน้าเบิกจ่ายทันที</span>
         </label>
       </div>
     </div>
   </form>
 
-  <script>
-  // Image UI
-  (function() {
-    var input   = document.getElementById('image');
-    var wrap    = document.getElementById('uImgWrap');
-    var remove  = document.getElementById('uRemoveBtn');
-    var img     = document.getElementById('uImg');
-    var rmField = document.getElementById('remove_image');
-    var existed = false; 
-
-    function showPreview(file) {
-      if (!file) return;
-      if (!/image\/(png|jpe?g|webp)/i.test(file.type)) {
-        alert('ไฟล์ไม่ใช่รูปภาพที่รองรับ');
-        return;
-      }
-      var reader = new FileReader();
-      reader.onload = function(e) {
-        if (!img) {
-          img = document.createElement('img');
-          img.id = 'uImg';
-          img.alt = 'preview';
-          img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
-        }
-        wrap.innerHTML = '';
-        wrap.appendChild(img);
-        img.src = e.target.result;
-
-        if (!remove) {
-          remove = document.createElement('button');
-          remove.id = 'uRemoveBtn';
-          remove.type = 'button';
-          remove.textContent = '×';
-          remove.style.cssText =
-            'position:absolute;top:6px;right:6px;width:22px;height:22px;border-radius:50%;' +
-            'background:#ef4444;color:#fff;border:0;cursor:pointer;font-weight:700;' +
-            'line-height:22px;text-align:center;box-shadow:0 2px 6px rgba(0,0,0,.15);';
-          remove.addEventListener('click', clearImage);
-        }
-        wrap.appendChild(remove);
-        remove.style.display = '';
-        if (rmField) rmField.value = 0;
-      };
-      reader.readAsDataURL(file);
-    }
-
-    function clearImage(e) {
-      if (e) e.stopPropagation();
-      if (input) input.value = '';
-      wrap.innerHTML = '<span id="uImgText" class="muted small">ลากรูปมาวาง</span>';
-      if (remove) {
-        wrap.appendChild(remove);
-        remove.style.display = 'none';
-      }
-      img = null;
-      if (rmField && existed) rmField.value = 1;
-    }
-
-    wrap.addEventListener('click', function() {
-      if (input) input.click();
-    });
-
-    function setBorder(c) { wrap.style.borderColor = c; }
-    wrap.addEventListener('dragover', function(e) {
-      e.preventDefault();
-      setBorder('#3b82f6');
-    });
-    wrap.addEventListener('dragleave', function() {
-      setBorder('#cbd5e1');
-    });
-    wrap.addEventListener('drop', function(e) {
-      e.preventDefault();
-      setBorder('#cbd5e1');
-      var f = e.dataTransfer.files && e.dataTransfer.files[0];
-      if (f) {
-        input.files = e.dataTransfer.files;
-        showPreview(f);
-      }
-    });
-    if (input) input.addEventListener('change', function() {
-      var f = input.files && input.files[0];
-      if (f) showPreview(f);
-    });
-    if (remove) remove.addEventListener('click', clearImage);
-  })();
-
-  // ===== เติม "รหัสอะไหล่" อัตโนมัติ =====
-  (function () {
-    function pad2(n){ return (n < 10 ? '0' : '') + n; }
-    function genCode(cat, model){
-      var map = {screen:'SCR', battery:'BATT', keyboard:'KB', trackpad:'TP',
-                 speaker:'SPK', camera:'CAM', board:'BRD', cable:'CBL',
-                 fan:'FAN', hinge:'HNG', case:'CASE', Other:'OTH'};
-      var cc = map[String(cat||'').toLowerCase()] || 'OTH';
-      var m  = String(model||'').replace(/[^A-Za-z0-9]+/g,'').slice(0,6).toUpperCase() || 'MDL';
-      var d=new Date();
-      var t=d.getHours()+''+pad2(d.getMinutes())+pad2(d.getSeconds());
-      return cc + '-' + m + '-' + t;
-    }
-
-    var pc  = document.getElementById('part_code');
-    var cat = document.getElementById('category');
-    var mdl = document.getElementById('device_models');
-    if (!pc) return;
-
-    var userEdited = false;
-
-    function seedIfEmpty(){
-      if (userEdited) return;
-      if (pc.value.trim() !== '') return;
-      pc.value = genCode(cat ? cat.value : 'Other', mdl ? mdl.value : '');
-    }
-
-    pc.addEventListener('input', function(){ userEdited = pc.value.trim() !== ''; });
-
-    ['change','blur'].forEach(function(evt){
-      if (cat) cat.addEventListener(evt, seedIfEmpty);
-      if (mdl) mdl.addEventListener(evt, seedIfEmpty);
-    });
-
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', seedIfEmpty);
-    } else {
-      seedIfEmpty();
-    }
-  })();
-</script>
+  <div id="imgPreviewOverlay" class="imgpv-overlay">
+    <span class="imgpv-close">×</span>
+    <img id="imgPreview" class="imgpv-img" src="">
+  </div>
+</main>
 
 <script>
-    (function() {
-      var overlay = document.getElementById('imgPreviewOverlay');
-      var imgEl = document.getElementById('imgPreview');
+// Image Preview & Upload Logic
+const wrap = document.getElementById('uImgWrap');
+const input = document.getElementById('imageInput');
 
-      function openPreview(src) {
-        if (!overlay || !imgEl) return;
-        imgEl.src = src;
+wrap.onclick = () => input.click();
+input.onchange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            wrap.innerHTML = `<img src="${event.target.result}" style="width:100%; height:100%; object-fit:cover;">`;
+        };
+        reader.readAsDataURL(file);
+    }
+};
+
+// Preview Overlay Logic
+const overlay = document.getElementById('imgPreviewOverlay');
+const previewImg = document.getElementById('imgPreview');
+document.querySelectorAll('.thumb-btn').forEach(btn => {
+    btn.onclick = () => {
+        previewImg.src = btn.dataset.src;
         overlay.classList.add('show');
-        overlay.setAttribute('aria-hidden', 'false');
-      }
-
-      function closePreview() {
-        if (!overlay) return;
-        overlay.classList.remove('show');
-        overlay.setAttribute('aria-hidden', 'true');
-        if (imgEl) imgEl.src = '';
-      }
-
-      document.addEventListener('click', function(e) {
-        var btn = e.target.closest ? e.target.closest('.thumb-btn') : null;
-        if (!btn) return;
-        var src = btn.getAttribute('data-src');
-        if (src) openPreview(src);
-      });
-
-      if (overlay) {
-        overlay.addEventListener('click', function(e) {
-          if (e.target === overlay || e.target.classList.contains('imgpv-close')) {
-            closePreview();
-          }
-        });
-      }
-      document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && overlay && overlay.classList.contains('show')) closePreview();
-      });
-    })();
+    };
+});
+overlay.onclick = () => overlay.classList.remove('show');
 </script>
+
+<?php include __DIR__ . '/../../templates/footer_admin.php'; ?>

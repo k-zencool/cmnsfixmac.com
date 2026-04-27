@@ -1,0 +1,140 @@
+<?php
+session_start();
+require_once '../../includes/db.php';
+
+if (!isset($_SESSION['admin_id'])) {
+    header("Location: ../login.php");
+    exit();
+}
+
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header("Location: index.php");
+    exit();
+}
+
+$redirect_back = $_SERVER['HTTP_REFERER'] ?? 'index.php';
+
+try {
+    $add_mode = $_POST['add_mode'] ?? 'new';
+
+    // ---- MODE: เติมสต็อกสินค้าเดิม ----
+    if ($add_mode === 'existing') {
+        $inventory_id = (int)($_POST['existing_item_id'] ?? 0);
+        if (!$inventory_id) throw new Exception("กรุณาเลือกสินค้า");
+
+        $lot_number    = 'LOT-' . strtoupper(substr(uniqid(), -6));
+        $qty_received  = (int)($_POST['qty_received'] ?? 1);
+        $cost_price    = (float)($_POST['cost_price'] ?? 0);
+        $sell_price    = (float)($_POST['sell_price'] ?? 0);
+        $supplier_name = trim($_POST['supplier_name'] ?? '');
+        $warranty_end  = !empty($_POST['warranty_end']) ? $_POST['warranty_end'] : null;
+
+        $stmt = $pdo->prepare("INSERT INTO inventory_lots
+            (inventory_id, lot_number, qty_received, qty_remaining, cost_price, warranty_start, warranty_end, supplier_name)
+            VALUES (?, ?, ?, ?, ?, CURDATE(), ?, ?)");
+        $stmt->execute([$inventory_id, $lot_number, $qty_received, $qty_received, $cost_price, $warranty_end, $supplier_name]);
+
+        // อัปเดตราคาขายถ้ากรอกมา
+        if ($sell_price > 0) {
+            $pdo->prepare("UPDATE inventory SET sell_price = ? WHERE id = ?")->execute([$sell_price, $inventory_id]);
+        }
+
+        header("Location: $redirect_back");
+        exit();
+    }
+
+    // ---- MODE: สร้างโปรไฟล์ใหม่ ----
+    $name        = trim($_POST['name'] ?? '');
+    $sku         = trim($_POST['sku'] ?? '');
+    $category_id = (int)($_POST['category_id'] ?? 0);
+    $type        = $_POST['type'] ?? 'new';
+
+    if (!$name || !$category_id) throw new Exception("กรุณากรอกข้อมูลให้ครบ");
+
+    // Auto-generate SKU
+    if (!$sku) {
+        $prefix = match($type) {
+            'new'     => 'NW',
+            'used'    => 'US',
+            'machine' => 'MC',
+            'sale'    => 'SL',
+            default   => 'IT',
+        };
+        $sku = $prefix . '-' . strtoupper(substr(uniqid(), -6));
+    }
+
+    // Upload image
+    $image_filename = null;
+    if (!empty($_FILES['image']['tmp_name'])) {
+        $upload_dir = '../../uploads/inventory/';
+        if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
+
+        $ext = strtolower(pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION));
+        $allowed = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
+        if (!in_array($ext, $allowed)) throw new Exception("ไฟล์รูปไม่รองรับ");
+
+        $image_filename = $sku . '-' . time() . '.' . $ext;
+        if (!move_uploaded_file($_FILES['image']['tmp_name'], $upload_dir . $image_filename)) {
+            $image_filename = null;
+        }
+    }
+
+    // Fields ตาม type
+    $part_number      = trim($_POST['part_number'] ?? '');
+    $compatible_models = trim($_POST['compatible_models'] ?? '');
+    $location         = trim($_POST['location'] ?? '');
+    $min_qty          = (int)($_POST['min_qty'] ?? 1);
+    $asset_tag        = trim($_POST['asset_tag'] ?? '');
+    $serial_number    = trim($_POST['serial_number'] ?? '');
+    $condition_note   = trim($_POST['condition_note'] ?? '');
+    $disassembly_status = $_POST['disassembly_status'] ?? 'intact';
+    $source_machine_id  = !empty($_POST['source_machine_id']) ? (int)$_POST['source_machine_id'] : null;
+
+    // Status default ตาม type
+    $status = match($type) {
+        'new'     => 'STOCK',
+        'used'    => 'GOOD',
+        'machine' => 'READY',
+        'sale'    => 'READY',
+        default   => 'STOCK',
+    };
+
+    $sell_price = (float)($_POST['sell_price'] ?? 0);
+
+    $stmt = $pdo->prepare("INSERT INTO inventory
+        (category_id, sku, name, image, type, asset_tag, serial_number,
+         part_number, compatible_models, location, min_qty, source_machine_id,
+         disassembly_status, condition_note, status, sell_price)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
+    $stmt->execute([
+        $category_id, $sku, $name, $image_filename, $type,
+        $asset_tag ?: null, $serial_number ?: null,
+        $part_number ?: null, $compatible_models ?: null,
+        $location ?: null, $min_qty, $source_machine_id,
+        $disassembly_status, $condition_note ?: null,
+        $status, $sell_price
+    ]);
+
+    $inventory_id = $pdo->lastInsertId();
+
+    // Insert lot
+    $lot_number    = 'LOT-' . strtoupper(substr(uniqid(), -6));
+    $qty_received  = (int)($_POST['qty_received'] ?? 1);
+    $cost_price    = (float)($_POST['cost_price'] ?? 0);
+    $supplier_name = trim($_POST['supplier_name'] ?? '');
+    $warranty_end  = !empty($_POST['warranty_end']) ? $_POST['warranty_end'] : null;
+
+    $pdo->prepare("INSERT INTO inventory_lots
+        (inventory_id, lot_number, qty_received, qty_remaining, cost_price, warranty_start, warranty_end, supplier_name)
+        VALUES (?, ?, ?, ?, ?, CURDATE(), ?, ?)")
+        ->execute([$inventory_id, $lot_number, $qty_received, $qty_received, $cost_price, $warranty_end, $supplier_name]);
+
+    header("Location: $redirect_back");
+    exit();
+
+} catch (Exception $e) {
+    $err = urlencode($e->getMessage());
+    header("Location: $redirect_back&err=$err");
+    exit();
+}

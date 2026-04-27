@@ -21,8 +21,8 @@ $users = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 
 // === TEMPLATES ===
-include '../../templates/header_admin.php';
-include '../../templates/sidebar_admin.php';
+include __DIR__ . '/../templates/header_admin.php';
+
 ?>
 
 <main class="main" id="main-content">
@@ -79,4 +79,4 @@ include '../../templates/sidebar_admin.php';
     </div>
 </main>
 
-<?php include '../../templates/footer_admin.php'; ?>
+<?php include '../templates/footer_admin.php'; ?>
