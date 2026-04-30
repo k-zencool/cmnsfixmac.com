@@ -77,7 +77,7 @@ if (!$current_user) {
             
             if ($db_user && password_verify($parts[2], $db_user['password'])) {
                 $pdo->prepare("UPDATE admin_users SET telegram_chat_id = ? WHERE id = ?")->execute([$user_id, $db_user['id']]);
-                sendTelegram("✅ <b>ยืนยันตัวตนสำเร็จ</b>\nยินดีต้อนรับคุณ <b>{$db_user['username']}</b> ครับ", $chat_id);
+                sendTelegram("✅ <b>ยืนยันตัวตนสำเร็จ</b>\nยินดีต้อนรับคุณ <b>{$db_user['username']}</b> ครับ 👋", $chat_id, $menu);
             } else {
                 sendTelegram("❌ <b>ข้อมูลไม่ถูกต้อง</b>\nกรุณาตรวจสอบ Username หรือ Password", $chat_id);
             }
@@ -110,16 +110,17 @@ $status_map = [
     'RT' => 'คืนเครื่อง'
 ];
 
-$inline_menu = [
+
+$menu = [
     'inline_keyboard' => [
         [
-            ['text' => '📋 งานค้างหน้าร้าน', 'callback_data' => '/pending'],
-            ['text' => '📅 สรุปยอดวันนี้',   'callback_data' => '/today']
+            ['text' => '📋 งานค้างหน้าร้าน',  'callback_data' => '/pending'],
+            ['text' => '📊 สรุปยอดวันนี้',     'callback_data' => '/today'],
         ],
         [
-            ['text' => '🤖 ถาม AI',          'callback_data' => '/ai_help'],
-            ['text' => 'ℹ️ คู่มือการใช้งาน', 'callback_data' => '/help_code']
-        ]
+            ['text' => '🤖 ถาม AI',            'callback_data' => '/ai_help'],
+            ['text' => '📖 วิธีใช้ / สถานะ',   'callback_data' => '/help_code'],
+        ],
     ]
 ];
 
@@ -132,7 +133,7 @@ foreach ($command_lines as $line) {
 
     // --- 1. /menu ---
     if ($command == "/menu" || $command == "/start") {
-        sendTelegram("🤖 <b>ระบบจัดการร้าน FixMac</b>\nผู้ใช้งาน: <b>$admin_name</b>\nเลือกเมนูใช้งานได้เลยครับ 👇", $chat_id, $inline_menu);
+        sendTelegram("👋 <b>สวัสดี $admin_name</b>\nระบบจัดการร้าน <b>FixMac CMNS</b>", $chat_id, $menu);
         exit;
     }
 
@@ -155,8 +156,8 @@ foreach ($command_lines as $line) {
         }
         
         $msg .= "\n💡 <b>Tip:</b> สามารถพิมพ์คำสั่งต่อเนื่องได้โดยเว้นวรรคด้วย /\nตัวอย่าง: <code>/up V1001 OK /price V1001 2500</code>";
-        
-        sendTelegram($msg, $chat_id, $inline_menu);
+
+        sendTelegram($msg, $chat_id, $menu);
         exit;
     }
 
@@ -338,7 +339,7 @@ foreach ($command_lines as $line) {
         $msg .= "• <code>/ask งานค้างมีกี่ชิ้น?</code>\n";
         $msg .= "• <code>/ask รหัสล็อก V1001 คือเท่าไหร่</code>\n\n";
         $msg .= "⚠️ AI ดูข้อมูลได้อย่างเดียว | เฉพาะ super_admin เท่านั้น";
-        sendTelegram($msg, $chat_id);
+        sendTelegram($msg, $chat_id, $menu);
         exit;
     }
 
@@ -365,11 +366,11 @@ foreach ($command_lines as $line) {
             $ai_reply   = askOpenRouter($db_context, $question, $api_key, $model);
 
             if ($ai_reply && str_starts_with($ai_reply, '__ERR__')) {
-                sendTelegram("❌ <b>AI Error:</b>\n<code>" . substr($ai_reply, 7) . "</code>", $chat_id);
+                sendTelegram("❌ <b>AI Error:</b>\n<code>" . substr($ai_reply, 7) . "</code>", $chat_id, $menu);
             } elseif ($ai_reply) {
-                sendTelegram("🤖 <b>AI ตอบ:</b>\n\n" . $ai_reply, $chat_id, $inline_menu);
+                sendTelegram("🤖 <b>AI ตอบ:</b>\n\n" . $ai_reply, $chat_id, $menu);
             } else {
-                sendTelegram("❌ <b>AI ไม่สามารถตอบได้ในขณะนี้</b>", $chat_id);
+                sendTelegram("❌ <b>AI ไม่สามารถตอบได้ในขณะนี้</b>", $chat_id, $menu);
             }
         } catch (Exception $e) {
             sendTelegram("❌ <b>เกิดข้อผิดพลาด:</b> " . $e->getMessage(), $chat_id);
@@ -381,7 +382,7 @@ foreach ($command_lines as $line) {
 // ส่งผลลัพธ์จาก commands
 if (!empty($output_buffer)) {
     $final_msg = implode("\n\n══════════════════\n\n", $output_buffer);
-    sendTelegram($final_msg, $chat_id);
+    sendTelegram($final_msg, $chat_id, $menu);
     exit;
 }
 
@@ -414,11 +415,11 @@ if (!$is_command_msg && !$is_callback && $chat_type === 'private') {
 
         if ($ai_reply && str_starts_with($ai_reply, '__ERR__')) {
             $err_detail = substr($ai_reply, 7);
-            sendTelegram("❌ <b>AI Error:</b>\n<code>{$err_detail}</code>", $chat_id);
+            sendTelegram("❌ <b>AI Error:</b>\n<code>{$err_detail}</code>", $chat_id, $menu);
         } elseif ($ai_reply) {
-            sendTelegram("🤖 <b>AI ตอบ:</b>\n\n" . $ai_reply, $chat_id, $inline_menu);
+            sendTelegram("🤖 <b>AI ตอบ:</b>\n\n" . $ai_reply, $chat_id, $menu);
         } else {
-            sendTelegram("❌ <b>AI ไม่สามารถตอบได้ในขณะนี้</b>\nลองใหม่อีกครั้งครับ", $chat_id);
+            sendTelegram("❌ <b>AI ไม่สามารถตอบได้ในขณะนี้</b>\nลองใหม่อีกครั้งครับ", $chat_id, $menu);
         }
     } catch (Exception $e) {
         sendTelegram("❌ <b>เกิดข้อผิดพลาด:</b> " . $e->getMessage(), $chat_id);
