@@ -11,7 +11,13 @@ if (!isset($_SESSION['admin_id'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'get_item') {
     header('Content-Type: application/json');
     $id = (int)($_GET['id'] ?? 0);
-    $stmt = $pdo->prepare("SELECT * FROM inventory WHERE id = ?");
+    $stmt = $pdo->prepare("
+        SELECT i.*, COALESCE(SUM(l.qty_remaining), 0) AS total_qty
+        FROM inventory i
+        LEFT JOIN inventory_lots l ON i.id = l.inventory_id
+        WHERE i.id = ?
+        GROUP BY i.id
+    ");
     $stmt->execute([$id]);
     $item = $stmt->fetch(PDO::FETCH_ASSOC);
     echo json_encode($item ?: null);
@@ -38,7 +44,15 @@ try {
     $sku               = trim($_POST['sku'] ?? $existing['sku']);
     $category_id       = (int)($_POST['category_id'] ?? $existing['category_id']);
     $type              = $_POST['type'] ?? $existing['type'];
-    $status            = $_POST['status'] ?? $existing['status'];
+
+    // NEW type: คำนวณ status จาก qty จริง ไม่รับจาก POST
+    if ($type === 'new') {
+        $qty_stmt = $pdo->prepare("SELECT COALESCE(SUM(qty_remaining),0) FROM inventory_lots WHERE inventory_id = ?");
+        $qty_stmt->execute([$id]);
+        $status = (int)$qty_stmt->fetchColumn() > 0 ? 'STOCK' : 'OOS';
+    } else {
+        $status = $_POST['status'] ?? $existing['status'];
+    }
     $part_number       = trim($_POST['part_number'] ?? '');
     $compatible_models = trim($_POST['compatible_models'] ?? '');
     $location          = trim($_POST['location'] ?? '');
@@ -83,6 +97,86 @@ try {
             $disassembly_status, $sell_price, $image_filename,
             $id
         ]);
+
+    // ── ปรับสต็อก (Adjust) ──
+    $adj_mode = $_POST['adjust_mode'] ?? '';
+    $adj_qty  = (int)($_POST['adjust_qty'] ?? 0);
+    if ($adj_mode && $adj_qty >= 0) {
+        // ดึง lots ทั้งหมดเรียงใหม่สุดก่อน
+        $lots_adj = $pdo->prepare("SELECT id, qty_remaining FROM inventory_lots WHERE inventory_id = ? ORDER BY created_at DESC");
+        $lots_adj->execute([$id]);
+        $lot_rows = $lots_adj->fetchAll(PDO::FETCH_ASSOC);
+
+        if ($adj_mode === 'add' && $adj_qty > 0) {
+            // เพิ่มใน lot ล่าสุด
+            if ($lot_rows) {
+                $pdo->prepare("UPDATE inventory_lots SET qty_remaining = qty_remaining + ? WHERE id = ?")->execute([$adj_qty, $lot_rows[0]['id']]);
+            } else {
+                // ยังไม่มี lot → สร้างใหม่
+                $pdo->prepare("INSERT INTO inventory_lots (inventory_id,lot_number,qty_received,qty_remaining,cost_price) VALUES (?,?,?,?,0)")->execute([$id,'LOT-ADJ-'.strtoupper(substr(uniqid(),-5)),$adj_qty,$adj_qty]);
+            }
+        } elseif ($adj_mode === 'sub' && $adj_qty > 0) {
+            // ลด FIFO จาก lot เก่าสุด
+            $rem = $adj_qty;
+            $lots_fifo = $pdo->prepare("SELECT id, qty_remaining FROM inventory_lots WHERE inventory_id = ? AND qty_remaining > 0 ORDER BY created_at ASC");
+            $lots_fifo->execute([$id]);
+            foreach ($lots_fifo->fetchAll(PDO::FETCH_ASSOC) as $lr) {
+                if ($rem <= 0) break;
+                $take = min($rem, $lr['qty_remaining']);
+                $pdo->prepare("UPDATE inventory_lots SET qty_remaining = qty_remaining - ? WHERE id = ?")->execute([$take, $lr['id']]);
+                $rem -= $take;
+            }
+        } elseif ($adj_mode === 'set') {
+            if ($adj_qty === 0) {
+                // ตั้งค่าเป็น 0 → clear ทุก lot โดยตรง
+                $pdo->prepare("UPDATE inventory_lots SET qty_remaining = 0 WHERE inventory_id = ?")->execute([$id]);
+            } else {
+                $cur_sum = array_sum(array_column($lot_rows, 'qty_remaining'));
+                $diff = $adj_qty - $cur_sum;
+                if ($diff > 0 && $lot_rows) {
+                    $pdo->prepare("UPDATE inventory_lots SET qty_remaining = qty_remaining + ? WHERE id = ?")->execute([$diff, $lot_rows[0]['id']]);
+                } elseif ($diff < 0) {
+                    $rem = abs($diff);
+                    $lots_fifo2 = $pdo->prepare("SELECT id, qty_remaining FROM inventory_lots WHERE inventory_id = ? AND qty_remaining > 0 ORDER BY created_at ASC");
+                    $lots_fifo2->execute([$id]);
+                    foreach ($lots_fifo2->fetchAll(PDO::FETCH_ASSOC) as $lr) {
+                        if ($rem <= 0) break;
+                        $take = min($rem, $lr['qty_remaining']);
+                        $pdo->prepare("UPDATE inventory_lots SET qty_remaining = qty_remaining - ? WHERE id = ?")->execute([$take, $lr['id']]);
+                        $rem -= $take;
+                    }
+                }
+            }
+        }
+    }
+
+    // Re-sync status สำหรับ NEW type ทุกครั้งที่ save
+    if ($type === 'new') {
+        $qty_after = $pdo->prepare("SELECT COALESCE(SUM(qty_remaining),0) FROM inventory_lots WHERE inventory_id = ?");
+        $qty_after->execute([$id]);
+        $status_after = (int)$qty_after->fetchColumn() > 0 ? 'STOCK' : 'OOS';
+        $pdo->prepare("UPDATE inventory SET status = ? WHERE id = ?")->execute([$status_after, $id]);
+    }
+
+    // ── เพิ่ม Lot ใหม่ถ้ากรอก qty_received ──
+    $rs_qty = (int)($_POST['qty_received'] ?? 0);
+    if ($rs_qty > 0) {
+        $lot_number  = trim($_POST['lot_number'] ?? '') ?: ('LOT-' . strtoupper(substr(uniqid(), -6)));
+        $cost_price  = (float)($_POST['cost_price']   ?? 0);
+        $supplier    = trim($_POST['supplier_name'] ?? '');
+        $warranty    = !empty($_POST['warranty_end']) ? $_POST['warranty_end'] : null;
+
+        $pdo->prepare("
+            INSERT INTO inventory_lots
+                (inventory_id, lot_number, qty_received, qty_remaining, cost_price, warranty_end, supplier_name)
+            VALUES (?,?,?,?,?,?,?)
+        ")->execute([$id, $lot_number, $rs_qty, $rs_qty, $cost_price, $warranty, $supplier ?: null]);
+
+        // update status เป็น STOCK ถ้าเคย OOS
+        if ($status === 'OOS' || $existing['status'] === 'OOS') {
+            $pdo->prepare("UPDATE inventory SET status = 'STOCK' WHERE id = ?")->execute([$id]);
+        }
+    }
 
     header("Location: $redirect_back");
     exit();

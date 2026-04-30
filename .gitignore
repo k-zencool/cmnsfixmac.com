@@ -16,6 +16,7 @@
 .env
 .env.local
 .env.*.local
+admin/cron/ai_helper.php
 
 # -------------------------------------------------------------------
 #  3. Logs & Cache

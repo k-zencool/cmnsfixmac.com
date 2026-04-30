@@ -6,6 +6,7 @@ date_default_timezone_set('Asia/Bangkok');
 
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/telegram_helper.php';
+require_once __DIR__ . '/ai_helper.php';
 
 // 1. รับค่าจาก Telegram
 $content = file_get_contents("php://input");
@@ -113,9 +114,10 @@ $inline_menu = [
     'inline_keyboard' => [
         [
             ['text' => '📋 งานค้างหน้าร้าน', 'callback_data' => '/pending'],
-            ['text' => '📅 สรุปยอดวันนี้', 'callback_data' => '/today']
+            ['text' => '📅 สรุปยอดวันนี้',   'callback_data' => '/today']
         ],
         [
+            ['text' => '🤖 ถาม AI',          'callback_data' => '/ai_help'],
             ['text' => 'ℹ️ คู่มือการใช้งาน', 'callback_data' => '/help_code']
         ]
     ]
@@ -325,11 +327,101 @@ foreach ($command_lines as $line) {
         sendTelegram("👋 <b>ออกจากระบบเรียบร้อย</b>\nขอบคุณที่ใช้บริการครับ", $chat_id);
         exit;
     }
+
+    // --- 9. /ai_help (คู่มือ AI) ---
+    else if ($command == "/ai_help") {
+        $msg  = "🤖 <b>ผู้ช่วย AI (Read-only)</b>\n\n";
+        $msg .= "• แชทส่วนตัว: พิมพ์ข้อความถามได้เลย\n";
+        $msg .= "• ในกลุ่ม: ใช้คำสั่ง <code>/ask [คำถาม]</code>\n\n";
+        $msg .= "<b>ตัวอย่าง:</b>\n";
+        $msg .= "• <code>/ask เครื่อง V1234 อาการเป็นไง?</code>\n";
+        $msg .= "• <code>/ask งานค้างมีกี่ชิ้น?</code>\n";
+        $msg .= "• <code>/ask รหัสล็อก V1001 คือเท่าไหร่</code>\n\n";
+        $msg .= "⚠️ AI ดูข้อมูลได้อย่างเดียว | เฉพาะ super_admin เท่านั้น";
+        sendTelegram($msg, $chat_id);
+        exit;
+    }
+
+    // --- 10. /ask (AI ในกลุ่ม + private) ---
+    else if ($command == "/ask") {
+        if ($current_user['role'] !== 'super_admin') {
+            $output_buffer[] = "🚫 <b>สิทธิ์ไม่เพียงพอ</b>\nคำสั่ง /ask ใช้ได้เฉพาะ Super Admin เท่านั้น";
+            continue;
+        }
+
+        $question = trim(implode(' ', array_slice($parts, 1)));
+        if (empty($question)) {
+            $output_buffer[] = "⚠️ กรุณาระบุคำถาม เช่น: <code>/ask เครื่อง V1234 อาการเป็นไง?</code>";
+            continue;
+        }
+
+        $api_key = OPENROUTER_API_KEY;
+        $model   = OPENROUTER_MODEL;
+
+        sendTelegram("🤖 <i>กำลังดึงข้อมูลและวิเคราะห์...</i>", $chat_id);
+
+        try {
+            $db_context = gatherDbContext($pdo, $question);
+            $ai_reply   = askOpenRouter($db_context, $question, $api_key, $model);
+
+            if ($ai_reply && str_starts_with($ai_reply, '__ERR__')) {
+                sendTelegram("❌ <b>AI Error:</b>\n<code>" . substr($ai_reply, 7) . "</code>", $chat_id);
+            } elseif ($ai_reply) {
+                sendTelegram("🤖 <b>AI ตอบ:</b>\n\n" . $ai_reply, $chat_id, $inline_menu);
+            } else {
+                sendTelegram("❌ <b>AI ไม่สามารถตอบได้ในขณะนี้</b>", $chat_id);
+            }
+        } catch (Exception $e) {
+            sendTelegram("❌ <b>เกิดข้อผิดพลาด:</b> " . $e->getMessage(), $chat_id);
+        }
+        exit;
+    }
 }
 
-// ส่งผลลัพธ์รวม
+// ส่งผลลัพธ์จาก commands
 if (!empty($output_buffer)) {
     $final_msg = implode("\n\n══════════════════\n\n", $output_buffer);
     sendTelegram($final_msg, $chat_id);
+    exit;
+}
+
+// ==================================================================================
+// 🤖 AI NATURAL LANGUAGE HANDLER
+// ==================================================================================
+// ถ้าไม่ใช่ /command และยังไม่มีผลลัพธ์ → ส่งให้ AI วิเคราะห์
+$is_command_msg = str_starts_with(trim($message), '/');
+
+if (!$is_command_msg && !$is_callback && $chat_type === 'private') {
+    if ($current_user['role'] !== 'super_admin') {
+        sendTelegram("🚫 <b>สิทธิ์ไม่เพียงพอ</b>\nการถาม AI ใช้ได้เฉพาะ Super Admin\nในกลุ่มใช้: <code>/ask [คำถาม]</code>", $chat_id);
+        exit;
+    }
+
+    $api_key = OPENROUTER_API_KEY;
+    $model   = OPENROUTER_MODEL;
+
+    if (!$api_key || str_starts_with($api_key, 'sk-or-xxx')) {
+        sendTelegram("⚠️ <b>AI ยังไม่ได้ตั้งค่า</b>\nกรุณาเพิ่ม OPENROUTER_API_KEY ใน .env ก่อนครับ", $chat_id);
+        exit;
+    }
+
+    // แจ้งให้รู้ว่ากำลังประมวลผล
+    sendTelegram("🤖 <i>กำลังดึงข้อมูลและวิเคราะห์...</i>", $chat_id);
+
+    try {
+        $db_context = gatherDbContext($pdo, $message);
+        $ai_reply   = askOpenRouter($db_context, $message, $api_key, $model);
+
+        if ($ai_reply && str_starts_with($ai_reply, '__ERR__')) {
+            $err_detail = substr($ai_reply, 7);
+            sendTelegram("❌ <b>AI Error:</b>\n<code>{$err_detail}</code>", $chat_id);
+        } elseif ($ai_reply) {
+            sendTelegram("🤖 <b>AI ตอบ:</b>\n\n" . $ai_reply, $chat_id, $inline_menu);
+        } else {
+            sendTelegram("❌ <b>AI ไม่สามารถตอบได้ในขณะนี้</b>\nลองใหม่อีกครั้งครับ", $chat_id);
+        }
+    } catch (Exception $e) {
+        sendTelegram("❌ <b>เกิดข้อผิดพลาด:</b> " . $e->getMessage(), $chat_id);
+    }
 }
 ?>

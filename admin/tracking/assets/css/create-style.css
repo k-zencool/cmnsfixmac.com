@@ -19,6 +19,20 @@
   --shadow:0 1px 2px rgba(0,0,0,.06);
 }
 
+/* Override local vars in dark mode
+   (must be declared after :root to win the cascade) */
+[data-theme="dark"]{
+  --bg: #0a0a0a;
+  --paper: #171717;
+  --ink: #e5e5e5;
+  --muted: #a3a3a3;
+  --border: #333333;
+  --border-strong: #525252;
+  --focus: #60a5fa;
+  --shadow-strong: 0 4px 14px rgba(0,0,0,.4);
+  --shadow: 0 1px 2px rgba(0,0,0,.3);
+}
+
 /* =========================================================
    PAGE / WRAPPER
    ========================================================= */
@@ -741,15 +755,96 @@
    Print Mode (ซ่อนตอนสั่งพิมพ์)
    ========================================= */
 @media print {
-    .footer-actions, 
-    .topbar, 
-    .sidebar, 
+    .footer-actions,
+    .topbar,
+    .sidebar,
     #global-loader {
         display: none !important;
     }
-    
+
     .main {
         margin: 0 !important;
         padding: 0 !important;
     }
+}
+
+/* =========================================
+   Dark Mode Overrides
+   ========================================= */
+/* -- Element overrides (for hardcoded #fff that vars can't fix) -- */
+[data-theme="dark"] .form-wrapper {
+    background: var(--paper);
+    border-color: var(--border);
+}
+/* v2-input uses background:#fff hardcoded */
+[data-theme="dark"] .form-body.form-body-v2 .v2-input {
+    background: #262626 !important;
+    border-color: var(--border) !important;
+    color: var(--ink) !important;
+}
+[data-theme="dark"] .form-body.form-body-v2 .v2-input:focus {
+    border-color: var(--focus) !important;
+    box-shadow: 0 0 0 3px rgba(96,165,250,.15) !important;
+}
+[data-theme="dark"] .form-body.form-body-v2 .v2-input--danger {
+    background: rgba(239,68,68,.1) !important;
+    border-color: rgba(239,68,68,.45) !important;
+}
+/* v2-check uses background:#fff hardcoded */
+[data-theme="dark"] .form-body.form-body-v2 .v2-check {
+    background: #262626 !important;
+    border-color: var(--border) !important;
+}
+[data-theme="dark"] .form-body.form-body-v2 .v2-check:hover {
+    background: #303030 !important;
+    border-color: var(--focus) !important;
+}
+[data-theme="dark"] .form-body.form-body-v2 .v2-check span { color: var(--ink); }
+[data-theme="dark"] .form-body.form-body-v2 .v2-label    { color: var(--ink); }
+[data-theme="dark"] .form-body.form-body-v2 .v2-block__hd { color: var(--ink); }
+[data-theme="dark"] .form-body.form-body-v2 .v2-card__hd {
+    color: var(--ink) !important;
+    border-bottom-color: var(--border) !important;
+}
+[data-theme="dark"] .form-body.form-body-v2 .v2-divider {
+    background: var(--border);
+}
+/* terms box */
+[data-theme="dark"] .form-body.form-body-v2 .v2-terms__body {
+    background: #262626;
+    border-color: var(--border);
+}
+[data-theme="dark"] .form-body.form-body-v2 .v2-terms__list { color: var(--ink); }
+/* sign box */
+[data-theme="dark"] .form-body.form-body-v2 .v2-sign__box {
+    background: #262626;
+    border-color: var(--border-strong);
+}
+/* footer bar */
+[data-theme="dark"] .footer-actions {
+    background: rgba(23,23,23,.97) !important;
+    border-color: var(--border);
+    box-shadow: 0 -4px 20px rgba(0,0,0,.4);
+}
+/* select arrow */
+[data-theme="dark"] select.v2-input {
+    background-image:
+        linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+        linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+}
+/* CKEditor wrapper */
+[data-theme="dark"] #editorSymptoms + .ck-editor .ck-toolbar {
+    background: #262626 !important;
+    border-color: var(--border) !important;
+}
+[data-theme="dark"] #editorSymptoms + .ck-editor .ck-editor__editable {
+    background: #1c1c1c !important;
+    border-color: var(--border) !important;
+    color: var(--ink) !important;
+}
+[data-theme="dark"] #editorSymptoms + .ck-editor .ck-button {
+    color: var(--ink) !important;
+}
+[data-theme="dark"] #editorSymptoms + .ck-editor .ck-button:hover {
+    background: #333 !important;
 }

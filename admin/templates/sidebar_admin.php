@@ -73,11 +73,6 @@ if (session_status() === PHP_SESSION_NONE) {
             <span class="link-text">จัดการบทความ</span>
         </a>
 
-        <a href="/admin/youtube/" title="จัดการวิดีโอ">
-            <span class="material-symbols-rounded">video_library</span>
-            <span class="link-text">จัดการวิดีโอ</span>
-        </a>
-
         <a href="/admin/pricing/" title="จัดการราคาซ่อม">
             <span class="material-symbols-rounded">price_change</span>
             <span class="link-text">จัดการราคาซ่อม</span>

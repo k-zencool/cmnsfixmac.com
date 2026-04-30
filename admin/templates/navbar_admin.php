@@ -7,7 +7,6 @@ if (session_status() === PHP_SESSION_NONE) {
 // ตั้งค่า Default เผื่อ Database พัง
 $admin_id  = $_SESSION['admin_id'] ?? null;
 $adminName = 'Admin';
-$adminRole = 'Staff';
 $avatar_file = null;
 
 // =========================================================
@@ -26,7 +25,6 @@ if ($admin_id && isset($pdo)) {
             $avatar_file = $user_data['avatar'];
             // ถ้ามี full_name ให้ใช้ full_name ถ้าไม่มีให้ใช้ username แทน
             $adminName = !empty($user_data['full_name']) ? $user_data['full_name'] : $user_data['username'];
-            $adminRole = !empty($user_data['role']) ? $user_data['role'] : 'Staff';
         }
     } catch (PDOException $e) {
         // เงียบไว้
@@ -63,7 +61,6 @@ $firstChar = strtoupper(mb_substr($adminName, 0, 1));
 
                 <div class="user-info">
                     <span class="name"><?= htmlspecialchars($adminName) ?></span>
-                    <span class="role"><?= ucfirst(htmlspecialchars($adminRole)) ?></span>
                 </div>
                 <span class="material-symbols-rounded chevron">expand_more</span>
             </div>

@@ -1,256 +1,390 @@
 <?php
 /********************************************************************
- * admin/tracking/history.php
- * ประวัติความเคลื่อนไหว (History) - Fixed Include Paths
+ * admin/tracking/history.php  –  Repair Job Change History
  ********************************************************************/
 
 session_start();
-// ตั้งเวลา Server เป็นไทย
 date_default_timezone_set('Asia/Bangkok');
 
-// 1. เรียกไฟล์ระบบ (Database อยู่ข้างนอก admin ถอย 2 ชั้น ถูกแล้ว)
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_login();
 
-$pageTitle = "ประวัติความเคลื่อนไหว (History)";
+$pageTitle = "Repair History";
 
-/* --- Helpers --- */
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
-function getv($k,$d=null){ return isset($_GET[$k]) ? trim($_GET[$k]) : $d; }
+function getv($k, $d = null){ return isset($_GET[$k]) ? trim($_GET[$k]) : $d; }
 
-// แปลงวันที่ (ไม่ต้องบวกเพิ่มเพราะ DB เป็นเวลาไทยแล้ว)
-function get_thai_timestamp($strDate) {
-    if(!$strDate) return false;
-    return strtotime($strDate); 
+function th_date_label($strDate) {
+    if (!$strDate) return '-';
+    $ts     = strtotime($strDate);
+    $months = ['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    return date("j", $ts) . " " . $months[(int)date("n", $ts)] . " " . (date("Y", $ts) + 543);
 }
 
-function th_date($ts) {
-    if(!$ts) return '-';
-    $strYear = date("Y", $ts) + 543;
-    $strDay= date("j", $ts);
-    $strMonthCut = ["","ม.ค.","ก.พ.","มี.ค.","เม.ย.","พ.ค.","มิ.ย.","ก.ค.","ส.ค.","ก.ย.","ต.ค.","พ.ย.","ธ.ค."];
-    $strMonthThai = $strMonthCut[date("n", $ts)];
-    return "$strDay $strMonthThai $strYear";
-}
-
-function th_time($ts) {
-    if(!$ts) return '-';
-    return date("H:i", $ts) . " น."; 
-}
-
-/* --- Status Map --- */
 $statusMap = [
-    'QS'  => ['label'=>'รอเช็คราคา',      'class'=>'badge-amber'],
-    'WC'  => ['label'=>'รอคอนเฟิร์ม',     'class'=>'badge-blue'],
-    'OK'  => ['label'=>'กำลังซ่อม',       'class'=>'badge-blue'],
-    'RW'  => ['label'=>'งานแก้/เคลม',     'class'=>'badge-red'],
-    'FN'  => ['label'=>'ซ่อมเสร็จ (รอรับ)', 'class'=>'badge-green'],
-    'NCF' => ['label'=>'ติดต่อไม่ได้(เสร็จ)', 'class'=>'badge-gray'],
-    'NCS' => ['label'=>'ติดต่อไม่ได้(เสนอ)',  'class'=>'badge-gray'],
-    'XX'  => ['label'=>'ยกเลิก (รอรับคืน)', 'class'=>'badge-red'],
-    'DV'  => ['label'=>'ส่งมอบ (ซ่อมเสร็จ)', 'class'=>'badge-gray'],
-    'RT'  => ['label'=>'ยกเลิก (คืนแล้ว)',   'class'=>'badge-gray']
+    'QS'  => ['label' => 'รอเช็คราคา',          'class' => 'st-amber'],
+    'WC'  => ['label' => 'รอคอนเฟิร์ม',         'class' => 'st-blue'],
+    'OK'  => ['label' => 'กำลังซ่อม',           'class' => 'st-purple'],
+    'RW'  => ['label' => 'งานแก้ / เคลม',       'class' => 'st-red'],
+    'FN'  => ['label' => 'ซ่อมเสร็จ (รอรับ)',   'class' => 'st-green'],
+    'NCF' => ['label' => 'ติดต่อไม่ได้ (เสร็จ)', 'class' => 'st-gray'],
+    'NCS' => ['label' => 'ติดต่อไม่ได้ (เสนอ)',  'class' => 'st-gray'],
+    'XX'  => ['label' => 'ยกเลิก (รอรับคืน)',   'class' => 'st-red'],
+    'DV'  => ['label' => 'ส่งมอบแล้ว',          'class' => 'st-dark'],
+    'RT'  => ['label' => 'ยกเลิก (คืนแล้ว)',    'class' => 'st-dark'],
 ];
 
-/* --- Filter & Query --- */
-$q = getv('q', '');
-$statusFilter = isset($_GET['status']) ? $_GET['status'] : [];
+/* ── Filters ── */
+$q     = getv('q', '');
 $dFrom = getv('date_from', '');
-$dTo = getv('date_to', '');
+$dTo   = getv('date_to', '');
+$statusFilter = isset($_GET['status']) ? (array)$_GET['status'] : [];
 
-$where = [];
+$where  = ['1=1'];
 $params = [];
 
 if ($q) {
-    $where[] = "(t.ticket_number LIKE :q OR t.customer_name LIKE :q OR t.customer_phone LIKE :q OR t.device_model LIKE :q)";
+    $where[]      = "(t.ticket_number LIKE :q OR t.customer_name LIKE :q OR t.customer_phone LIKE :q OR t.device_model LIKE :q)";
     $params[':q'] = "%$q%";
 }
 if (!empty($statusFilter)) {
-    $in = []; foreach ($statusFilter as $i => $s) { $k=":s$i"; $in[]=$k; $params[$k]=$s; }
-    $where[] = "t.status IN (" . implode(',', $in) . ")";
+    $in = [];
+    foreach ($statusFilter as $i => $s) { $k = ":s{$i}"; $in[] = $k; $params[$k] = $s; }
+    $where[] = "h.status_new IN (" . implode(',', $in) . ")";
 }
-if ($dFrom) { $where[] = "DATE(t.updated_at) >= :df"; $params[':df'] = $dFrom; }
-if ($dTo)   { $where[] = "DATE(t.updated_at) <= :dt"; $params[':dt'] = $dTo; }
+if ($dFrom) { $where[] = "DATE(h.changed_at) >= :df"; $params[':df'] = $dFrom; }
+if ($dTo)   { $where[] = "DATE(h.changed_at) <= :dt"; $params[':dt'] = $dTo; }
 
-$whereSql = $where ? "WHERE " . implode(" AND ", $where) : "";
+$whereSql = "WHERE " . implode(" AND ", $where);
 
-// Query + Join
-$sql = "SELECT t.*, u.username as admin_name 
-        FROM tracking t 
-        LEFT JOIN admin_users u ON t.updated_by = u.id 
-        $whereSql 
-        ORDER BY t.updated_at DESC LIMIT 150";
-
-$stmt = $pdo->prepare($sql);
+$stmt = $pdo->prepare("
+    SELECT
+        h.*,
+        t.ticket_number, t.customer_name, t.customer_phone,
+        t.device_type, t.device_model, t.device_series, t.status AS current_status
+    FROM tracking_history h
+    JOIN tracking t ON h.tracking_id = t.id
+    $whereSql
+    ORDER BY h.changed_at DESC
+    LIMIT 300
+");
 $stmt->execute($params);
 $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$totalCount = count($logs);
 
-// ✅ แก้ไขตรงนี้: ถอยแค่ 1 ชั้น (../templates/) เพราะ templates อยู่ใน admin
+/* ── Labels for diff fields ── */
+$fieldLabels = [
+    'status'           => 'สถานะ',
+    'customer_name'    => 'ชื่อลูกค้า',
+    'customer_phone'   => 'เบอร์โทร',
+    'device_type'      => 'ประเภทเครื่อง',
+    'device_model'     => 'Model',
+    'device_series'    => 'Series',
+    'serial_number'    => 'S/N',
+    'device_password'  => 'Password',
+    'estimated_cost'   => 'ราคาประเมิน',
+    'appointment_date' => 'วันนัดหมาย',
+    'pickup_date'      => 'วันรับเครื่อง',
+    'technician_note'  => 'หมายเหตุช่าง',
+    'problem_details'  => 'อาการเสีย',
+    'accessories'      => 'อุปกรณ์',
+];
+
 require_once __DIR__ . '/../templates/header_admin.php';
 ?>
 
+<link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time() ?>">
+<link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= time() ?>">
+<link rel="stylesheet" href="assets/css/tracking-index.css?v=<?= time() ?>">
+
 <style>
-/* Table Specifics */
-.data-table { table-layout: fixed; } 
-.data-table th { white-space: nowrap; }
-.data-table td { vertical-align: middle; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* ── Diff chips ── */
+.diff-list { display:flex; flex-wrap:wrap; gap:5px; }
+.diff-chip {
+    display:inline-flex; align-items:center; gap:4px;
+    padding:3px 8px; border-radius:20px; font-size:11px; font-weight:700;
+    border:1px solid transparent; white-space:nowrap;
+}
+.diff-chip.status-chip  { background:rgba(37,99,235,.1);  color:var(--primary); border-color:rgba(37,99,235,.2); }
+.diff-chip.cost-chip    { background:rgba(16,185,129,.1); color:#059669; border-color:rgba(16,185,129,.2); }
+.diff-chip.date-chip    { background:rgba(139,92,246,.1); color:#7c3aed; border-color:rgba(139,92,246,.2); }
+.diff-chip.text-chip    { background:var(--bg-surface-alt); color:var(--text-muted); border-color:var(--border); }
+.diff-arrow { opacity:.5; font-size:10px; }
 
-/* Custom Text */
-.time-text { font-family: monospace; color: #64748b; font-weight: 600; font-size: 0.9rem; }
-.job-link { font-family: monospace; font-weight: 700; color: #2563eb; text-decoration: none; font-size: 0.95rem; }
-.job-link:hover { text-decoration: underline; }
-.cust-name { font-weight: 600; color: #1e293b; display: block; font-size: 0.95rem; }
-.cust-phone { font-size: 0.85rem; color: #64748b; }
-.device-main { font-weight: 700; color: #334155; }
-.device-sub { font-size: 0.85rem; color: #64748b; margin-left: 4px; }
-
-/* Date Header Row */
-.date-header { background: #f1f5f9; color: #334155; font-weight: 700; font-size: 0.9rem; padding: 10px 16px; border-bottom: 1px solid #e2e8f0; }
-.date-header.today { background: #eff6ff; color: #1d4ed8; border-bottom: 1px solid #dbeafe; }
-.date-header span { display: flex; align-items: center; gap: 8px; }
-
-/* Override Filter Menu width for this page */
-.filter-menu { width: 300px; }
+/* ── Status mini badge ── */
+.st-mini {
+    display:inline-flex; padding:2px 7px; border-radius:10px;
+    font-size:10px; font-weight:800; border:1px solid transparent;
+}
+.st-mini.st-amber  { background:rgba(245,158,11,.15); color:#b45309; border-color:rgba(245,158,11,.3); }
+.st-mini.st-blue   { background:rgba(37,99,235,.1);   color:var(--primary); border-color:rgba(37,99,235,.25); }
+.st-mini.st-purple { background:rgba(139,92,246,.1);  color:#7c3aed; border-color:rgba(139,92,246,.25); }
+.st-mini.st-red    { background:rgba(239,68,68,.1);   color:#dc2626; border-color:rgba(239,68,68,.25); }
+.st-mini.st-green  { background:rgba(16,185,129,.1);  color:#059669; border-color:rgba(16,185,129,.25); }
+.st-mini.st-dark,
+.st-mini.st-gray   { background:var(--bg-surface-alt); color:var(--text-muted); border-color:var(--border); }
 </style>
 
-<div id="global-loader" style="display:none; position:fixed; inset:0; background:rgba(255,255,255,0.8); z-index:9999; align-items:center; justify-content:center;">
-  <div style="border:4px solid #f3f3f3; border-top:4px solid #3b82f6; border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite;"></div>
-</div>
-<style>@keyframes spin{0%{transform:rotate(0deg);}100%{transform:rotate(360deg);}}</style>
+<div class="cmns-wrapper">
 
-<main class="main" id="main-content">
-    <div class="topbar">
-        <span><?= h($pageTitle) ?></span>
-        <a href="index.php" class="view-site">← กลับหน้ารายการ</a>
+    <!-- ── Back ── -->
+    <div style="margin-bottom:16px;">
+        <a href="index.php" class="cmns-back-link">
+            <span class="material-symbols-rounded">arrow_back</span> TRACKING
+        </a>
     </div>
 
-    <form action="" method="GET" class="search-form-bind" onsubmit="document.getElementById('global-loader').style.display='flex'">
-        <div class="search-and-filter-group">
-            <input class="filter-input" name="q" value="<?= h($q) ?>" placeholder="ค้นหา Job No. / ลูกค้า / รุ่น...">
-            
-            <div class="filter-dropdown">
-                <button type="button" class="btn-secondary" onclick="document.getElementById('filterMenuHistory').classList.toggle('show')">
-                    <span class="material-symbols-rounded">filter_list</span> ตัวกรอง
+    <!-- ── Header ── -->
+    <div class="cmns-header-bar" style="margin-bottom:24px;">
+        <div>
+            <h1 class="cmns-page-title" style="color:var(--primary);">
+                <span class="material-symbols-rounded" style="font-size:30px;">manage_history</span>
+                REPAIR HISTORY
+            </h1>
+            <p style="color:var(--text-muted); margin-top:5px; font-size:13px;">
+                บันทึกการเปลี่ยนแปลงทุกครั้ง · แสดง <b><?= number_format($totalCount) ?></b> รายการ
+            </p>
+        </div>
+        <div class="cmns-action-buttons">
+            <a href="create.php" class="cmns-btn cmns-btn-primary" onclick="showLoader()">
+                <span class="material-symbols-rounded">add_circle</span> เปิดงานซ่อม
+            </a>
+        </div>
+    </div>
+
+    <!-- ── Filter Bar ── -->
+    <form method="GET" action="history.php">
+        <div class="log-filter-bar">
+            <div class="log-filter-group" style="flex:1; min-width:220px;">
+                <label>ค้นหา</label>
+                <div class="log-search-wrap">
+                    <span class="material-symbols-rounded search-icon">search</span>
+                    <input type="text" name="q" value="<?= h($q) ?>" placeholder="Job No. / ชื่อ / เบอร์ / รุ่น">
+                </div>
+            </div>
+            <div class="log-filter-group">
+                <label>จากวันที่</label>
+                <input type="date" name="date_from" value="<?= h($dFrom) ?>">
+            </div>
+            <div class="log-filter-group">
+                <label>ถึงวันที่</label>
+                <input type="date" name="date_to" value="<?= h($dTo) ?>">
+            </div>
+
+            <div class="trk-filter-wrap" style="align-self:flex-end;">
+                <button type="button" class="trk-filter-btn <?= !empty($statusFilter) ? 'has-filter' : '' ?>"
+                        id="hFilterBtn" onclick="toggleHFilter(event)" title="กรองตามสถานะ">
+                    <span class="material-symbols-rounded">filter_list</span>
+                    <?php if (!empty($statusFilter)): ?>
+                        <span class="trk-filter-badge"><?= count($statusFilter) ?></span>
+                    <?php endif; ?>
                 </button>
-                <div id="filterMenuHistory" class="filter-menu">
-                    <div class="filter-section">
-                        <div class="filter-title">สถานะงาน</div>
-                        <div style="max-height:150px; overflow-y:auto;">
-                            <?php foreach ($statusMap as $code => $info): $chk = in_array($code, $statusFilter) ? 'checked' : ''; ?>
-                                <label class="checkline">
-                                    <input type="checkbox" name="status[]" value="<?= $code ?>" <?= $chk ?>> 
-                                    <?= h($info['label']) ?>
-                                </label>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                    <div class="filter-section">
-                        <div class="filter-title">ช่วงเวลา</div>
-                        <div style="display:flex; align-items:center; gap:5px;">
-                            <input type="date" name="date_from" value="<?= h($dFrom) ?>" style="width:100%; padding:6px; border:1px solid #e5e7eb; border-radius:6px;">
-                            <span>-</span>
-                            <input type="date" name="date_to" value="<?= h($dTo) ?>" style="width:100%; padding:6px; border:1px solid #e5e7eb; border-radius:6px;">
-                        </div>
-                    </div>
-                    <div class="filter-actions">
-                        <a href="history.php" class="btn-secondary" style="color:#ef4444; justify-content:center;">ล้างค่า</a>
-                        <button type="submit" class="btn-primary">ใช้ตัวกรอง</button>
+                <div class="trk-filter-menu" id="hFilterMenu">
+                    <div class="trk-filter-title">สถานะ (ใหม่)</div>
+                    <?php foreach ($statusMap as $k => $v): ?>
+                        <label class="trk-filter-item">
+                            <input type="checkbox" name="status[]" value="<?= $k ?>"
+                                <?= in_array($k, $statusFilter) ? 'checked' : '' ?>>
+                            <span class="trk-filter-dot <?= $v['class'] ?>"></span>
+                            <span><?= h($v['label']) ?></span>
+                        </label>
+                    <?php endforeach; ?>
+                    <div class="trk-filter-actions">
+                        <button type="button" onclick="clearHFilter()">ล้าง</button>
+                        <button type="submit" onclick="showLoader()">ค้นหา</button>
                     </div>
                 </div>
             </div>
-            
-            <button type="submit" class="btn-search">ค้นหา</button>
+
+            <button type="submit" class="trk-icon-btn trk-icon-search" onclick="showLoader()" title="ค้นหา" style="align-self:flex-end;">
+                <span class="material-symbols-rounded">search</span>
+            </button>
+            <?php if ($q || !empty($_GET['status']) || $dFrom || $dTo): ?>
+                <a href="history.php" class="trk-icon-btn trk-icon-reset" onclick="showLoader()" title="ล้างค่า" style="align-self:flex-end;">
+                    <span class="material-symbols-rounded">close</span>
+                </a>
+            <?php endif; ?>
         </div>
     </form>
 
-    <div class="table-container">
-        <table class="data-table">
-            <colgroup>
-                <col style="width: 100px;"> 
-                <col style="width: 120px;"> 
-                <col style="width: 20%;"> 
-                <col style="width: 25%;"> 
-                <col style="width: 15%;"> 
-                <col style="width: 140px;"> 
-                <col style="width: 60px;">  
-            </colgroup>
-            <thead>
-                <tr>
-                    <th class="text-left">เวลา</th>
-                    <th class="text-left">Job No.</th>
-                    <th class="text-left">ลูกค้า</th>
-                    <th class="text-left">อุปกรณ์</th>
-                    <th class="text-center">ผู้แก้ไข</th>
-                    <th class="text-center">สถานะ</th>
-                    <th class="text-center"></th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php if (empty($logs)): ?>
-                    <tr><td colspan="7" class="text-center" style="padding:50px; color:#94a3b8;">
-                        <span class="material-symbols-rounded" style="font-size:48px; display:block; margin-bottom:10px; opacity:0.5;">history_toggle_off</span>
-                        ไม่พบข้อมูลความเคลื่อนไหว
-                    </td></tr>
-                <?php else: 
-                    $currDate = '';
-                    $todayDate = date('Y-m-d'); 
-
-                    foreach ($logs as $row): 
-                        $ts = get_thai_timestamp($row['updated_at']);
-                        $rawDate = date('Y-m-d', $ts);
-                        $timeText = th_time($ts);
-                        $st = $statusMap[$row['status']] ?? $statusMap['QS'];
-
-                        // Grouping Date Header
-                        if ($rawDate !== $currDate) {
-                            $isToday = ($rawDate === $todayDate);
-                            $headerClass = $isToday ? 'date-header today' : 'date-header';
-                            $dateText = th_date($ts) . ($isToday ? ' (วันนี้)' : '');
-                            $icon = $isToday ? 'today' : 'calendar_month';
-                            echo "<tr><td colspan='7' class='{$headerClass}'><span><span class='material-symbols-rounded' style='font-size:20px;'>{$icon}</span> {$dateText}</span></td></tr>";
-                            $currDate = $rawDate;
-                        }
-                ?>
+    <!-- ── Table ── -->
+    <div class="log-card">
+        <div style="overflow-x:auto;">
+            <table class="log-table">
+                <thead>
                     <tr>
-                        <td class="text-left time-text"><?= $timeText ?></td>
-                        <td class="text-left"><a href="edit.php?id=<?= $row['id'] ?>" class="job-link" onclick="document.getElementById('global-loader').style.display='flex'"><?= h($row['ticket_number']) ?></a></td>
-                        <td class="text-left">
-                            <span class="cust-name"><?= h($row['customer_name']) ?></span>
-                            <span class="cust-phone"><?= h($row['customer_phone']) ?></span>
+                        <th style="width:90px;">เวลา</th>
+                        <th style="width:110px;">Job No.</th>
+                        <th style="width:160px;">ลูกค้า</th>
+                        <th style="width:150px;">อุปกรณ์</th>
+                        <th>การเปลี่ยนแปลง</th>
+                        <th style="width:110px; text-align:center;">สถานะใหม่</th>
+                        <th style="width:100px; text-align:center;">ผู้แก้ไข</th>
+                        <th style="width:46px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php if (empty($logs)): ?>
+                    <tr><td colspan="8">
+                        <div class="empty-state">
+                            <span class="material-symbols-rounded">manage_history</span>
+                            <p style="font-size:15px; font-weight:600; margin:0 0 6px;">ยังไม่มีประวัติการแก้ไข</p>
+                            <p style="font-size:13px; margin:0;">ประวัติจะแสดงทุกครั้งที่มีการบันทึกแก้ไขงานซ่อม</p>
+                        </div>
+                    </td></tr>
+                <?php else:
+                    $currDate  = '';
+                    $todayDate = date('Y-m-d');
+
+                    foreach ($logs as $row):
+                        $ts      = strtotime($row['changed_at']);
+                        $rawDate = date('Y-m-d', $ts);
+                        $diff    = $row['diff_json'] ? json_decode($row['diff_json'], true) : [];
+                        $stNew   = $statusMap[$row['status_new']] ?? null;
+                        $stOld   = $statusMap[$row['status_old']] ?? null;
+
+                        if ($rawDate !== $currDate):
+                            $isToday   = ($rawDate === $todayDate);
+                            $dateLabel = th_date_label($row['changed_at']) . ($isToday ? '  — วันนี้' : '');
+                            $currDate  = $rawDate;
+                ?>
+                    <tr class="hist-date-row <?= $isToday ? 'is-today' : '' ?>">
+                        <td colspan="8">
+                            <span class="material-symbols-rounded" style="font-size:14px; vertical-align:-2px;">
+                                <?= $isToday ? 'today' : 'calendar_month' ?>
+                            </span>
+                            <?= $dateLabel ?>
                         </td>
-                        <td class="text-left">
-                            <div><span class="device-main"><?= h($row['device_type']) ?></span><span class="device-sub"><?= h($row['device_model']) ?></span></div>
+                    </tr>
+                <?php endif; ?>
+                    <tr>
+                        <td style="font-family:monospace; font-size:12px; color:var(--text-muted); white-space:nowrap;">
+                            <?= date('H:i', $ts) ?>
                         </td>
-                        
-                        <td class="text-center">
-                            <?php if(!empty($row['admin_name'])): ?>
-                                <span style="font-size:0.9rem; color:#1e293b; font-weight:600;"><?= h($row['admin_name']) ?></span>
+
+                        <td>
+                            <a href="edit.php?id=<?= $row['tracking_id'] ?>" class="job-link" onclick="showLoader()">
+                                <?= h($row['ticket_number']) ?>
+                            </a>
+                        </td>
+
+                        <td>
+                            <div style="font-weight:600; font-size:13px; color:var(--text-main); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:150px;">
+                                <?= h($row['customer_name']) ?>
+                            </div>
+                            <div style="font-size:11px; color:var(--text-muted);"><?= h($row['customer_phone']) ?></div>
+                        </td>
+
+                        <td>
+                            <div style="font-size:13px; font-weight:600; color:var(--text-main);">
+                                <?= h($row['device_type']) ?>
+                            </div>
+                            <div style="font-size:11px; color:var(--text-muted);"><?= h($row['device_model']) ?></div>
+                        </td>
+
+                        <!-- ── Diff column ── -->
+                        <td>
+                            <?php if (empty($diff)): ?>
+                                <span style="font-size:11px; color:var(--text-muted);">—</span>
                             <?php else: ?>
-                                <span style="font-size:0.9rem; color:#cbd5e1;">-</span>
+                                <div class="diff-list">
+                                <?php foreach ($diff as $key => $change):
+                                    $from = $change['from'] ?? '';
+                                    $to   = $change['to']   ?? '';
+                                    $lbl  = $fieldLabels[$key] ?? $key;
+
+                                    // Determine chip type
+                                    if ($key === 'status'):
+                                        $sfrom = $statusMap[$from] ?? null;
+                                        $sto   = $statusMap[$to]   ?? null;
+                                ?>
+                                    <span class="diff-chip status-chip">
+                                        <?php if ($sfrom): ?><span class="st-mini <?= $sfrom['class'] ?>"><?= h($sfrom['label']) ?></span><?php endif; ?>
+                                        <span class="diff-arrow">→</span>
+                                        <?php if ($sto): ?><span class="st-mini <?= $sto['class'] ?>"><?= h($sto['label']) ?></span><?php endif; ?>
+                                    </span>
+                                    <?php elseif ($key === 'estimated_cost'): ?>
+                                    <span class="diff-chip cost-chip">
+                                        ฿<?= number_format((float)$from) ?> <span class="diff-arrow">→</span> ฿<?= number_format((float)$to) ?>
+                                    </span>
+                                    <?php elseif (in_array($key, ['appointment_date','pickup_date'])): ?>
+                                    <span class="diff-chip date-chip" title="<?= h($lbl) ?>">
+                                        <span class="material-symbols-rounded" style="font-size:12px;"><?= $key === 'pickup_date' ? 'check_circle' : 'event' ?></span>
+                                        <?= $to ? date('d/m/y', strtotime($to)) : 'ล้าง' ?>
+                                    </span>
+                                    <?php elseif (in_array($key, ['technician_note','problem_details','accessories'])): ?>
+                                    <span class="diff-chip text-chip">
+                                        <span class="material-symbols-rounded" style="font-size:12px;">edit_note</span>
+                                        <?= h($lbl) ?>
+                                    </span>
+                                    <?php else: ?>
+                                    <span class="diff-chip text-chip" title="<?= h($lbl) ?>: <?= h($from) ?> → <?= h($to) ?>">
+                                        <?= h($lbl) ?>: <span style="font-weight:400; opacity:.8;"><?= mb_strimwidth(h($to), 0, 20, '…') ?></span>
+                                    </span>
+                                    <?php endif; ?>
+                                <?php endforeach; ?>
+                                </div>
                             <?php endif; ?>
                         </td>
 
-                        <td class="text-center">
-                            <span class="badge <?= $st['class'] ?>"><?= $st['label'] ?></span>
+                        <!-- ── New status ── -->
+                        <td style="text-align:center;">
+                            <?php if ($stNew): ?>
+                                <span class="status-badge <?= $stNew['class'] ?>"><?= h($stNew['label']) ?></span>
+                            <?php else: ?>
+                                <span style="color:var(--text-muted); font-size:12px;">—</span>
+                            <?php endif; ?>
                         </td>
-                        <td class="text-center">
-                            <a href="edit.php?id=<?= $row['id'] ?>" class="btn-icon" title="ดูรายละเอียด" onclick="document.getElementById('global-loader').style.display='flex'">
+
+                        <!-- ── Editor ── -->
+                        <td style="text-align:center;">
+                            <?php if (!empty($row['admin_name'])): ?>
+                                <span style="font-size:12px; font-weight:600; color:var(--text-main);"><?= h($row['admin_name']) ?></span>
+                            <?php else: ?>
+                                <span style="color:var(--text-muted); font-size:12px;">—</span>
+                            <?php endif; ?>
+                        </td>
+
+                        <td style="text-align:center;">
+                            <a href="edit.php?id=<?= $row['tracking_id'] ?>" class="t-btn t-edit" title="ดู/แก้ไข" onclick="showLoader()">
                                 <span class="material-symbols-rounded">chevron_right</span>
                             </a>
                         </td>
                     </tr>
-                <?php endforeach; endif; ?>
-            </tbody>
-        </table>
+                    <?php endforeach; endif; ?>
+                </tbody>
+            </table>
+        </div>
     </div>
-</main>
+
+</div><!-- .cmns-wrapper -->
 
 <?php include __DIR__ . '/../templates/footer_admin.php'; ?>
 
 <script>
-    function toggleMenu(id) { document.getElementById(id).classList.toggle('show'); }
-    document.addEventListener('click', function(e) {
-        if (!e.target.closest('.filter-dropdown')) { document.querySelectorAll('.filter-menu.show').forEach(m => m.classList.remove('show')); }
-    });
+function showLoader() {
+    const el = document.getElementById('global-loader');
+    if (el) { el.style.display = 'flex'; setTimeout(() => { el.style.display = 'none'; }, 5000); }
+}
+window.addEventListener('pageshow', () => {
+    const el = document.getElementById('global-loader');
+    if (el) el.style.display = 'none';
+});
+function toggleHFilter(e) {
+    e.stopPropagation();
+    const menu = document.getElementById('hFilterMenu');
+    const btn  = document.getElementById('hFilterBtn');
+    const open = menu.classList.toggle('open');
+    btn.classList.toggle('active', open);
+}
+function clearHFilter() {
+    document.querySelectorAll('#hFilterMenu input[type="checkbox"]').forEach(cb => cb.checked = false);
+}
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.trk-filter-wrap')) {
+        document.querySelectorAll('.trk-filter-menu.open').forEach(m => m.classList.remove('open'));
+        document.querySelectorAll('.trk-filter-btn.active').forEach(b => b.classList.remove('active'));
+    }
+});
 </script>

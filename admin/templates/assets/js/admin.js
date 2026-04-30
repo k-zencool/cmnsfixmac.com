@@ -118,25 +118,47 @@ document.addEventListener("DOMContentLoaded", function() {
     // ------------------------------------------------
     // 8. ✅ Flash Message Handler (รับค่าจาก PHP มาเด้ง Toast)
     // ------------------------------------------------
-    // ตรวจสอบว่ามีตัวแปร flashData ส่งมาจาก PHP หรือไม่
     if (typeof flashData !== 'undefined') {
+        const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+
+        const t = isDark
+            ? { bg: '#1e1e1e', color: '#e5e5e5', border: '#3a3a3a', shadow: '0 8px 32px rgba(0,0,0,.55)', bar: 'rgba(255,255,255,.12)' }
+            : { bg: '#ffffff', color: '#0f172a', border: '#e2e8f0', shadow: '0 8px 28px rgba(0,0,0,.10)', bar: 'rgba(0,0,0,.07)' };
+
         const Toast = Swal.mixin({
             toast: true,
             position: 'top-end',
             showConfirmButton: false,
-            timer: 3000,
+            timer: 3500,
             timerProgressBar: true,
+            background: t.bg,
+            color: t.color,
             didOpen: (toast) => {
+                toast.style.border        = `1px solid ${t.border}`;
+                toast.style.borderRadius  = '14px';
+                toast.style.boxShadow     = t.shadow;
+                toast.style.fontFamily    = "'Sarabun', sans-serif";
+                toast.style.fontSize      = '14px';
+                toast.style.fontWeight    = '600';
+                toast.style.padding       = '10px 16px';
+
+                // push below navbar (--header-h = 64px)
+                const container = toast.closest('.swal2-container');
+                if (container) container.style.paddingTop = '74px';
+
+                const bar = toast.querySelector('.swal2-timer-progress-bar');
+                if (bar) bar.style.background = t.bar;
+
                 toast.addEventListener('mouseenter', Swal.stopTimer);
                 toast.addEventListener('mouseleave', Swal.resumeTimer);
             }
         });
 
         if (flashData.success) {
-            Toast.fire({ icon: 'success', title: flashData.success });
+            Toast.fire({ icon: 'success', title: flashData.success, iconColor: '#10b981' });
         }
         if (flashData.error) {
-            Toast.fire({ icon: 'error', title: flashData.error });
+            Toast.fire({ icon: 'error', title: flashData.error, iconColor: '#ef4444' });
         }
     }
 });
