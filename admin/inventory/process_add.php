@@ -80,32 +80,43 @@ try {
     }
 
     // Fields ตาม type
-    $part_number      = trim($_POST['part_number'] ?? '');
+    $part_number       = trim($_POST['part_number'] ?? '');
     $compatible_models = trim($_POST['compatible_models'] ?? '');
-    $location         = trim($_POST['location'] ?? '');
-    $min_qty          = (int)($_POST['min_qty'] ?? 1);
-    $asset_tag        = trim($_POST['asset_tag'] ?? '');
-    $serial_number    = trim($_POST['serial_number'] ?? '');
-    $condition_note   = trim($_POST['condition_note'] ?? '');
+    $location          = trim($_POST['location'] ?? '');
+    $min_qty           = (int)($_POST['min_qty'] ?? 1);
+    $asset_tag         = trim($_POST['asset_tag'] ?? '');
+    $serial_number     = trim($_POST['serial_number'] ?? '');
+    $condition_note    = trim($_POST['condition_note'] ?? '');
     $disassembly_status = $_POST['disassembly_status'] ?? 'intact';
     $source_machine_id  = !empty($_POST['source_machine_id']) ? (int)$_POST['source_machine_id'] : null;
+    $color             = trim($_POST['color'] ?? '');
+    $condition_grade   = trim($_POST['condition_grade'] ?? '');
+    $cpu_spec          = trim($_POST['cpu_spec'] ?? '');
+    $ram_spec          = trim($_POST['ram_spec'] ?? '');
+    $storage_spec      = trim($_POST['storage_spec'] ?? '');
+    $gpu_spec          = trim($_POST['gpu_spec'] ?? '');
 
-    // Status default ตาม type
-    $status = match($type) {
-        'new'     => 'STOCK',
-        'used'    => 'GOOD',
-        'machine' => 'READY',
-        'sale'    => 'READY',
-        default   => 'STOCK',
-    };
+    // Status default ตาม type (USED รับจาก form ได้ — GOOD หรือ TEST)
+    $allowed_statuses = ['STOCK','OOS','GOOD','TEST','DEAD','READY','PARTIAL','DISCOUNT'];
+    $posted_status = strtoupper(trim($_POST['status'] ?? ''));
+    $status = ($type === 'used' && in_array($posted_status, $allowed_statuses))
+        ? $posted_status
+        : match($type) {
+            'new'     => 'STOCK',
+            'used'    => 'GOOD',
+            'machine' => 'READY',
+            'sale'    => 'READY',
+            default   => 'STOCK',
+        };
 
     $sell_price = (float)($_POST['sell_price'] ?? 0);
 
     $stmt = $pdo->prepare("INSERT INTO inventory
         (category_id, sku, name, image, type, asset_tag, serial_number,
          part_number, compatible_models, location, min_qty, source_machine_id,
-         disassembly_status, condition_note, status, sell_price)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+         disassembly_status, condition_note, status, sell_price,
+         color, condition_grade, cpu_spec, ram_spec, storage_spec, gpu_spec)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
     $stmt->execute([
         $category_id, $sku, $name, $image_filename, $type,
@@ -113,22 +124,27 @@ try {
         $part_number ?: null, $compatible_models ?: null,
         $location ?: null, $min_qty, $source_machine_id,
         $disassembly_status, $condition_note ?: null,
-        $status, $sell_price
+        $status, $sell_price,
+        $color ?: null, $condition_grade ?: null,
+        $cpu_spec ?: null, $ram_spec ?: null,
+        $storage_spec ?: null, $gpu_spec ?: null,
     ]);
 
     $inventory_id = $pdo->lastInsertId();
 
-    // Insert lot
-    $lot_number    = 'LOT-' . strtoupper(substr(uniqid(), -6));
-    $qty_received  = (int)($_POST['qty_received'] ?? 1);
-    $cost_price    = (float)($_POST['cost_price'] ?? 0);
-    $supplier_name = trim($_POST['supplier_name'] ?? '');
-    $warranty_end  = !empty($_POST['warranty_end']) ? $_POST['warranty_end'] : null;
+    // Machine ไม่ใช้ lot (1 record = 1 เครื่อง)
+    if ($type !== 'machine') {
+        $lot_number    = 'LOT-' . strtoupper(substr(uniqid(), -6));
+        $qty_received  = (int)($_POST['qty_received'] ?? 1);
+        $cost_price    = (float)($_POST['cost_price'] ?? 0);
+        $supplier_name = trim($_POST['supplier_name'] ?? '');
+        $warranty_end  = !empty($_POST['warranty_end']) ? $_POST['warranty_end'] : null;
 
-    $pdo->prepare("INSERT INTO inventory_lots
-        (inventory_id, lot_number, qty_received, qty_remaining, cost_price, warranty_start, warranty_end, supplier_name)
-        VALUES (?, ?, ?, ?, ?, CURDATE(), ?, ?)")
-        ->execute([$inventory_id, $lot_number, $qty_received, $qty_received, $cost_price, $warranty_end, $supplier_name]);
+        $pdo->prepare("INSERT INTO inventory_lots
+            (inventory_id, lot_number, qty_received, qty_remaining, cost_price, warranty_start, warranty_end, supplier_name)
+            VALUES (?, ?, ?, ?, ?, CURDATE(), ?, ?)")
+            ->execute([$inventory_id, $lot_number, $qty_received, $qty_received, $cost_price, $warranty_end, $supplier_name]);
+    }
 
     header("Location: $redirect_back");
     exit();

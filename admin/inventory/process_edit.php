@@ -53,15 +53,21 @@ try {
     } else {
         $status = $_POST['status'] ?? $existing['status'];
     }
-    $part_number       = trim($_POST['part_number'] ?? '');
-    $compatible_models = trim($_POST['compatible_models'] ?? '');
-    $location          = trim($_POST['location'] ?? '');
-    $min_qty           = (int)($_POST['min_qty'] ?? 1);
-    $asset_tag         = trim($_POST['asset_tag'] ?? '');
-    $serial_number     = trim($_POST['serial_number'] ?? '');
-    $condition_note    = trim($_POST['condition_note'] ?? '');
+    $part_number        = trim($_POST['part_number'] ?? '');
+    $compatible_models  = trim($_POST['compatible_models'] ?? '');
+    $location           = trim($_POST['location'] ?? '');
+    $min_qty            = (int)($_POST['min_qty'] ?? 1);
+    $asset_tag          = trim($_POST['asset_tag'] ?? '');
+    $serial_number      = trim($_POST['serial_number'] ?? '');
+    $condition_note     = trim($_POST['condition_note'] ?? '');
     $disassembly_status = $_POST['disassembly_status'] ?? $existing['disassembly_status'];
-    $sell_price        = (float)($_POST['sell_price'] ?? $existing['sell_price']);
+    $sell_price         = (float)($_POST['sell_price'] ?? $existing['sell_price']);
+    $color              = trim($_POST['color']            ?? $existing['color']            ?? '');
+    $condition_grade    = trim($_POST['condition_grade']  ?? $existing['condition_grade']  ?? '');
+    $cpu_spec           = trim($_POST['cpu_spec']         ?? $existing['cpu_spec']         ?? '');
+    $ram_spec           = trim($_POST['ram_spec']         ?? $existing['ram_spec']         ?? '');
+    $storage_spec       = trim($_POST['storage_spec']     ?? $existing['storage_spec']     ?? '');
+    $gpu_spec           = trim($_POST['gpu_spec']         ?? $existing['gpu_spec']         ?? '');
 
     // Upload image ถ้ามีอัปโหลดใหม่
     $image_filename = $existing['image'];
@@ -88,13 +94,16 @@ try {
         name = ?, sku = ?, category_id = ?, type = ?, status = ?,
         part_number = ?, compatible_models = ?, location = ?, min_qty = ?,
         asset_tag = ?, serial_number = ?, condition_note = ?,
-        disassembly_status = ?, sell_price = ?, image = ?
+        disassembly_status = ?, sell_price = ?, image = ?,
+        color = ?, condition_grade = ?, cpu_spec = ?, ram_spec = ?, storage_spec = ?, gpu_spec = ?
         WHERE id = ?")
         ->execute([
             $name, $sku, $category_id, $type, $status,
             $part_number ?: null, $compatible_models ?: null, $location ?: null, $min_qty,
             $asset_tag ?: null, $serial_number ?: null, $condition_note ?: null,
             $disassembly_status, $sell_price, $image_filename,
+            $color ?: null, $condition_grade ?: null,
+            $cpu_spec ?: null, $ram_spec ?: null, $storage_spec ?: null, $gpu_spec ?: null,
             $id
         ]);
 

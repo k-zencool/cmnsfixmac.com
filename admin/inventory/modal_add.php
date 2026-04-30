@@ -402,15 +402,112 @@ function toggleTypeFields() {
     else if (type === 'used') {
         let machineOpts = '<option value="">-- ไม่ทราบที่มา / ไม่ผูกเครื่องซาก --</option>';
         machinesList.forEach(m => { machineOpts += `<option value="${m.id}">[${m.asset_tag || 'NO-TAG'}] ${m.name}</option>`; });
-        html = `<div style="grid-column: span 2;"><label class="cmns-label" style="color:#ef4444;"><span class="material-symbols-rounded" style="font-size:16px; vertical-align:middle;">link</span> แกะมาจากเครื่องซากตัวไหน?</label><select name="source_machine_id" class="cmns-input" style="border-color:#ef4444;">${machineOpts}</select></div><div><label class="cmns-label">เลขพาร์ท (Part No.)</label><input type="text" name="part_number" class="cmns-input" placeholder="เช่น 661-123"></div><div><label class="cmns-label">ตำแหน่งเก็บ (Location)</label><input type="text" name="location" class="cmns-input" placeholder="ตู้ A ชั้น 2"></div>`;
+        html = `
+            <div style="grid-column:span 2;">
+                <label class="cmns-label" style="color:#ef4444;"><span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">link</span> แกะมาจากเครื่องซากตัวไหน?</label>
+                <select name="source_machine_id" class="cmns-input" style="border-color:#ef4444;">${machineOpts}</select>
+            </div>
+            <div>
+                <label class="cmns-label">Serial Number</label>
+                <input type="text" name="serial_number" class="cmns-input" placeholder="S/N ของชิ้นส่วน">
+            </div>
+            <div>
+                <label class="cmns-label">เลขพาร์ท (Part No.)</label>
+                <input type="text" name="part_number" class="cmns-input" placeholder="เช่น 661-123">
+            </div>
+            <div>
+                <label class="cmns-label">ตำแหน่งเก็บ (Location)</label>
+                <input type="text" name="location" class="cmns-input" placeholder="ตู้ A ชั้น 2">
+            </div>
+            <div>
+                <label class="cmns-label" style="color:#f59e0b;">สภาพ (Condition)</label>
+                <select name="status" class="cmns-input" style="border-color:#f59e0b;font-weight:700;color:#f59e0b;">
+                    <option value="GOOD">✅ GOOD — ใช้งานได้ปกติ</option>
+                    <option value="TEST">🔧 TEST — ต้องทดสอบก่อน</option>
+                    <option value="DEAD">💀 DEAD — เสีย / ใช้ไม่ได้</option>
+                </select>
+            </div>
+            <div style="grid-column:span 2;">
+                <label class="cmns-label">หมายเหตุสภาพ (Condition Note)</label>
+                <input type="text" name="condition_note" class="cmns-input" placeholder="เช่น มีรอยขีดข่วนเล็กน้อย, ทดสอบจอแล้วปกติ...">
+            </div>`;
     }
     else if (type === 'machine') {
-        html = `<div><label class="cmns-label">รหัสเครื่อง (Asset Tag)</label><input type="text" name="asset_tag" class="cmns-input" placeholder="เช่น MC-001"></div><div><label class="cmns-label">Serial Number</label><input type="text" name="serial_number" class="cmns-input" placeholder="S/N..."></div><div style="grid-column: span 2;"><label class="cmns-label" style="color:#10b981;">สถานะการแยกอะไหล่</label><select name="disassembly_status" class="cmns-input" style="border-color:#10b981;"><option value="intact">ยังไม่แกะ</option><option value="partially_stripped">แกะไปบางส่วน</option><option value="stripped">แกะหมดแล้ว</option></select></div>`;
+        html = `
+            <div>
+                <label class="cmns-label" style="color:#8b5cf6;">รหัสเครื่อง (Asset Tag) <span style="color:red">*</span></label>
+                <input type="text" name="asset_tag" class="cmns-input" placeholder="เช่น MC-001" style="border-color:#8b5cf6;">
+            </div>
+            <div>
+                <label class="cmns-label">Serial Number</label>
+                <input type="text" name="serial_number" class="cmns-input" placeholder="S/N...">
+            </div>
+            <div>
+                <label class="cmns-label">สี (Color)</label>
+                <input type="text" name="color" class="cmns-input" placeholder="เช่น Space Gray, Silver, Midnight">
+            </div>
+            <div>
+                <label class="cmns-label" style="color:#8b5cf6;">เกรดสภาพ (Grade)</label>
+                <select name="condition_grade" class="cmns-input" style="border-color:#8b5cf6;font-weight:700;">
+                    <option value="">-- เลือกเกรด --</option>
+                    <option value="A">A — สมบูรณ์ ไม่มีตำหนิ</option>
+                    <option value="B">B — มีรอยเล็กน้อย</option>
+                    <option value="C">C — มีรอยชัดเจน</option>
+                    <option value="D">D — เสียหายหนัก / ซาก</option>
+                </select>
+            </div>
+            <div style="grid-column:span 2;">
+                <label class="cmns-label" style="color:#10b981;">สถานะการแยกอะไหล่</label>
+                <select name="disassembly_status" class="cmns-input" style="border-color:#10b981;">
+                    <option value="intact">🔒 ยังไม่แกะ (Intact)</option>
+                    <option value="partially_stripped">🔧 แกะไปบางส่วน (Partial)</option>
+                    <option value="stripped">✅ แกะหมดแล้ว (Stripped)</option>
+                </select>
+            </div>
+            <div>
+                <label class="cmns-label">CPU / Chip</label>
+                <input type="text" name="cpu_spec" class="cmns-input" placeholder="เช่น Apple M1, Intel Core i7">
+            </div>
+            <div>
+                <label class="cmns-label">RAM</label>
+                <input type="text" name="ram_spec" class="cmns-input" placeholder="เช่น 16GB LPDDR5">
+            </div>
+            <div>
+                <label class="cmns-label">Storage</label>
+                <input type="text" name="storage_spec" class="cmns-input" placeholder="เช่น 512GB SSD">
+            </div>
+            <div>
+                <label class="cmns-label">GPU</label>
+                <input type="text" name="gpu_spec" class="cmns-input" placeholder="เช่น 8-core GPU, Radeon Pro 5500M">
+            </div>
+            <div style="grid-column:span 2;">
+                <label class="cmns-label">รายละเอียดเพิ่มเติม / ตำหนิ</label>
+                <textarea name="condition_note" class="cmns-input" rows="2" placeholder="เช่น จอมีรอยขีดข่วน, แบตพอง, หลุดมาจากงานซ่อม..." style="resize:vertical;"></textarea>
+            </div>`;
     }
     else if (type === 'sale') {
         html = `<div><label class="cmns-label">รหัสเครื่อง (Asset Tag)</label><input type="text" name="asset_tag" class="cmns-input"></div><div><label class="cmns-label">Serial Number</label><input type="text" name="serial_number" class="cmns-input"></div><div style="grid-column: span 2;"><label class="cmns-label">สภาพเครื่อง (Condition)</label><input type="text" name="condition_note" class="cmns-input" placeholder="ตำหนิต่างๆ..."></div>`;
     }
     container.innerHTML = html;
+
+    // USED — ซ่อน warranty และ supplier
+    const warrantyWrap = document.querySelector('input[name="warranty_end"]')?.closest('div');
+    const supplierWrap = document.querySelector('input[name="supplier_name"]')?.closest('div');
+    if (warrantyWrap) warrantyWrap.style.display = (type === 'used' || type === 'machine') ? 'none' : '';
+    if (supplierWrap) supplierWrap.style.display = (type === 'used' || type === 'machine') ? 'none' : '';
+
+    // MACHINE — ซ่อน lot section ทั้งหมด (qty ไม่มีความหมายสำหรับ machine)
+    const lotSection = document.querySelector('#modal-add h4')?.closest('div');
+    const lotHr      = document.querySelector('#modal-add hr');
+    if (lotSection) lotSection.style.display = (type === 'machine') ? 'none' : '';
+    if (lotHr)      lotHr.style.display      = (type === 'machine') ? 'none' : '';
+
+    // เปลี่ยน label section ตาม type
+    const lotTitle = document.querySelector('#modal-add h4');
+    if (lotTitle) {
+        if (type === 'used')    lotTitle.innerHTML = '<span class="material-symbols-rounded" style="color:#f59e0b;font-size:22px;">build</span> ข้อมูลต้นทุน';
+        else if (type !== 'machine') lotTitle.innerHTML = '<span class="material-symbols-rounded" style="color:#10b981;font-size:22px;">inventory</span> ข้อมูลสต็อกล็อตนี้';
+    }
 }
 
 // 🛑 ฟังก์ชันเปิด Modal (เพิ่มคำสั่งให้สั่งเปลี่ยนฟอร์มออโต้)
