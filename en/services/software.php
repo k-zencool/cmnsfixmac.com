@@ -1,4 +1,5 @@
 <?php
+require_once '../../includes/db.php';
 // English Page: /en/services/software.php
 $page_title = "Mac Software & macOS Installation Service Chiang Mai | cmnsfixmac";
 $page_description = "Mac software installation service in Chiang Mai. We install macOS, Microsoft Office, Adobe, AutoCAD, clean up systems, and remove viruses for MacBook & iMac.";
@@ -115,43 +116,6 @@ $page_keywords = "install macOS Chiang Mai, Mac software installation, Office fo
             </div>
         </section>
 
-        <section class="software-price-tabs container">
-            <h2 data-aos="fade-up">Software Service Price List</h2> <div class="tab-buttons" data-aos="fade-up">
-                <button class="tab-btn active" data-tab="os">Fresh macOS Install</button>
-                <button class="tab-btn" data-tab="apps">Application Install</button>
-                <button class="tab-btn" data-tab="clean">Cleanup / Virus Removal</button>
-            </div>
-            <div class="tab-contents">
-                <?php
-                // Using English keys for categories
-                $categories_en = ['os' => 'Fresh macOS Install', 'apps' => 'Application Install', 'clean' => 'Cleanup / Virus Removal'];
-                require_once '../../includes/db.php'; // Corrected path
-                foreach ($categories_en as $key => $title_en):
-                    // Fetching both Thai and English details
-                    $stmt = $pdo->prepare("SELECT model, detail, detail_en, price FROM software_fix_pricing WHERE category = ?");
-                    $stmt->execute([$key]);
-                    $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                ?>
-                    <div class="tab-content <?= $key === 'os' ? 'active' : '' ?>" id="<?= $key ?>">
-                        <table class="fix-table">
-                            <thead><tr><th>Service</th><th>Detail</th><th>Approx. Price</th></tr></thead>
-                            <tbody>
-                                <?php foreach ($results as $row): 
-                                  // Prioritize showing English detail, fallback to Thai if needed
-                                  $detail_display = !empty(trim($row['detail_en'] ?? '')) ? $row['detail_en'] : ($row['detail'] ?? 'N/A');
-                                ?>
-                                <tr>
-                                    <td><?= htmlspecialchars($row['model']) ?></td>
-                                    <td><?= htmlspecialchars($detail_display) ?></td>
-                                    <td><?= htmlspecialchars($row['price']) ?></td>
-                                </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    </div>
-                <?php endforeach; ?>
-            </div>
-        </section>
 
         <section class="fix-result container">
             <h2 data-aos="fade-up">Examples of Our Software Services</h2> <div class="fix-result-grid">

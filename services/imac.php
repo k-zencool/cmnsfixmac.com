@@ -1,4 +1,5 @@
 <?php
+require_once '../includes/db.php';
 $page_title = "ซ่อม iMac เชียงใหม่ ทุกอาการ โดยช่างผู้เชี่ยวชาญ | cmnsfixmac";
 $page_description = "ร้านซ่อม iMac เชียงใหม่ รับซ่อม iMac ทุกรุ่น จอเสีย เปิดไม่ติด อัปเกรด SSD/RAM โดยช่างผู้เชี่ยวชาญ พร้อมประกันงานซ่อม";
 $page_keywords = "ซ่อม iMac เชียงใหม่, ร้านซ่อม iMac เชียงใหม่, iMac เปิดไม่ติด เชียงใหม่, เปลี่ยนจอ iMac เชียงใหม่, อัปเกรด iMac เชียงใหม่, ซ่อมบอร์ด iMac เชียงใหม่, ลงโปรแกรม iMac เชียงใหม่";
@@ -171,39 +172,6 @@ $page_keywords = "ซ่อม iMac เชียงใหม่, ร้านซ
     </div>
   </section>
 
-  <section class="imac-price-tabs container">
-    <h2 data-aos="fade-up">ตารางราคาซ่อม iMac</h2>
-    <div class="tab-buttons" data-aos="fade-up">
-      <button class="tab-btn active" data-tab="display">เปลี่ยนจอ</button>
-      <button class="tab-btn" data-tab="upgrade">อัปเกรด SSD / RAM</button>
-      <button class="tab-btn" data-tab="board">ซ่อมบอร์ด / เปิดไม่ติด</button>
-    </div>
-    <div class="tab-contents">
-      <?php
-      $categories = ['display' => 'เปลี่ยนจอ', 'upgrade' => 'อัปเกรด SSD / RAM', 'board' => 'ซ่อมบอร์ด'];
-      require_once '../includes/db.php';
-      foreach ($categories as $key => $title):
-          $stmt = $pdo->prepare("SELECT * FROM imac_fix_pricing WHERE category = ?");
-          $stmt->execute([$key]);
-          $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-      ?>
-        <div class="tab-content <?= $key === 'display' ? 'active' : '' ?>" id="<?= $key ?>">
-          <table class="fix-table">
-            <thead><tr><th>รุ่น</th><th>รายละเอียด</th><th>ราคาโดยประมาณ</th></tr></thead>
-            <tbody>
-              <?php foreach ($results as $row): ?>
-                <tr>
-                  <td><?= htmlspecialchars($row['model']) ?></td>
-                  <td><?= htmlspecialchars($row['detail']) ?></td>
-                  <td><?= htmlspecialchars($row['price']) ?></td>
-                </tr>
-              <?php endforeach; ?>
-            </tbody>
-          </table>
-        </div>
-      <?php endforeach; ?>
-    </div>
-  </section>
 
   <section class="fix-result container">
     <h2 data-aos="fade-up">ตัวอย่างผลงานซ่อม iMac</h2>

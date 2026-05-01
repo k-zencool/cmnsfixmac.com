@@ -1,4 +1,5 @@
 <?php
+require_once '../includes/db.php';
 $page_title = "ซ่อม Apple Watch เชียงใหม่ ทุกซีรีส์ โดยช่างผู้เชี่ยวชาญ | cmnsfixmac";
 $page_description = "ร้านซ่อม Apple Watch เชียงใหม่ รับซ่อมทุกรุ่น Series 1-9, Ultra จอแตก แบตเสื่อม น้ำเข้า ไม่ชาร์จ โดยช่างเฉพาะทาง มีประกันงานซ่อม";
 $page_keywords = "ซ่อม Apple Watch เชียงใหม่, ร้านซ่อม Apple Watch เชียงใหม่, Apple Watch เปิดไม่ติด เชียงใหม่, เปลี่ยนจอ Apple Watch เชียงใหม่, เปลี่ยนแบต Apple Watch เชียงใหม่, Apple Watch ชาร์จไม่เข้า เชียงใหม่, ซ่อมแอปเปิ้ลวอชเชียงใหม่";
@@ -160,39 +161,6 @@ $page_keywords = "ซ่อม Apple Watch เชียงใหม่, ร้�
       </div>
     </section>
 
-    <section class="applewatch-price-tabs container">
-      <h2 data-aos="fade-up">ตารางราคาซ่อม Apple Watch</h2>
-      <div class="tab-buttons" data-aos="fade-up">
-        <button class="tab-btn active" data-tab="display">เปลี่ยนจอ</button>
-        <button class="tab-btn" data-tab="battery">เปลี่ยนแบตเตอรี่</button>
-        <button class="tab-btn" data-tab="board">ซ่อมบอร์ด</button>
-      </div>
-      <div class="tab-contents">
-        <?php
-        $categories = ['display' => 'เปลี่ยนจอ', 'battery' => 'เปลี่ยนแบตเตอรี่', 'board' => 'ซ่อมบอร์ด'];
-        require_once '../includes/db.php';
-        foreach ($categories as $key => $title):
-          $stmt = $pdo->prepare("SELECT * FROM applewatch_fix_pricing WHERE category = ?");
-          $stmt->execute([$key]);
-          $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        ?>
-        <div class="tab-content <?= $key === 'display' ? 'active' : '' ?>" id="<?= $key ?>">
-          <table class="fix-table">
-            <thead><tr><th>รุ่น</th><th>รายละเอียด</th><th>ราคาโดยประมาณ</th></tr></thead>
-            <tbody>
-              <?php foreach ($results as $row): ?>
-              <tr>
-                <td><?= htmlspecialchars($row['model']) ?></td>
-                <td><?= htmlspecialchars($row['detail']) ?></td>
-                <td><?= htmlspecialchars($row['price']) ?></td>
-              </tr>
-              <?php endforeach; ?>
-            </tbody>
-          </table>
-        </div>
-        <?php endforeach; ?>
-      </div>
-    </section>
 
     <section class="fix-result container">
       <h2 data-aos="fade-up">ตัวอย่างผลงานซ่อม Apple Watch</h2>

@@ -136,42 +136,6 @@ require_once '../../includes/db.php';
     </div>
   </section>
 
-  <section class="imac-price-tabs container">
-    <h2 data-aos="fade-up">iMac Repair Price List</h2> <div class="tab-buttons" data-aos="fade-up">
-      <button class="tab-btn active" data-tab="display">Screen Replacement</button>
-      <button class="tab-btn" data-tab="upgrade">SSD / RAM Upgrade</button>
-      <button class="tab-btn" data-tab="board">Board / Power Repair</button>
-    </div>
-    <div class="tab-contents">
-      <?php
-      // Using English keys for categories
-      $categories_en = ['display' => 'Screen Replacement', 'upgrade' => 'SSD / RAM Upgrade', 'board' => 'Board Repair'];
-      foreach ($categories_en as $key => $title_en):
-        // Fetching both Thai and English details
-        $stmt = $pdo->prepare("SELECT model, detail, detail_en, price FROM imac_fix_pricing WHERE category = ?");
-        $stmt->execute([$key]);
-        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-      ?>
-      <div class="tab-content <?= $key === 'display' ? 'active' : '' ?>" id="<?= $key ?>">
-        <table class="fix-table">
-          <thead><tr><th>Model</th><th>Detail</th><th>Approx. Price</th></tr></thead>
-          <tbody>
-            <?php foreach ($results as $row): 
-              // Prioritize showing English detail, fallback to Thai if needed
-              $detail_display = !empty(trim($row['detail_en'] ?? '')) ? $row['detail_en'] : ($row['detail'] ?? 'N/A');
-            ?>
-              <tr>
-                <td><?= htmlspecialchars($row['model']) ?></td>
-                <td><?= htmlspecialchars($detail_display) ?></td>
-                <td><?= htmlspecialchars($row['price']) ?></td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
-      </div>
-      <?php endforeach; ?>
-    </div>
-  </section>
 
   <section class="fix-result container">
     <h2 data-aos="fade-up">Examples of Our iMac Repairs</h2> <div class="fix-result-grid">

@@ -4,11 +4,6 @@ include '../includes/db.php';
 /** @var \PDO $pdo */  // <--- ใส่บรรทัดนี้เพิ่มเข้าไป!
 ?>
 
-<?php
-// ทีนี้บรรทัดข้างล่างนี้จะไม่แดงแล้ว เพราะมันรู้แล้วว่า $pdo คือตัวแปรประเภท PDO
-$stmt = $pdo->query("SELECT * FROM youtube_videos ORDER BY created_at DESC LIMIT 3");
-$videos = $stmt->fetchAll();
-?>
 <!DOCTYPE html>
 <html lang="en">
 
@@ -307,25 +302,6 @@ $videos = $stmt->fetchAll();
     </div>
   </section>
 
-  <section class="video-section" id="youtube">
-    <h2>Reviews & Technique Videos</h2>
-    <div class="video-grid">
-      <?php foreach ($videos as $v): ?>
-        <div class="video-card">
-          <div class="youtube-lazy" data-id="<?= htmlspecialchars($v['video_id']) ?>">
-            <img src="https://img.youtube.com/vi/<?= htmlspecialchars($v['video_id']) ?>/hqdefault.jpg" alt="<?= htmlspecialchars($v['title']) ?>">
-            <div class="play-button"></div>
-          </div>
-          <h3><?= htmlspecialchars($v['title']); ?></h3>
-          <p><?= nl2br(htmlspecialchars($v['description'])); ?></p>
-        </div>
-      <?php endforeach; ?>
-    </div>
-    <br>
-    <div style="text-align: center;">
-      <a href="https://www.youtube.com/@cmns-fixmac" class="btn">Watch All Videos</a>
-    </div>
-  </section>
 
 <section class="section-review" data-aos="fade-up" style="background-color: #f9f9f9; padding: 60px 0;">
     <div style="max-width: 1300px; margin: 0 auto; padding: 0 15px;">
@@ -535,7 +511,6 @@ $videos = $stmt->fetchAll();
   <?php include_once '../includes/floating-buttons.php'; ?>
   <script src="../assets/js/floating-buttons.js"></script>
   <?php include_once '../includes/footer.php'; ?>
-  <script src="../assets/js/lazy-youtube.js"></script>
   <script src="../assets/js/preload-images.js"></script>
 
   <script>

@@ -124,42 +124,6 @@ require_once '../../includes/db.php'; // Corrected Path
     </div>
   </section>
 
-  <section class="airpods-price-tabs container">
-    <h2 data-aos="fade-up">AirPods Repair Price List</h2> <div class="tab-buttons" data-aos="fade-up">
-      <button class="tab-btn active" data-tab="battery">Battery</button>
-      <button class="tab-btn" data-tab="case">Charging Case</button>
-      <button class="tab-btn" data-tab="water">Water Damage</button>
-    </div>
-    <div class="tab-contents">
-      <?php
-      // Using English keys for categories
-      $categories_en = ['battery' => 'Battery', 'case' => 'Charging Case', 'water' => 'Water Damage'];
-      foreach ($categories_en as $key => $title_en):
-        // Fetching both Thai and English details
-        $stmt = $pdo->prepare("SELECT model, detail, detail_en, price FROM airpods_fix_pricing WHERE category = ?");
-        $stmt->execute([$key]);
-        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-      ?>
-      <div class="tab-content <?= $key === 'battery' ? 'active' : '' ?>" id="<?= $key ?>">
-        <table class="fix-table">
-          <thead><tr><th>Model</th><th>Detail</th><th>Price</th></tr></thead>
-          <tbody>
-            <?php foreach ($results as $row): 
-              // Prioritize showing English detail, fallback to Thai if needed
-              $detail_display = !empty(trim($row['detail_en'] ?? '')) ? $row['detail_en'] : ($row['detail'] ?? 'N/A');
-            ?>
-              <tr>
-                <td><?= htmlspecialchars($row['model']) ?></td>
-                <td><?= htmlspecialchars($detail_display) ?></td>
-                <td><?= htmlspecialchars($row['price']) ?></td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
-      </div>
-      <?php endforeach; ?>
-    </div>
-  </section>
 
   <section class="fix-result container">
     <h2 data-aos="fade-up">Examples of Our AirPods Repairs</h2> <div class="fix-result-grid">

@@ -1,4 +1,5 @@
 <?php
+require_once '../includes/db.php';
 $page_title = "ซ่อม AirPods เชียงใหม่ ทุกรุ่น ทุกอาการ โดยช่างผู้เชี่ยวชาญ | cmnsfixmac";
 $page_description = "ร้านซ่อม AirPods เชียงใหม่ รับซ่อม AirPods, AirPods Pro, AirPods Max แบตเสื่อม เคสชาร์จเสีย น้ำเข้า เสียงไม่ดัง โดยช่างเฉพาะทาง พร้อมประกัน";
 $page_keywords = "ซ่อม AirPods เชียงใหม่, ร้านซ่อม AirPods เชียงใหม่, AirPods แบตเสื่อม เชียงใหม่, เปลี่ยนแบต AirPods เชียงใหม่, เคส AirPods ชาร์จไม่เข้า เชียงใหม่, AirPods เสียงไม่ดัง เชียงใหม่, ซ่อมแอร์พอดเชียงใหม่";
@@ -150,39 +151,6 @@ $page_keywords = "ซ่อม AirPods เชียงใหม่, ร้าน
     </div>
   </section>
 
-  <section class="airpods-price-tabs container">
-    <h2 data-aos="fade-up">ตารางราคาซ่อม AirPods</h2>
-    <div class="tab-buttons" data-aos="fade-up">
-      <button class="tab-btn active" data-tab="battery">แบตเตอรี่</button>
-      <button class="tab-btn" data-tab="case">เคสชาร์จ</button>
-      <button class="tab-btn" data-tab="water">น้ำเข้า</button>
-    </div>
-    <div class="tab-contents">
-      <?php
-      $categories = ['battery' => 'แบตเตอรี่', 'case' => 'เคสชาร์จ', 'water' => 'น้ำเข้า'];
-      require_once '../includes/db.php';
-      foreach ($categories as $key => $title):
-        $stmt = $pdo->prepare("SELECT * FROM airpods_fix_pricing WHERE category = ?");
-        $stmt->execute([$key]);
-        $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-      ?>
-      <div class="tab-content <?= $key === 'battery' ? 'active' : '' ?>" id="<?= $key ?>">
-        <table class="fix-table">
-          <thead><tr><th>รุ่น</th><th>รายละเอียด</th><th>ราคา</th></tr></thead>
-          <tbody>
-            <?php foreach ($results as $row): ?>
-              <tr>
-                <td><?= htmlspecialchars($row['model']) ?></td>
-                <td><?= htmlspecialchars($row['detail']) ?></td>
-                <td><?= htmlspecialchars($row['price']) ?></td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
-      </div>
-      <?php endforeach; ?>
-    </div>
-  </section>
 
   <section class="fix-result container">
     <h2 data-aos="fade-up">ตัวอย่างผลงานซ่อม AirPods</h2>

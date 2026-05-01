@@ -1,4 +1,5 @@
 <?php
+require_once '../includes/db.php';
 $page_title = "ลงโปรแกรม Mac เชียงใหม่, macOS, Office, Adobe | cmnsfixmac";
 $page_description = "ร้านลงโปรแกรม Mac เชียงใหม่ บริการลง macOS, Microsoft Office, Adobe, AutoCAD, ล้างเครื่อง แก้ไวรัส MacBook, iMac โดยช่างผู้เชี่ยวชาญ";
 $page_keywords = "ลงโปรแกรม Mac เชียงใหม่, ลง macOS เชียงใหม่, ลง Office Mac เชียงใหม่, ลง Adobe Mac เชียงใหม่, ล้างเครื่อง Mac เชียงใหม่, แก้เครื่องช้า Mac เชียงใหม่, โปรแกรม MacBook เชียงใหม่";
@@ -155,40 +156,6 @@ $page_keywords = "ลงโปรแกรม Mac เชียงใหม่, �
     </div>
   </section>
 
-  <section class="software-price-tabs container">
-    <h2 data-aos="fade-up">ตารางค่าบริการลงโปรแกรม</h2>
-    <div class="tab-buttons" data-aos="fade-up">
-      <button class="tab-btn active" data-tab="os">ลง macOS ใหม่</button>
-      <button class="tab-btn" data-tab="apps">ลงโปรแกรมทำงาน</button>
-      <button class="tab-btn" data-tab="clean">ล้างเครื่อง / แก้ไวรัส</button>
-    </div>
-
-    <div class="tab-contents">
-      <?php
-      $categories = ['os' => 'ลง macOS ใหม่', 'apps' => 'ลงโปรแกรมทำงาน', 'clean' => 'ล้างเครื่อง / แก้ไวรัส'];
-      require_once '../includes/db.php';
-      foreach ($categories as $key => $title):
-          $stmt = $pdo->prepare("SELECT * FROM software_fix_pricing WHERE category = ?");
-          $stmt->execute([$key]);
-          $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-      ?>
-      <div class="tab-content <?= $key === 'os' ? 'active' : '' ?>" id="<?= $key ?>">
-        <table class="fix-table">
-          <thead><tr><th>รุ่น</th><th>รายละเอียด</th><th>ราคาโดยประมาณ</th></tr></thead>
-          <tbody>
-            <?php foreach ($results as $row): ?>
-            <tr>
-              <td><?= htmlspecialchars($row['model']) ?></td>
-              <td><?= htmlspecialchars($row['detail']) ?></td>
-              <td><?= htmlspecialchars($row['price']) ?></td>
-            </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
-      </div>
-      <?php endforeach; ?>
-    </div>
-  </section>
 
   <section class="fix-result container">
     <h2 data-aos="fade-up">ผลงานลงโปรแกรมล่าสุด</h2>

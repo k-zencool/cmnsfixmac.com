@@ -1,4 +1,5 @@
 <?php
+require_once '../includes/db.php';
 $page_title = "ซ่อม iPad เชียงใหม่ ทุกอาการ โดยช่างผู้เชี่ยวชาญ | cmnsfixmac";
 $page_description = "ร้านซ่อม iPad เชียงใหม่ รับซ่อม iPad ทุกรุ่น จอแตก แบตเสื่อม เปิดไม่ติด น้ำเข้า โดยช่างผู้เชี่ยวชาญ พร้อมประกันงานซ่อม ราคาเป็นกันเอง";
 $page_keywords = "ซ่อม iPad เชียงใหม่, ร้านซ่อม iPad เชียงใหม่, iPad เปิดไม่ติด เชียงใหม่, เปลี่ยนจอ iPad เชียงใหม่, เปลี่ยนแบต iPad เชียงใหม่, iPad ชาร์จไม่เข้า เชียงใหม่, ซ่อมไอแพดเชียงใหม่";
@@ -171,39 +172,6 @@ $page_keywords = "ซ่อม iPad เชียงใหม่, ร้านซ
         </div>
     </section>
 
-    <section class="ipad-price-tabs container">
-        <h2 data-aos="fade-up">ตารางราคาซ่อม iPad</h2>
-        <div class="tab-buttons" data-aos="fade-up">
-            <button class="tab-btn active" data-tab="display">เปลี่ยนจอ</button>
-            <button class="tab-btn" data-tab="battery">เปลี่ยนแบตเตอรี่</button>
-            <button class="tab-btn" data-tab="board">ซ่อมบอร์ด</button>
-        </div>
-        <div class="tab-contents">
-            <?php
-            $categories = ['display' => 'เปลี่ยนจอ', 'battery' => 'เปลี่ยนแบตเตอรี่', 'board' => 'ซ่อมบอร์ด'];
-            require_once '../includes/db.php';
-            foreach ($categories as $key => $title):
-                $stmt = $pdo->prepare("SELECT * FROM ipad_fix_pricing WHERE category = ?");
-                $stmt->execute([$key]);
-                $results = $stmt->fetchAll(PDO::FETCH_ASSOC);
-            ?>
-                <div class="tab-content <?= $key === 'display' ? 'active' : '' ?>" id="<?= $key ?>">
-                    <table class="fix-table">
-                        <thead><tr><th>รุ่น</th><th>รายละเอียด</th><th>ราคาโดยประมาณ</th></tr></thead>
-                        <tbody>
-                            <?php foreach ($results as $row): ?>
-                            <tr>
-                                <td><?= htmlspecialchars($row['model']) ?></td>
-                                <td><?= htmlspecialchars($row['detail']) ?></td>
-                                <td><?= htmlspecialchars($row['price']) ?></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            <?php endforeach; ?>
-        </div>
-    </section>
 
     <section class="fix-result container">
         <h2 data-aos="fade-up">ตัวอย่างผลงานซ่อม iPad</h2>
