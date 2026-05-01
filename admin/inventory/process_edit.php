@@ -62,12 +62,16 @@ try {
     $condition_note     = trim($_POST['condition_note'] ?? '');
     $disassembly_status = $_POST['disassembly_status'] ?? $existing['disassembly_status'];
     $sell_price         = (float)($_POST['sell_price'] ?? $existing['sell_price']);
-    $color              = trim($_POST['color']            ?? $existing['color']            ?? '');
-    $condition_grade    = trim($_POST['condition_grade']  ?? $existing['condition_grade']  ?? '');
-    $cpu_spec           = trim($_POST['cpu_spec']         ?? $existing['cpu_spec']         ?? '');
-    $ram_spec           = trim($_POST['ram_spec']         ?? $existing['ram_spec']         ?? '');
-    $storage_spec       = trim($_POST['storage_spec']     ?? $existing['storage_spec']     ?? '');
-    $gpu_spec           = trim($_POST['gpu_spec']         ?? $existing['gpu_spec']         ?? '');
+    $color               = trim($_POST['color']            ?? $existing['color']            ?? '');
+    $condition_grade     = trim($_POST['condition_grade']  ?? $existing['condition_grade']  ?? '');
+    $cpu_spec            = trim($_POST['cpu_spec']         ?? $existing['cpu_spec']         ?? '');
+    $ram_spec            = trim($_POST['ram_spec']         ?? $existing['ram_spec']         ?? '');
+    $storage_spec        = trim($_POST['storage_spec']     ?? $existing['storage_spec']     ?? '');
+    $gpu_spec            = trim($_POST['gpu_spec']         ?? $existing['gpu_spec']         ?? '');
+    $apple_warranty_date = !empty($_POST['apple_warranty_date']) ? $_POST['apple_warranty_date'] : ($existing['apple_warranty_date'] ?? null);
+    $store_warranty_days = isset($_POST['store_warranty_days']) && $_POST['store_warranty_days'] !== '' ? (int)$_POST['store_warranty_days'] : ($existing['store_warranty_days'] ?? null);
+    $battery_health      = isset($_POST['battery_health']) && $_POST['battery_health'] !== '' ? (int)$_POST['battery_health'] : ($existing['battery_health'] ?? null);
+    $battery_cycles      = isset($_POST['battery_cycles'])  && $_POST['battery_cycles']  !== '' ? (int)$_POST['battery_cycles']  : ($existing['battery_cycles']  ?? null);
 
     // Upload image ถ้ามีอัปโหลดใหม่
     $image_filename = $existing['image'];
@@ -95,7 +99,8 @@ try {
         part_number = ?, compatible_models = ?, location = ?, min_qty = ?,
         asset_tag = ?, serial_number = ?, condition_note = ?,
         disassembly_status = ?, sell_price = ?, image = ?,
-        color = ?, condition_grade = ?, cpu_spec = ?, ram_spec = ?, storage_spec = ?, gpu_spec = ?
+        color = ?, condition_grade = ?, cpu_spec = ?, ram_spec = ?, storage_spec = ?, gpu_spec = ?,
+        apple_warranty_date = ?, store_warranty_days = ?, battery_health = ?, battery_cycles = ?
         WHERE id = ?")
         ->execute([
             $name, $sku, $category_id, $type, $status,
@@ -104,6 +109,7 @@ try {
             $disassembly_status, $sell_price, $image_filename,
             $color ?: null, $condition_grade ?: null,
             $cpu_spec ?: null, $ram_spec ?: null, $storage_spec ?: null, $gpu_spec ?: null,
+            $apple_warranty_date, $store_warranty_days, $battery_health, $battery_cycles,
             $id
         ]);
 

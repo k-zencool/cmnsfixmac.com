@@ -486,27 +486,83 @@ function toggleTypeFields() {
             </div>`;
     }
     else if (type === 'sale') {
-        html = `<div><label class="cmns-label">รหัสเครื่อง (Asset Tag)</label><input type="text" name="asset_tag" class="cmns-input"></div><div><label class="cmns-label">Serial Number</label><input type="text" name="serial_number" class="cmns-input"></div><div style="grid-column: span 2;"><label class="cmns-label">สภาพเครื่อง (Condition)</label><input type="text" name="condition_note" class="cmns-input" placeholder="ตำหนิต่างๆ..."></div>`;
+        html = `
+            <div>
+                <label class="cmns-label" style="color:#ef4444;">Asset Tag <span style="color:red">*</span></label>
+                <input type="text" name="asset_tag" class="cmns-input" placeholder="เช่น SL-001" style="border-color:#ef4444;">
+            </div>
+            <div>
+                <label class="cmns-label">Serial Number</label>
+                <input type="text" name="serial_number" class="cmns-input" placeholder="S/N...">
+            </div>
+            <div>
+                <label class="cmns-label">สี (Color)</label>
+                <input type="text" name="color" class="cmns-input" placeholder="เช่น Space Gray, Midnight">
+            </div>
+            <div>
+                <label class="cmns-label" style="color:#ef4444;">เกรดสภาพ (Grade) <span style="color:red">*</span></label>
+                <select name="condition_grade" class="cmns-input" style="border-color:#ef4444;font-weight:700;" required>
+                    <option value="">-- เลือกเกรด --</option>
+                    <option value="A">A — สมบูรณ์ เหมือนใหม่</option>
+                    <option value="B">B — มีรอยเล็กน้อย</option>
+                    <option value="C">C — มีรอยชัดเจน ราคาดี</option>
+                </select>
+            </div>
+            <div>
+                <label class="cmns-label">CPU / Chip</label>
+                <input type="text" name="cpu_spec" class="cmns-input" placeholder="เช่น Apple M3 Pro, i7-1260P">
+            </div>
+            <div>
+                <label class="cmns-label">RAM</label>
+                <input type="text" name="ram_spec" class="cmns-input" placeholder="เช่น 16GB">
+            </div>
+            <div>
+                <label class="cmns-label">Storage</label>
+                <input type="text" name="storage_spec" class="cmns-input" placeholder="เช่น 512GB SSD">
+            </div>
+            <div>
+                <label class="cmns-label">GPU</label>
+                <input type="text" name="gpu_spec" class="cmns-input" placeholder="เช่น 18-core GPU">
+            </div>
+            <div>
+                <label class="cmns-label" style="color:#10b981;">ประกัน Apple ศูนย์หมด</label>
+                <input type="date" name="apple_warranty_date" class="cmns-input" style="border-color:#10b981;">
+            </div>
+            <div>
+                <label class="cmns-label" style="color:#3b82f6;">ประกันร้าน (วัน)</label>
+                <input type="number" name="store_warranty_days" class="cmns-input" placeholder="เช่น 90, 180, 365" min="0" style="border-color:#3b82f6;">
+            </div>
+            <div>
+                <label class="cmns-label">สุขภาพแบต (%)</label>
+                <input type="number" name="battery_health" class="cmns-input" placeholder="เช่น 89" min="0" max="100">
+            </div>
+            <div>
+                <label class="cmns-label">รอบชาร์จ</label>
+                <input type="number" name="battery_cycles" class="cmns-input" placeholder="เช่น 142" min="0">
+            </div>
+            <div style="grid-column:span 2;">
+                <label class="cmns-label">ตำหนิ / รายละเอียดสภาพ</label>
+                <textarea name="condition_note" class="cmns-input" rows="2" placeholder="เช่น มีรอยขีดข่วนด้านล่าง จอสมบูรณ์ แบตเปลี่ยนแล้ว..." style="resize:vertical;"></textarea>
+            </div>`;
     }
     container.innerHTML = html;
 
     // USED — ซ่อน warranty และ supplier
     const warrantyWrap = document.querySelector('input[name="warranty_end"]')?.closest('div');
     const supplierWrap = document.querySelector('input[name="supplier_name"]')?.closest('div');
-    if (warrantyWrap) warrantyWrap.style.display = (type === 'used' || type === 'machine') ? 'none' : '';
-    if (supplierWrap) supplierWrap.style.display = (type === 'used' || type === 'machine') ? 'none' : '';
+    const noLot = (type === 'machine' || type === 'sale');
+    if (warrantyWrap) warrantyWrap.style.display = (type === 'used' || noLot) ? 'none' : '';
+    if (supplierWrap) supplierWrap.style.display = (type === 'used' || noLot) ? 'none' : '';
 
-    // MACHINE — ซ่อน lot section ทั้งหมด (qty ไม่มีความหมายสำหรับ machine)
     const lotSection = document.querySelector('#modal-add h4')?.closest('div');
     const lotHr      = document.querySelector('#modal-add hr');
-    if (lotSection) lotSection.style.display = (type === 'machine') ? 'none' : '';
-    if (lotHr)      lotHr.style.display      = (type === 'machine') ? 'none' : '';
+    if (lotSection) lotSection.style.display = noLot ? 'none' : '';
+    if (lotHr)      lotHr.style.display      = noLot ? 'none' : '';
 
-    // เปลี่ยน label section ตาม type
     const lotTitle = document.querySelector('#modal-add h4');
     if (lotTitle) {
-        if (type === 'used')    lotTitle.innerHTML = '<span class="material-symbols-rounded" style="color:#f59e0b;font-size:22px;">build</span> ข้อมูลต้นทุน';
-        else if (type !== 'machine') lotTitle.innerHTML = '<span class="material-symbols-rounded" style="color:#10b981;font-size:22px;">inventory</span> ข้อมูลสต็อกล็อตนี้';
+        if (type === 'used') lotTitle.innerHTML = '<span class="material-symbols-rounded" style="color:#f59e0b;font-size:22px;">build</span> ข้อมูลต้นทุน';
+        else if (!noLot)     lotTitle.innerHTML = '<span class="material-symbols-rounded" style="color:#10b981;font-size:22px;">inventory</span> ข้อมูลสต็อกล็อตนี้';
     }
 }
 

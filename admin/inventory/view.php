@@ -107,7 +107,69 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_lots_inline') {
         exit;
     }
 
-    // NEW / SALE — แสดง lot table เดิม
+    // SALE type — แสดง warranty + battery + condition note
+    if ($item_row && $item_row['type'] === 'sale') {
+        $apple_days   = null;
+        $store_w_days = $item_row['store_warranty_days'] ?? null;
+        if (!empty($item_row['apple_warranty_date'])) $apple_days = (int)((strtotime($item_row['apple_warranty_date']) - time()) / 86400);
+        $grade_color = match($item_row['condition_grade'] ?? '') { 'A'=>'#10b981','B'=>'#3b82f6','C'=>'#f59e0b',default=>'#888' };
+        ?>
+        <div style="padding:14px 20px 14px 80px; border-top:1px solid var(--border);">
+            <div style="display:flex;gap:28px;flex-wrap:wrap;margin-bottom:<?= $item_row['condition_note'] ? '14px' : '0' ?>;">
+                <?php if($item_row['condition_grade']): ?>
+                <div>
+                    <div style="font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">Grade</div>
+                    <span style="font-size:22px;font-weight:900;color:<?= $grade_color ?>;"><?= htmlspecialchars($item_row['condition_grade']) ?></span>
+                </div>
+                <?php endif; ?>
+
+                <?php if($apple_days !== null): $ac = $apple_days < 0 ? '#ef4444' : ($apple_days < 90 ? '#f59e0b' : '#10b981'); ?>
+                <div>
+                    <div style="font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">ประกัน Apple ศูนย์</div>
+                    <div style="font-size:13px;font-weight:700;color:<?= $ac ?>;display:flex;align-items:center;gap:5px;">
+                        <span class="material-symbols-rounded" style="font-size:16px;">verified</span>
+                        <?php if($apple_days < 0): ?>หมดแล้ว (<?= date('d/m/Y', strtotime($item_row['apple_warranty_date'])) ?>)
+                        <?php else: ?>เหลือ <?= $apple_days ?> วัน (หมด <?= date('d/m/Y', strtotime($item_row['apple_warranty_date'])) ?>)<?php endif; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <?php if($store_w_days !== null): ?>
+                <div>
+                    <div style="font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">ประกันร้าน</div>
+                    <div style="font-size:13px;font-weight:700;color:#3b82f6;display:flex;align-items:center;gap:5px;">
+                        <span class="material-symbols-rounded" style="font-size:16px;">store</span>
+                        <?= $store_w_days ?> วัน (นับจากวันที่ขาย)
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <?php if($item_row['battery_health'] !== null): $bh=(int)$item_row['battery_health']; $bc=$bh>=85?'#10b981':($bh>=70?'#f59e0b':'#ef4444'); ?>
+                <div>
+                    <div style="font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:4px;">สุขภาพแบต</div>
+                    <div style="font-size:18px;font-weight:900;color:<?= $bc ?>;display:flex;align-items:center;gap:6px;">
+                        <span class="material-symbols-rounded" style="font-size:18px;">battery_charging_full</span>
+                        <?= $bh ?>%
+                        <?php if($item_row['battery_cycles']): ?>
+                        <span style="font-size:11px;color:var(--text-muted);font-weight:500;"><?= $item_row['battery_cycles'] ?> รอบชาร์จ</span>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endif; ?>
+            </div>
+
+            <?php if($item_row['condition_note']): ?>
+            <div>
+                <div style="font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:6px;">ตำหนิ / สภาพ</div>
+                <div style="font-size:13px;color:var(--text-main);line-height:1.6;padding:10px 14px;background:rgba(239,68,68,.04);border:1px solid rgba(239,68,68,.12);border-radius:8px;"><?= htmlspecialchars($item_row['condition_note']) ?></div>
+            </div>
+            <?php endif; ?>
+        </div>
+        <?php
+        exit;
+    }
+
+    // NEW — แสดง lot table เดิม
     $stmt_lots = $pdo->prepare("SELECT * FROM inventory_lots WHERE inventory_id = ? AND qty_remaining > 0 ORDER BY warranty_end ASC");
     $stmt_lots->execute([$item_id]);
     $lots = $stmt_lots->fetchAll(PDO::FETCH_ASSOC);
@@ -345,13 +407,14 @@ include '../templates/header_admin.php';
                             <th>SPECS</th>
                             <th>GRADE / COLOR</th>
                         <?php elseif($current_type == 'sale'): ?>
-                            <th>PRODUCT NAME</th>
-                            <th colspan="2">CONDITION</th>
+                            <th>DEVICE / ASSET</th>
+                            <th>SPECS</th>
+                            <th>GRADE / WARRANTY / BATTERY</th>
                         <?php else: ?>
                             <th>PRODUCT NAME / SKU</th>
                             <th colspan="2">TYPE / LOCATION</th>
                         <?php endif; ?>
-                        <?php if($current_type !== 'machine'): ?>
+                        <?php if(!in_array($current_type, ['machine','sale'])): ?>
                         <th width="60" style="text-align:center;">QTY</th>
                         <?php endif; ?>
                         <th width="130" style="text-align:center;">STATUS / WARRANTY</th>
@@ -365,7 +428,7 @@ include '../templates/header_admin.php';
                         'new'     => ['label'=>'NEW',     'color'=>'#10b981', 'icon'=>'fiber_new', 'cols'=>['PART NAME / SKU','PART NO.','COMPATIBLE']],
                         'used'    => ['label'=>'USED',    'color'=>'#f59e0b', 'icon'=>'build',     'cols'=>['ITEM NAME / SKU','SERIAL NO.','CONDITION']],
                         'machine' => ['label'=>'MACHINE', 'color'=>'#8b5cf6', 'icon'=>'computer',  'cols'=>['MACHINE / ASSET','SPECS','GRADE / COLOR']],
-                        'sale'    => ['label'=>'SALE',    'color'=>'#ef4444', 'icon'=>'sell',      'cols'=>['PRODUCT NAME','','CONDITION']],
+                        'sale'    => ['label'=>'SALE',    'color'=>'#ef4444', 'icon'=>'sell',      'cols'=>['DEVICE / ASSET','SPECS','GRADE / WARRANTY / BATTERY']],
                     ];
                     $prev_type = null;
                     if(empty($items)): ?>
@@ -385,7 +448,7 @@ include '../templates/header_admin.php';
                             'PARTIAL'              => 'status-purple',
                             default                => 'status-red',
                         };
-                        $isMachine = ($it === 'machine');
+                        $isMachine = ($it === 'machine' || $it === 'sale');
                         $isOos  = !$isMachine && ($qty === 0 || $st === 'OOS');
                         $isDead = ($st === 'DEAD');
                         $rowClass = $isOos ? 'row-oos' : ($isDead ? 'row-dead' : '');
@@ -496,12 +559,66 @@ include '../templates/header_admin.php';
                                         </div>
                                     <?php endif; ?>
                                 </td>
-                            <?php elseif($it === 'sale'): ?>
+                            <?php elseif($it === 'sale'):
+                                $sale_grade_color = match($item['condition_grade'] ?? '') {
+                                    'A' => '#10b981', 'B' => '#3b82f6', 'C' => '#f59e0b', default => '#888'
+                                };
+                                $apple_days   = null;
+                                $store_w_days = $item['store_warranty_days'] ?? null;
+                                if (!empty($item['apple_warranty_date'])) {
+                                    $apple_days = (int)((strtotime($item['apple_warranty_date']) - time()) / 86400);
+                                }
+                            ?>
                                 <td>
-                                    <div style="font-weight:700; font-size:14px;"><?= htmlspecialchars($item['name']) ?></div>
-                                    <div style="font-size:11px; color:var(--text-muted);"><?= htmlspecialchars($item['device_type'] ?: '-') ?></div>
+                                    <div style="font-weight:700; color:var(--text-main); font-size:14px; line-height:1.3;"><?= htmlspecialchars($item['name']) ?></div>
+                                    <div style="font-size:11px; margin-top:3px; display:flex; gap:6px; align-items:center;">
+                                        <?php if($item['asset_tag']): ?>
+                                            <code style="background:rgba(239,68,68,.1); color:#ef4444; border:1px solid rgba(239,68,68,.3); padding:1px 5px; border-radius:4px;"><?= htmlspecialchars($item['asset_tag']) ?></code>
+                                        <?php endif; ?>
+                                        <?php if($item['serial_number']): ?>
+                                            <span style="color:var(--text-muted); font-family:monospace; font-size:10px;"><?= htmlspecialchars($item['serial_number']) ?></span>
+                                        <?php endif; ?>
+                                    </div>
+                                    <?php if($item['color']): ?>
+                                        <div style="font-size:10px; color:var(--text-muted); margin-top:3px; display:flex; align-items:center; gap:3px;">
+                                            <span class="material-symbols-rounded" style="font-size:11px;">palette</span><?= htmlspecialchars($item['color']) ?>
+                                        </div>
+                                    <?php endif; ?>
                                 </td>
-                                <td colspan="2" style="font-size:12px; color:var(--text-muted);"><?= htmlspecialchars($item['condition_note'] ?: '-') ?></td>
+                                <td style="font-size:11px; color:var(--text-muted); line-height:2;">
+                                    <?php if($item['cpu_spec']): ?><div style="display:flex;align-items:center;gap:4px;"><span class="material-symbols-rounded" style="font-size:13px;">memory</span><?= htmlspecialchars($item['cpu_spec']) ?></div><?php endif; ?>
+                                    <?php if($item['ram_spec']): ?><div style="display:flex;align-items:center;gap:4px;"><span class="material-symbols-rounded" style="font-size:13px;">storage</span><?= htmlspecialchars($item['ram_spec']) ?></div><?php endif; ?>
+                                    <?php if($item['storage_spec']): ?><div style="display:flex;align-items:center;gap:4px;"><span class="material-symbols-rounded" style="font-size:13px;">hard_drive</span><?= htmlspecialchars($item['storage_spec']) ?></div><?php endif; ?>
+                                    <?php if(!$item['cpu_spec'] && !$item['ram_spec'] && !$item['storage_spec']): ?><span style="opacity:.4;">—</span><?php endif; ?>
+                                </td>
+                                <td style="font-size:11px; line-height:1.9;">
+                                    <?php if($item['condition_grade']): ?>
+                                        <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;">
+                                            <span style="font-size:16px;font-weight:900;color:<?= $sale_grade_color ?>;"><?= htmlspecialchars($item['condition_grade']) ?></span>
+                                            <span style="font-size:10px;color:var(--text-muted);">Grade</span>
+                                        </div>
+                                    <?php endif; ?>
+                                    <?php if($apple_days !== null): ?>
+                                        <?php $ac = $apple_days < 0 ? '#ef4444' : ($apple_days < 90 ? '#f59e0b' : '#10b981'); ?>
+                                        <div style="display:flex;align-items:center;gap:4px;color:<?= $ac ?>;">
+                                            <span class="material-symbols-rounded" style="font-size:12px;">verified</span>
+                                            <span style="font-size:10px;font-weight:700;"><?= $apple_days < 0 ? 'หมดประกัน' : "Apple {$apple_days}ว." ?></span>
+                                        </div>
+                                    <?php endif; ?>
+                                    <?php if($store_w_days !== null): ?>
+                                        <div style="display:flex;align-items:center;gap:4px;color:#3b82f6;">
+                                            <span class="material-symbols-rounded" style="font-size:12px;">store</span>
+                                            <span style="font-size:10px;font-weight:700;">ประกันร้าน <?= $store_w_days ?> วัน</span>
+                                        </div>
+                                    <?php endif; ?>
+                                    <?php if($item['battery_health'] !== null): ?>
+                                        <?php $bh = (int)$item['battery_health']; $bc_color = $bh >= 85 ? '#10b981' : ($bh >= 70 ? '#f59e0b' : '#ef4444'); ?>
+                                        <div style="display:flex;align-items:center;gap:4px;color:<?= $bc_color ?>;">
+                                            <span class="material-symbols-rounded" style="font-size:12px;">battery_charging_full</span>
+                                            <span style="font-size:10px;font-weight:700;"><?= $bh ?>%<?= $item['battery_cycles'] ? " · {$item['battery_cycles']}รอบ" : '' ?></span>
+                                        </div>
+                                    <?php endif; ?>
+                                </td>
                             <?php elseif($it === 'used'): ?>
                                 <td>
                                     <div style="font-weight:700; color:var(--text-main); font-size:14px; line-height:1.3;"><?= htmlspecialchars($item['name']) ?></div>

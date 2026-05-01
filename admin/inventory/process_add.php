@@ -89,12 +89,16 @@ try {
     $condition_note    = trim($_POST['condition_note'] ?? '');
     $disassembly_status = $_POST['disassembly_status'] ?? 'intact';
     $source_machine_id  = !empty($_POST['source_machine_id']) ? (int)$_POST['source_machine_id'] : null;
-    $color             = trim($_POST['color'] ?? '');
-    $condition_grade   = trim($_POST['condition_grade'] ?? '');
-    $cpu_spec          = trim($_POST['cpu_spec'] ?? '');
-    $ram_spec          = trim($_POST['ram_spec'] ?? '');
-    $storage_spec      = trim($_POST['storage_spec'] ?? '');
-    $gpu_spec          = trim($_POST['gpu_spec'] ?? '');
+    $color                = trim($_POST['color'] ?? '');
+    $condition_grade      = trim($_POST['condition_grade'] ?? '');
+    $cpu_spec             = trim($_POST['cpu_spec'] ?? '');
+    $ram_spec             = trim($_POST['ram_spec'] ?? '');
+    $storage_spec         = trim($_POST['storage_spec'] ?? '');
+    $gpu_spec             = trim($_POST['gpu_spec'] ?? '');
+    $apple_warranty_date  = !empty($_POST['apple_warranty_date']) ? $_POST['apple_warranty_date'] : null;
+    $store_warranty_days  = isset($_POST['store_warranty_days']) && $_POST['store_warranty_days'] !== '' ? (int)$_POST['store_warranty_days'] : null;
+    $battery_health       = isset($_POST['battery_health']) && $_POST['battery_health'] !== '' ? (int)$_POST['battery_health'] : null;
+    $battery_cycles       = isset($_POST['battery_cycles'])  && $_POST['battery_cycles']  !== '' ? (int)$_POST['battery_cycles']  : null;
 
     // Status default ตาม type (USED รับจาก form ได้ — GOOD หรือ TEST)
     $allowed_statuses = ['STOCK','OOS','GOOD','TEST','DEAD','READY','PARTIAL','DISCOUNT'];
@@ -115,8 +119,9 @@ try {
         (category_id, sku, name, image, type, asset_tag, serial_number,
          part_number, compatible_models, location, min_qty, source_machine_id,
          disassembly_status, condition_note, status, sell_price,
-         color, condition_grade, cpu_spec, ram_spec, storage_spec, gpu_spec)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+         color, condition_grade, cpu_spec, ram_spec, storage_spec, gpu_spec,
+         apple_warranty_date, store_warranty_days, battery_health, battery_cycles)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
     $stmt->execute([
         $category_id, $sku, $name, $image_filename, $type,
@@ -128,12 +133,14 @@ try {
         $color ?: null, $condition_grade ?: null,
         $cpu_spec ?: null, $ram_spec ?: null,
         $storage_spec ?: null, $gpu_spec ?: null,
+        $apple_warranty_date, $store_warranty_days,
+        $battery_health, $battery_cycles,
     ]);
 
     $inventory_id = $pdo->lastInsertId();
 
-    // Machine ไม่ใช้ lot (1 record = 1 เครื่อง)
-    if ($type !== 'machine') {
+    // Machine / Sale ไม่ใช้ lot (1 record = 1 เครื่อง)
+    if ($type !== 'machine' && $type !== 'sale') {
         $lot_number    = 'LOT-' . strtoupper(substr(uniqid(), -6));
         $qty_received  = (int)($_POST['qty_received'] ?? 1);
         $cost_price    = (float)($_POST['cost_price'] ?? 0);
