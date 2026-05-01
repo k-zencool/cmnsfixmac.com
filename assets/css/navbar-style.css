@@ -93,8 +93,8 @@ body{
 
 .menu a.highlight-home:hover,
 .navbar-top .menu a.highlight-home:hover{
-  box-shadow:0 7px 20px rgba(252,116,4,.48);
-  filter:brightness(1.07);
+  background:linear-gradient(145deg,#e86800,#d55c00);
+  box-shadow:0 7px 20px rgba(232,104,0,.48);
   transform:translateY(-2px);
 }
 
