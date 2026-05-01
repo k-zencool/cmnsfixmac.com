@@ -57,19 +57,9 @@ body{
 .menu a{
   display:inline-flex; align-items:center; gap:6px;
   text-decoration:none; color:#111; font-weight:500;
-  padding:7px 10px; border-radius:10px; transition:.3s;
+  padding:7px 10px; border-radius:10px; transition:color .2s ease, background .2s ease;
   font-size:14.5px;
-
-  /* ให้เมนูโผล่ตามหลังบาร์แบบไล่สเต็ป */
-  opacity:0; transform:translateY(-6px);
-  animation:nav-fade-slide .45s ease forwards;
 }
-.menu a:nth-child(1){ animation-delay:.14s; }
-.menu a:nth-child(2){ animation-delay:.18s; }
-.menu a:nth-child(3){ animation-delay:.22s; }
-.menu a:nth-child(4){ animation-delay:.26s; }
-.menu a:nth-child(5){ animation-delay:.30s; }
-.menu a:nth-child(6){ animation-delay:.34s; }
 
 .menu a:hover{ color:#fc7404; }
 .menu a.active{ background:#fc7404; color:#fff; }

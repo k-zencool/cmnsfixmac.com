@@ -7,7 +7,7 @@
   <title>CMNS Mac Repair</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="/assets/css/navbar-style.css?v=2">
+  <link rel="stylesheet" href="/assets/css/navbar-style.css?v=3">
   <link rel="stylesheet" href="/assets/css/style.css">
   <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css" />
@@ -170,9 +170,13 @@
       });
     }
 
+    let _navScrolled = false;
     function handleNavbarScroll() {
       const navbar = document.querySelector('.navbar');
-      if (window.scrollY > 30) {
+      const shouldScroll = window.scrollY > 30;
+      if (shouldScroll === _navScrolled) return;
+      _navScrolled = shouldScroll;
+      if (shouldScroll) {
         navbar.classList.remove('navbar-top');
         navbar.classList.add('scrolled');
       } else {
@@ -181,7 +185,7 @@
       }
     }
 
-    window.addEventListener('scroll', handleNavbarScroll);
+    window.addEventListener('scroll', handleNavbarScroll, { passive: true });
     window.addEventListener('DOMContentLoaded', handleNavbarScroll);
   </script>
 
