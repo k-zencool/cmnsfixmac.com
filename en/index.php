@@ -142,7 +142,7 @@ include '../includes/db.php';
 
 <body>
 
-  <?php include_once '../includes/header.php'; ?>
+  <?php include_once '../includes/header_en.php'; ?>
 
   <section class="hero">
     <div class="hero-content" data-aos="fade-up">
