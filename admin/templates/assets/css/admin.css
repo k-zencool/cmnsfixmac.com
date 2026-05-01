@@ -202,14 +202,22 @@ body {
    7. RESPONSIVE LOGIC
    ========================================================= */
 @media (min-width: 992px) {
-    body.sidebar-collapsed .sidebar { width: var(--sidebar-w-collapsed); }
-    body.sidebar-collapsed .main   { margin-left: var(--sidebar-w-collapsed) !important; }
+    body.sidebar-collapsed .sidebar,
+    html.sidebar-collapsed .sidebar { width: var(--sidebar-w-collapsed); }
+    body.sidebar-collapsed .main,
+    html.sidebar-collapsed .main   { margin-left: var(--sidebar-w-collapsed) !important; }
     body.sidebar-collapsed .logo-text,
     body.sidebar-collapsed .link-text,
-    body.sidebar-collapsed .sub-toggle { display: none; }
-    body.sidebar-collapsed .sidebar-header { justify-content: center; padding: 0; }
-    body.sidebar-collapsed .logo-area     { display: none; }
-    body.sidebar-collapsed .submenu-wrapper { display: none !important; }
+    body.sidebar-collapsed .sub-toggle,
+    html.sidebar-collapsed .logo-text,
+    html.sidebar-collapsed .link-text,
+    html.sidebar-collapsed .sub-toggle { display: none; }
+    body.sidebar-collapsed .sidebar-header,
+    html.sidebar-collapsed .sidebar-header { justify-content: center; padding: 0; }
+    body.sidebar-collapsed .logo-area,
+    html.sidebar-collapsed .logo-area     { display: none; }
+    body.sidebar-collapsed .submenu-wrapper,
+    html.sidebar-collapsed .submenu-wrapper { display: none !important; }
     .mobile-toggle-btn { display: none; }
     .close-btn         { display: none; }
     .overlay           { display: none !important; }

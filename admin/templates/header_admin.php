@@ -37,14 +37,15 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Admin Panel';
 
     <script>
         (function() {
-            // ดึงธีมที่เซฟไว้ (ถ้าไม่มีให้ Default เป็น dark ตามใจมึง)
             const savedTheme = localStorage.getItem('admin_theme') || 'dark';
             document.documentElement.setAttribute('data-theme', savedTheme);
-            
-            // 🚀 ถมสีพื้นหลัง html ทันที "ก่อน" ที่บราวเซอร์จะวาดรูปหน้าจอ
-            // ใช้สีเดียวกับ --bg-body ใน admin.css ของมึงเป๊ะๆ
             const bgColor = savedTheme === 'dark' ? '#0a0a0a' : '#f1f5f9';
             document.documentElement.style.backgroundColor = bgColor;
+
+            // apply sidebar state ก่อน browser render เพื่อกัน flash
+            if (localStorage.getItem('sidebarState') === 'collapsed' && window.innerWidth > 991) {
+                document.documentElement.classList.add('sidebar-collapsed');
+            }
         })();
     </script>
 

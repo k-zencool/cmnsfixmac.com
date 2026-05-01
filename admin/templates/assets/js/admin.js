@@ -91,6 +91,8 @@ document.addEventListener("DOMContentLoaded", function() {
     if (savedState === 'collapsed' && window.innerWidth > 991) {
         document.body.classList.add('sidebar-collapsed');
     }
+    // sync: โอน class จาก html → body แล้วเอาออกจาก html
+    document.documentElement.classList.remove('sidebar-collapsed');
 
     // ------------------------------------------------
     // 6. ✅ Resize Fix (แก้บั๊กย่อจอเป็นมือถือแล้ว Margin ค้าง)
