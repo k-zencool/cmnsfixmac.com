@@ -78,30 +78,24 @@ body{
 .material-symbols-rounded{ font-size:17px; color:inherit; }
 
 /* ปุ่ม “หน้าแรก” ไฮไลต์ */
-.menu a.highlight-home{
-  background:linear-gradient(145deg,#fc7404,#f86a04);
-  color:#fff; font-weight:600;
-  border-radius:12px; padding:9px 14px;
-  box-shadow:0 6px 14px rgba(252,116,4,.35);
-  transition:all .3s ease;
-  backdrop-filter:saturate(180%) brightness(105%);
-}
-.menu a.highlight-home span{ color:#fff; }
-.menu a.highlight-home:hover{
-  background:linear-gradient(145deg,#e86400,#cf4f00);
-  box-shadow:0 8px 18px rgba(255,115,0,.4);
-  transform:translateY(-2px) scale(1.02);
-}
-
-/* ลบสไตล์แก้วตอนอยู่บน HERO ทิ้ง (ไม่ให้ซีด) */
-.navbar-top .menu a.highlight-home,
-.navbar-top .menu a.highlight-home span,
-.navbar-top .menu a.highlight-home:hover{ all:unset; }
+.menu a.highlight-home,
 .navbar-top .menu a.highlight-home{
   display:inline-flex; align-items:center; gap:6px;
   background:linear-gradient(145deg,#fc7404,#f86a04);
-  color:#fff; font-weight:600; border-radius:12px; padding:9px 14px;
-  box-shadow:0 6px 14px rgba(252,116,4,.35);
+  color:#fff; font-weight:600;
+  border-radius:12px; padding:9px 14px;
+  box-shadow:0 4px 12px rgba(252,116,4,.32);
+  transition:box-shadow .25s ease, filter .25s ease, transform .25s ease;
+  text-decoration:none;
+}
+.menu a.highlight-home span,
+.navbar-top .menu a.highlight-home span{ color:#fff; }
+
+.menu a.highlight-home:hover,
+.navbar-top .menu a.highlight-home:hover{
+  box-shadow:0 7px 20px rgba(252,116,4,.48);
+  filter:brightness(1.07);
+  transform:translateY(-2px);
 }
 
 /* ปุ่มโทร + hover เบอร์ */
