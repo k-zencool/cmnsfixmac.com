@@ -409,12 +409,10 @@
 
 
   <!-- รีวิวจาก Google ผ่าน Elfsight -->
-  <section class="section-review" data-aos="fade-up">
+  <section class="section-review">
     <h2>รีวิวจากลูกค้าบน Google</h2>
-
-    <!-- Elfsight Google Reviews | แสดงรีวิว Google จริงแบบอัตโนมัติ -->
     <script src="https://static.elfsight.com/platform/platform.js" async></script>
-    <div class="elfsight-app-257bd58d-8d43-4106-8bc8-09588ce23452" data-elfsight-app-lazy></div>
+    <div class="elfsight-app-257bd58d-8d43-4106-8bc8-09588ce23452"></div>
   </section>
 
 
