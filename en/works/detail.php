@@ -48,8 +48,8 @@ $fix_detail_display_en = !empty(trim($data['fix_detail_en'])) ? nl2br(e($data['f
   // --- Hreflang Tags for Work Detail Page (Corrected) ---
   $currentItemId = $data['id'] ?? 0;
   if ($currentItemId > 0) {
-    $th_url = "https://cmnsfixmac.com/work-detail.php?id=" . $currentItemId;
-    $en_url = "https://cmnsfixmac.com/en/work-detail.php?id=" . $currentItemId;
+    $th_url = "https://cmnsfixmac.com/works/detail.php?id=" . $currentItemId;
+    $en_url = "https://cmnsfixmac.com/en/works/detail.php?id=" . $currentItemId;
 
     echo '<link rel="alternate" hreflang="th" href="' . htmlspecialchars($th_url) . '" />' . "\n";
     echo '    <link rel="alternate" hreflang="en" href="' . htmlspecialchars($en_url) . '" />' . "\n";

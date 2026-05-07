@@ -62,7 +62,7 @@ function getArticleLink($row) {
         return '/article/' . e($row['slug']);
     }
     // ถ้าไม่มีให้ใช้ id แบบเดิม
-    return 'article-detail.php?id=' . e($row['id']);
+    return '/articles/detail.php?id=' . e($row['id']);
 }
 ?>
 

@@ -38,7 +38,7 @@ if (!$article) {
 }
 
 // --- Language Switch Logic ---
-$switch_to_lang_url = "/article-detail.php?id=" . $article['id'];
+$switch_to_lang_url = "/articles/detail.php?id=" . $article['id'];
 
 // --- Content Logic ---
 $display_title = !empty($article['title_en']) ? $article['title_en'] : $article['title_th'];
@@ -104,9 +104,9 @@ $currentUrl = "$protocol://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
   <title><?= e($display_title) ?> | CMNS FixMac</title>
   
   <?php $baseUrl = "$protocol://$_SERVER[HTTP_HOST]"; ?>
-  <link rel="alternate" hreflang="th" href="<?= $baseUrl ?>/article-detail.php?id=<?= $article['id'] ?>" />
-  <link rel="alternate" hreflang="en" href="<?= $baseUrl ?>/en/article-detail.php?id=<?= $article['id'] ?>" />
-  <link rel="alternate" hreflang="x-default" href="<?= $baseUrl ?>/en/article-detail.php?id=<?= $article['id'] ?>" />
+  <link rel="alternate" hreflang="th" href="<?= $baseUrl ?>/articles/detail.php?id=<?= $article['id'] ?>" />
+  <link rel="alternate" hreflang="en" href="<?= $baseUrl ?>/en/articles/detail.php?id=<?= $article['id'] ?>" />
+  <link rel="alternate" hreflang="x-default" href="<?= $baseUrl ?>/en/articles/detail.php?id=<?= $article['id'] ?>" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="<?= e(mb_substr(strip_tags($meta_excerpt ?: $display_content), 0, 160)) ?>">

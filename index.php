@@ -270,7 +270,7 @@
       ?>
     </div>
     <br>
-    <a href="works.php" class="btn">ดูเพิ่มเติม</a>
+    <a href="/works/" class="btn">ดูเพิ่มเติม</a>
   </section>
 
   <!-- รายการบริการทั้งหมดที่ร้านมี -->

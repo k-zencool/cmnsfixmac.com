@@ -116,7 +116,7 @@ $categories_en = [
   <section class="article-hero">
     <div class="container">
       <h1>Articles from Our Apple Technicians</h1>
-      <form method="GET" class="article-search" action="articles.php">
+      <form method="GET" class="article-search" action="/en/articles/">
         <input type="text" name="q" placeholder="Search articles..." value="<?= e($search) ?>"> <button type="submit"><span class="material-symbols-rounded">search</span></button>
       </form>
 
@@ -153,7 +153,7 @@ $categories_en = [
                 $imagePathPop = '/assets/img/placeholder.png'; // Absolute path for EN subfolder
             }
             ?>
-            <a href="article-detail.php?id=<?= e($pop['id']) ?>" class="popular-item"> 
+            <a href="/en/articles/detail.php?id=<?= e($pop['id']) ?>" class="popular-item"> 
               <img src="<?= $imagePathPop ?>" alt="<?= e($pop['title_display']) ?>">
               <h3><?= e($pop['title_display']) ?></h3>
             </a>
@@ -177,7 +177,7 @@ $categories_en = [
                 $imagePathMain = '/assets/img/placeholder.png'; // Absolute path
             }
           ?>
-          <a href="article-detail.php?id=<?= e($row['id']) ?>" class="article-card">
+          <a href="/en/articles/detail.php?id=<?= e($row['id']) ?>" class="article-card">
             <div class="article-image">
               <img src="<?= $imagePathMain ?>" alt="<?= e($row['title_display']) ?>">
             </div>

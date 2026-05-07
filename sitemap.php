@@ -59,7 +59,7 @@ try {
             $url = $baseUrl . '/article/' . $mySlug;
         } else {
             // ถ้าไม่มี slug ใช้ id
-            $url = $baseUrl . '/article-detail.php?id=' . $row['id'];
+            $url = $baseUrl . '/articles/detail.php?id=' . $row['id'];
         }
         
         $lastmod = !empty($row['updated_at']) ? date('Y-m-d', strtotime($row['updated_at'])) : date('Y-m-d');
@@ -87,7 +87,7 @@ try {
         if ($mySlug) {
             $url = $baseUrl . '/work/' . $mySlug;
         } else {
-            $url = $baseUrl . '/work-detail.php?id=' . $row['id'];
+            $url = $baseUrl . '/works/detail.php?id=' . $row['id'];
         }
         $lastmod = !empty($row['updated_at']) ? date('Y-m-d', strtotime($row['updated_at'])) : date('Y-m-d');
         addUrl($url, $lastmod, 'monthly', '0.8');

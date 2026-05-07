@@ -53,7 +53,7 @@ if (!$article || !$article['status']) {
 }
 
 // Language Switch Logic
-$switch_to_lang_url = "/en/article-detail.php?id=" . $article['id'];
+$switch_to_lang_url = "/en/articles/detail.php?id=" . $article['id'];
 
 // ดึงรูปภาพเพิ่มเติม
 $stmtImg = $pdo->prepare("SELECT * FROM article_images WHERE article_id = ?");
@@ -106,9 +106,9 @@ $currentUrl = "$protocol://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
   <?php 
     $baseUrl = "$protocol://$_SERVER[HTTP_HOST]";
   ?>
-  <link rel="alternate" hreflang="th" href="<?= $baseUrl ?>/article-detail.php?id=<?= $article['id'] ?>" />
-  <link rel="alternate" hreflang="en" href="<?= $baseUrl ?>/en/article-detail.php?id=<?= $article['id'] ?>" />
-  <link rel="alternate" hreflang="x-default" href="<?= $baseUrl ?>/en/article-detail.php?id=<?= $article['id'] ?>" />
+  <link rel="alternate" hreflang="th" href="<?= $baseUrl ?>/articles/detail.php?id=<?= $article['id'] ?>" />
+  <link rel="alternate" hreflang="en" href="<?= $baseUrl ?>/en/articles/detail.php?id=<?= $article['id'] ?>" />
+  <link rel="alternate" hreflang="x-default" href="<?= $baseUrl ?>/en/articles/detail.php?id=<?= $article['id'] ?>" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="<?= htmlspecialchars(mb_substr(strip_tags($article['excerpt'] ?: $article['content']), 0, 160)) ?>">
@@ -211,7 +211,7 @@ $currentUrl = "$protocol://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
             $image_filename_related = $item['image'] ?? '';
             $imagePathRelated = (!empty($image_filename_related) && strpos($image_filename_related, '/') !== false) ? e($image_filename_related) : '/assets/img/placeholder.png';
             ?>
-            <a href="/article-detail.php?id=<?= e($item['id']) ?>" class="related-item">
+            <a href="/articles/detail.php?id=<?= e($item['id']) ?>" class="related-item">
               <img src="<?= $imagePathRelated ?>" alt="<?= htmlspecialchars($item['title']) ?>">
               <div class="related-item-content">
                 <h3><?= htmlspecialchars($item['title']) ?></h3>
@@ -231,7 +231,7 @@ $currentUrl = "$protocol://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
             $image_filename_pop = $pop['image'] ?? '';
             $imagePathPop = (!empty($image_filename_pop) && strpos($image_filename_pop, '/') !== false) ? e($image_filename_pop) : '/assets/img/placeholder.png';
             ?>
-            <a href="/article-detail.php?id=<?= e($pop['id']) ?>" class="popular-item">
+            <a href="/articles/detail.php?id=<?= e($pop['id']) ?>" class="popular-item">
               <img src="<?= $imagePathPop ?>" alt="<?= htmlspecialchars($pop['title']) ?>">
               <div class="popular-item-content">
                 <h3><?= htmlspecialchars($pop['title']) ?></h3>
@@ -245,10 +245,10 @@ $currentUrl = "$protocol://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
     <?php if ($prev || $next): ?>
       <nav class="article-nav short">
         <?php if ($prev): ?>
-          <a class="prev-article" href="/article-detail.php?id=<?= e($prev['id']) ?>">← ก่อนหน้า</a>
+          <a class="prev-article" href="/articles/detail.php?id=<?= e($prev['id']) ?>">← ก่อนหน้า</a>
         <?php endif; ?>
         <?php if ($next): ?>
-          <a class="next-article" href="/article-detail.php?id=<?= e($next['id']) ?>">ถัดไป →</a>
+          <a class="next-article" href="/articles/detail.php?id=<?= e($next['id']) ?>">ถัดไป →</a>
         <?php endif; ?>
       </nav>
     <?php endif; ?>

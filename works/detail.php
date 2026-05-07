@@ -70,7 +70,7 @@ if (!empty($image_filename) && strpos($image_filename, '/') !== false) {
   <meta property="og:title" content="<?= e($data['title']) ?> - CMNS Mac Repair">
   <meta property="og:description" content="<?= e(mb_substr(strip_tags($data['fix_detail']), 0, 100)) ?>...">
   <meta property="og:image" content="<?= e($ogImagePath) ?>">
-  <meta property="og:url" content="https://cmnsfixmac.com/work-detail.php?id=<?= $id ?>">
+  <meta property="og:url" content="https://cmnsfixmac.com/works/detail.php?id=<?= $id ?>">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="description" content="<?= e(mb_substr(strip_tags($data['fix_detail']), 0, 160)) ?>">
   <meta name="keywords" content="<?= e($data['title']) ?>, ซ่อม <?= e($data['model']) ?>, <?= e($data['category']) ?>">
