@@ -184,7 +184,7 @@ $page_keywords = "ซ่อม Apple Watch เชียงใหม่, ร้�
         <?php endwhile; ?>
       </div>
       <div class="view-all-link" data-aos="fade-up">
-        <a href="/works.php?category=applewatch" class="btn-orange">ดูผลงานทั้งหมด</a>
+        <a href="/works/?category=applewatch" class="btn-orange">ดูผลงานทั้งหมด</a>
       </div>
     </section>
   </main>

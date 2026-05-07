@@ -176,7 +176,7 @@ $page_keywords = "ซ่อม AirPods เชียงใหม่, ร้าน
 
     <!-- ✅ เพิ่มปุ่มดูผลงานทั้งหมด -->
     <div class="view-all-link" data-aos="fade-up">
-      <a href="/works.php?category=AirPods" class="btn-orange">ดูผลงานทั้งหมด</a>
+      <a href="/works/?category=AirPods" class="btn-orange">ดูผลงานทั้งหมด</a>
     </div>
   </section>
 </main>

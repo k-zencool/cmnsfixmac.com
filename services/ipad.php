@@ -195,7 +195,7 @@ $page_keywords = "ซ่อม iPad เชียงใหม่, ร้านซ
             <?php endwhile; ?>
         </div>
         <div class="view-all-link" data-aos="fade-up">
-            <a href="/works.php?category=iPad" class="btn-orange">ดูผลงานทั้งหมด</a>
+            <a href="/works/?category=iPad" class="btn-orange">ดูผลงานทั้งหมด</a>
         </div>
     </section>
 </main>

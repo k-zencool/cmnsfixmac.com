@@ -213,7 +213,7 @@ $page_keywords = "ซ่อม MacBook, MacBook เปิดไม่ติด, 
                 <?php endwhile; ?>
             </div>
             <div class="view-all-link" data-aos="fade-up">
-                <a href="/works.php?category=MacBook" class="btn-orange">ดูผลงานทั้งหมด</a>
+                <a href="/works/?category=MacBook" class="btn-orange">ดูผลงานทั้งหมด</a>
             </div>
         </section>
     </main>

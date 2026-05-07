@@ -220,7 +220,7 @@ $page_keywords = "ซ่อม iPhone เชียงใหม่, ร้าน�
                 <?php endwhile; ?>
             </div>
             <div class="view-all-link" data-aos="fade-up">
-                <a href="/works.php?category=iPhone" class="btn-orange">ดูผลงานทั้งหมด</a>
+                <a href="/works/?category=iPhone" class="btn-orange">ดูผลงานทั้งหมด</a>
             </div>
         </section>
     </main>

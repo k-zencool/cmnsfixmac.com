@@ -179,7 +179,7 @@ $page_keywords = "ลงโปรแกรม Mac เชียงใหม่, �
       <?php endwhile; ?>
     </div>
     <div class="view-all-link" data-aos="fade-up">
-      <a href="/works.php?category=software" class="btn-orange">ดูผลงานทั้งหมด</a>
+      <a href="/works/?category=software" class="btn-orange">ดูผลงานทั้งหมด</a>
     </div>
   </section>
 </main>

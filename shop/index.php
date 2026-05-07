@@ -453,10 +453,10 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
         <nav class="menu">
           <a href="/" class="highlight-home"><span class="material-symbols-rounded">home</span> หน้าแรก</a>
           <a href="/shop/" class="active"><span class="material-symbols-rounded">storefront</span> ร้านค้า</a>
-          <a href="/works.php"><span class="material-symbols-rounded">construction</span> ผลงาน</a>
-          <a href="/articles.php"><span class="material-symbols-rounded">description</span> บทความ</a>
-          <a href="/buyback.php"><span class="material-symbols-rounded">laptop_mac</span> รับซื้อเครื่อง</a>
-          <a href="/warranty.php"><span class="material-symbols-rounded">verified</span> ตรวจสอบประกัน</a>
+          <a href="/works/"><span class="material-symbols-rounded">construction</span> ผลงาน</a>
+          <a href="/articles/"><span class="material-symbols-rounded">description</span> บทความ</a>
+          <a href="/buyback/"><span class="material-symbols-rounded">laptop_mac</span> รับซื้อเครื่อง</a>
+          <a href="/warranty/"><span class="material-symbols-rounded">verified</span> ตรวจสอบประกัน</a>
         </nav>
       </div>
       <div class="nav-actions">
@@ -475,11 +475,11 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
         </div>
         <nav class="sidebar-menu">
           <a href="/" class="highlight-home"><span class="material-symbols-rounded">home</span> หน้าแรก</a>
-          <a href="/works.php"><span class="material-symbols-rounded">construction</span> ผลงาน</a>
+          <a href="/works/"><span class="material-symbols-rounded">construction</span> ผลงาน</a>
           <a href="/shop/" class="active"><span class="material-symbols-rounded">storefront</span> ร้านค้า</a>
-          <a href="/articles.php"><span class="material-symbols-rounded">description</span> บทความ</a>
-          <a href="/buyback.php"><span class="material-symbols-rounded">laptop_mac</span> รับซื้อเครื่อง</a>
-          <a href="/warranty.php"><span class="material-symbols-rounded">verified</span> ตรวจสอบประกัน</a>
+          <a href="/articles/"><span class="material-symbols-rounded">description</span> บทความ</a>
+          <a href="/buyback/"><span class="material-symbols-rounded">laptop_mac</span> รับซื้อเครื่อง</a>
+          <a href="/warranty/"><span class="material-symbols-rounded">verified</span> ตรวจสอบประกัน</a>
           <a href="tel:0841511684"><span class="material-symbols-rounded">call</span> โทรเลย</a>
           <a href="<?= h($en_version_url) ?>" class="language-switch-btn" title="Switch to English"><span class="material-symbols-rounded">language</span> EN</a>
         </nav>
@@ -1189,16 +1189,16 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
           <h4>บริการของเรา</h4>
           <ul>
             <li><a href="/shop/">ร้านค้า (สินค้ามือสอง)</a></li>
-            <li><a href="/works.php">ผลงานซ่อม</a></li>
-            <li><a href="/buyback.php">รับซื้อเครื่อง</a></li>
-            <li><a href="/warranty.php">ตรวจสอบประกัน</a></li>
+            <li><a href="/works/">ผลงานซ่อม</a></li>
+            <li><a href="/buyback/">รับซื้อเครื่อง</a></li>
+            <li><a href="/warranty/">ตรวจสอบประกัน</a></li>
           </ul>
         </div>
 
         <div class="footer-col">
           <h4>ช่วยเหลือ</h4>
           <ul>
-            <li><a href="/articles.php">บทความ</a></li>
+            <li><a href="/articles/">บทความ</a></li>
 
           </ul>
         </div>
