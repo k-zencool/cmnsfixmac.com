@@ -149,16 +149,25 @@ include __DIR__ . '/../templates/header_admin.php';
 
     <!-- Table -->
     <div class="log-card" style="flex:1;">
-        <table class="log-table">
+        <table class="log-table" style="table-layout:fixed;width:100%;">
+            <colgroup>
+                <col style="width:80px;">
+                <col>
+                <col style="width:160px;">
+                <col style="width:190px;">
+                <col style="width:150px;">
+                <col style="width:96px;">
+                <col style="width:110px;">
+            </colgroup>
             <thead>
                 <tr>
-                    <th style="width:72px;">รูปปก</th>
+                    <th>รูปปก</th>
                     <th>ชื่อผลงาน</th>
                     <th>หมวด / รุ่น</th>
                     <th>Slug / SEO</th>
                     <th>ผูกงาน</th>
                     <th>วันที่</th>
-                    <th style="width:120px;text-align:center;">จัดการ</th>
+                    <th style="text-align:center;">จัดการ</th>
                 </tr>
             </thead>
             <tbody>
@@ -177,8 +186,8 @@ include __DIR__ . '/../templates/header_admin.php';
                             </div>
                         <?php endif; ?>
                     </td>
-                    <td>
-                        <div style="font-weight:700;font-size:13px;color:var(--text-main);"><?= h($r['title']) ?></div>
+                    <td style="overflow:hidden;">
+                        <div style="font-weight:700;font-size:13px;color:var(--text-main);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?= h($r['title']) ?></div>
                         <?php if ($r['views']): ?>
                             <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">
                                 <span class="material-symbols-rounded" style="font-size:12px;vertical-align:-2px;">visibility</span>
@@ -186,17 +195,17 @@ include __DIR__ . '/../templates/header_admin.php';
                             </div>
                         <?php endif; ?>
                     </td>
-                    <td>
+                    <td style="overflow:hidden;">
                         <?php if ($r['category']): ?>
                             <span class="action-badge" style="background:var(--primary-light,#eff6ff);color:var(--primary);border-color:rgba(37,99,235,.2);">
                                 <?= h($r['category']) ?>
                             </span>
                         <?php endif; ?>
-                        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;"><?= h($r['model']) ?></div>
+                        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?= h($r['model']) ?></div>
                     </td>
-                    <td>
+                    <td style="overflow:hidden;">
                         <?php if ($r['slug']): ?>
-                            <div style="font-size:12px;font-family:monospace;color:var(--text-muted);">/work/<?= h($r['slug']) ?></div>
+                            <div style="font-size:12px;font-family:monospace;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">/work/<?= h($r['slug']) ?></div>
                         <?php else: ?>
                             <span style="font-size:11px;color:#f59e0b;font-weight:700;">⚠ ยังไม่มี slug</span>
                         <?php endif; ?>
