@@ -1,10 +1,11 @@
 User-agent: *
 Allow: /
 
-# ห้ามเข้า folder ระบบ (อันนี้ปกติ)
+Disallow: /admin/
 Disallow: /includes/
-
-# อย่าเพิ่ง Block พวก parameter! 
-# ปล่อยให้ Google เข้าไปเจอ noindex ใน .htaccess ก่อน
+Disallow: /vendor/
+Disallow: /db/
+Disallow: /cron/
+Disallow: /uploads/avatars/
 
 Sitemap: https://cmnsfixmac.com/sitemap.xml
