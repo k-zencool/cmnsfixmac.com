@@ -101,15 +101,15 @@ try {
     $battery_cycles       = isset($_POST['battery_cycles'])  && $_POST['battery_cycles']  !== '' ? (int)$_POST['battery_cycles']  : null;
 
     // Status default ตาม type (USED รับจาก form ได้ — GOOD หรือ TEST)
-    $allowed_statuses = ['STOCK','OOS','GOOD','TEST','DEAD','READY','PARTIAL','DISCOUNT'];
+    $allowed_statuses = ['STOCK','OOS','GOOD','TEST','DEAD','READY','SOLD','PENDING'];
     $posted_status = strtoupper(trim($_POST['status'] ?? ''));
-    $status = ($type === 'used' && in_array($posted_status, $allowed_statuses))
+    $status = (in_array($type, ['used','sale']) && in_array($posted_status, $allowed_statuses))
         ? $posted_status
         : match($type) {
             'new'     => 'STOCK',
             'used'    => 'GOOD',
             'machine' => 'READY',
-            'sale'    => 'READY',
+            'sale'    => 'PENDING',
             default   => 'STOCK',
         };
 

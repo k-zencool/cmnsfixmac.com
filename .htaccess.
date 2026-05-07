@@ -39,11 +39,11 @@ RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^article/([\w-]+)/?$ /article-detail.php?slug=$1 [L,QSA]
 RewriteRule ^en/article/([\w-]+)/?$ /en/article-detail.php?slug=$1 [L,QSA]
 
-# สินค้า
+# เปลี่ยน /product/slug เก่าไปที่ shop (301 สำหรับ SEO)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^product/([\w-]+)/?$ /product-detail.php?slug=$1 [L,QSA]
-RewriteRule ^en/product/([\w-]+)/?$ /en/product-detail.php?slug=$1 [L,QSA]
+RewriteRule ^product/([\w-]+)/?$ /shop [R=301,L]
+RewriteRule ^en/product/([\w-]+)/?$ /en/shop [R=301,L]
 
 # ผลงาน
 RewriteCond %{REQUEST_FILENAME} !-f

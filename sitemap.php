@@ -28,11 +28,10 @@ function addUrl($loc, $lastmod, $changefreq, $priority) {
 // --- 1. หน้า Static (ใส่ .php ให้ตามที่ขอ) ---
 $staticPages = [
     '' => 1.0,               // หน้าแรก
-    'work.php' => 0.9,
-    'products.php' => 0.9,
+    'works.php' => 0.9,
+    'shop' => 0.9,
     'articles.php' => 0.9,
     'buyback.php' => 0.8,
-    'contact.php' => 0.8
 ];
 
 foreach ($staticPages as $page => $prio) {
@@ -67,19 +66,14 @@ try {
     }
 } catch (Exception $e) { }
 
-// --- 3. สินค้า (Products) ---
+// --- 3. Shop Listings ---
 try {
-    $stmt = $pdo->prepare("SELECT * FROM products WHERE status = 1 LIMIT 2000");
+    $stmt = $pdo->prepare("SELECT slug, updated_at FROM listings WHERE status = 'published' LIMIT 2000");
     $stmt->execute();
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $mySlug = !empty($row['slug']) ? $row['slug'] : '';
-        if ($mySlug) {
-            $url = $baseUrl . '/product/' . $mySlug;
-        } else {
-            $url = $baseUrl . '/product-detail.php?id=' . $row['id'];
-        }
-        $lastmod = !empty($row['updated_at']) ? date('Y-m-d', strtotime($row['updated_at'])) : date('Y-m-d');
-        addUrl($url, $lastmod, 'monthly', '0.8');
+        $url = $baseUrl . '/shop/product-detail.php?slug=' . rawurlencode($row['slug']);
+        $lastmod = !empty($row['updated_at']) ? date('Y-m-d', strtotime($row['updated_at'])) : $today;
+        addUrl($url, $lastmod, 'weekly', '0.8');
     }
 } catch (Exception $e) { }
 

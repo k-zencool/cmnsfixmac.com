@@ -1,0 +1,5 @@
+vendor/
+uploads/
+cgi-bin/
+.git/
+*.log

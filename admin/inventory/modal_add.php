@@ -509,6 +509,14 @@ function toggleTypeFields() {
                 </select>
             </div>
             <div>
+                <label class="cmns-label" style="color:#f59e0b;font-weight:700;">สถานะเครื่อง <span style="color:red">*</span></label>
+                <select name="status" class="cmns-input" style="border-color:#f59e0b;font-weight:700;" required>
+                    <option value="PENDING" selected>PENDING — รอเช็ค / ยังไม่พร้อมขาย</option>
+                    <option value="READY">READY — พร้อมขาย</option>
+                    <option value="SOLD">SOLD — ขายแล้ว</option>
+                </select>
+            </div>
+            <div>
                 <label class="cmns-label">CPU / Chip</label>
                 <input type="text" name="cpu_spec" class="cmns-input" placeholder="เช่น Apple M3 Pro, i7-1260P">
             </div>

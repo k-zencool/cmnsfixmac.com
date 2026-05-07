@@ -375,7 +375,7 @@ include '../templates/header_admin.php';
                 <select class="filter-select" onchange="location.href='view.php?id=<?= $category_id ?>&q=<?= $search ?>&type=<?= $current_type ?>&sort=<?= $sort ?>&status='+this.value">
                     <option value="">Status: All</option>
                     <?php 
-                        $status_opts = ($current_type == 'new') ? ['STOCK', 'OOS'] : (($current_type == 'used') ? ['GOOD', 'TEST', 'DEAD'] : ['READY', 'PARTIAL', 'DISCOUNT']);
+                        $status_opts = ($current_type == 'new') ? ['STOCK', 'OOS'] : (($current_type == 'used') ? ['GOOD', 'TEST', 'DEAD'] : ($current_type == 'sale' ? ['READY', 'SOLD', 'PENDING'] : ['READY', 'PARTIAL', 'DISCOUNT']));
                         foreach($status_opts as $opt) echo "<option value='$opt' ".($current_status==$opt?'selected':'').">$opt</option>";
                     ?>
                 </select>
@@ -444,8 +444,8 @@ include '../templates/header_admin.php';
                         $st  = strtoupper(trim($item['status']));
                         $st_class = match($st) {
                             'STOCK','GOOD','READY' => 'status-green',
-                            'TEST'                 => 'status-orange',
-                            'PARTIAL'              => 'status-purple',
+                            'TEST','PENDING'       => 'status-orange',
+                            'SOLD'                 => 'status-red',
                             default                => 'status-red',
                         };
                         $isMachine = ($it === 'machine' || $it === 'sale');
@@ -1499,7 +1499,7 @@ function openEditModal(id) {
 function applyStatusOptions(type, totalQty, currentStatus) {
     const sel     = document.getElementById('edit-status');
     const badgeEl = document.getElementById('edit-status-badge');
-    const SC = {STOCK:'#10b981',OOS:'#ef4444',GOOD:'#10b981',TEST:'#f59e0b',DEAD:'#ef4444',READY:'#3b82f6',PARTIAL:'#8b5cf6',DISCOUNT:'#f59e0b'};
+    const SC = {STOCK:'#10b981',OOS:'#ef4444',GOOD:'#10b981',TEST:'#f59e0b',DEAD:'#ef4444',READY:'#10b981',SOLD:'#6b7280',PENDING:'#f59e0b'};
 
     if (type === 'new') {
         const st = totalQty > 0 ? 'STOCK' : 'OOS';
@@ -1518,7 +1518,7 @@ function applyStatusOptions(type, totalQty, currentStatus) {
             ? ['GOOD','TEST','DEAD']
             : type === 'new'  ? ['STOCK','OOS']
             : type === 'machine' ? ['READY','PARTIAL','stripped']
-            : ['READY','PARTIAL','DISCOUNT'];
+            : ['READY','SOLD','PENDING'];
         badgeEl.innerHTML =
             `<select onchange="syncStatusSelect(this)" `+
             `style="padding:3px 10px;border-radius:20px;border:1px solid ${c}44;background:${c}18;`+
@@ -1551,7 +1551,7 @@ function updateAdjPreview(curQty) {
 function syncStatusSelect(miniSel) {
     const val = miniSel.value;
     document.getElementById('edit-status').value = val;
-    const SC = {STOCK:'#10b981',OOS:'#ef4444',GOOD:'#10b981',TEST:'#f59e0b',DEAD:'#ef4444',READY:'#3b82f6',PARTIAL:'#8b5cf6',DISCOUNT:'#f59e0b'};
+    const SC = {STOCK:'#10b981',OOS:'#ef4444',GOOD:'#10b981',TEST:'#f59e0b',DEAD:'#ef4444',READY:'#10b981',SOLD:'#6b7280',PENDING:'#f59e0b'};
     const c = SC[val] || '#888';
     miniSel.style.borderColor = c+'44'; miniSel.style.background = c+'18'; miniSel.style.color = c;
 }
@@ -1617,10 +1617,64 @@ function toggleEditTypeFields() {
             </div>
         `;
     } else if (type === 'sale') {
+        const gradeOpts = ['A','B','C'].map(g =>
+            `<option value="${g}" ${item.condition_grade===g?'selected':''}>${g}</option>`).join('');
         html = `
-            <div><label class="cmns-label">Asset Tag</label><input type="text" name="asset_tag" class="cmns-input" value="${esc(item.asset_tag)}"></div>
-            <div><label class="cmns-label">Serial Number</label><input type="text" name="serial_number" class="cmns-input" value="${esc(item.serial_number)}"></div>
-            <div style="grid-column:span 2;"><label class="cmns-label">สภาพเครื่อง (Condition)</label><input type="text" name="condition_note" class="cmns-input" value="${esc(item.condition_note)}" placeholder="ตำหนิต่างๆ..."></div>
+            <div>
+                <label class="cmns-label" style="color:#ef4444;">Asset Tag</label>
+                <input type="text" name="asset_tag" class="cmns-input" value="${esc(item.asset_tag)}" style="border-color:#ef4444;">
+            </div>
+            <div>
+                <label class="cmns-label">Serial Number</label>
+                <input type="text" name="serial_number" class="cmns-input" value="${esc(item.serial_number)}">
+            </div>
+            <div>
+                <label class="cmns-label">สี (Color)</label>
+                <input type="text" name="color" class="cmns-input" value="${esc(item.color)}" placeholder="เช่น Space Gray, Midnight">
+            </div>
+            <div>
+                <label class="cmns-label" style="color:#ef4444;">เกรดสภาพ (Grade)</label>
+                <select name="condition_grade" class="cmns-input" style="border-color:#ef4444;font-weight:700;">
+                    <option value="">-- เลือกเกรด --</option>
+                    ${gradeOpts}
+                </select>
+            </div>
+            <div>
+                <label class="cmns-label">CPU / Chip</label>
+                <input type="text" name="cpu_spec" class="cmns-input" value="${esc(item.cpu_spec)}" placeholder="เช่น Apple M3 Pro">
+            </div>
+            <div>
+                <label class="cmns-label">RAM</label>
+                <input type="text" name="ram_spec" class="cmns-input" value="${esc(item.ram_spec)}" placeholder="เช่น 16GB">
+            </div>
+            <div>
+                <label class="cmns-label">Storage</label>
+                <input type="text" name="storage_spec" class="cmns-input" value="${esc(item.storage_spec)}" placeholder="เช่น 512GB SSD">
+            </div>
+            <div>
+                <label class="cmns-label">GPU</label>
+                <input type="text" name="gpu_spec" class="cmns-input" value="${esc(item.gpu_spec)}" placeholder="เช่น 18-core GPU">
+            </div>
+            <div>
+                <label class="cmns-label" style="color:#10b981;">ประกัน Apple ศูนย์หมด</label>
+                <input type="date" name="apple_warranty_date" class="cmns-input" value="${esc(item.apple_warranty_date)}" style="border-color:#10b981;">
+            </div>
+            <div>
+                <label class="cmns-label" style="color:#3b82f6;">ประกันร้าน (วัน)</label>
+                <input type="number" name="store_warranty_days" class="cmns-input" value="${item.store_warranty_days??''}" placeholder="เช่น 90, 180" min="0" style="border-color:#3b82f6;">
+            </div>
+            <div>
+                <label class="cmns-label">สุขภาพแบต (%)</label>
+                <input type="number" name="battery_health" class="cmns-input" value="${item.battery_health??''}" placeholder="เช่น 89" min="0" max="100">
+            </div>
+            <div>
+                <label class="cmns-label">รอบชาร์จ</label>
+                <input type="number" name="battery_cycles" class="cmns-input" value="${item.battery_cycles??''}" placeholder="เช่น 142" min="0">
+            </div>
+            <div style="grid-column:span 2;">
+                <label class="cmns-label">ตำหนิ / รายละเอียดสภาพ</label>
+                <textarea name="condition_note" class="cmns-input" rows="2" style="resize:vertical;" placeholder="เช่น มีรอยขีดข่วนด้านล่าง จอสมบูรณ์...">${esc(item.condition_note)}</textarea>
+            </div>
         `;
     }
     container.innerHTML = html;
