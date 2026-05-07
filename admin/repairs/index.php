@@ -148,16 +148,16 @@ include __DIR__ . '/../templates/header_admin.php';
     </form>
 
     <!-- Table -->
-    <div class="log-card" style="flex:1;">
-        <table class="log-table" style="table-layout:fixed;width:100%;">
+    <div class="log-card" style="flex:1;overflow-x:auto;">
+        <table class="log-table" style="table-layout:fixed;width:100%;min-width:760px;">
             <colgroup>
-                <col style="width:80px;">
+                <col style="width:72px;">
                 <col>
-                <col style="width:160px;">
-                <col style="width:190px;">
+                <col style="width:130px;">
                 <col style="width:150px;">
-                <col style="width:96px;">
-                <col style="width:110px;">
+                <col style="width:130px;">
+                <col style="width:88px;">
+                <col style="width:100px;">
             </colgroup>
             <thead>
                 <tr>
