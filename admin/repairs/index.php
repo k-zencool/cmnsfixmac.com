@@ -116,7 +116,7 @@ include __DIR__ . '/../templates/header_admin.php';
                 <label>ค้นหา</label>
                 <div class="log-search-wrap">
                     <span class="material-symbols-rounded search-icon">search</span>
-                    <input type="text" name="q" value="<?= h($q) ?>" placeholder="ชื่อผลงาน / รุ่นเครื่อง">
+                    <input type="text" name="q" value="<?= h($q) ?>" placeholder="ชื่อผลงาน / รุ่นเครื่อง" style="padding-left:38px;">
                 </div>
             </div>
             <div class="log-filter-group">
