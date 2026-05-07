@@ -157,8 +157,8 @@ include __DIR__ . '/../templates/header_admin.php';
                     <th>ชื่อผลงาน</th>
                     <th style="width:120px;text-align:center;">หมวด / รุ่น</th>
                     <th style="width:150px;text-align:center;">Slug / SEO</th>
-                    <th style="width:120px;">ผูกงาน</th>
-                    <th style="width:90px;">วันที่</th>
+                    <th style="width:120px;text-align:center;">ผูกงาน</th>
+                    <th style="width:90px;text-align:center;">วันที่</th>
                     <th style="width:100px;text-align:center;">จัดการ</th>
                 </tr>
             </thead>
@@ -202,7 +202,7 @@ include __DIR__ . '/../templates/header_admin.php';
                             <span style="font-size:11px;color:#f59e0b;font-weight:700;">⚠ ยังไม่มี slug</span>
                         <?php endif; ?>
                     </td>
-                    <td>
+                    <td style="text-align:center;">
                         <?php if ($r['ticket_number']): ?>
                             <span class="action-badge badge-in">
                                 <span class="material-symbols-rounded" style="font-size:12px;">task_alt</span>
@@ -215,7 +215,7 @@ include __DIR__ . '/../templates/header_admin.php';
                             <span style="color:var(--text-muted);font-size:12px;">—</span>
                         <?php endif; ?>
                     </td>
-                    <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;text-align:left;">
+                    <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;text-align:center;">
                         <?= $r['created_at'] ? date('d/m/Y', strtotime($r['created_at'])) : '-' ?>
                     </td>
                     <td>
