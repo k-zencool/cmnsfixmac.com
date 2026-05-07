@@ -148,17 +148,16 @@ include __DIR__ . '/../templates/header_admin.php';
     </form>
 
     <!-- Table -->
-    <div class="log-card" style="flex:1;min-width:0;">
-        <div style="overflow-x:auto;">
-        <table class="log-table" style="table-layout:fixed;width:100%;min-width:700px;">
+    <div class="log-card" style="flex:1;min-width:0;overflow:hidden;">
+        <table class="log-table" style="table-layout:fixed;width:100%;">
             <colgroup>
                 <col style="width:72px;">
                 <col>
-                <col style="width:120px;">
-                <col style="width:140px;">
-                <col style="width:120px;">
-                <col style="width:85px;">
-                <col style="width:105px;">
+                <col style="width:115px;">
+                <col style="width:130px;">
+                <col style="width:115px;">
+                <col style="width:88px;">
+                <col style="width:100px;">
             </colgroup>
             <thead>
                 <tr>
@@ -175,16 +174,16 @@ include __DIR__ . '/../templates/header_admin.php';
                 <?php if ($repairs): foreach($repairs as $r):
                     $img = $r['image'] ?? '';
                     if ($img && strpos($img, '/') === false) $img = '/uploads/repairs/' . $img;
+                    $placeholder = '<div style="width:56px;height:56px;border-radius:10px;background:var(--bg-surface-alt);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;"><span class=\'material-symbols-rounded\' style=\'color:var(--text-muted);font-size:20px;\'>hide_image</span></div>';
                 ?>
                 <tr>
                     <td>
                         <?php if ($img): ?>
                             <img src="<?= h($img) ?>" alt="" loading="lazy"
-                                 style="width:60px;height:60px;object-fit:cover;border-radius:10px;display:block;">
+                                 style="width:56px;height:56px;object-fit:cover;border-radius:10px;display:block;"
+                                 onerror="this.outerHTML='<?= $placeholder ?>'">
                         <?php else: ?>
-                            <div style="width:60px;height:60px;border-radius:10px;background:var(--bg-surface-alt);display:flex;align-items:center;justify-content:center;">
-                                <span class="material-symbols-rounded" style="color:var(--text-muted);font-size:22px;">image</span>
-                            </div>
+                            <?= $placeholder ?>
                         <?php endif; ?>
                     </td>
                     <td style="overflow:hidden;">
@@ -252,7 +251,6 @@ include __DIR__ . '/../templates/header_admin.php';
                 <?php endif; ?>
             </tbody>
         </table>
-        </div><!-- end overflow-x:auto -->
     </div>
 
     <!-- Pagination -->
