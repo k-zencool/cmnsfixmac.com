@@ -244,36 +244,46 @@ include __DIR__ . '/../templates/header_admin.php';
             </tbody>
         </table>
         </div>
-    </div>
 
-    <!-- Pagination -->
-    <div class="cmns-footer-pagination">
-        <div class="pagination-info">
-            แสดง <b><?= min($total, $offset+1) ?>–<?= min($total, $offset+$per) ?></b> จาก <b><?= number_format($total) ?></b> รายการ
-        </div>
-        <div class="pagination-controls">
-            <a href="<?= page_url(max(1,$page-1)) ?>" class="page-nav-btn <?= $page<=1?'disabled':'' ?>">
-                <span class="material-symbols-rounded">chevron_left</span>
-            </a>
-            <?php for($i=max(1,$page-2);$i<=min($pages,$page+2);$i++): ?>
-                <a href="<?= page_url($i) ?>"
-                   style="padding:4px 10px;border-radius:8px;border:1px solid var(--border);font-size:13px;font-weight:600;text-decoration:none;
-                          <?= $i===$page ? 'background:var(--primary);color:#fff;border-color:var(--primary);' : 'color:var(--text-main);background:var(--bg-surface-alt);' ?>">
-                   <?= $i ?>
+        <div class="log-pagination">
+            <div>
+                แสดง <b><?= number_format(min($total, $offset+1)) ?>–<?= number_format(min($total, $offset+$per)) ?></b>
+                จาก <b><?= number_format($total) ?></b> รายการ
+                &nbsp;·&nbsp; หน้า <?= $page ?> / <?= $pages ?>
+            </div>
+            <div class="page-btns">
+                <a href="<?= $page > 1 ? page_url($page-1) : '#' ?>" class="page-btn <?= $page<=1?'disabled':'' ?>">
+                    <span class="material-symbols-rounded" style="font-size:16px;">chevron_left</span>
                 </a>
-            <?php endfor; ?>
-            <a href="<?= page_url(min($pages,$page+1)) ?>" class="page-nav-btn <?= $page>=$pages?'disabled':'' ?>">
-                <span class="material-symbols-rounded">chevron_right</span>
-            </a>
-            <select class="per-page-select" onchange="location.href=this.value">
-                <?php foreach([10,20,50] as $pp): ?>
-                    <option value="<?= '?'.http_build_query(array_merge($_GET,['per'=>$pp,'page'=>1])) ?>"
-                            <?= $per===$pp?'selected':'' ?>><?= $pp ?>/หน้า</option>
-                <?php endforeach; ?>
-            </select>
+                <?php
+                $start = max(1, $page - 2);
+                $end   = min($pages, $start + 4);
+                for ($p = $start; $p <= $end; $p++):
+                ?>
+                    <a href="<?= page_url($p) ?>" class="page-btn <?= $p===$page?'active':'' ?>"><?= $p ?></a>
+                <?php endfor; ?>
+                <a href="<?= $page < $pages ? page_url($page+1) : '#' ?>" class="page-btn <?= $page>=$pages?'disabled':'' ?>">
+                    <span class="material-symbols-rounded" style="font-size:16px;">chevron_right</span>
+                </a>
+                <select onchange="goPerPage(this)"
+                        style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-main);font-size:13px;outline:none;cursor:pointer;font-family:'Sarabun',sans-serif;">
+                    <?php foreach([10,20,50] as $pp): ?>
+                        <option value="<?= $pp ?>" <?= $per===$pp?'selected':'' ?>><?= $pp ?>/หน้า</option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
         </div>
     </div>
 
 </div>
+
+<script>
+function goPerPage(sel) {
+    const u = new URL(location.href);
+    u.searchParams.set('per', sel.value);
+    u.searchParams.set('page', '1');
+    location.href = u.toString();
+}
+</script>
 
 <?php include __DIR__ . '/../templates/footer_admin.php'; ?>
