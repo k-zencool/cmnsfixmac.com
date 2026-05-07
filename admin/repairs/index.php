@@ -166,17 +166,17 @@ include __DIR__ . '/../templates/header_admin.php';
                 <?php if ($repairs): foreach($repairs as $r):
                     $img = $r['image'] ?? '';
                     if ($img && strpos($img, '/') === false) $img = '/uploads/repairs/' . $img;
-                    $placeholder = '<div style="width:56px;height:56px;border-radius:10px;background:var(--bg-surface-alt);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;"><span class=\'material-symbols-rounded\' style=\'color:var(--text-muted);font-size:20px;\'>hide_image</span></div>';
                 ?>
                 <tr>
                     <td>
-                        <?php if ($img): ?>
-                            <img src="<?= h($img) ?>" alt="" loading="lazy"
-                                 style="width:56px;height:56px;object-fit:cover;border-radius:10px;display:block;"
-                                 onerror="this.outerHTML='<?= $placeholder ?>'">
-                        <?php else: ?>
-                            <?= $placeholder ?>
-                        <?php endif; ?>
+                        <div style="width:56px;height:56px;border-radius:10px;background:var(--bg-surface-alt);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;overflow:hidden;">
+                            <?php if ($img): ?>
+                                <img src="<?= h($img) ?>" alt="" loading="lazy"
+                                     style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:10px;"
+                                     onerror="this.remove()">
+                            <?php endif; ?>
+                            <span class="material-symbols-rounded" style="color:var(--text-muted);font-size:20px;">hide_image</span>
+                        </div>
                     </td>
                     <td>
                         <div style="font-weight:700;font-size:13px;color:var(--text-main);"><?= h($r['title']) ?></div>
