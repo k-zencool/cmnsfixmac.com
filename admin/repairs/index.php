@@ -58,7 +58,7 @@ include __DIR__ . '/../templates/header_admin.php';
 <link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time() ?>">
 <link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= time() ?>">
 
-<div class="cmns-wrapper" style="overflow:hidden;min-width:0;">
+<div class="cmns-wrapper">
 
     <!-- Header -->
     <div class="cmns-header-bar">
@@ -148,26 +148,18 @@ include __DIR__ . '/../templates/header_admin.php';
     </form>
 
     <!-- Table -->
-    <div class="log-card" style="flex:1;min-width:0;overflow:hidden;">
-        <table class="log-table" style="table-layout:fixed;width:100%;">
-            <colgroup>
-                <col style="width:72px;">
-                <col>
-                <col style="width:115px;">
-                <col style="width:130px;">
-                <col style="width:115px;">
-                <col style="width:88px;">
-                <col style="width:100px;">
-            </colgroup>
+    <div class="log-card">
+        <div style="overflow-x:auto;">
+        <table class="log-table">
             <thead>
                 <tr>
-                    <th>รูปปก</th>
+                    <th style="width:72px;">รูปปก</th>
                     <th>ชื่อผลงาน</th>
-                    <th>หมวด / รุ่น</th>
-                    <th>Slug / SEO</th>
-                    <th>ผูกงาน</th>
-                    <th>วันที่</th>
-                    <th style="text-align:center;">จัดการ</th>
+                    <th style="width:120px;">หมวด / รุ่น</th>
+                    <th style="width:150px;">Slug / SEO</th>
+                    <th style="width:120px;">ผูกงาน</th>
+                    <th style="width:90px;">วันที่</th>
+                    <th style="width:100px;text-align:center;">จัดการ</th>
                 </tr>
             </thead>
             <tbody>
@@ -186,8 +178,8 @@ include __DIR__ . '/../templates/header_admin.php';
                             <?= $placeholder ?>
                         <?php endif; ?>
                     </td>
-                    <td style="overflow:hidden;">
-                        <div style="font-weight:700;font-size:13px;color:var(--text-main);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?= h($r['title']) ?></div>
+                    <td>
+                        <div style="font-weight:700;font-size:13px;color:var(--text-main);"><?= h($r['title']) ?></div>
                         <?php if ($r['views']): ?>
                             <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">
                                 <span class="material-symbols-rounded" style="font-size:12px;vertical-align:-2px;">visibility</span>
@@ -195,7 +187,7 @@ include __DIR__ . '/../templates/header_admin.php';
                             </div>
                         <?php endif; ?>
                     </td>
-                    <td style="overflow:hidden;">
+                    <td>
                         <?php if ($r['category']): ?>
                             <span class="action-badge" style="background:var(--primary-light,#eff6ff);color:var(--primary);border-color:rgba(37,99,235,.2);">
                                 <?= h($r['category']) ?>
@@ -203,7 +195,7 @@ include __DIR__ . '/../templates/header_admin.php';
                         <?php endif; ?>
                         <div style="font-size:12px;color:var(--text-muted);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?= h($r['model']) ?></div>
                     </td>
-                    <td style="overflow:hidden;">
+                    <td>
                         <?php if ($r['slug']): ?>
                             <div style="font-size:12px;font-family:monospace;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">/work/<?= h($r['slug']) ?></div>
                         <?php else: ?>
@@ -223,7 +215,7 @@ include __DIR__ . '/../templates/header_admin.php';
                             <span style="color:var(--text-muted);font-size:12px;">—</span>
                         <?php endif; ?>
                     </td>
-                    <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;">
+                    <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;text-align:left;">
                         <?= $r['created_at'] ? date('d/m/Y', strtotime($r['created_at'])) : '-' ?>
                     </td>
                     <td>
@@ -251,6 +243,7 @@ include __DIR__ . '/../templates/header_admin.php';
                 <?php endif; ?>
             </tbody>
         </table>
+        </div>
     </div>
 
     <!-- Pagination -->
