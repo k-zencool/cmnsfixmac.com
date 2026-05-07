@@ -1,39 +1,39 @@
 <?php
-// warranty.php — เช็คประกันด้วย เลขประกัน / Serial เท่านั้น (ตัดเลขงานซ่อมออก)
-include 'includes/db.php';
+// en/warranty.php — Check warranty by Warranty No / Serial / Repair No
+include '../../includes/db.php';
 
 // Helpers
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 function nb($s){ return $s === '' || $s === null ? '-' : h($s); }
 
-// รูป Hero
-$HERO_IMG = 'assets/img/hero.webp';
+// Hero image (relative from /en)
+$HERO_IMG = '../assets/img/hero.webp';
 
 $q = isset($_GET['q']) ? trim($_GET['q']) : '';
 $results = [];
 $msgErr  = '';
 
 if ($q !== '') {
-  // 1) หาแบบตรงตัว (ค้นหาแค่ warranty_no หรือ sn)
+  // 1) Exact match first
   $st = $pdo->prepare("
     SELECT id, warranty_no, repair_no, customer_name, device_model, sn,
            base_date, warranty_until, warranty_status,
            DATEDIFF(warranty_until,CURDATE()) AS days_left
     FROM warranty_jobs
-    WHERE warranty_no = :q OR sn = :q 
+    WHERE warranty_no = :q OR sn = :q OR repair_no = :q
     ORDER BY id DESC
   ");
   $st->execute([':q'=>$q]);
   $results = $st->fetchAll(PDO::FETCH_ASSOC);
 
-  // 2) ไม่เจอค่อย LIKE (ค้นหาแค่ warranty_no หรือ sn)
+  // 2) If nothing, try LIKE (typo/partial)
   if (!$results){
     $st = $pdo->prepare("
       SELECT id, warranty_no, repair_no, customer_name, device_model, sn,
              base_date, warranty_until, warranty_status,
              DATEDIFF(warranty_until,CURDATE()) AS days_left
       FROM warranty_jobs
-      WHERE warranty_no LIKE :s OR sn LIKE :s
+      WHERE warranty_no LIKE :s OR sn LIKE :s OR repair_no LIKE :s
       ORDER BY id DESC
       LIMIT 50
     ");
@@ -41,25 +41,25 @@ if ($q !== '') {
     $results = $st->fetchAll(PDO::FETCH_ASSOC);
   }
 
-  if (!$results) $msgErr = 'ไม่พบข้อมูลประกัน (ค้นหาได้เฉพาะเลขประกัน หรือ Serial Number เท่านั้น)';
+  if (!$results) $msgErr = 'No warranty record was found for your query.';
 }
 
 $result = (count($results) === 1) ? $results[0] : null;
 ?>
 <!DOCTYPE html>
-<html lang="th">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>ตรวจสอบประกันงานซ่อม | CMNS FixMac</title>
-  <meta name="description" content="กรอกเลขประกัน (WJ-xxxx) หรือ Serial Number เพื่อดูรายละเอียดประกันงานซ่อมจาก CMNS FixMac">
-  <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/warranty.php" />
-  <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/warranty.php" />
-  <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/warranty.php" />
+  <title>Repair Warranty Check | CMNS FixMac</title>
+  <meta name="description" content="Enter Warranty No. (WJ-xxxx) / Serial Number / Repair No. (Vxxxx) to view CMNS FixMac warranty details.">
+  <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/warranty/" />
+  <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/warranty/" />
+  <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/warranty/" />
 
-  <link rel="stylesheet" href="assets/css/style.css">
-  <link rel="stylesheet" href="assets/css/floating-buttons.css">
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="stylesheet" href="/assets/css/floating-buttons.css">
   <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css" />
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet" />
@@ -81,7 +81,7 @@ $result = (count($results) === 1) ? $results[0] : null;
   }
   .container{max-width:1100px;margin:0 auto;padding:0 16px}
 
-  /* ====== HERO (ภาพเต็มจอ) ====== */
+  /* ====== HERO ====== */
   .hero{
     min-height:68vh; display:grid; place-items:center; text-align:center; color:#fff;
     margin-left:calc(50% - 50vw); margin-right:calc(50% - 50vw);
@@ -96,7 +96,7 @@ $result = (count($results) === 1) ? $results[0] : null;
   .hero h1{margin:8px 0 10px; font-size:clamp(28px,5.6vw,56px); letter-spacing:-.02em; font-weight:800}
   .hero p{margin:0; color:#e9eaee; font-size:clamp(16px,2.2vw,22px);}
 
-  /* ช่องค้นหา + ปุ่ม (ปุ่มอยู่ด้านล่าง) */
+  /* Search */
   .search-wrap{display:flex;flex-direction:column;gap:10px;align-items:center;margin-top:18px}
   .search-input{
     height:58px; width:min(900px,92vw); padding:0 16px; font-size:18px;
@@ -111,7 +111,7 @@ $result = (count($results) === 1) ? $results[0] : null;
   }
   .btn:hover{filter:brightness(.95)}
 
-  /* ====== Cards & Tables ====== */
+  /* Cards & Tables */
   .section{padding:40px 0}
   .card{background:var(--card); border-radius:16px; box-shadow:var(--shadow); border:1px solid var(--line); overflow:hidden}
   .card-head{display:flex; gap:10px; justify-content:flex-end; align-items:center; padding:12px 14px; background:#fff; border-bottom:1px solid var(--line)}
@@ -125,12 +125,12 @@ $result = (count($results) === 1) ? $results[0] : null;
   .nowrap{white-space:nowrap}
   a.row-link{color:inherit; text-decoration:none}
 
-  /* ====== หลายผลลัพธ์ (รายการ) ====== */
+  /* Multi results table */
   .list-table{width:100%;border-collapse:collapse; background:#fff}
   .list-table th,.list-table td{padding:12px 14px;border-bottom:1px solid #eee}
   .list-table th{background:#fbfbfd;text-align:left}
 
-  /* ====== ใบพิมพ์ (A4 ขาวสะอาด) ====== */
+  /* Print sheet */
   .print-sheet{display:none}
   .print-header{display:flex;flex-direction:column;align-items:center;margin-bottom:10px;text-align:center}
   .print-header img{width:120px;height:auto;margin-bottom:8px}
@@ -145,23 +145,39 @@ $result = (count($results) === 1) ? $results[0] : null;
   .sign-label{font-size:10pt; color:#333}
   .terms{margin-top:18px; font-size:10pt; line-height:1.5; color:#333}
 
-  /* ====== Responsive ====== */
   @media (max-width:768px){
     .table th{width:40%}
     .card-head{flex-wrap:wrap}
   }
 
-  /* ====== Print ====== */
-@media print{
-  @page{ size:A4; margin:14mm }
-  header, .hero, .no-print, .alert, .card, .list-table, .card-head, 
-  .section .card, .section .list-table, .container > *:not(.print-sheet) { display: none !important; }
-  .print-sheet{ display:block !important; }
-  body{ background:#fff; color:#000; font:12pt/1.5 "Sarabun", system-ui, sans-serif; }
-  .container{max-width:100%; padding:0}
-  .section{padding:0}
-  table, tr, td, th{ page-break-inside:avoid }
-}
+  /* PRINT — show only the print sheet */
+  @media print{
+    @page{ size:A4; margin:14mm }
+
+    header,
+    .hero,
+    .no-print,
+    .alert,
+    .card,
+    .list-table,
+    .card-head,
+    .section .card,
+    .section .list-table,
+    .container > *:not(.print-sheet) {
+      display: none !important;
+    }
+    .print-sheet{ display:block !important; }
+
+    body{
+      background:#fff;
+      color:#000;
+      font:12pt/1.5 "Sarabun", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+    }
+    .container{max-width:100%; padding:0}
+    .section{padding:0}
+    /* .card{box-shadow:none; border:none} <-- เอาออกเพราะ .card โดนซ่อนหมดแล้ว */
+    table, tr, td, th{ page-break-inside:avoid }
+  }
   </style>
 
   <script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
@@ -174,16 +190,16 @@ $result = (count($results) === 1) ? $results[0] : null;
 </head>
 <body>
 
-<?php include_once 'includes/header.php'; ?>
+<?php include_once '../../includes/header_en.php'; ?>
 
 <section class="hero" style="background-image:url('<?= h($HERO_IMG) ?>')">
   <div class="hero-content" data-aos="fade-up">
-    <h1>ตรวจสอบประกันงานซ่อม</h1>
-    <p>กรอก <b>เลขประกัน (WJ-xxxx)</b> หรือ <b>Serial Number</b> เท่านั้น</p>
+    <h1>Repair Warranty Check</h1>
+    <p>Enter your <b>Warranty No. (WJ-xxxx)</b>, <b>Serial Number</b>, or <b>Repair No. (Vxxxx)</b> and press search.</p>
 
     <form action="#result" method="get" class="search-wrap">
-      <input type="text" name="q" class="search-input" placeholder="เช่น WJ-2025-0001 หรือ Serial Number" value="<?= h($q) ?>" required>
-      <button class="btn" type="submit"><span class="material-symbols-rounded">search</span>ตรวจสอบ</button>
+      <input type="text" name="q" class="search-input" placeholder="e.g., WJ-2025-0001 / C02XXXXXXX / V12345" value="<?= h($q) ?>" required>
+      <button class="btn" type="submit"><span class="material-symbols-rounded">search</span>Search</button>
     </form>
 
     <?php if ($msgErr): ?>
@@ -200,29 +216,29 @@ $result = (count($results) === 1) ? $results[0] : null;
     <?php
       $d  = (int)($result['days_left'] ?? 0);
       $st = (string)($result['warranty_status'] ?? '');
-      $label = $st==='in_warranty' ? 'อยู่ในประกัน' : ($st==='expired' ? 'หมดประกัน' : ($st==='void' ? 'โมฆะ' : $st));
-      $note  = $st==='in_warranty' ? "เหลืออีก {$d} วัน" : ($st==='expired' ? "หมดไป ".abs($d)." วัน" : '');
+      $label = $st==='in_warranty' ? 'In warranty' : ($st==='expired' ? 'Expired' : ($st==='void' ? 'Void' : $st));
+      $note  = $st==='in_warranty' ? "— {$d} day(s) remaining" : ($st==='expired' ? "— expired ".abs($d)." day(s) ago" : '');
     ?>
     <div class="card" data-aos="fade-up">
       <div class="card-head no-print">
         <button class="btn-outline" type="button" onclick="copyWarranty('<?= h($result['warranty_no']) ?>')">
-          <span class="material-symbols-rounded" style="vertical-align:middle">content_copy</span> คัดลอกเลขประกัน
+          <span class="material-symbols-rounded" style="vertical-align:middle">content_copy</span> Copy Warranty No.
         </button>
         <button class="btn-outline" type="button" onclick="window.print()">
-          <span class="material-symbols-rounded" style="vertical-align:middle">print</span> พิมพ์ใบรับประกัน
+          <span class="material-symbols-rounded" style="vertical-align:middle">print</span> Print Warranty Slip
         </button>
       </div>
       <table class="table">
         <tbody>
-          <tr><th>เลขประกัน</th><td class="mono"><strong><?= nb($result['warranty_no']) ?></strong></td></tr>
-          <tr><th>เลขงานซ่อม</th><td class="mono"><?= nb($result['repair_no']) ?></td></tr>
-          <tr><th>ชื่อลูกค้า</th><td><?= nb($result['customer_name']) ?></td></tr>
-          <tr><th>อุปกรณ์</th><td><?= nb($result['device_model']) ?></td></tr>
+          <tr><th>Warranty No.</th><td class="mono"><strong><?= nb($result['warranty_no']) ?></strong></td></tr>
+          <tr><th>Repair No.</th><td class="mono"><?= nb($result['repair_no']) ?></td></tr>
+          <tr><th>Customer</th><td><?= nb($result['customer_name']) ?></td></tr>
+          <tr><th>Device</th><td><?= nb($result['device_model']) ?></td></tr>
           <tr><th>Serial</th><td class="mono"><?= nb($result['sn']) ?></td></tr>
-          <tr><th>วันที่เริ่มประกัน</th><td class="mono"><?= nb($result['base_date']) ?></td></tr>
-          <tr><th>วันหมดประกัน</th><td class="mono"><strong><?= nb($result['warranty_until']) ?></strong></td></tr>
+          <tr><th>Start Date</th><td class="mono"><?= nb($result['base_date']) ?></td></tr>
+          <tr><th>Expiry Date</th><td class="mono"><strong><?= nb($result['warranty_until']) ?></strong></td></tr>
           <tr>
-            <th>สถานะประกัน</th>
+            <th>Warranty Status</th>
             <td>
               <span><?= h($label) ?></span>
               <?php if ($note): ?><small class="muted" style="margin-left:6px"><?= h($note) ?></small><?php endif; ?>
@@ -230,63 +246,61 @@ $result = (count($results) === 1) ? $results[0] : null;
           </tr>
         </tbody>
       </table>
-    </div> 
-    
-    <div class="card no-print" data-aos="fade-up" style="margin-top:24px;" data-aos-delay="100">
+    </div> <div class="card no-print" data-aos="fade-up" style="margin-top:24px;" data-aos-delay="100">
       <div style="padding: 18px 20px 20px 20px;">
-        <strong style="font-size: 1.1rem; font-weight: 700; display: block; margin-bottom: 12px;">เงื่อนไขการรับประกัน</strong>
+        <strong style="font-size: 1.1rem; font-weight: 700; display: block; margin-bottom: 12px;">Warranty Terms</strong>
+        
         <div class="terms-display" style="font-size: 15px; line-height: 1.65; color: var(--ink);">
           <ol style="margin: 0 0 0 18px; padding: 0; list-style-position: outside;">
-            <li>ประกันครอบคลุมเฉพาะอาการที่ระบุในใบงานซ่อม และอะไหล่ที่ทางร้านเปลี่ยนให้เท่านั้น</li>
-            <li>ไม่ครอบคลุมความเสียหายจากของเหลว/ตกหล่น/งัดแงะ/ใช้งานผิดวิธี หรือการซ่อมจากที่อื่น</li>
-            <li>ซีล/สติ๊กเกอร์รับประกันต้องอยู่ครบ หากถูกแกะ/ฉีกขาด ถือว่าสิ้นสุดการรับประกันทันที</li>
-            <li>กรณีใช้สิทธิ์ประกัน กรุณาแจ้ง <strong>เลขประกัน (WJ-xxxx)</strong> หรือ <strong>Serial Number</strong> ทุกครั้ง</li>
-            <li>ข้อกำหนดเพิ่มเติมเป็นไปตามประกาศล่าสุดของ CMNS FixMac</li>
+            <li>Warranty covers only the stated symptom(s) in the repair job and the parts replaced by CMNS FixMac.</li>
+            <li>It does not cover damage from liquid, drop/impact, tampering, misuse, or third-party repair.</li>
+            <li>Warranty seals/stickers must be intact. If removed/torn, the warranty is void.</li>
+            <li>When claiming warranty, please provide your <strong>Warranty No. (WJ-xxxx)</strong> or <strong>Serial Number</strong>.</li>
+            <li>Other conditions are subject to CMNS FixMac’s latest policies.</li>
           </ol>
         </div>
       </div>
     </div>
-
     <section class="print-sheet">
       <div class="print-header">
-        <img src="assets/img/apple-logo.png" alt="CMNS FixMac">
-        <h1>ผลการตรวจสอบ</h1>
-        <div class="print-meta">ใบรับประกัน / ผลการตรวจสอบประกัน</div>
+        <img src="../assets/img/apple-logo.png" alt="CMNS FixMac">
+        <h1>Warranty Result</h1>
+        <div class="print-meta">Warranty Slip / Warranty Verification</div>
         <div class="print-meta" style="margin-top:4px">
-          CMNS FixMac — 482 หมู่ 8 หลังกาดวรุณ ถ.เชียงใหม่–หางดง ต.แม่เหียะ อ.เมือง เชียงใหม่ 50100 · โทร 084-151-1684 · cmnsfixmac.com
+          CMNS FixMac — 482 Moo 8, behind Kad Varune Market, Chiang Mai–Hang Dong Rd., Mae Hia, Mueang, Chiang Mai 50100 · Tel. 084-151-1684 · cmnsfixmac.com
         </div>
       </div>
 
       <table class="print-table">
-        <tr><th>เลขประกัน</th><td><?= nb($result['warranty_no']) ?></td></tr>
-        <tr><th>เลขงานซ่อม</th><td><?= nb($result['repair_no']) ?></td></tr>
-        <tr><th>ชื่อลูกค้า</th><td><?= nb($result['customer_name']) ?></td></tr>
-        <tr><th>อุปกรณ์</th><td><?= nb($result['device_model']) ?></td></tr>
+        <tr><th>Warranty No.</th><td><?= nb($result['warranty_no']) ?></td></tr>
+        <tr><th>Repair No.</th><td><?= nb($result['repair_no']) ?></td></tr>
+        <tr><th>Customer</th><td><?= nb($result['customer_name']) ?></td></tr>
+        <tr><th>Device</th><td><?= nb($result['device_model']) ?></td></tr>
         <tr><th>Serial</th><td><?= nb($result['sn']) ?></td></tr>
-        <tr><th>วันที่เริ่มประกัน</th><td><?= nb($result['base_date']) ?></td></tr>
-        <tr><th>วันหมดประกัน</th><td><?= nb($result['warranty_until']) ?></td></tr>
-        <tr><th>สถานะประกัน</th><td><?= h($label) ?><?= $note ? ' — '.h($note) : '' ?></td></tr>
+        <tr><th>Start Date</th><td><?= nb($result['base_date']) ?></td></tr>
+        <tr><th>Expiry Date</th><td><?= nb($result['warranty_until']) ?></td></tr>
+        <tr><th>Warranty Status</th><td><?= h($label) ?><?= $note ? ' '.$note : '' ?></td></tr>
       </table>
 
       <div class="terms">
-        <strong>เงื่อนไขการรับประกัน</strong>
+        <strong>Warranty Terms</strong>
         <ol style="margin:6px 0 0 18px">
-          <li>ประกันครอบคลุมเฉพาะอาการที่ระบุในใบงานซ่อม และอะไหล่ที่ทางร้านเปลี่ยนให้เท่านั้น</li>
-          <li>ไม่ครอบคลุมความเสียหายจากของเหลว/ตกหล่น/งัดแงะ/ใช้งานผิดวิธี หรือการซ่อมจากที่อื่น</li>
-          <li>ซีล/สติ๊กเกอร์รับประกันต้องอยู่ครบ หากถูกแกะ/ฉีกขาด ถือว่าสิ้นสุดการรับประกันทันที</li>
-          <li>กรณีใช้สิทธิ์ประกัน กรุณาแจ้ง <strong>เลขประกัน (WJ-xxxx)</strong> หรือ <strong>Serial Number</strong> ทุกครั้ง</li>
-          <li>ข้อกำหนดเพิ่มเติมเป็นไปตามประกาศล่าสุดของ CMNS FixMac</li>
+          <li>Warranty covers only the stated symptom(s) in the repair job and the parts replaced by CMNS FixMac.</li>
+          <li>It does not cover damage from liquid, drop/impact, tampering, misuse, or third-party repair.</li>
+          <li>Warranty seals/stickers must be intact. If removed/torn, the warranty is void.</li>
+          <li>When claiming warranty, please provide your <strong>Warranty No. (WJ-xxxx)</strong> or <strong>Serial Number</strong>.</li>
+          <li>Other conditions are subject to CMNS FixMac’s latest policies.</li>
         </ol>
       </div>
 
       <div class="sign-row" style="margin-top:24px">
         <div class="sign-col">
           <div class="sign-line"></div>
-          <div class="sign-label">ลงชื่อผู้รับเอกสาร</div>
+          <div class="sign-label">Recipient’s Signature</div>
         </div>
         <div class="sign-col">
           <div class="sign-line"></div>
-          <div class="sign-label">ลงชื่อเจ้าหน้าที่</div>
+          <div class="sign-label">Staff Signature</div>
         </div>
       </div>
     </section>
@@ -294,19 +308,19 @@ $result = (count($results) === 1) ? $results[0] : null;
   <?php elseif ($q !== '' && count($results) > 1): ?>
     <div class="card" data-aos="fade-up">
       <div class="card-head no-print" style="justify-content:flex-start">
-        <div class="muted" style="padding-left:2px">พบหลายรายการ — เลือกเครื่องที่ต้องการ</div>
+        <div class="muted" style="padding-left:2px">Multiple results found — choose a device</div>
       </div>
       <div style="overflow:auto">
         <table class="list-table">
           <thead>
             <tr>
-              <th>เลขประกัน</th>
-              <th>เลขงานซ่อม</th>
-              <th>อุปกรณ์</th>
+              <th>Warranty No.</th>
+              <th>Repair No.</th>
+              <th>Device</th>
               <th>Serial</th>
-              <th>เริ่ม</th>
-              <th>หมดประกัน</th>
-              <th>สถานะ</th>
+              <th>Start</th>
+              <th>Expiry</th>
+              <th>Status</th>
             </tr>
           </thead>
           <tbody>
@@ -314,7 +328,7 @@ $result = (count($results) === 1) ? $results[0] : null;
               <?php
                 $d=(int)($r['days_left']??0);
                 $st=(string)($r['warranty_status']??'');
-                $label=$st==='in_warranty'?'อยู่ในประกัน':($st==='expired'?'หมดประกัน':($st==='void'?'โมฆะ':$st));
+                $label=$st==='in_warranty'?'In warranty':($st==='expired'?'Expired':($st==='void'?'Void':$st));
                 $link='?q='.urlencode($r['warranty_no']).'#result';
               ?>
               <tr>
@@ -336,30 +350,30 @@ $result = (count($results) === 1) ? $results[0] : null;
 </div>
 
 <div class="no-print">
-  <?php include_once 'includes/floating-buttons.php'; ?>
-  <script src="assets/js/floating-buttons.js"></script>
+  <?php include_once '../../includes/floating-buttons.php'; ?>
+  <script src="../assets/js/floating-buttons.js"></script>
 </div>
 
 <div class="no-print">
-  <?php include_once 'includes/footer.php'; ?>
+  <?php include_once '../../includes/footer.php'; ?>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.js"></script>
 <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
 <script>AOS.init();</script>
-<script src="assets/js/main.js"></script>
-<script src="assets/js/swiper-init.js"></script>
-<script src="assets/js/aos-init.js"></script>
-<script src="assets/js/script.js"></script>
-<script src="assets/js/lazy-youtube.js"></script>
-<script src="assets/js/preload-images.js"></script>
+<script src="../assets/js/main.js"></script>
+<script src="../assets/js/swiper-init.js"></script>
+<script src="../assets/js/aos-init.js"></script>
+<script src="../assets/js/script.js"></script>
+<script src="../assets/js/lazy-youtube.js"></script>
+<script src="../assets/js/preload-images.js"></script>
 
 <script>
   function copyWarranty(text){
-    navigator.clipboard.writeText(text).then(()=>alert('คัดลอกเลขประกันแล้ว: '+text));
+    navigator.clipboard.writeText(text).then(()=>alert('Copied: '+text));
   }
 
-  // ถ้ามีผลลัพธ์ ให้เลื่อนลงไปยัง #result
+  // If there are results, scroll to them after load
   <?php if ($q !== '' && ($result || count($results) > 1)): ?>
   window.addEventListener('load', () => {
     const el = document.getElementById('result');

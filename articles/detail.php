@@ -4,7 +4,7 @@
  * - [GEMINI FINAL FIX] รองรับ URL สวย (Slug) ไม่เด้งกลับหน้าแรก
  */
 
-include 'includes/db.php';
+include '../includes/db.php';
 
 function e($string) {
   return htmlspecialchars($string, ENT_QUOTES, 'UTF-8');
@@ -30,7 +30,7 @@ if ($slug && !$id) {
 
 // ถ้าสุดท้ายยังไม่มี ID (แปลว่า Link ผิด หรือหาไม่เจอ) -> ค่อยดีดไปหน้าแรก
 if (!$id) {
-  header("Location: articles.php");
+  header("Location: /articles/");
   exit;
 }
 
@@ -140,7 +140,7 @@ $currentUrl = "$protocol://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
 </head>
 
 <body>
-  <?php include 'includes/header.php'; ?>
+  <?php include '../includes/header.php'; ?>
 
   <main class="article-detail container">
     <h1><?= htmlspecialchars($article['title']) ?></h1>
@@ -148,7 +148,7 @@ $currentUrl = "$protocol://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
     <p class="views">รับชม <?= number_format($article['views']) ?> ครั้ง</p>
 
     <div class="breadcrumb-bar">
-      <a href="/articles.php" class="breadcrumb-home">บทความทั้งหมด</a>
+      <a href="/articles/" class="breadcrumb-home">บทความทั้งหมด</a>
       <span class="breadcrumb-separator">›</span>
       <span class="breadcrumb-current"><?= htmlspecialchars($article['title']) ?></span>
     </div>
@@ -255,7 +255,7 @@ $currentUrl = "$protocol://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
 
   </main>
 
-  <?php include_once 'includes/footer.php'; ?>
+  <?php include_once '../includes/footer.php'; ?>
 
   <script>
     function shareNative() {

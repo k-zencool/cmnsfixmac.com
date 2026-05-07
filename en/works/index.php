@@ -1,6 +1,6 @@
 <?php
 // Assuming this file is /en/works.php
-include '../includes/db.php'; // Path changed
+include '../../includes/db.php'; // Path changed
 
 function e($string)
 {
@@ -25,17 +25,17 @@ $title_for_display_alias = "title_display"; // Alias for easier use in template
   <meta charset="UTF-8">
   <title>Our Work Portfolio - CMNS Mac Repair Chiang Mai</title>
 
-  <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/works.php" />
-  <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/works.php" />
-  <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/works.php" />
+  <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/works/" />
+  <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/works/" />
+  <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/works/" />
   
   <meta name="description" content="View our portfolio of successful Apple device repairs in Chiang Mai. CMNS Mac Repair showcases MacBook, iMac, iPhone, and iPad repair work.">
   <meta name="keywords" content="MacBook repair portfolio, iPhone repair examples, Apple service Chiang Mai, CMNS FixMac work">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="../assets/css/style.css">
-  <link rel="stylesheet" href="../assets/css/works-style.css">
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="stylesheet" href="/assets/css/works-style.css">
   <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png" />
-  <link rel="stylesheet" href="../assets/css/footer-style.css">
+  <link rel="stylesheet" href="/assets/css/footer-style.css">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet" />
 
   
@@ -54,13 +54,13 @@ $title_for_display_alias = "title_display"; // Alias for easier use in template
 
 <body>
 
-  <?php include_once '../includes/header_en.php'; // Changed to header_en.php and path adjusted 
+  <?php include_once '../../includes/header_en.php'; // Changed to header_en.php and path adjusted 
   ?>
 
   <div class="page-container">
 
     <h1>Our Repair Portfolio</h1>
-    <form method="GET" action="works.php"> <input type="text" name="q" placeholder="Search model or issue (e.g., A1708, screen)" <?= $q ? 'value="' . e($q) . '"' : '' ?> />
+    <form method="GET" action="/en/works/"> <input type="text" name="q" placeholder="Search model or issue (e.g., A1708, screen)" <?= $q ? 'value="' . e($q) . '"' : '' ?> />
       <select name="category">
         <option value="">All Categories</option>
         <option value="MacBook" <?= $category_filter === "MacBook" ? "selected" : "" ?>>MacBook</option>
@@ -142,7 +142,7 @@ $title_for_display_alias = "title_display"; // Alias for easier use in template
         // Use the English title (aliased as title_display) for alt text if available, otherwise generic
         $alt_text = !empty($row[$title_for_display_alias]) ? e($row[$title_for_display_alias]) : "Repair work for " . e($row['model']);
         ?>
-        <a href="work-detail.php?id=<?= e($row['id']) ?>" class="work-card-link">
+        <a href="/en/works/detail.php?id=<?= e($row['id']) ?>" class="work-card-link">
           <div class="work-card">
             <img src="<?= $imagePath ?>" alt="<?= $alt_text ?>" loading="lazy">
             <h3><?= e($row[$title_for_display_alias]) ?></h3>
@@ -196,7 +196,7 @@ $title_for_display_alias = "title_display"; // Alias for easier use in template
     <a href="/en/" class="back-link">← Back to Home</a>
   </div>
 
-  <?php include_once '../includes/footer_en.php'; // Changed to footer_en.php and path adjusted 
+  <?php include_once '../../includes/footer_en.php'; // Changed to footer_en.php and path adjusted 
   ?>
   <script src="../assets/js/preload-images.js"></script>
 </body>

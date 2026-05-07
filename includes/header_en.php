@@ -26,11 +26,11 @@
         <nav class="menu">
           <a href="/en/" class="highlight-home"> <span class="material-symbols-rounded">home</span> Home</a>
 
-          <a href="/en/works.php"><span class="material-symbols-rounded">construction</span>Our Work</a>
+          <a href="/en/works/"><span class="material-symbols-rounded">construction</span>Our Work</a>
           <a href="/en/shop"><span class="material-symbols-rounded">storefront</span>Shop</a>
-          <a href="/en/articles.php"><span class="material-symbols-rounded">description</span>Articles</a>
-          <a href="/en/buyback.php"><span class="material-symbols-rounded">laptop_mac</span>Sell Your Device</a>
-          <a href="/en/warranty.php">
+          <a href="/en/articles/"><span class="material-symbols-rounded">description</span>Articles</a>
+          <a href="/en/buyback/"><span class="material-symbols-rounded">laptop_mac</span>Sell Your Device</a>
+          <a href="/en/warranty/">
             <span class="material-symbols-rounded">verified</span> warranty
           </a>
 
@@ -128,12 +128,12 @@
       <a href="/en/" class="highlight-home"> <span class="material-symbols-rounded">home</span>
         Home
       </a>
-      <a href="/en/works.php"><span class="material-symbols-rounded">construction</span> OurWork</a>
+      <a href="/en/works/"><span class="material-symbols-rounded">construction</span> OurWork</a>
       <a href="/en/shop"><span class="material-symbols-rounded">storefront</span> Shop</a>
-      <a href="/en/articles.php"><span class="material-symbols-rounded">description</span>Articles</a>
-      <a href="/en/buyback.php"><span class="material-symbols-rounded">laptop_mac</span>Sell YourDevice</a>
+      <a href="/en/articles/"><span class="material-symbols-rounded">description</span>Articles</a>
+      <a href="/en/buyback/"><span class="material-symbols-rounded">laptop_mac</span>Sell YourDevice</a>
 
-      <a href="/en/warranty.php">
+      <a href="/en/warranty/">
         <span class="material-symbols-rounded">verified</span> warranty
       </a>
 

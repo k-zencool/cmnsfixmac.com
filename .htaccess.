@@ -14,6 +14,21 @@ RewriteBase /
 RewriteRule ^sitemap\.xml$ sitemap.php [L]
 
 # ================== 3. ย้ายหน้าเก่า (301 Redirect) ==================
+# .php URLs เก่า → โครงสร้างใหม่
+Redirect 301 /articles.php /articles/
+Redirect 301 /article-detail.php /articles/
+Redirect 301 /works.php /works/
+Redirect 301 /work-detail.php /works/
+Redirect 301 /warranty.php /warranty/
+Redirect 301 /buyback.php /buyback/
+Redirect 301 /en/articles.php /en/articles/
+Redirect 301 /en/article-detail.php /en/articles/
+Redirect 301 /en/works.php /en/works/
+Redirect 301 /en/work-detail.php /en/works/
+Redirect 301 /en/warranty.php /en/warranty/
+Redirect 301 /en/buyback.php /en/buyback/
+
+
 Redirect 301 /imac.php /services/imac.php
 Redirect 301 /airpods.php /services/airpods.php
 Redirect 301 /apple-watch.php /services/apple-watch.php
@@ -36,8 +51,8 @@ Redirect 301 /device-test/ /tester/
 # บทความ
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^article/([\w-]+)/?$ /article-detail.php?slug=$1 [L,QSA]
-RewriteRule ^en/article/([\w-]+)/?$ /en/article-detail.php?slug=$1 [L,QSA]
+RewriteRule ^article/([\w-]+)/?$ /articles/detail.php?slug=$1 [L,QSA]
+RewriteRule ^en/article/([\w-]+)/?$ /en/articles/detail.php?slug=$1 [L,QSA]
 
 # เปลี่ยน /product/slug เก่าไปที่ shop (301 สำหรับ SEO)
 RewriteCond %{REQUEST_FILENAME} !-f
@@ -48,8 +63,8 @@ RewriteRule ^en/product/([\w-]+)/?$ /en/shop [R=301,L]
 # ผลงาน
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^work/([\w-]+)/?$ /work-detail.php?slug=$1 [L,QSA]
-RewriteRule ^en/work/([\w-]+)/?$ /en/work-detail.php?slug=$1 [L,QSA]
+RewriteRule ^work/([\w-]+)/?$ /works/detail.php?slug=$1 [L,QSA]
+RewriteRule ^en/work/([\w-]+)/?$ /en/works/detail.php?slug=$1 [L,QSA]
 
 # ================== 5. ซ่อนนามสกุล .php ==================
 # ถ้าเข้า /work แล้วไม่เจอโฟลเดอร์ ให้ลองเรียก work.php

@@ -8,12 +8,12 @@
         content="รับซื้อ MacBook, iPhone, iPad, iMac ทุกรุ่น ทุกสภาพ ในเชียงใหม่! ให้ราคายุติธรรม ตรวจสอบเครื่องฟรี นัดรับถึงที่ ติดต่อประเมินราคาผ่าน LINE ง่ายๆ" />
     <title>CMNS Mac: รับซื้อ MacBook, iPhone, iPad, iMac ทุกสภาพ เชียงใหม่ | ให้ราคายุติธรรม</title>
 
-    <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/buyback.php" />
-    <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/buyback.php" />
-    <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/buyback.php" />
+    <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/buyback/" />
+    <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/buyback/" />
+    <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/buyback/" />
 
-    <link rel="stylesheet" href="assets/css/buyback-style.css">
-    <link rel="stylesheet" href="assets/css/footer-style.css">
+    <link rel="stylesheet" href="/assets/css/buyback-style.css">
+    <link rel="stylesheet" href="/assets/css/footer-style.css">
     <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png" />
 
     
@@ -85,7 +85,7 @@
 </head>
 
 <body>
-    <?php include_once 'includes/header.php'; ?>
+    <?php include_once '../includes/header.php'; ?>
 
     <header class="hero-buyback" id="top">
         <div class="container">
@@ -139,7 +139,7 @@
                 <h3><span class="material-symbols-rounded">laptop_mac</span> MacBook ทุกรุ่น</h3>
                 <p>รับซื้อ MacBook Air, MacBook Pro (ทุกขนาดจอ, ชิป Intel, M1, M2, M3, M4) ตั้งแต่ปี 2015 ขึ้นไป
                     สภาพไหนก็รับ ลองส่งมาประเมินราคา!</p>
-                <a href="assets/img/buyback/Macbook.webp" data-lightbox="macbook-gallery"
+                <a href="/assets/img/buyback/Macbook.webp" data-lightbox="macbook-gallery"
                     data-title="รับซื้อ MacBook ทุกสภาพ ทุกรุ่น">
                     <img src="assets/img/buyback/Macbook.webp" alt="รับซื้อ MacBook ทุกสภาพ เชียงใหม่"> </a>
             </div>
@@ -148,7 +148,7 @@
                 <h3><span class="material-symbols-rounded">smartphone</span> iPhone ทุกรุ่น</h3>
                 <p>รับซื้อ iPhone ตั้งแต่ iPhone 11, 12, 13, 14, 15, 16 (ทุก Pro, Pro Max, Mini, Plus)
                     หรือรุ่นเก่ากว่านั้นลองสอบถามได้ เครื่องสวย เครื่องพัง จอแตก ติดล็อค ก็รับพิจารณา</p>
-                <a href="assets/img/buyback/iPhone.webp" data-lightbox="iphone-gallery"
+                <a href="/assets/img/buyback/iPhone.webp" data-lightbox="iphone-gallery"
                     data-title="รับซื้อ iPhone ทุกสภาพ ทุกรุ่น">
                     <img src="assets/img/buyback/iPhone.webp" alt="รับซื้อ iPhone ทุกรุ่น เชียงใหม่"> </a>
             </div>
@@ -157,7 +157,7 @@
                 <h3><span class="material-symbols-rounded">tablet_mac</span> iPad ทุกรุ่น</h3>
                 <p>รับซื้อ iPad, iPad Air, iPad Pro, iPad mini ทุกรุ่น ทุก Gen ตั้งแต่ปี 2015 ขึ้นไป สภาพดี มีรอยบุบ
                     จอเสีย แบตเสื่อม เสนอมาได้เลย</p>
-                <a href="assets/img/buyback/iPad.webp" data-lightbox="ipad-gallery"
+                <a href="/assets/img/buyback/iPad.webp" data-lightbox="ipad-gallery"
                     data-title="รับซื้อ iPad ทุกสภาพ ทุกรุ่น">
                     <img src="assets/img/buyback/iPad.webp" alt="รับซื้อ iPad ทุกสภาพ เชียงใหม่"> </a>
             </div>
@@ -166,7 +166,7 @@
                 <h3><span class="material-symbols-rounded">desktop_mac</span> iMac ทุกรุ่น</h3>
                 <p>รับซื้อ iMac (จอ 21.5", 24", 27", ชิป Intel, M1, M3) ตั้งแต่ปี 2015 ขึ้นไป เครื่องสวยกริ๊บ
                     หรือมีปัญหา เปิดไม่ติด ก็รับซื้อ</p>
-                <a href="assets/img/buyback/iMac.webp" data-lightbox="imac-gallery"
+                <a href="/assets/img/buyback/iMac.webp" data-lightbox="imac-gallery"
                     data-title="รับซื้อ iMac ทุกสภาพ ทุกรุ่น">
                     <img src="assets/img/buyback/iMac.webp" alt="รับซื้อ iMac ทุกรุ่น เชียงใหม่"> </a>
             </div>
@@ -270,7 +270,7 @@
         </div>
     </section>
 
-    <?php include_once 'includes/footer.php'; ?>
+    <?php include_once '../includes/footer.php'; ?>
 
 
     <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.3/dist/js/splide.min.js"></script>

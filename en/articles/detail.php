@@ -6,7 +6,7 @@
  * - Matches visual style of TH version
  */
 
-include '../includes/db.php';
+include '../../includes/db.php';
 
 function e($string) {
   return htmlspecialchars((string) $string, ENT_QUOTES, 'UTF-8');
@@ -15,7 +15,7 @@ function e($string) {
 // 1. รับค่า ID
 $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 if (!$id) {
-  header("Location: articles.php");
+  header("Location: /en/articles/");
   exit;
 }
 
@@ -138,7 +138,7 @@ $currentUrl = "$protocol://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
 </head>
 
 <body>
-  <?php include '../includes/header_en.php'; ?>
+  <?php include '../../includes/header_en.php'; ?>
 
   <main class="article-detail container">
     <h1><?= e($display_title) ?></h1>
@@ -146,7 +146,7 @@ $currentUrl = "$protocol://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
     <p class="views"><?= number_format($article['views']) ?> views</p>
 
     <div class="breadcrumb-bar">
-      <a href="/en/articles.php" class="breadcrumb-home">All Articles</a>
+      <a href="/en/articles/" class="breadcrumb-home">All Articles</a>
       <span class="breadcrumb-separator">›</span>
       <span class="breadcrumb-current"><?= e($display_title) ?></span>
     </div>
@@ -241,7 +241,7 @@ $currentUrl = "$protocol://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
                 $excerptRel = mb_substr(strip_tags($item['content_en']), 0, 100) . '...';
             }
             ?>
-            <a href="/en/article-detail.php?id=<?= e($item['id']) ?>" class="related-item">
+            <a href="/en/articles/detail.php?id=<?= e($item['id']) ?>" class="related-item">
               <img src="<?= $imgRel ?>" alt="<?= e($titleRel) ?>">
               <div class="related-item-content">
                 <h3><?= e($titleRel) ?></h3>
@@ -277,7 +277,7 @@ $currentUrl = "$protocol://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
                 $excerptPop = mb_substr(strip_tags($pop['content_en']), 0, 100) . '...';
             }
             ?>
-            <a href="/en/article-detail.php?id=<?= e($pop['id']) ?>" class="popular-item">
+            <a href="/en/articles/detail.php?id=<?= e($pop['id']) ?>" class="popular-item">
               <img src="<?= $imgPop ?>" alt="<?= e($titlePop) ?>">
               <div class="popular-item-content">
                 <h3><?= e($titlePop) ?></h3>
@@ -294,17 +294,17 @@ $currentUrl = "$protocol://$_SERVER[HTTP_HOST]$_SERVER[REQUEST_URI]";
     <?php if ($prev || $next): ?>
       <nav class="article-nav short">
         <?php if ($prev): ?>
-          <a class="prev-article" href="/en/article-detail.php?id=<?= e($prev['id']) ?>">← Previous</a>
+          <a class="prev-article" href="/en/articles/detail.php?id=<?= e($prev['id']) ?>">← Previous</a>
         <?php endif; ?>
         <?php if ($next): ?>
-          <a class="next-article" href="/en/article-detail.php?id=<?= e($next['id']) ?>">Next →</a>
+          <a class="next-article" href="/en/articles/detail.php?id=<?= e($next['id']) ?>">Next →</a>
         <?php endif; ?>
       </nav>
     <?php endif; ?>
 
   </main>
 
-  <?php include_once '../includes/footer_en.php'; ?>
+  <?php include_once '../../includes/footer_en.php'; ?>
 
   <script>
     function shareNative() {

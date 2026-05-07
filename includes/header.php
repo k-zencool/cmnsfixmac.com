@@ -29,7 +29,7 @@
               <span class="material-symbols-rounded">home</span> หน้าแรก
             </a>
 
-            <a href="/works.php">
+            <a href="/works/">
               <span class="material-symbols-rounded">construction</span> ผลงาน
             </a>
 
@@ -37,15 +37,15 @@
               <span class="material-symbols-rounded">storefront</span> ร้านค้า
             </a>
 
-            <a href="/articles.php">
+            <a href="/articles/">
               <span class="material-symbols-rounded">description</span> บทความ
             </a>
 
-            <a href="/buyback.php">
+            <a href="/buyback/">
               <span class="material-symbols-rounded">laptop_mac</span> รับซื้อเครื่อง
             </a>
 
-            <a href="/warranty.php">
+            <a href="/warranty/">
               <span class="material-symbols-rounded">verified</span> ตรวจสอบประกัน
             </a>
 
@@ -124,12 +124,12 @@
       <a href="/" class="highlight-home">
         <span class="material-symbols-rounded">home</span> หน้าแรก
       </a>
-      <a href="/works.php"><span class="material-symbols-rounded">construction</span> ผลงาน</a>
+      <a href="/works/"><span class="material-symbols-rounded">construction</span> ผลงาน</a>
       <a href="/shop"><span class="material-symbols-rounded">storefront</span> ร้านค้า</a>
-      <a href="/articles.php"><span class="material-symbols-rounded">description</span> บทความ</a>
-      <a href="/buyback.php"><span class="material-symbols-rounded">laptop_mac</span> รับซื้อเครื่อง</a>
+      <a href="/articles/"><span class="material-symbols-rounded">description</span> บทความ</a>
+      <a href="/buyback/"><span class="material-symbols-rounded">laptop_mac</span> รับซื้อเครื่อง</a>
 
-      <a href="/warranty.php">
+      <a href="/warranty/">
         <span class="material-symbols-rounded">verified</span> ตรวจสอบประกัน
       </a>
 

@@ -1,5 +1,5 @@
 <?php
-include 'includes/db.php';
+include '../includes/db.php';
 
 // ✅ ป้องกัน XSS
 function e($string)
@@ -10,7 +10,7 @@ function e($string)
 // ✅ รับ id
 $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 if (!$id) {
-  header("Location: works.php");
+  header("Location: /works/");
   exit;
 }
 
@@ -33,7 +33,7 @@ $images = $imgStmt->fetchAll();
 
 // [กูแก้!!] (v4) หาแค่ที่เดียว... เพราะเราย้ายบ้านแล้ว
 $image_filename = $data['image'] ?? '';
-$imagePath = 'assets/img/placeholder.png'; // รูป Default
+$imagePath = '/assets/img/placeholder.png'; // รูป Default
 $ogImagePath = 'https://cmnsfixmac.com/assets/img/placeholder.png'; // Path เต็มสำหรับ OG
 
 if (!empty($image_filename) && strpos($image_filename, '/') !== false) {
@@ -78,11 +78,11 @@ if (!empty($image_filename) && strpos($image_filename, '/') !== false) {
   </head>
 
 <body>
-  <?php include_once 'includes/header.php'; ?>
+  <?php include_once '../includes/header.php'; ?>
   <div class="container article-detail">
     <h1><?= e($data['title']) ?> model <?= e($data['model']) ?></h1>
     <nav class="breadcrumb-bar">
-      <a href="works.php" class="breadcrumb-home">ผลงานทั้งหมด</a> &gt;
+      <a href="/works/" class="breadcrumb-home">ผลงานทั้งหมด</a> &gt;
       <span class="breadcrumb-current"><?= e($data['title']) ?></span>
       <p><strong>วันที่โพสต์:</strong> <?= date('d/m/Y H:i', strtotime($data['created_at'])) ?></p>
     </nav>
@@ -110,6 +110,6 @@ if (!empty($image_filename) && strpos($image_filename, '/') !== false) {
       <p class="views"><strong>เข้าชม:</strong> <?= number_format($data['views']) ?> ครั้ง</p>
     </div>
     </div>
-  <?php include_once 'includes/footer.php'; ?>
+  <?php include_once '../includes/footer.php'; ?>
 </body>
 </html>

@@ -6,7 +6,7 @@
  * - Fallback กลับไปใช้ ID ถ้าไม่มี Slug
  */
 
-include 'includes/db.php';
+include '../includes/db.php';
 
 function e($str) {
   return htmlspecialchars($str, ENT_QUOTES, 'UTF-8');
@@ -73,13 +73,13 @@ function getArticleLink($row) {
   <meta charset="UTF-8">
   <title>บทความ | FixMac</title>
 
-  <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/articles.php" />
-  <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/articles.php" />
-  <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/articles.php" />
+  <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/articles/" />
+  <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/articles/" />
+  <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/articles/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="assets/css/style.css">
-  <link rel="stylesheet" href="assets/css/articles-style.css">
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="stylesheet" href="/assets/css/articles-style.css">
   <link rel="stylesheet" href="/assets/css/footer-style.css">
   <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png" />
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet" />
@@ -96,7 +96,7 @@ function getArticleLink($row) {
 </head>
 
 <body>
-  <?php include 'includes/header.php'; ?>
+  <?php include '../includes/header.php'; ?>
 
   <section class="article-hero">
     <div class="container">
@@ -196,7 +196,7 @@ function getArticleLink($row) {
     </div>
   <?php endif; ?>
 
-  <?php include_once 'includes/footer.php'; ?>
+  <?php include_once '../includes/footer.php'; ?>
 </body>
 
 </html>

@@ -27,11 +27,12 @@ function addUrl($loc, $lastmod, $changefreq, $priority) {
 
 // --- 1. หน้า Static (ใส่ .php ให้ตามที่ขอ) ---
 $staticPages = [
-    '' => 1.0,               // หน้าแรก
-    'works.php' => 0.9,
-    'shop' => 0.9,
-    'articles.php' => 0.9,
-    'buyback.php' => 0.8,
+    ''          => 1.0,
+    'works/'    => 0.9,
+    'shop'      => 0.9,
+    'articles/' => 0.9,
+    'buyback/'  => 0.8,
+    'warranty/' => 0.7,
 ];
 
 foreach ($staticPages as $page => $prio) {

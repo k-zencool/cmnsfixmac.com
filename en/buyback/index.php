@@ -12,9 +12,9 @@
         content="We buy used MacBooks, iPhones, iPads, and iMacs of all models and conditions in Chiang Mai! Get a fair price, free evaluation, and local pickup. Get a quote easily via LINE." />
     <title>CMNS Mac: We Buy Used MacBooks, iPhones, iPads, iMacs in Chiang Mai | Fair Price</title>
 
-    <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/buyback.php" />
-    <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/buyback.php" />
-    <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/buyback.php" />
+    <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/buyback/" />
+    <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/buyback/" />
+    <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/buyback/" />
 
 
     <link rel="stylesheet" href="/assets/css/style.css">
@@ -89,7 +89,7 @@
 </head>
 
 <body>
-    <?php include_once '../includes/header_en.php'; // Path changed 
+    <?php include_once '../../includes/header_en.php'; // Path changed 
     ?>
 
     <header class="hero-buyback" id="top">
@@ -253,7 +253,7 @@
         </div>
     </section>
 
-    <?php include_once '../includes/footer_en.php'; // Path changed 
+    <?php include_once '../../includes/footer_en.php'; // Path changed 
     ?>
 
     <script src="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.3/dist/js/splide.min.js"></script>

@@ -7,7 +7,7 @@
  * - No longer checks /uploads/ (it's obsolete)
  */
 
-include 'includes/db.php';
+include '../includes/db.php';
 
 function e($string)
 {
@@ -27,13 +27,13 @@ if (!$page || $page < 1) $page = 1;
   <meta charset="UTF-8">
   <title>ผลงานทั้งหมด - CMNS Mac Repair</title>
 
-  <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/works.php" />
-  <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/works.php" />
-  <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/works.php" />
+  <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/works/" />
+  <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/works/" />
+  <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/works/" />
   
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="assets/css/style.css">
-  <link rel="stylesheet" href="assets/css/works-style.css">
+  <link rel="stylesheet" href="/assets/css/style.css">
+  <link rel="stylesheet" href="/assets/css/works-style.css">
   <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png" />
   <link rel="stylesheet" href="/assets/css/footer-style.css">
 
@@ -55,7 +55,7 @@ if (!$page || $page < 1) $page = 1;
 
 <body>
 
-  <?php include_once 'includes/header.php'; ?>
+  <?php include_once '../includes/header.php'; ?>
 
   <div class="page-container">
 
@@ -145,7 +145,7 @@ if (!$page || $page < 1) $page = 1;
             $imagePath = 'assets/img/placeholder.png';
         }
         ?>
-        <a href="work-detail.php?id=<?= e($row['id']) ?>" class="work-card-link">
+        <a href="/works/detail.php?id=<?= e($row['id']) ?>" class="work-card-link">
           <div class="work-card">
             <img src="<?= $imagePath ?>" alt="<?= e($row['title']) ?>" loading="lazy">
             <h3><?= e($row['title']) ?></h3>
@@ -189,7 +189,7 @@ if (!$page || $page < 1) $page = 1;
     <a href="/" class="back-link">← กลับหน้าแรก</a>
   </div>
 
-  <?php include_once 'includes/footer.php'; ?>
+  <?php include_once '../includes/footer.php'; ?>
   <script src="assets/js/preload-images.js"></script>
 </body>
 

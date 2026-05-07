@@ -1,6 +1,6 @@
 <?php
 // Assuming this file is /en/work-detail.php
-include '../includes/db.php'; 
+include '../../includes/db.php'; 
 
 function e($string) { 
   return htmlspecialchars((string) $string, ENT_QUOTES, 'UTF-8');
@@ -8,7 +8,7 @@ function e($string) {
 
 $id = filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT);
 if (!$id) {
-  header("Location: works.php"); 
+  header("Location: /en/works/"); 
   exit;
 }
 
@@ -63,13 +63,13 @@ $fix_detail_display_en = !empty(trim($data['fix_detail_en'])) ? nl2br(e($data['f
   <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png" />
   </head>
 <body>
-  <?php include_once '../includes/header_en.php'; ?>
+  <?php include_once '../../includes/header_en.php'; ?>
   
   <div class="container article-detail">
     <h1><?= $display_name_en ?></h1>
     
     <nav class="breadcrumb-bar">
-      <a href="/en/works.php" class="breadcrumb-home">All Work</a> &gt;
+      <a href="/en/works/" class="breadcrumb-home">All Work</a> &gt;
       <span class="breadcrumb-current"><?= $display_name_en ?></span>
       <p><strong>Date Posted:</strong> <?= date('F d, Y, H:i', strtotime($data['created_at'])) ?></p>
     </nav>
@@ -108,6 +108,6 @@ $fix_detail_display_en = !empty(trim($data['fix_detail_en'])) ? nl2br(e($data['f
     
     </div>
   
-  <?php include_once '../includes/footer_en.php'; ?>
+  <?php include_once '../../includes/footer_en.php'; ?>
 </body>
 </html>

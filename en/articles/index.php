@@ -8,7 +8,7 @@
  * - Filters only articles with English titles
  */
 
-include '../includes/db.php';
+include '../../includes/db.php';
 
 function e($str)
 {
@@ -83,9 +83,9 @@ $categories_en = [
   <meta charset="UTF-8">
   <title>Articles & Tech Tips | CMNS FixMac Chiang Mai</title>
 
-  <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/articles.php" />
-  <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/articles.php" />
-  <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/articles.php" />
+  <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/articles/" />
+  <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/articles/" />
+  <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/articles/" />
 
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="Read useful articles, tech tips, and updates from the Apple repair experts at CMNS FixMac in Chiang Mai. Learn more about your Apple devices.">
@@ -111,7 +111,7 @@ $categories_en = [
 </head>
 
 <body>
-  <?php include '../includes/header_en.php'; ?>
+  <?php include '../../includes/header_en.php'; ?>
 
   <section class="article-hero">
     <div class="container">
@@ -215,6 +215,6 @@ $categories_en = [
     </div>
   <?php endif; ?>
 
-  <?php include_once '../includes/footer_en.php'; ?>
+  <?php include_once '../../includes/footer_en.php'; ?>
 </body>
 </html>
