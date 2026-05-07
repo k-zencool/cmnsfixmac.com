@@ -58,7 +58,7 @@ include __DIR__ . '/../templates/header_admin.php';
 <link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time() ?>">
 <link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= time() ?>">
 
-<div class="cmns-wrapper">
+<div class="cmns-wrapper" style="overflow:hidden;min-width:0;">
 
     <!-- Header -->
     <div class="cmns-header-bar">
@@ -148,16 +148,17 @@ include __DIR__ . '/../templates/header_admin.php';
     </form>
 
     <!-- Table -->
-    <div class="log-card" style="flex:1;overflow-x:auto;">
-        <table class="log-table" style="table-layout:fixed;width:100%;min-width:760px;">
+    <div class="log-card" style="flex:1;min-width:0;">
+        <div style="overflow-x:auto;">
+        <table class="log-table" style="table-layout:fixed;width:100%;min-width:700px;">
             <colgroup>
                 <col style="width:72px;">
                 <col>
-                <col style="width:130px;">
-                <col style="width:150px;">
-                <col style="width:130px;">
-                <col style="width:88px;">
-                <col style="width:100px;">
+                <col style="width:120px;">
+                <col style="width:140px;">
+                <col style="width:120px;">
+                <col style="width:85px;">
+                <col style="width:105px;">
             </colgroup>
             <thead>
                 <tr>
@@ -251,6 +252,7 @@ include __DIR__ . '/../templates/header_admin.php';
                 <?php endif; ?>
             </tbody>
         </table>
+        </div><!-- end overflow-x:auto -->
     </div>
 
     <!-- Pagination -->
