@@ -2,64 +2,44 @@
 session_start();
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
-require_login(); 
+require_login();
 
-$id = $_GET['id'] ?? null;
+$id = (int)($_GET['id'] ?? 0);
+if (!$id) { header('Location: index.php'); exit; }
 
-if ($id) {
-  try {
+try {
     $pdo->beginTransaction();
 
-    // 1. ดึงชื่อไฟล์ภาพก่อนลบ
-    $stmt = $pdo->prepare("SELECT image FROM repairs WHERE id = ?");
-    $stmt->execute([$id]);
-    $image_filename = $stmt->fetchColumn();
+    // Get all image paths (repair_images + legacy repairs.image)
+    $img_rows = $pdo->prepare("SELECT image_path FROM repair_images WHERE repair_id = ?");
+    $img_rows->execute([$id]);
+    $paths = $img_rows->fetchAll(PDO::FETCH_COLUMN);
 
-    // 2. ลบข้อมูลจากฐานข้อมูล (ทำก่อน... ถ้า DB ลบสำเร็จ ค่อยลบไฟล์)
-    $delete = $pdo->prepare("DELETE FROM repairs WHERE id = ?");
-    $deleted = $delete->execute([$id]);
+    $legacy = $pdo->prepare("SELECT image FROM repairs WHERE id = ?");
+    $legacy->execute([$id]);
+    $legacy_img = $legacy->fetchColumn();
+    if ($legacy_img) $paths[] = $legacy_img;
 
-    if ($deleted) {
-        $pdo->commit(); // [กูแก้] Commit DB ก่อน
+    // Delete DB records (repair_images cascade on DELETE of repairs)
+    $pdo->prepare("DELETE FROM repairs WHERE id = ?")->execute([$id]);
+    $pdo->commit();
 
-        // 3. [กูแก้!!] ลบภาพจากโฟลเดอร์ /uploads/repairs/ (ทำหลัง Commit)
-        if ($image_filename) {
-            
-            // สร้าง Path ที่ถูกต้อง
-            $upload_dir_path = realpath(__DIR__ . '/../../uploads/repairs');
-            $webroot_path = realpath(__DIR__ . '/../../');
-
-            if ($upload_dir_path && $webroot_path) {
-                // สร้าง Full Path (เป็นสตริง)
-                $file_path_string = $upload_dir_path . '/' . $image_filename;
-
-                // เช็คว่าไฟล์มีจริง
-                if (file_exists($file_path_string)) {
-                    // เช็คความปลอดภัย (กันแฮกเกอร์)
-                    $real_file_path = realpath($file_path_string);
-                    if ($real_file_path && strpos($real_file_path, $upload_dir_path) === 0) {
-                        @unlink($real_file_path); // ลบแม่ง!
-                    } else {
-                        error_log("Delete Repair FAILED (Security): " . $file_path_string);
-                    }
-                }
-            }
+    // Delete image files
+    $upload_root = realpath(__DIR__ . '/../../uploads');
+    foreach ($paths as $path) {
+        if (!$path) continue;
+        $abs = realpath(__DIR__ . '/../../' . ltrim($path, '/'));
+        if ($abs && $upload_root && str_starts_with($abs, $upload_root)) {
+            @unlink($abs);
         }
-
-    } else {
-      // ถ้าลบ DB ไม่สำเร็จ
-      $pdo->rollBack();
     }
 
-  } catch (Exception $e) {
-      if ($pdo->inTransaction()) {
-          $pdo->rollBack();
-      }
-      error_log("Delete Repair FAILED (DB): " . $e->getMessage());
-      // มึงอาจจะอยากโชว์ Error... แต่ตอนนี้เด้งกลับไปก่อน
-  }
+    $_SESSION['flash'] = 'ลบผลงานเรียบร้อยแล้ว';
+
+} catch (Exception $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    error_log('repairs/delete: ' . $e->getMessage());
 }
 
-// กลับไปยังหน้าหลัก
-header("Location: index.php");
+header('Location: index.php');
 exit;

@@ -1,834 +1,554 @@
 <?php
-/*
- * edit.php (CLEANED UP - EDIT-ONLY)
- * - [GEMINI EDIT v24 - THE REAL PATH FIX]
- * - PHP (Save): NOW SAVES FULL PATH (e.g., '/uploads/articles/pic.jpg')
- * - HTML (Display): NOW READS FULL PATH FROM DB (No prefix)
- * - This fixes the "Double Path" bug
- * - All other v22 features (Modals, JS Validation, CSRF) are kept.
- */
-
-// ================================================================
-// 1) Auth & DB
-// ================================================================
 session_start();
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_login();
 
-// [กูแก้] เพิ่ม CSRF Token (สำหรับฟอร์มหลัก)
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 $CSRF = $_SESSION['csrf_token'];
 
-// ---------------- Helpers ----------------
-function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
-function getv($k,$d=null){ return isset($_GET[$k]) ? trim((string)$_GET[$k]) : $d; }
-function postv($k,$d=null){ return isset($_POST[$k]) ? trim((string)$_POST[$k]) : $d; }
-function post_arr($k){ return isset($_POST[$k]) && is_array($_POST[$k]) ? $_POST[$k] : []; }
+function h($s) { return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 
-// Upload config & helpers
-// [กูแก้] ตั้งค่าขนาดไฟล์ตามใจมึง
-const MAX_MAIN_SIZE = 5 * 1024 * 1024; // 5MB
-const MAX_GALLERY_SIZE = 5 * 1024 * 1024; // 5MB (สำหรับรูปย่อย)
-$ALLOWED_EXT = ['jpg', 'jpeg', 'png', 'webp']; // อนุญาตไฟล์ต้นฉบับ
-$ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp']; // อนุญาต Mime type ต้นฉบับ
+const MAX_IMG_SIZE  = 10 * 1024 * 1024;
+const MAX_IMGS      = 5;
+const IMG_MAX_W     = 1200;
+const IMG_QUALITY   = 82;
+$ALLOWED_MIME = ['image/jpeg','image/png','image/webp'];
 
-// <-- [กูเพิ่ม] คำนวณ MB ไว้โชว์
-$max_main_mb = round(MAX_MAIN_SIZE / 1024 / 1024, 1);
-$max_gallery_mb = round(MAX_GALLERY_SIZE / 1024 / 1024, 1);
-// --- [จบจุดที่เพิ่ม] ---
+$CATEGORIES = ['MacBook','iPhone','iPad','iMac','MacMini','AirPods','AppleWatch','Adapter','Other'];
 
-function sanitize_filename($name){ $name = preg_replace('/[^a-zA-Z0-9\._-]/', '_', $name); return substr($name, -180); }
+function make_slug(string $s): string {
+    $s = strtolower(preg_replace('/[^\x00-\x7F]/u', '', $s));
+    $s = preg_replace('/[^a-z0-9\s-]/', '', $s);
+    $s = trim(preg_replace('/[\s-]+/', '-', $s), '-');
+    return $s ?: ('repair-' . date('Ymd') . '-' . substr(uniqid(), -5));
+}
 
-// [กูแก้] อัปเกรดฟังก์ชันเช็คไฟล์
-function valid_image_upload(array $file, int $maxSize, array $allowedMime): bool {
-    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) return false;
-    if (($file['size'] ?? 0) <= 0 || $file['size'] > $maxSize) return false;
-    if (!isset($file['tmp_name']) || !is_uploaded_file($file['tmp_name'])) return false;
-    
-    $finfo = new finfo(FILEINFO_MIME_TYPE);
-    $mime = $finfo->file($file['tmp_name']);
-    if (!in_array($mime, $allowedMime, true)) return false;
-
-    $ext = strtolower(pathinfo($file['name'] ?? '', PATHINFO_EXTENSION));
-    if (empty($ext) || !in_array($ext, $GLOBALS['ALLOWED_EXT'], true)) {
-        return false;
+function process_webp(string $tmp, string $dest, int $maxW = IMG_MAX_W, int $q = IMG_QUALITY): bool {
+    $info = @getimagesize($tmp);
+    if (!$info) return false;
+    [$w, $h, $type] = $info;
+    $src = match($type) {
+        IMAGETYPE_JPEG => @imagecreatefromjpeg($tmp),
+        IMAGETYPE_PNG  => @imagecreatefrompng($tmp),
+        IMAGETYPE_WEBP => @imagecreatefromwebp($tmp),
+        default        => false,
+    };
+    if (!$src) return false;
+    if ($w > $maxW) {
+        $nh  = (int)round($h * $maxW / $w);
+        $dst = imagecreatetruecolor($maxW, $nh);
+        imagecopyresampled($dst, $src, 0,0,0,0, $maxW, $nh, $w, $h);
+        imagedestroy($src);
+        $src = $dst;
     }
-    return true;
+    $ok = imagewebp($src, $dest, $q);
+    imagedestroy($src);
+    return $ok;
 }
 
-// ---------------- Init ----------------
-// [กูแก้!!] นี่คือ Path ที่มึงขอ
-$upload_dir_path = __DIR__ . '/../../uploads/articles'; 
-$upload_dir_url  = '/uploads/articles'; // [กูแก้] path สำหรับ DB
-if (!is_dir($upload_dir_path)) {
-  @mkdir($upload_dir_path, 0775, true);
+$id = (int)($_GET['id'] ?? 0);
+if (!$id) { header('Location: index.php'); exit; }
+
+$repair = $pdo->prepare("SELECT * FROM repairs WHERE id = ?");
+$repair->execute([$id]);
+$repair = $repair->fetch(PDO::FETCH_ASSOC);
+if (!$repair) { header('Location: index.php'); exit; }
+
+// Load existing images from repair_images
+$img_stmt = $pdo->prepare("SELECT * FROM repair_images WHERE repair_id = ? ORDER BY sort_order ASC, id ASC");
+$img_stmt->execute([$id]);
+$existing_images = $img_stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// If no repair_images but has legacy repairs.image, show it as a virtual entry
+if (empty($existing_images) && !empty($repair['image'])) {
+    $existing_images = [['id' => 'legacy', 'image_path' => $repair['image'], 'sort_order' => 0, 'is_cover' => 1, 'caption' => '']];
 }
 
-$id = max(0, (int)getv('id', 0));
-if ($id <= 0) {
-    header("Location: index.php");
-    exit;
-}
-
-$is_edit_mode = true;
-$page_title = "แก้ไขบทความ (ID: $id)";
 $error = '';
-$success = getv('saved') ? 'บันทึกข้อมูลเรียบร้อยแล้ว!' : '';
 
-// ================================================================
-// 3) Load for edit (ย้ายมาทำก่อน)
-// ================================================================
-$stmt = $pdo->prepare("SELECT * FROM articles WHERE id = ?");
-$stmt->execute([$id]);
-$article = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if (!$article) {
-  die('ไม่พบบทความนี้ (Article not found)');
-}
-
-$stmtImages = $pdo->prepare("SELECT * FROM article_images WHERE article_id = ? ORDER BY id ASC");
-$stmtImages->execute([$id]);
-$additionalImages = $stmtImages->fetchAll(PDO::FETCH_ASSOC);
-
-
-// ================================================================
-// 2) Handle POST (Save)
-// ================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-
-    // [กูแก้] เช็ค CSRF Token
-    if (empty($_POST['csrf_token']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'])) {
-        $error = 'Token ไม่ถูกต้อง, กรุณาลองใหม่';
+    if (!hash_equals($_SESSION['csrf_token'] ?? '', $_POST['csrf_token'] ?? '')) {
+        $error = 'CSRF token ไม่ถูกต้อง';
     } else {
         try {
+            $tracking_id   = (int)($_POST['tracking_id'] ?? 0) ?: null;
+            $title         = trim($_POST['title']       ?? '');
+            $title_en      = trim($_POST['title_en']    ?? '');
+            $slug          = trim($_POST['slug']        ?? '');
+            $meta_desc     = trim($_POST['meta_desc']   ?? '');
+            $category      = trim($_POST['category']    ?? '');
+            $model         = trim($_POST['model']       ?? '');
+            $issue         = trim($_POST['issue']       ?? '');
+            $issue_en      = trim($_POST['issue_en']    ?? '');
+            $fix_detail    = trim($_POST['fix_detail']  ?? '');
+            $fix_detail_en = trim($_POST['fix_detail_en'] ?? '');
+            $delete_ids    = array_map('intval', $_POST['delete_images'] ?? []);
+
+            if (!$title)      throw new Exception('กรุณากรอกชื่อผลงาน');
+            if (!$category)   throw new Exception('กรุณาเลือกหมวดหมู่');
+            if (!$model)      throw new Exception('กรุณากรอกรุ่นเครื่อง');
+            if (!$issue)      throw new Exception('กรุณากรอกอาการ');
+            if (!$fix_detail) throw new Exception('กรุณากรอกรายละเอียดการซ่อม');
+
+            if (!$slug) $slug = make_slug($title);
+            $slug = make_slug($slug);
+
+            // Unique slug check (exclude self)
+            $chk = $pdo->prepare("SELECT id FROM repairs WHERE slug = ? AND id != ?");
+            $chk->execute([$slug, $id]);
+            if ($chk->fetchColumn()) $slug .= '-' . substr(uniqid(), -4);
+
             $pdo->beginTransaction();
-            
-            $admin_id = $_SESSION['admin_id'] ?? null;
-            if (!$admin_id) {
-                throw new Exception('เซสชั่นหมดอายุ, กรุณาล็อกอินใหม่'); 
-            }
-            
-            // [กูแก้] ดึงค่าจากฟอร์ม
-            $title = $_POST['title'] ?? ($article['title'] ?? ''); 
-            $slug = trim($_POST['slug'] ?? '');
-            $content = $_POST['content'] ?? '';
-            $excerpt = $_POST['excerpt'] ?? '';
 
-            $title_en = $_POST['title_en'] ?? ($article['title_en'] ?? '');
-            $slug_en = trim($_POST['slug_en'] ?? '');
-            $content_en = $_POST['content_en'] ?? '';
-            $excerpt_en = $_POST['excerpt_en'] ?? '';
-
-            $category = $_POST['category'] ?? ($article['category'] ?? '');
-            $youtube_url = $_POST['youtube_url'] ?? ($article['youtube_url'] ?? '');
-            $status = isset($_POST['status']) ? 1 : 0;
-
-            // [กูแก้!!] $imageName ตอนนี้คือ Path เต็ม (เช่น /uploads/articles/pic.jpg)
-            $imageName = $article['image']; 
-            $imageFilename = basename($imageName); // -> 'pic.jpg'
-
-            // [กูแก้!!] ผ่าตัดระบบอัปโหลด + ลบ (รูปหลัก)
-            
-            // 2.1: เช็คว่า "มาร์ค" ให้ลบรูปเก่ามั้ย?
-            if (postv('delete_existing_image') === '1') {
-                if ($imageFilename && file_exists($upload_dir_path . "/" . $imageFilename)) {
-                    @unlink($upload_dir_path . "/" . $imageFilename);
+            // Delete marked images
+            foreach ($delete_ids as $del_id) {
+                if (!$del_id) continue;
+                $row = $pdo->prepare("SELECT image_path FROM repair_images WHERE id = ? AND repair_id = ?");
+                $row->execute([$del_id, $id]);
+                $path = $row->fetchColumn();
+                if ($path) {
+                    $abs = __DIR__ . '/../../' . ltrim($path, '/');
+                    if (file_exists($abs)) @unlink($abs);
                 }
-                $imageName = ''; // ล้างชื่อไฟล์ใน DB
+                $pdo->prepare("DELETE FROM repair_images WHERE id = ? AND repair_id = ?")->execute([$del_id, $id]);
             }
 
-            // 2.2: เช็คว่ามี "รูปใหม่" อัปโหลดมาทับมั้ย?
-            if (isset($_FILES['image']) && $_FILES['image']['error'] !== UPLOAD_ERR_NO_FILE) {
-                 
-                 if (!valid_image_upload($_FILES['image'], MAX_MAIN_SIZE, $ALLOWED_MIME)) { 
-                    throw new Exception('ไฟล์รูปหลักไม่ถูกต้อง/ใหญ่เกิน/ชนิดผิด (สูงสุด ' . $max_main_mb . 'MB)'); 
-                 }
-                 
-                 $ext = strtolower(pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION)); 
-                 $new_filename = time() . '_' . sanitize_filename($_FILES['image']['name']);
-                 
-                 $target_file = $upload_dir_path . '/' . $new_filename; 
-                 if (!move_uploaded_file($_FILES['image']['tmp_name'], $target_file)) { 
-                    throw new Exception('ย้ายไฟล์รูปหลักไม่สำเร็จ'); 
-                 }
+            // Upload new images
+            $current_count_stmt = $pdo->prepare("SELECT COUNT(*) FROM repair_images WHERE repair_id = ?");
+            $current_count_stmt->execute([$id]);
+            $current_count = (int)$current_count_stmt->fetchColumn();
+            $slots_left = MAX_IMGS - $current_count;
 
-                 // [สำคัญ] ถ้าอัปไฟล์ใหม่... ต้องลบไฟล์ "เก่า" ทิ้ง
-                 if ($imageFilename && file_exists($upload_dir_path . "/" . $imageFilename)) {
-                    @unlink($upload_dir_path . "/" . $imageFilename);
-                 }
-                 
-                 // [กูแก้!!] เซฟ "Path เต็ม"
-                 $imageName = $upload_dir_url . '/' . $new_filename; 
+            $new_images = [];
+            $files = $_FILES['images'] ?? [];
+            if (!empty($files['tmp_name']) && $slots_left > 0) {
+                $ym = date('Y/m');
+                $upload_dir = __DIR__ . '/../../uploads/repairs/' . $ym;
+                if (!is_dir($upload_dir)) mkdir($upload_dir, 0775, true);
+
+                foreach ($files['tmp_name'] as $i => $tmp) {
+                    if ($files['error'][$i] !== UPLOAD_ERR_OK) continue;
+                    if (count($new_images) >= $slots_left) break;
+                    if ($files['size'][$i] > MAX_IMG_SIZE) continue;
+                    if (!is_uploaded_file($tmp)) continue;
+                    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($tmp);
+                    if (!in_array($mime, $ALLOWED_MIME, true)) continue;
+
+                    $fname = bin2hex(random_bytes(8)) . '.webp';
+                    $dest  = $upload_dir . '/' . $fname;
+                    if (process_webp($tmp, $dest)) {
+                        $new_images[] = '/uploads/repairs/' . $ym . '/' . $fname;
+                    }
+                }
             }
-            // [จบจุดที่กูแก้]
 
-            $stmtUpdate = $pdo->prepare("UPDATE articles SET 
-                                          title=?, slug=?, excerpt=?, content=?, category=?, image=?, youtube_url=?, status=?,
-                                          title_en=?, slug_en=?, excerpt_en=?, content_en=?
-                                        WHERE id=?");
-                                        
-            $stmtUpdate->execute([
-              $title, $slug, $excerpt, $content, $category, $imageName, $youtube_url, $status,
-              $title_en, $slug_en, $excerpt_en, $content_en,
-              $id
+            // Get max sort_order
+            $max_ord = $pdo->prepare("SELECT COALESCE(MAX(sort_order),0) FROM repair_images WHERE repair_id = ?");
+            $max_ord->execute([$id]);
+            $sort_base = (int)$max_ord->fetchColumn() + 1;
+
+            foreach ($new_images as $j => $path) {
+                $pdo->prepare("INSERT INTO repair_images (repair_id, image_path, sort_order, is_cover) VALUES (?,?,?,0)")
+                    ->execute([$id, $path, $sort_base + $j]);
+            }
+
+            // Recompute cover
+            $first = $pdo->prepare("SELECT id, image_path FROM repair_images WHERE repair_id = ? ORDER BY sort_order ASC, id ASC LIMIT 1");
+            $first->execute([$id]);
+            $cover_row = $first->fetch(PDO::FETCH_ASSOC);
+            $pdo->prepare("UPDATE repair_images SET is_cover = 0 WHERE repair_id = ?")->execute([$id]);
+            $cover_path = '';
+            if ($cover_row) {
+                $pdo->prepare("UPDATE repair_images SET is_cover = 1 WHERE id = ?")->execute([$cover_row['id']]);
+                $cover_path = $cover_row['image_path'];
+            }
+
+            $pdo->prepare("
+                UPDATE repairs SET
+                  tracking_id=?, title=?, slug=?, meta_desc=?, model=?, issue=?, fix_detail=?,
+                  image=?, category=?, title_en=?, issue_en=?, fix_detail_en=?
+                WHERE id=?
+            ")->execute([
+                $tracking_id, $title, $slug, $meta_desc ?: null, $model, $issue, $fix_detail,
+                $cover_path ?: $repair['image'], $category,
+                $title_en ?: null, $issue_en ?: null, $fix_detail_en ?: null, $id
             ]);
 
-            // [กูแก้] อัปเดต Caption รูปเก่า
-            if (isset($_POST['existing_captions_th'])) {
-              $stmtCaption = $pdo->prepare("UPDATE article_images SET caption = ?, caption_en = ? WHERE id = ? AND article_id = ?");
-              foreach ($_POST['existing_captions_th'] as $img_id => $caption_th) {
-                $caption_en = $_POST['existing_captions_en'][$img_id] ?? '';
-                $stmtCaption->execute([$caption_th, $caption_en, $img_id, $id]); 
-              }
-            }
-
-            // [กูแก้!!] ผ่าตัดระบบอัปโหลด (รูปย่อย)
-            if (isset($_FILES['additional_images']) && !empty($_FILES['additional_images']['name'][0])) {
-              $imgStmt = $pdo->prepare("INSERT INTO article_images (article_id, image_path, caption, caption_en) VALUES (?, ?, ?, ?)");
-                
-              foreach ($_FILES['additional_images']['tmp_name'] as $index => $tmpName) {
-                  if (isset($_FILES['additional_images']['error'][$index]) && $_FILES['additional_images']['error'][$index] === UPLOAD_ERR_OK) {
-                      
-                      $file_check = [
-                          'name' => $_FILES['additional_images']['name'][$index],
-                          'type' => $_FILES['additional_images']['type'][$index],
-                          'tmp_name' => $tmpName,
-                          'error' => $_FILES['additional_images']['error'][$index],
-                          'size' => $_FILES['additional_images']['size'][$index]
-                      ];
-                      
-                      if (!valid_image_upload($file_check, MAX_GALLERY_SIZE, $ALLOWED_MIME)) {
-                          error_log("Skipped invalid gallery file: " . $file_check['name']);
-                          continue;
-                      }
-                      
-                      $ext = strtolower(pathinfo($file_check['name'], PATHINFO_EXTENSION));
-                      $fileName = time() . '-' . uniqid() . '.' . $ext;
-                      $target_file = $upload_dir_path . '/' . $fileName;
-
-                      if (move_uploaded_file($tmpName, $target_file)) {
-                          $caption_th = $_POST['caption_detail_th'][$index] ?? ''; 
-                          $caption_en = $_POST['caption_detail_en'][$index] ?? ''; 
-                          
-                          // [กูแก้!!] เซฟ "Path เต็ม"
-                          $db_path = $upload_dir_url . '/' . $fileName; 
-                          $imgStmt->execute([$id, $db_path, $caption_th, $caption_en]);
-                      }
-                  }
-              }
-            }
-            // [จบจุดที่กูแก้]
-
             $pdo->commit();
-            header("Location: index.php"); // เด้งกลับ Index (ถูกแล้ว)
+            $_SESSION['flash'] = 'บันทึกเรียบร้อยแล้ว';
+            header('Location: index.php');
             exit;
 
         } catch (Exception $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
-            $error = 'ฉิบหาย! บันทึกไม่สำเร็จ: '.$e->getMessage();
-            error_log('[edit.php Exception] '.$e->getMessage());
+            $error = $e->getMessage();
+            // Reload images
+            $img_stmt->execute([$id]);
+            $existing_images = $img_stmt->fetchAll(PDO::FETCH_ASSOC);
         }
-    } // จบ else (CSRF check)
-} // จบ if ($_SERVER['REQUEST_METHOD'] === 'POST')
+    }
+}
 
+// Load linked tracking job
+$linked_tracking = null;
+if ($repair['tracking_id']) {
+    $t = $pdo->prepare("SELECT id, ticket_number, customer_name, device_type, device_model, status FROM tracking WHERE id = ?");
+    $t->execute([$repair['tracking_id']]);
+    $linked_tracking = $t->fetch(PDO::FETCH_ASSOC);
+}
 
-// ================================================================
-// 4) HTML Output
-// ================================================================
+$current_img_count = count(array_filter($existing_images, fn($x) => $x['id'] !== 'legacy'));
+$slots_available   = MAX_IMGS - $current_img_count;
+
+$pageTitle = 'แก้ไขผลงาน';
 include __DIR__ . '/../templates/header_admin.php';
 ?>
-
 <style>
-  /* [CSS ทั้งก้อน... เหมือนเดิม] */
-  .drop-zone{border:2px dashed #ccc;border-radius:8px;padding:25px;text-align:center;color:#777;cursor:pointer;transition:all .2s}
-  .drop-zone.is-dragover{border-color:var(--primary,#007aff);background:var(--primary-ghost,#f4f8ff)}
-  .drop-zone input[type=file]{display:none}
-  .image-preview{display:flex;flex-wrap:wrap;gap:10px;margin-top:15px}
-  .image-preview-item{position:relative;border:1px solid var(--ui-border,#ddd);border-radius:5px;padding:5px;background:var(--ui-bg-alt,#f9f9f9)}
-  .image-preview-item img{max-width:100px;max-height:100px;object-fit:cover;border-radius:4px;display:block}
-  .js-delete-preview {
-      position: absolute; top: -8px; right: -8px; width: 22px; height: 22px;
-      background: #c00; color: white; border: 2px solid white;
-      border-radius: 50%; font-size: 14px; font-weight: bold;
-      line-height: 18px; text-align: center; cursor: pointer;
-      padding: 0; z-index: 2; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-  }
-  .js-delete-preview:hover { background: #a00; }
-  .is-marked-for-delete { display: none !important; }
-  .existing-image img{border:2px solid var(--primary,#007aff)}
-  .msg{padding:15px;border-radius:5px;margin-bottom:20px;font-weight:500}
-  .msg-error{background:#ffebee;color:#c62828;border:1px solid #c62828}
-  .msg-success{background:#e8f5e9;color:#2e7d32;border:1px solid #2e7d32}
-  .form-helper-text {
-      font-size: 0.85rem; color: #555;
-      margin: -5px 0 10px; line-height: 1.4;
-  }
-  .loading-overlay {
-    display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6);
-    z-index: 9998; flex-direction: column; align-items: center; justify-content: center;
-    color: white; font-size: 1.2rem; font-weight: 600;
-  }
-  .loading-overlay.show { display: flex; }
-  .loading-spinner {
-    border: 4px solid #f3f3f3; border-top: 4px solid var(--primary, #007aff);
-    border-radius: 50%; width: 50px; height: 50px;
-    animation: spin 1s linear infinite; margin-bottom: 20px;
-  }
-  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-  .confirm-overlay {
-    display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6);
-    z-index: 9999; align-items: center; justify-content: center;
-  }
-  .confirm-overlay.show { display: flex; }
-  .confirm-dialog {
-    background: var(--ui-surface, #fff); padding: 25px 30px;
-    border-radius: var(--radius-lg, 16px); box-shadow: var(--shadow-card, 0 4px 12px rgba(0,0,0,.08));
-    width: 90%; max-width: 400px; text-align: center;
-  }
-  .confirm-dialog p { font-size: 1.1rem; font-weight: 600; margin: 0 0 20px; color: var(--text-default, #222); }
-  .confirm-actions { display: flex; justify-content: center; gap: 15px; }
-  .cmodal-btn-cancel,
-  .cmodal-btn-confirm,
-  .cmodal-btn-primary {
-    flex: 1; padding: 10px 20px; font-size: 1rem; font-weight: 600;
-    border: none; cursor: pointer; text-decoration: none; line-height: 1.5;
-    border-radius: 6px; transition: background-color 0.2s, border-color 0.2s;
-  }
-  .cmodal-btn-cancel { background-color: #f0f0f0; color: #333; border: 1px solid #ccc; }
-  .cmodal-btn-cancel:hover { background-color: #e0e0e0; }
-  .cmodal-btn-confirm { background: #c00; color: white; border: 1px solid #c00; }
-  .cmodal-btn-confirm:hover { background: #a00; }
-  .cmodal-btn-primary { background: var(--primary, #007aff); color: white; border: 1px solid var(--primary, #007aff); }
-  .cmodal-btn-primary:hover { background: #0056b3; }
-  .alert-overlay {
-    display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.6);
-    z-index: 10000; align-items: center; justify-content: center;
-  }
-  .alert-overlay.show { display: flex; }
-  .alert-dialog {
-    background: var(--ui-surface, #fff); padding: 25px 30px;
-    border-radius: var(--radius-lg, 16px); box-shadow: var(--shadow-card, 0 4px 12px rgba(0,0,0,.08));
-    width: 90%; max-width: 400px; text-align: center;
-    display: flex; flex-direction: column; align-items: center;
-  }
-  .alert-icon { font-size: 48px; color: #f59e0b; margin-bottom: 15px; user-select: none; }
-  .alert-dialog p { font-size: 1.1rem; font-weight: 600; margin: 0 0 20px; color: var(--text-default, #222); white-space: pre-wrap; }
-  .alert-actions { width: 100%; }
+.rp-wrap{max-width:860px;margin:0 auto;padding:24px 0 60px;}
+.rp-card{background:var(--bg-surface,#fff);border:1px solid var(--border,#e5e7eb);border-radius:14px;padding:24px;margin-bottom:20px;}
+.rp-card h3{margin:0 0 16px;font-size:15px;font-weight:700;color:var(--text-main,#111);display:flex;align-items:center;gap:8px;}
+.rp-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.rp-label{font-size:12px;font-weight:600;color:var(--text-muted,#6b7280);margin-bottom:5px;display:block;text-transform:uppercase;letter-spacing:.4px;}
+.rp-input,.rp-select,.rp-textarea{width:100%;padding:9px 12px;border:1.5px solid var(--border,#e5e7eb);border-radius:8px;font-size:14px;background:var(--bg-surface,#fff);color:var(--text-main,#111);box-sizing:border-box;transition:border-color .15s;}
+.rp-input:focus,.rp-select:focus,.rp-textarea:focus{outline:none;border-color:var(--primary,#3b82f6);}
+.rp-textarea{min-height:100px;resize:vertical;font-family:inherit;}
+.rp-hint{font-size:11px;color:var(--text-muted,#9ca3af);margin-top:4px;}
+.char-count{float:right;font-size:11px;color:var(--text-muted,#9ca3af);}
+.tracking-search-wrap{position:relative;}
+.tracking-results{position:absolute;top:100%;left:0;right:0;background:#fff;border:1.5px solid var(--primary,#3b82f6);border-top:none;border-radius:0 0 10px 10px;z-index:50;max-height:240px;overflow-y:auto;box-shadow:0 4px 16px rgba(0,0,0,.1);}
+.tracking-item{padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border,#f3f4f6);font-size:13px;}
+.tracking-item:hover{background:var(--bg-surface-alt,#f8fafc);}
+.tracking-badge{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;background:#3b82f614;border:1px solid #3b82f644;border-radius:8px;font-size:13px;margin-top:10px;width:100%;box-sizing:border-box;}
+.tracking-badge .tb-clear{cursor:pointer;color:#ef4444;font-weight:700;margin-left:auto;}
+/* Existing images */
+.existing-imgs{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:14px;}
+.ex-img-item{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden;background:#f3f4f6;}
+.ex-img-item img{width:100%;height:100%;object-fit:cover;}
+.ex-img-item .ex-del{position:absolute;top:4px;right:4px;width:22px;height:22px;background:#ef4444;color:#fff;border-radius:50%;border:2px solid #fff;cursor:pointer;font-size:12px;display:flex;align-items:center;justify-content:center;z-index:2;}
+.ex-img-item.marked{opacity:.35;}
+.ex-img-item .cover-badge{position:absolute;bottom:4px;left:4px;background:#10b981;color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;}
+/* New image slots */
+.img-slots{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:4px;}
+.img-slot{aspect-ratio:1;border:2px dashed var(--border,#e5e7eb);border-radius:10px;position:relative;overflow:hidden;background:var(--bg-surface-alt,#f9fafb);}
+.img-slot.has-img{border-style:solid;border-color:var(--primary,#3b82f6);}
+.img-slot img{width:100%;height:100%;object-fit:cover;}
+.img-slot .slot-label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-muted,#9ca3af);font-size:11px;gap:4px;cursor:pointer;}
+.img-slot .slot-rm{position:absolute;top:4px;right:4px;width:20px;height:20px;background:#ef4444;color:#fff;border-radius:50%;border:none;cursor:pointer;font-size:12px;display:none;align-items:center;justify-content:center;}
+.img-slot.has-img .slot-rm{display:flex;}
+.img-dropzone{border:2px dashed var(--border,#e5e7eb);border-radius:10px;padding:16px;text-align:center;color:var(--text-muted,#9ca3af);cursor:pointer;transition:all .2s;margin-top:10px;}
+.img-dropzone.drag-over{border-color:var(--primary,#3b82f6);background:#3b82f608;}
+.rp-actions{display:flex;align-items:center;gap:12px;padding-top:4px;}
+.btn-save{padding:11px 28px;background:var(--primary,#3b82f6);color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:700;cursor:pointer;}
+.btn-save:hover{opacity:.9;}
+.btn-cancel{padding:11px 20px;background:none;border:1.5px solid var(--border,#e5e7eb);border-radius:9px;font-size:14px;color:var(--text-main,#111);cursor:pointer;text-decoration:none;}
+.msg-error{background:#fef2f2;border:1px solid #fca5a5;color:#dc2626;padding:12px 16px;border-radius:8px;margin-bottom:16px;font-size:14px;}
 </style>
 
-<main class="main" id="main-content">
-  <div class="topbar">
-    <span>แก้ไขบทความ (Edit Article #<?= h($id) ?>)</span>
-    <a href="index.php" class="view-site">← กลับหน้ารายการ</a>
+<div class="rp-wrap">
+  <div style="display:flex;align-items:center;gap:12px;margin-bottom:20px;">
+    <a href="index.php" style="color:var(--text-muted);text-decoration:none;font-size:13px;">← กลับ</a>
+    <h2 style="margin:0;font-size:20px;">แก้ไขผลงาน #<?= $id ?></h2>
   </div>
 
-  <div class="form-section">
-    <?php if ($error): ?><div class="msg msg-error"><?= h($error) ?></div><?php endif; ?>
-    <?php if ($success): ?><div class="msg msg-success"><?= h($success) ?></div><?php endif; ?>
-    
-    <form method="POST" enctype="multipart/form-data">
-        <input type="hidden" id="csrf_token" name="csrf_token" value="<?= h($CSRF) ?>">
-        <input type="hidden" name="delete_existing_image" id="delete_existing_image" value="0">
-        
-      <fieldset>
-        <legend>ข้อมูลภาษาไทย (Thai Content)</legend>
-        <label for="title">ชื่อบทความ (Title TH):</label>
-        <input type="text" id="title" name="title" value="<?= h($article['title']) ?>" required>
+  <?php if ($error): ?><div class="msg-error"><?= h($error) ?></div><?php endif; ?>
 
-        <label for="slug">Slug (URL TH):</label>
-        <input type="text" id="slug" name="slug" value="<?= h($article['slug']) ?>" required>
+  <form method="POST" enctype="multipart/form-data" id="repair-form">
+    <input type="hidden" name="csrf_token" value="<?= h($CSRF) ?>">
+    <input type="hidden" name="tracking_id" id="tracking_id_input" value="<?= h($repair['tracking_id'] ?? '') ?>">
 
-        <label for="content">เนื้อหาหลัก (Content TH):</label>
-        <input id="content" type="hidden" name="content" value="<?= h($article['content']) ?>">
-        <trix-editor input="content"></trix-editor>
-
-        <label for="excerpt">สรุปเนื้อหา (Excerpt TH):</label>
-        <textarea id="excerpt" name="excerpt" rows="3"><?= h($article['excerpt']) ?></textarea>
-      </fieldset>
-
-      <hr style="margin: 20px 0;">
-
-      <fieldset>
-        <legend>ข้อมูลภาษาอังกฤษ (English Content)</legend>
-        <label for="title_en">ชื่อบทความ (Title EN):</label>
-        <input type="text" id="title_en" name="title_en" value="<?= h($article['title_en'] ?? '') ?>">
-
-        <label for="slug_en">Slug (URL EN):</label>
-        <input type="text" id="slug_en" name="slug_en" value="<?= h($article['slug_en'] ?? '') ?>">
-
-        <label for="content_en">เนื้อหาหลัก (Content EN):</label>
-        <input id="content_en" type="hidden" name="content_en" value="<?= h($article['content_en'] ?? '') ?>">
-        <trix-editor input="content_en"></trix-editor>
-
-        <label for="excerpt_en">สรุปเนื้อหา (Excerpt EN):</label>
-        <textarea id="excerpt_en" name="excerpt_en" rows="3"><?= h($article['excerpt_en'] ?? '') ?></textarea>
-      </fieldset>
-
-      <hr style="margin: 20px 0;">
-
-      <fieldset>
-        <legend>ข้อมูลทั่วไป (General Information)</legend>
-        <div class="form-group">
-          <label for="category">หมวดหมู่ (Category):</label>
-          <select id="category" name="category">
-            <option value="tip" <?= ($article['category'] ?? '') === 'tip' ? 'selected' : '' ?>>เทคนิค (Tips & Tricks)</option>
-            <option value="repair" <?= ($article['category'] ?? '') === 'repair' ? 'selected' : '' ?>>การซ่อม (Repair Insights)</option>
-            <option value="update" <?= ($article['category'] ?? '') === 'update' ? 'selected' : '' ?>>อัปเดต (Updates)</option>
-          </select>
-        </div>
-
-        <label for="youtube_url">YouTube Video ID:</label>
-        <input type="text" id="youtube_url" name="youtube_url" value="<?= h($article['youtube_url'] ?? '') ?>">
-
-        <label for="main_image_drop_zone">เปลี่ยนภาพหลัก (Replace Main Image):</label>
-        <p class="form-helper-text">อนุญาต .jpg, .png, .webp (สูงสุด <?= $max_main_mb ?>MB)</p>
-        <input type="file" id="main_image" name="main_image" accept="image/*">
-        <div class="drop-zone" id="main_image_drop_zone">
-            <span class="material-symbols-rounded" style="font-size:32px">upload_file</span>
-            <div>ลากไฟล์ใหม่มาใส่ หรือ คลิกเพื่อเปลี่ยน</div>
-        </div>
-        
-        <div class="image-preview" id="mainImagePreview">
-          <?php if (!empty($article['image'])): ?>
-            <div class="image-preview-item existing-image" data-id="1">
-              <img src="<?= h($article['image']) ?>" alt="Current main image">
-              <button type="button" class="js-delete-preview js-delete-existing" aria-label="ลบรูปเก่า">&times;</button>
+    <!-- Tracking -->
+    <div class="rp-card">
+      <h3><span class="material-symbols-rounded" style="font-size:18px;color:#3b82f6;">link</span> ผูกกับงานซ่อม</h3>
+      <?php if ($linked_tracking): ?>
+        <div id="tracking_selected">
+          <div class="tracking-badge">
+            <span class="material-symbols-rounded" style="font-size:16px;color:#3b82f6;">task_alt</span>
+            <div>
+              <div style="font-weight:700;font-size:13px;"><?= h($linked_tracking['ticket_number']) ?></div>
+              <div style="font-size:12px;color:var(--text-muted);"><?= h($linked_tracking['device_type'].' '.($linked_tracking['device_model']??'')) ?> · <?= h($linked_tracking['customer_name']??'') ?></div>
             </div>
-          <?php endif; ?>
+            <button type="button" class="tb-clear" onclick="clearTracking()">✕</button>
           </div>
-        <input type="hidden" name="existing_main_image" value="<?= h($article['image']) ?>">
-        </fieldset>
+        </div>
+        <div id="tracking_search_wrap" style="display:none;">
+      <?php else: ?>
+        <div id="tracking_selected" style="display:none;"></div>
+        <div id="tracking_search_wrap">
+      <?php endif; ?>
+          <div class="tracking-search-wrap">
+            <input type="text" id="tracking_search" class="rp-input" placeholder="🔍 ค้นหา ticket / ชื่อลูกค้า (เฉพาะงานที่เสร็จแล้ว)" autocomplete="off">
+            <div class="tracking-results" id="tracking_results" style="display:none;"></div>
+          </div>
+        </div>
+    </div>
 
-      <hr style="margin: 20px 0;">
+    <!-- Images -->
+    <div class="rp-card">
+      <h3><span class="material-symbols-rounded" style="font-size:18px;color:#f59e0b;">photo_library</span> รูปภาพ (สูงสุด <?= MAX_IMGS ?> รูป)</h3>
 
-      <fieldset>
-        <legend>จัดการภาพเพิ่มเติม (Manage Additional Images)</legend>
-        
-        <label>ภาพเพิ่มเติมที่มีอยู่:</label>
-        <div id="existing-images-container">
-          <?php foreach ($additionalImages as $index => $img): ?>
-            <div class="additional-image-group" style="border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 8px;">
-              <div style="display:flex; align-items:flex-start; gap:15px;">
-                <img src="<?= h($img['image_path']) ?>" style="max-width:100px; border-radius:8px;">
-                <div style="flex-grow:1;">
-                  <label for="existing-caption-th-<?= $img['id'] ?>">คำอธิบายภาพ (Caption TH):</label>
-                  <input id="existing-caption-th-<?= $img['id'] ?>" type="hidden" name="existing_captions_th[<?= $img['id'] ?>]" value="<?= h($img['caption'] ?? '') ?>">
-                  <trix-editor input="existing-caption-th-<?= $img['id'] ?>"></trix-editor>
-                  
-                  <label for="existing-caption-en-<?= $img['id'] ?>" style="margin-top:10px;">คำอธิบายภาพ (Caption EN):</label>
-                  <input id="existing-caption-en-<?= $img['id'] ?>" type="hidden" name="existing_captions_en[<?= $img['id'] ?>]" value="<?= h($img['caption_en'] ?? '') ?>">
-                  <trix-editor input="existing-caption-en-<?= $img['id'] ?>"></trix-editor>
-                </div>
-              </div>
-              <a href="delete_image.php?id=<?= $img['id'] ?>&article_id=<?= $id ?>&csrf=<?= $CSRF ?>" class="btn-delete js-delete-gallery-db" style="color:red; text-decoration:none; margin-top:10px; display:inline-block;">ลบภาพนี้</a>
+      <?php if ($existing_images): ?>
+        <p class="rp-label" style="margin-bottom:10px;">รูปปัจจุบัน — กด ✕ เพื่อลบ</p>
+        <div class="existing-imgs">
+          <?php foreach($existing_images as $img): ?>
+            <div class="ex-img-item" id="eximg-<?= h($img['id']) ?>">
+              <img src="<?= h($img['image_path']) ?>" alt="" loading="lazy">
+              <?php if ($img['is_cover']): ?><div class="cover-badge">ปก</div><?php endif; ?>
+              <?php if ($img['id'] !== 'legacy'): ?>
+                <button type="button" class="ex-del" onclick="markDelete(<?= (int)$img['id'] ?>)">✕</button>
+                <input type="checkbox" name="delete_images[]" id="del-<?= (int)$img['id'] ?>" value="<?= (int)$img['id'] ?>" style="display:none;">
+              <?php endif; ?>
             </div>
           <?php endforeach; ?>
         </div>
+      <?php endif; ?>
 
-        <label style="margin-top:20px; display:block;">เพิ่มภาพเพิ่มเติมใหม่ + คำอธิบาย:</label>
-        <p class="form-helper-text">อนุญาต .jpg, .png, .webp (ไฟล์ละไม่เกิน <?= $max_gallery_mb ?>MB). รวมไม่เกิน 5 รูป</p>
-        <div id="additional-container"></div>
-        <button type="button" id="addMoreImagesBtn" style="margin-top: 10px;" class="btn-secondary">
-          <span class="material-symbols-rounded" style="vertical-align: middle;">add_photo_alternate</span> เพิ่มรูปเพิ่มเติม
-        </button>
-      </fieldset>
+      <?php if ($slots_available > 0): ?>
+        <p class="rp-label">เพิ่มรูปใหม่ (เหลือ <?= $slots_available ?> ช่อง)</p>
+        <div class="img-slots" id="img-slots">
+          <?php for($i=0;$i<$slots_available;$i++): ?>
+          <div class="img-slot" id="slot-<?= $i ?>">
+            <div class="slot-label">
+              <span class="material-symbols-rounded" style="font-size:22px;">add_photo_alternate</span>
+              <span>รูปใหม่</span>
+            </div>
+            <button type="button" class="slot-rm" onclick="removeSlot(<?= $i ?>)">✕</button>
+          </div>
+          <?php endfor; ?>
+        </div>
+        <div class="img-dropzone" id="img-dropzone" onclick="document.getElementById('images_input').click()">
+          <span class="material-symbols-rounded" style="font-size:24px;display:block;margin-bottom:4px;">cloud_upload</span>
+          คลิกหรือลากรูปมาใส่ · ระบบแปลง WebP อัตโนมัติ
+        </div>
+        <input type="file" id="images_input" name="images[]" multiple accept="image/jpeg,image/png,image/webp" style="display:none;">
+      <?php else: ?>
+        <p class="rp-hint">รูปเต็มแล้ว (<?= MAX_IMGS ?>/<?= MAX_IMGS ?>) — ลบรูปเก่าก่อนเพื่อเพิ่มใหม่</p>
+      <?php endif; ?>
+    </div>
 
-      <div class="form-actions" style="margin-top:20px;">
-        <div class="form-checkbox">
-          <input type="checkbox" name="status" id="status" <?= !empty($article['status']) ? 'checked' : '' ?>>
-          <label for="status">เผยแพร่บทความ (Publish)</label>
+    <!-- Title + SEO -->
+    <div class="rp-card">
+      <h3><span class="material-symbols-rounded" style="font-size:18px;color:#8b5cf6;">title</span> หัวข้อ &amp; SEO</h3>
+      <div class="rp-grid" style="margin-bottom:14px;">
+        <div>
+          <label class="rp-label">ชื่อผลงาน (TH) <span style="color:#ef4444">*</span></label>
+          <input type="text" name="title" class="rp-input" value="<?= h($repair['title']) ?>" required>
+        </div>
+        <div>
+          <label class="rp-label">Title (EN)</label>
+          <input type="text" name="title_en" class="rp-input" value="<?= h($repair['title_en'] ?? '') ?>">
         </div>
       </div>
-
-      <div style="margin-top:20px;">
-        <button type="submit" class="btn-primary">บันทึกการเปลี่ยนแปลง (Save Changes)</button>
-        <a href="index.php" class="btn-secondary" style="margin-left: 10px;">← ย้อนกลับ (Back)</a>
+      <div class="rp-grid" style="margin-bottom:14px;">
+        <div>
+          <label class="rp-label">Slug (URL) <span style="color:#ef4444">*</span></label>
+          <input type="text" name="slug" class="rp-input" value="<?= h($repair['slug'] ?? '') ?>" placeholder="repair-macbook-screen" pattern="[a-z0-9\-]+" required>
+          <p class="rp-hint">ใช้ตัวเล็ก a-z, 0-9, ขีด (-) · URL: /work/<?= h($repair['slug'] ?? 'slug') ?></p>
+        </div>
+        <div>
+          <label class="rp-label">Meta Description <span id="meta_count" class="char-count"><?= strlen($repair['meta_desc'] ?? '') ?>/160</span></label>
+          <input type="text" name="meta_desc" id="meta_input" class="rp-input" value="<?= h($repair['meta_desc'] ?? '') ?>" maxlength="160" oninput="document.getElementById('meta_count').textContent=this.value.length+'/160'">
+        </div>
       </div>
-    </form>
-  </div>
-</main>
+      <div class="rp-grid">
+        <div>
+          <label class="rp-label">หมวดหมู่ <span style="color:#ef4444">*</span></label>
+          <select name="category" class="rp-select" required>
+            <option value="">-- เลือก --</option>
+            <?php foreach($CATEGORIES as $c): ?>
+              <option value="<?= h($c) ?>" <?= ($repair['category'] ?? '') === $c ? 'selected' : '' ?>><?= h($c) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div>
+          <label class="rp-label">รุ่นเครื่อง <span style="color:#ef4444">*</span></label>
+          <input type="text" name="model" class="rp-input" id="model_input" value="<?= h($repair['model']) ?>" required>
+        </div>
+      </div>
+    </div>
 
-<div id="loadingOverlay" class="loading-overlay"> ... </div>
-<div id="alertOverlay" class="alert-overlay"> ... </div>
-<div id="confirmOverlay" class="confirm-overlay"> ... </div>
+    <!-- Content -->
+    <div class="rp-card">
+      <h3><span class="material-symbols-rounded" style="font-size:18px;color:#10b981;">article</span> เนื้อหา</h3>
+      <div class="rp-grid" style="margin-bottom:14px;">
+        <div>
+          <label class="rp-label">อาการ / ปัญหา (TH) <span style="color:#ef4444">*</span></label>
+          <textarea name="issue" id="issue_input" class="rp-textarea" required><?= h($repair['issue']) ?></textarea>
+        </div>
+        <div>
+          <label class="rp-label">Problem (EN)</label>
+          <textarea name="issue_en" class="rp-textarea"><?= h($repair['issue_en'] ?? '') ?></textarea>
+        </div>
+      </div>
+      <div class="rp-grid">
+        <div>
+          <label class="rp-label">รายละเอียดการซ่อม (TH) <span style="color:#ef4444">*</span></label>
+          <textarea name="fix_detail" class="rp-textarea" style="min-height:140px;" required><?= h($repair['fix_detail']) ?></textarea>
+        </div>
+        <div>
+          <label class="rp-label">Repair Detail (EN)</label>
+          <textarea name="fix_detail_en" class="rp-textarea" style="min-height:140px;"><?= h($repair['fix_detail_en'] ?? '') ?></textarea>
+        </div>
+      </div>
+    </div>
 
-<?php include '/../templates/footer_admin.php'; ?>
+    <div class="rp-actions">
+      <button type="submit" class="btn-save">
+        <span class="material-symbols-rounded" style="font-size:16px;vertical-align:-3px;">save</span>
+        บันทึก
+      </button>
+      <a href="index.php" class="btn-cancel">ยกเลิก</a>
+    </div>
+  </form>
+</div>
 
-<link rel="stylesheet" type="text/css" href="https://unpkg.com/trix@2.0.0/dist/trix.css">
-<script type="text/javascript" src="https://unpkg.com/trix@2.0.0/dist/trix.umd.min.js"></script>
+<?php include __DIR__ . '/../templates/footer_admin.php'; ?>
 
 <script>
-  document.addEventListener('DOMContentLoaded', () => {
+// ── Delete existing image ─────────────────────────────────────
+function markDelete(imgId) {
+  const item = document.getElementById('eximg-' + imgId);
+  const chk  = document.getElementById('del-' + imgId);
+  if (!item || !chk) return;
+  const marked = chk.checked;
+  chk.checked = !marked;
+  item.classList.toggle('marked', !marked);
+}
 
-    // ... (JS ทั้งหมด... เหมือนเดิม... ไม่ต้องแก้) ...
-    // (JS (v22) มัน "ฉลาด" อยู่แล้ว... มันไม่ได้พัง)
+// ── Tracking search ───────────────────────────────────────────
+const trackResults = document.getElementById('tracking_results');
+const trackSel     = document.getElementById('tracking_selected');
+const trackWrap    = document.getElementById('tracking_search_wrap');
+let searchTimer;
 
-    // --- [กูแก้] Logic "กำลังบันทึก" ---
-    const mainForm = document.querySelector('.form-section > form'); 
-    const loadingOverlay = document.getElementById('loadingOverlay');
-    if (mainForm && loadingOverlay) {
-        mainForm.addEventListener('submit', (e) => {
-            loadingOverlay.classList.add('show');
+const trackSearch = document.getElementById('tracking_search');
+if (trackSearch) {
+  trackSearch.addEventListener('input', function() {
+    clearTimeout(searchTimer);
+    const q = this.value.trim();
+    if (q.length < 1) { trackResults.style.display = 'none'; return; }
+    searchTimer = setTimeout(() => {
+      fetch('api_tracking.php?q=' + encodeURIComponent(q))
+        .then(r => r.json())
+        .then(rows => {
+          if (!rows.length) { trackResults.style.display = 'none'; return; }
+          trackResults.innerHTML = rows.map(r =>
+            `<div class="tracking-item" onclick='selectTracking(${JSON.stringify(r)})'>
+              <div style="font-weight:700;color:var(--primary,#3b82f6);">${r.ticket_number} · ${r.device_type} ${r.device_model||''}</div>
+              <div style="color:var(--text-muted);font-size:12px;">${r.customer_name||''} · สถานะ: ${r.status}</div>
+            </div>`).join('');
+          trackResults.style.display = 'block';
         });
+    }, 300);
+  });
+}
+
+document.addEventListener('click', e => {
+  if (!e.target.closest('.tracking-search-wrap')) {
+    if (trackResults) trackResults.style.display = 'none';
+  }
+});
+
+function selectTracking(r) {
+  document.getElementById('tracking_id_input').value = r.id;
+  trackSel.innerHTML = `<div class="tracking-badge">
+    <span class="material-symbols-rounded" style="font-size:16px;color:#3b82f6;">task_alt</span>
+    <div>
+      <div style="font-weight:700;font-size:13px;">${r.ticket_number}</div>
+      <div style="font-size:12px;color:var(--text-muted);">${r.device_type} ${r.device_model||''} · ${r.customer_name||''}</div>
+    </div>
+    <button type="button" class="tb-clear" onclick="clearTracking()">✕</button>
+  </div>`;
+  trackSel.style.display = 'block';
+  if (trackWrap) trackWrap.style.display = 'none';
+  if (r.device_model && document.getElementById('model_input'))
+    document.getElementById('model_input').value = r.device_model;
+  if (r.problem_details && document.getElementById('issue_input') && !document.getElementById('issue_input').value)
+    document.getElementById('issue_input').value = r.problem_details;
+}
+
+function clearTracking() {
+  document.getElementById('tracking_id_input').value = '';
+  trackSel.style.display = 'none';
+  if (trackSel) trackSel.innerHTML = '';
+  if (trackWrap) trackWrap.style.display = 'block';
+}
+
+// ── New image upload ──────────────────────────────────────────
+const SLOTS_AVAIL = <?= $slots_available ?>;
+let imageFiles = [];
+
+function renderSlots() {
+  for (let i = 0; i < SLOTS_AVAIL; i++) {
+    const slot = document.getElementById('slot-' + i);
+    if (!slot) continue;
+    const label = slot.querySelector('.slot-label');
+    const oldImg = slot.querySelector('img');
+    if (oldImg) oldImg.remove();
+    const file = imageFiles[i];
+    if (file) {
+      slot.classList.add('has-img');
+      if (label) label.style.display = 'none';
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(file);
+      slot.insertBefore(img, slot.firstChild);
+    } else {
+      slot.classList.remove('has-img');
+      if (label) label.style.display = '';
     }
+  }
+  syncFileInput();
+}
 
-    // --- [กูเพิ่ม!!] Logic "แจ้งเตือน" กลางจอ ---
-    const alertOverlay = document.getElementById('alertOverlay');
-    const alertMsgEl = document.getElementById('alertMessage');
-    const alertOkBtn = document.getElementById('alertBtnOk');
-    function showCustomAlert(message) {
-        if (!alertOverlay || !alertMsgEl) { alert(message); return; }
-        alertMsgEl.textContent = message;
-        alertOverlay.classList.add('show');
-    }
-    alertOkBtn.addEventListener('click', () => {
-        alertOverlay.classList.remove('show');
-    });
+function syncFileInput() {
+  const inp = document.getElementById('images_input');
+  if (!inp) return;
+  const dt = new DataTransfer();
+  imageFiles.forEach(f => dt.items.add(f));
+  inp.files = dt.files;
+}
 
-    // --- [กูเพิ่ม!!] Logic "ยืนยัน" กลางจอ ---
-    const confirmOverlay = document.getElementById('confirmOverlay');
-    const confirmMsgEl = document.getElementById('confirmMessage');
-    const confirmOkBtn = document.getElementById('confirmBtnOk');
-    const confirmCancelBtn = document.getElementById('confirmBtnCancel');
-    let confirmCallback = null; 
-    function showCustomConfirm(message, onConfirm) {
-        if (!confirmOverlay || !confirmMsgEl) {
-            if (confirm(message)) onConfirm();
-            return;
-        }
-        confirmMsgEl.textContent = message;
-        confirmCallback = onConfirm; 
-        confirmOverlay.classList.add('show');
-    }
-    confirmCancelBtn.addEventListener('click', () => {
-        confirmOverlay.classList.remove('show');
-        confirmCallback = null;
-    });
-    confirmOkBtn.addEventListener('click', () => {
-        if (typeof confirmCallback === 'function') confirmCallback();
-        confirmOverlay.classList.remove('show');
-        confirmCallback = null;
-    });
-    
-    // --- [กูเพิ่ม!!] ดักลิงก์ "ลบรูปย่อย" ให้ใช้ป๊อปอัพสวยๆ
-    document.addEventListener('click', function(e) {
-        const deleteLink = e.target.closest('.js-delete-gallery-db');
-        if (deleteLink) {
-            e.preventDefault(); // หยุดลิงก์
-            const href = deleteLink.href;
-            showCustomConfirm('แน่ใจนะว่าจะลบภาพและคำอธิบายนี้? (ลบถาวร!)', () => {
-                window.location.href = href; // ไปต่อ
-            });
-        }
-    });
+function addFiles(newFiles) {
+  for (const f of newFiles) {
+    if (imageFiles.length >= SLOTS_AVAIL) break;
+    if (!['image/jpeg','image/png','image/webp'].includes(f.type)) continue;
+    if (f.size > 10*1024*1024) continue;
+    imageFiles.push(f);
+  }
+  renderSlots();
+}
 
+function removeSlot(i) {
+  imageFiles.splice(i, 1);
+  renderSlots();
+}
 
-    // --- [กูแก้!!] สร้าง "เครื่องเช็คไฟล์" ---
-    const MAX_FILE_SIZE_MAIN = <?= MAX_MAIN_SIZE ?>;
-    const MAX_FILE_SIZE_GALLERY = <?= MAX_GALLERY_SIZE ?>;
-    const ALLOWED_MIME_TYPES = <?= json_encode($ALLOWED_MIME) ?>;
-    const ALLOWED_EXTS = <?= json_encode($ALLOWED_EXT) ?>;
-    const MAX_MB_MAIN = <?= $max_main_mb ?>;
-    const MAX_MB_GALLERY = <?= $max_gallery_mb ?>;
-    const MAX_GALLERY_FILES = 5; 
+for (let i = 0; i < SLOTS_AVAIL; i++) {
+  const slot = document.getElementById('slot-' + i);
+  if (slot) {
+    const lbl = slot.querySelector('.slot-label');
+    if (lbl) lbl.addEventListener('click', () => document.getElementById('images_input')?.click());
+  }
+}
 
-    function validateFile(file, maxSize, maxMb, allowedMimes, allowedExts) {
-        const ext = (file.name.split('.').pop() || '').toLowerCase();
-        if (!allowedMimes.includes(file.type) || !allowedExts.includes(ext)) {
-            return `ไฟล์ชนิด "${ext || '??'}" ใช้งานไม่ได้ (ต้องเป็น .jpg, .png, .webp เท่านั้น)`;
-        }
-        if (file.size > maxSize) {
-            return `ไฟล์ "${file.name}" (${(file.size / 1024 / 1024).toFixed(1)}MB) ใหญ่เกิน (สูงสุด ${maxMb}MB)`;
-        }
-        return null; // No error
-    }
+const imagesInp = document.getElementById('images_input');
+if (imagesInp) {
+  imagesInp.addEventListener('change', function() {
+    addFiles(Array.from(this.files));
+    this.value = '';
+  });
+}
 
-    // [กูแก้!!] ผ่าตัด "รูปหลัก"
-    (function setupMainImageDropZone() {
-        const dropZoneEl = document.getElementById('main_image_drop_zone');
-        const fileInputEl = document.getElementById('main_image');
-        const previewEl = document.getElementById('mainImagePreview');
-        const deleteImageInput = document.getElementById('delete_existing_image');
-        if (!dropZoneEl || !fileInputEl || !previewEl || !deleteImageInput) return;
-
-        function handleMainPreview(file) {
-            // 1. ล้างพรีวิว "ไฟล์ใหม่" (คลาส .new-upload)
-            previewEl.querySelectorAll('.js-preview-item.new-upload').forEach(el => el.remove());
-            // 2. เอารูปเก่า (ถ้ามี) กลับมา
-            previewEl.querySelectorAll('.existing-image').forEach(el => el.classList.remove('is-marked-for-delete'));
-            deleteImageInput.value = '0'; // รีเซ็ตค่า
-
-            if (!file) return; // ถ้าไม่มีไฟล์... ก็ไม่ต้องทำไร
-            
-            const reader = new FileReader();
-            reader.onload = e => { 
-                const url = e.target.result;
-                previewEl.querySelectorAll('.existing-image').forEach(el => el.classList.add('is-marked-for-delete'));
-                
-                const item = document.createElement('div');
-                item.className = 'image-preview-item js-preview-item new-upload';
-                const img = document.createElement('img');
-                img.src = url;
-                img.alt = file.name;
-                item.appendChild(img);
-                
-                const delBtn = document.createElement('button');
-                delBtn.type = 'button';
-                delBtn.className = 'js-delete-preview js-delete-new';
-                delBtn.innerHTML = '&times;';
-                delBtn.setAttribute('aria-label', 'ลบรูปใหม่นี้');
-                item.appendChild(delBtn);
-                
-                previewEl.appendChild(item);
-            };
-            
-            reader.onerror = () => {
-                showCustomAlert(`ไฟล์ "${file.name}" เสียหายหรืออ่านไม่ได้ (อาจเป็น HEIC ที่ถูกเปลี่ยนชื่อ)`);
-                fileInputEl.value = null; 
-                handleMainPreview(null); 
-            };
-            
-            reader.readAsDataURL(file);
-        }
-        
-        function createFileList(file){ if(!file) return null; const dt=new DataTransfer(); dt.items.add(file); return dt.files; }
-
-        dropZoneEl.addEventListener('click', () => fileInputEl.click());
-        dropZoneEl.addEventListener('dragover', e => { e.preventDefault(); dropZoneEl.classList.add('is-dragover'); });
-        ['dragleave','dragend'].forEach(t => dropZoneEl.addEventListener(t, () => dropZoneEl.classList.remove('is-dragover')));
-        
-        dropZoneEl.addEventListener('drop', e => {
-            e.preventDefault(); 
-            dropZoneEl.classList.remove('is-dragover');
-            if (!e.dataTransfer.files.length) return;
-            
-            const file = e.dataTransfer.files[0];
-            const error = validateFile(file, MAX_FILE_SIZE_MAIN, MAX_MB_MAIN, ALLOWED_MIME_TYPES, ALLOWED_EXTS);
-            
-            if (error) {
-                showCustomAlert(error);
-                return;
-            }
-            
-            fileInputEl.files = createFileList(file);
-            handleMainPreview(file);
-        });
-        
-        fileInputEl.addEventListener('change', function() {
-            if (!this.files.length) {
-                handleMainPreview(null);
-                return;
-            }
-            const file = this.files[0];
-            const error = validateFile(file, MAX_FILE_SIZE_MAIN, MAX_MB_MAIN, ALLOWED_MIME_TYPES, ALLOWED_EXTS);
-            if (error) {
-                showCustomAlert(error);
-                this.value = null;
-                handleMainPreview(null);
-                return;
-            }
-            handleMainPreview(file);
-        });
-
-        previewEl.addEventListener('click', function(e) {
-            // 1. ลบ "รูปเก่า"
-            if (e.target.classList.contains('js-delete-existing')) {
-                e.preventDefault();
-                const item = e.target.closest('.existing-image');
-                if (!item) return;
-
-                showCustomConfirm('คุณต้องการลบรูปนี้ (ตอนกดบันทึก) ใช่หรือไม่?', () => {
-                    item.classList.add('is-marked-for-delete'); // ซ่อน
-                    deleteImageInput.value = '1'; // บอก PHP ว่า "มึงลบนะ"
-                });
-            }
-
-            // 2. ลบ "รูปใหม่" (ที่เพิ่งลากมา)
-            if (e.target.classList.contains('js-delete-new')) {
-                e.preventDefault();
-                fileInputEl.value = null; // ล้างไฟล์ใน input
-                handleMainPreview(null);  // รีเซ็ตพรีวิว (รูปเก่าจะโผล่กลับมา)
-            }
-        });
-    })();
-
-
-    // [กูแก้!!] ผ่าตัด "รูปย่อย" (Gallery)
-    let imageIndex = <?= count($additionalImages) ?>; 
-    const addMoreBtn = document.getElementById('addMoreImagesBtn');
-    const container = document.getElementById('additional-container');
-
-    function checkGalleryLimit() {
-        const existingCount = document.querySelectorAll('#existing-images-container .additional-image-group').length;
-        const newCount = container.querySelectorAll('.additional-image-group').length;
-        const total = existingCount + newCount;
-        
-        if (total >= MAX_GALLERY_FILES) {
-            addMoreBtn.style.display = 'none';
-        } else {
-            addMoreBtn.style.display = 'block';
-        }
-        return total < MAX_GALLERY_FILES;
-    }
-
-    // [กูแก้] เปลี่ยน addMoreImages ให้เป็น global
-    window.addMoreImages = function() {
-        if (!checkGalleryLimit()) {
-            showCustomAlert(`อัปโหลดรูปย่อยได้สูงสุด ${MAX_GALLERY_FILES} รูปเท่านั้น`);
-            return;
-        }
-
-        const div = document.createElement('div');
-        div.className = 'additional-image-group';
-        div.style.border = '1px solid #ddd';
-        div.style.padding = '15px';
-        div.style.borderRadius = '8px';
-        div.style.marginBottom = '15px';
-
-        const captionIdTh = 'caption-th-new-' + imageIndex;
-        const captionIdEn = 'caption-en-new-' + imageIndex;
-
-        div.innerHTML = `
-            <div style="text-align: right;">
-                <button type="button" class="remove-image-btn" style="background: #ff4d4d; color: white; border: none; border-radius: 50%; width: 25px; height: 25px; cursor: pointer;">✕</button>
-            </div>
-            <label>เลือกรูปใหม่ (Select New Image):</label>
-            <p class="form-helper-text">สูงสุด ${MAX_MB_GALLERY}MB</p>
-            <input type="file" name="additional_images[]" class="gallery-file-input" accept="image/*">
-            <div class="drop-zone gallery-drop-zone">
-                <span class="material-symbols-rounded" style="font-size:32px">upload_file</span>
-                <div>ลากไฟล์มาใส่ หรือ คลิกเพื่อเลือก</div>
-            </div>
-            <div class="image-preview">
-                </div>
-            <label for="${captionIdTh}" style="margin-top: 10px;">คำอธิบายภาพ (Caption TH):</label>
-            <input id="${captionIdTh}" type="hidden" name="caption_detail_th[]">
-            <trix-editor input="${captionIdTh}"></trix-editor>
-            <label for="${captionIdEn}" style="margin-top: 10px;">คำอธิบายภาพ (Caption EN):</label>
-            <input id="${captionIdEn}" type="hidden" name="caption_detail_en[]">
-            <trix-editor input="${captionIdEn}"></trix-editor>
-        `;
-        
-        container.appendChild(div);
-        
-        setTimeout(() => {
-            setupGalleryDropZone(div); // ผูก Event ให้ Drop Zone ใหม่
-        }, 0);
-
-        imageIndex++;
-        checkGalleryLimit(); // เช็คโควต้าอีกที
-    }
-
-    // [กูแก้!!] นี่คือ "สายไฟ"
-    if (addMoreBtn) {
-        addMoreBtn.addEventListener('click', window.addMoreImages);
-    }
-    
-    // [กูแก้] ฟังก์ชันสำหรับ "ผูก" Event ให้ Drop Zone รูปย่อย
-    function setupGalleryDropZone(groupElement) {
-        const dropZoneEl = groupElement.querySelector('.gallery-drop-zone');
-        const fileInputEl = groupElement.querySelector('.gallery-file-input');
-        const previewEl = groupElement.querySelector('.image-preview');
-        
-        function handleGalleryPreview(file) {
-            previewEl.innerHTML = ''; // ล้างของเก่า (เพราะรับได้ทีละรูป)
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = e => {
-                const url = e.target.result;
-                const item = document.createElement('div');
-                item.className = 'image-preview-item js-preview-item new-upload';
-                const img = document.createElement('img');
-                img.src = url;
-                img.alt = file.name;
-                item.appendChild(img);
-                
-                const delBtn = document.createElement('button');
-                delBtn.type = 'button';
-                delBtn.className = 'js-delete-preview js-delete-new';
-                delBtn.innerHTML = '&times;';
-                delBtn.setAttribute('aria-label', 'ลบรูปใหม่นี้');
-                item.appendChild(delBtn);
-                
-                previewEl.appendChild(item);
-            };
-            reader.onerror = () => {
-                showCustomAlert(`ไฟล์ "${file.name}" เสียหายหรืออ่านไม่ได้ (อาจเป็น HEIC ที่ถูกเปลี่ยนชื่อ)`);
-                fileInputEl.value = null;
-                handleGalleryPreview(null);
-            };
-            reader.readAsDataURL(file);
-        }
-
-        function createFileList(file){ if(!file) return null; const dt=new DataTransfer(); dt.items.add(file); return dt.files; }
-
-        dropZoneEl.addEventListener('click', () => fileInputEl.click());
-        dropZoneEl.addEventListener('dragover', e => { e.preventDefault(); dropZoneEl.classList.add('is-dragover'); });
-        ['dragleave','dragend'].forEach(t => dropZoneEl.addEventListener(t, () => dropZoneEl.classList.remove('is-dragover')));
-
-        dropZoneEl.addEventListener('drop', e => {
-            e.preventDefault(); 
-            dropZoneEl.classList.remove('is-dragover');
-            if (!e.dataTransfer.files.length) return;
-            
-            const file = e.dataTransfer.files[0];
-            const error = validateFile(file, MAX_FILE_SIZE_GALLERY, MAX_MB_GALLERY, ALLOWED_MIME_TYPES, ALLOWED_EXTS);
-            if (error) {
-                showCustomAlert(error);
-                return;
-            }
-            fileInputEl.files = createFileList(file);
-            handleGalleryPreview(file);
-        });
-
-        fileInputEl.addEventListener('change', function() {
-            if (!this.files.length) {
-                handleGalleryPreview(null);
-                return;
-            }
-            const file = this.files[0];
-            const error = validateFile(file, MAX_FILE_SIZE_GALLERY, MAX_MB_GALLERY, ALLOWED_MIME_TYPES, ALLOWED_EXTS);
-            if (error) {
-                showCustomAlert(error);
-                this.value = null;
-                handleGalleryPreview(null);
-                return;
-            }
-            handleGalleryPreview(file);
-        });
-
-        previewEl.addEventListener('click', function(e) {
-            if (e.target.classList.contains('js-delete-new')) {
-                e.preventDefault();
-                fileInputEl.value = null; 
-                handleGalleryPreview(null);
-            }
-        });
-
-        // [กูแก้] ผูก Event ให้ปุ่มลบ (X) แดงๆ
-        const removeBtn = groupElement.querySelector('.remove-image-btn');
-        if(removeBtn) {
-            removeBtn.addEventListener('click', () => removeImageGroup(removeBtn));
-        }
-    }
-
-    // [กูแก้] รื้อฟังก์ชันเก่าทิ้ง...
-    window.removeImageGroup = function(button) {
-      const group = button.closest('.additional-image-group');
-      if (group) {
-        showCustomConfirm("คุณต้องการลบช่องอัปโหลดรูปนี้ใช่หรือไม่?", () => {
-             group.remove();
-             checkGalleryLimit(); // [กูเพิ่ม] ลบแล้วต้องคืนโควต้า
-        });
-      }
-    }
-
-    // [กูแก้] รันครั้งแรก...
-    checkGalleryLimit(); 
-    
-  }); // End DOMContentLoaded
+const dz = document.getElementById('img-dropzone');
+if (dz) {
+  dz.addEventListener('dragover',  e => { e.preventDefault(); dz.classList.add('drag-over'); });
+  dz.addEventListener('dragleave', ()  => dz.classList.remove('drag-over'));
+  dz.addEventListener('drop', e => {
+    e.preventDefault();
+    dz.classList.remove('drag-over');
+    addFiles(Array.from(e.dataTransfer.files));
+  });
+}
 </script>
