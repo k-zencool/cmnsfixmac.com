@@ -155,7 +155,7 @@ include __DIR__ . '/../templates/header_admin.php';
                 <tr>
                     <th style="width:72px;">รูปปก</th>
                     <th>ชื่อผลงาน</th>
-                    <th style="width:120px;">หมวด / รุ่น</th>
+                    <th style="width:120px;text-align:center;">หมวด / รุ่น</th>
                     <th style="width:150px;">Slug / SEO</th>
                     <th style="width:120px;">ผูกงาน</th>
                     <th style="width:90px;">วันที่</th>
@@ -187,13 +187,13 @@ include __DIR__ . '/../templates/header_admin.php';
                             </div>
                         <?php endif; ?>
                     </td>
-                    <td>
+                    <td style="text-align:center;">
                         <?php if ($r['category']): ?>
                             <span class="action-badge" style="background:var(--primary-light,#eff6ff);color:var(--primary);border-color:rgba(37,99,235,.2);">
                                 <?= h($r['category']) ?>
                             </span>
                         <?php endif; ?>
-                        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"><?= h($r['model']) ?></div>
+                        <div style="font-size:12px;color:var(--text-muted);margin-top:4px;"><?= h($r['model']) ?></div>
                     </td>
                     <td>
                         <?php if ($r['slug']): ?>
