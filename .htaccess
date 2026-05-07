@@ -1,73 +1,139 @@
-Options -MultiViews
+Options -MultiViews -Indexes
 RewriteEngine On
 RewriteBase /
 
-# ================== 1. FIX SEO SPAM (สำคัญมาก ห้ามลบ!) ==================
-# สั่ง Google ไม่ให้ Index หน้าที่มีพารามิเตอร์ขยะ (แก้กราฟพุ่ง)
+# ══════════════════════════════════════════════════════════════
+# 1. HTTPS REDIRECT (production only — skip localhost/127.0.0.1)
+# ══════════════════════════════════════════════════════════════
+RewriteCond %{HTTP_HOST} !^localhost [NC]
+RewriteCond %{HTTP_HOST} !^127\.0\.0\.1 [NC]
+RewriteCond %{HTTPS} off
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
+# ══════════════════════════════════════════════════════════════
+# 2. PROTECT SENSITIVE FILES
+# ══════════════════════════════════════════════════════════════
+<FilesMatch "(\.env|composer\.(json|lock)|CLAUDE\.md|check_db\.php)$">
+    Require all denied
+</FilesMatch>
+
+# ══════════════════════════════════════════════════════════════
+# 3. SECURITY HEADERS
+# ══════════════════════════════════════════════════════════════
 <IfModule mod_headers.c>
-    RewriteCond %{QUERY_STRING} (color|ram_|year_|ssd_|sort|price|filter) [NC]
-    RewriteRule .* - [E=MY_NOINDEX:1]
-    Header set X-Robots-Tag "noindex, follow" env=MY_NOINDEX
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-XSS-Protection "1; mode=block"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
 </IfModule>
 
-# ================== 2. SITEMAP ==================
+# ══════════════════════════════════════════════════════════════
+# 4. SEO — noindex pages with spam/filter query params
+# ══════════════════════════════════════════════════════════════
+<IfModule mod_headers.c>
+    SetEnvIf Query_String "(color|ram_|year_|ssd_|sort|price|filter)" NOINDEX_PAGE
+    Header set X-Robots-Tag "noindex, follow" env=NOINDEX_PAGE
+</IfModule>
+
+# ══════════════════════════════════════════════════════════════
+# 5. COMPRESSION
+# ══════════════════════════════════════════════════════════════
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript application/json text/xml application/xml
+</IfModule>
+
+# ══════════════════════════════════════════════════════════════
+# 6. BROWSER CACHING
+# ══════════════════════════════════════════════════════════════
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/webp             "access plus 1 year"
+    ExpiresByType image/jpeg             "access plus 1 year"
+    ExpiresByType image/png              "access plus 1 year"
+    ExpiresByType image/svg+xml          "access plus 1 year"
+    ExpiresByType image/x-icon           "access plus 1 year"
+    ExpiresByType font/woff2             "access plus 1 year"
+    ExpiresByType text/css               "access plus 1 month"
+    ExpiresByType application/javascript "access plus 1 month"
+</IfModule>
+<IfModule mod_headers.c>
+    <FilesMatch "\.(webp|jpg|jpeg|png|svg|ico|woff2)$">
+        Header set Cache-Control "public, max-age=31536000, immutable"
+    </FilesMatch>
+    <FilesMatch "\.(css|js)$">
+        Header set Cache-Control "public, max-age=2592000"
+    </FilesMatch>
+</IfModule>
+
+# ══════════════════════════════════════════════════════════════
+# 7. 301 REDIRECTS — old URLs → new structure
+# ══════════════════════════════════════════════════════════════
+
+# Pages restructured to directories (TH)
+Redirect 301 /articles.php          /articles/
+Redirect 301 /article-detail.php    /articles/
+Redirect 301 /works.php             /works/
+Redirect 301 /work-detail.php       /works/
+Redirect 301 /warranty.php          /warranty/
+Redirect 301 /buyback.php           /buyback/
+
+# Pages restructured to directories (EN)
+Redirect 301 /en/articles.php       /en/articles/
+Redirect 301 /en/article-detail.php /en/articles/
+Redirect 301 /en/works.php          /en/works/
+Redirect 301 /en/work-detail.php    /en/works/
+Redirect 301 /en/warranty.php       /en/warranty/
+Redirect 301 /en/buyback.php        /en/buyback/
+
+# Services (เดิม root → /services/)
+Redirect 301 /macbook.php           /services/macbook.php
+Redirect 301 /iphone.php            /services/iphone.php
+Redirect 301 /ipad.php              /services/ipad.php
+Redirect 301 /imac.php              /services/imac.php
+Redirect 301 /airpods.php           /services/airpods.php
+Redirect 301 /apple-watch.php       /services/apple-watch.php
+Redirect 301 /software.php          /services/software.php
+
+# Testers (เดิม /test/ → /tester/)
+Redirect 301 /test/mic.php          /tester/microphone-tester/
+Redirect 301 /test/camera.php       /tester/camera-tester/
+Redirect 301 /test/sound.php        /tester/sounds-tester/
+Redirect 301 /test/keyboard.php     /tester/keyboard-tester/
+Redirect 301 /test/screen.php       /tester/touchscreen-tester/
+Redirect 301 /device-test/          /tester/
+
+# ══════════════════════════════════════════════════════════════
+# 8. URL REWRITES
+# ══════════════════════════════════════════════════════════════
+
+# sitemap.xml
 RewriteRule ^sitemap\.xml$ sitemap.php [L]
 
-# ================== 3. ย้ายหน้าเก่า (301 Redirect) ==================
-# .php URLs เก่า → โครงสร้างใหม่
-Redirect 301 /articles.php /articles/
-Redirect 301 /article-detail.php /articles/
-Redirect 301 /works.php /works/
-Redirect 301 /work-detail.php /works/
-Redirect 301 /warranty.php /warranty/
-Redirect 301 /buyback.php /buyback/
-Redirect 301 /en/articles.php /en/articles/
-Redirect 301 /en/article-detail.php /en/articles/
-Redirect 301 /en/works.php /en/works/
-Redirect 301 /en/work-detail.php /en/works/
-Redirect 301 /en/warranty.php /en/warranty/
-Redirect 301 /en/buyback.php /en/buyback/
-
-
-Redirect 301 /imac.php /services/imac.php
-Redirect 301 /airpods.php /services/airpods.php
-Redirect 301 /apple-watch.php /services/apple-watch.php
-Redirect 301 /software.php /services/software.php
-Redirect 301 /macbook.php /services/macbook.php
-Redirect 301 /iphone.php /services/iphone.php
-Redirect 301 /ipad.php /services/ipad.php
-
-# ย้ายเครื่องมือเทส
-Redirect 301 /test/mic.php /tester/microphone-tester/
-Redirect 301 /test/camera.php /tester/camera-tester/
-Redirect 301 /test/sound.php /tester/sounds-tester/
-Redirect 301 /test/keyboard.php /tester/keyboard-tester/
-Redirect 301 /test/screen.php /tester/touchscreen-tester/
-Redirect 301 /device-test/ /tester/
-
-# ================== 4. URL สวย (Internal Rewrite) ==================
-# แปลงจาก /article/slug ให้ Server ไปอ่านไฟล์จริง (แต่ URL ข้างบนไม่เปลี่ยน)
-
-# บทความ
+# /article/slug → articles/detail.php (TH)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^article/([\w-]+)/?$ /articles/detail.php?slug=$1 [L,QSA]
-RewriteRule ^en/article/([\w-]+)/?$ /en/articles/detail.php?slug=$1 [L,QSA]
 
-# เปลี่ยน /product/slug เก่าไปที่ shop (301 สำหรับ SEO)
+# /en/article/slug → en/articles/detail.php
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^product/([\w-]+)/?$ /shop [R=301,L]
-RewriteRule ^en/product/([\w-]+)/?$ /en/shop [R=301,L]
+RewriteRule ^en/article/([\w-]+)/?$ /en/articles/detail.php?slug=$1 [L,QSA]
 
-# ผลงาน
+# /work/slug → works/detail.php (TH)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^work/([\w-]+)/?$ /works/detail.php?slug=$1 [L,QSA]
+
+# /en/work/slug → en/works/detail.php
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^en/work/([\w-]+)/?$ /en/works/detail.php?slug=$1 [L,QSA]
 
-# ================== 5. ซ่อนนามสกุล .php ==================
-# ถ้าเข้า /work แล้วไม่เจอโฟลเดอร์ ให้ลองเรียก work.php
+# /product/slug (ระบบเก่า) → /shop
+RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteCond %{REQUEST_FILENAME}\.php -f
-RewriteRule ^([^\.]+)$ $1.php [L]
+RewriteRule ^product/([\w-]+)/?$ /shop [R=301,L]
+
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^en/product/([\w-]+)/?$ /en/shop [R=301,L]
