@@ -156,7 +156,7 @@ include __DIR__ . '/../templates/header_admin.php';
                     <th style="width:72px;">รูปปก</th>
                     <th>ชื่อผลงาน</th>
                     <th style="width:120px;text-align:center;">หมวด / รุ่น</th>
-                    <th style="width:150px;">Slug / SEO</th>
+                    <th style="width:150px;text-align:center;">Slug / SEO</th>
                     <th style="width:120px;">ผูกงาน</th>
                     <th style="width:90px;">วันที่</th>
                     <th style="width:100px;text-align:center;">จัดการ</th>
@@ -195,9 +195,9 @@ include __DIR__ . '/../templates/header_admin.php';
                         <?php endif; ?>
                         <div style="font-size:12px;color:var(--text-muted);margin-top:4px;"><?= h($r['model']) ?></div>
                     </td>
-                    <td>
+                    <td style="text-align:center;">
                         <?php if ($r['slug']): ?>
-                            <div style="font-size:12px;font-family:monospace;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">/work/<?= h($r['slug']) ?></div>
+                            <div style="font-size:12px;font-family:monospace;color:var(--text-muted);">/work/<?= h($r['slug']) ?></div>
                         <?php else: ?>
                             <span style="font-size:11px;color:#f59e0b;font-weight:700;">⚠ ยังไม่มี slug</span>
                         <?php endif; ?>
