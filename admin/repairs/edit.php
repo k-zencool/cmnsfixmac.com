@@ -748,8 +748,9 @@ for (let i = 0; i < SLOTS_AVAIL; i++) {
 const imagesInp = document.getElementById('images_input');
 if (imagesInp) {
   imagesInp.addEventListener('change', function() {
-    addFiles(Array.from(this.files));
+    const selected = Array.from(this.files);
     this.value = '';
+    addFiles(selected);
   });
 }
 

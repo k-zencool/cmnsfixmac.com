@@ -766,8 +766,9 @@ for (let i = 0; i < MAX_IMGS; i++) {
 
 // File input change
 document.getElementById('images_input').addEventListener('change', function() {
-  addFiles(Array.from(this.files));
+  const selected = Array.from(this.files);
   this.value = '';
+  addFiles(selected);
 });
 
 // Dropzone
