@@ -170,6 +170,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $cover_path = $cover_row['image_path'];
             }
 
+            // If user cleared the legacy image (no repair_images), delete the file and blank the column
+            $clear_legacy = !empty($_POST['clear_legacy']) && empty($cover_path);
+            if ($clear_legacy && !empty($repair['image'])) {
+                $abs = realpath(__DIR__ . '/../../' . ltrim($repair['image'], '/'));
+                $upload_root = realpath(__DIR__ . '/../../uploads');
+                if ($abs && $upload_root && str_starts_with($abs, $upload_root)) @unlink($abs);
+            }
+            $final_image = $cover_path ?: ($clear_legacy ? '' : $repair['image']);
+
             $pdo->prepare("
                 UPDATE repairs SET
                   tracking_id=?, title=?, slug=?, meta_desc=?, model=?, issue=?, fix_detail=?,
@@ -177,7 +186,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 WHERE id=?
             ")->execute([
                 $tracking_id, $title, $slug, $meta_desc ?: null, $model, $issue, $fix_detail,
-                $cover_path ?: $repair['image'], $category, $status,
+                $final_image, $category, $status,
                 $title_en ?: null, $issue_en ?: null, $fix_detail_en ?: null, $id
             ]);
 
@@ -427,11 +436,19 @@ endif; ?>
         <div class="existing-imgs">
           <?php foreach($existing_images as $img): ?>
             <div class="ex-img-item" id="eximg-<?= h($img['id']) ?>">
-              <img src="<?= h($img['image_path']) ?>" alt="" loading="lazy">
+              <img src="<?= h($img['image_path']) ?>" alt="" loading="lazy"
+                   onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+              <div style="display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;gap:4px;color:var(--text-muted,#9ca3af);font-size:11px;">
+                <span class="material-symbols-rounded" style="font-size:28px;">broken_image</span>
+                ไม่พบรูป
+              </div>
               <?php if ($img['is_cover']): ?><div class="cover-badge">ปก</div><?php endif; ?>
               <?php if ($img['id'] !== 'legacy'): ?>
                 <button type="button" class="ex-del" onclick="markDelete(<?= (int)$img['id'] ?>)">✕</button>
                 <input type="checkbox" name="delete_images[]" id="del-<?= (int)$img['id'] ?>" value="<?= (int)$img['id'] ?>" style="display:none;">
+              <?php else: ?>
+                <button type="button" class="ex-del" onclick="markClearLegacy(this)">✕</button>
+                <input type="checkbox" name="clear_legacy" id="del-legacy" value="1" style="display:none;">
               <?php endif; ?>
             </div>
           <?php endforeach; ?>
@@ -624,6 +641,15 @@ endif; ?>
 function markDelete(imgId) {
   const item = document.getElementById('eximg-' + imgId);
   const chk  = document.getElementById('del-' + imgId);
+  if (!item || !chk) return;
+  const marked = chk.checked;
+  chk.checked = !marked;
+  item.classList.toggle('marked', !marked);
+}
+
+function markClearLegacy(btn) {
+  const item = document.getElementById('eximg-legacy');
+  const chk  = document.getElementById('del-legacy');
   if (!item || !chk) return;
   const marked = chk.checked;
   chk.checked = !marked;
