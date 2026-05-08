@@ -383,6 +383,8 @@ function doDelete() {
         row.style.opacity = '0'; row.style.transform = 'translateX(30px)';
         setTimeout(() => row.remove(), 260);
       }
+      Swal.fire({ icon:'success', title:'ลบผลงานเรียบร้อยแล้ว', toast:true, position:'top-end',
+        showConfirmButton:false, timer:3000, timerProgressBar:true });
     }
     btn.disabled = false; btn.textContent = 'ลบผลงาน';
   });
