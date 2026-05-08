@@ -1,6 +1,12 @@
 # ใช้ PHP 8.1 + Apache เป็นเบส
 FROM php:8.1-apache
 
+# ติดตั้ง GD สำหรับ image processing (JPEG, PNG, WebP)
+RUN apt-get update && apt-get install -y \
+    libgd-dev libwebp-dev libjpeg62-turbo-dev libpng-dev libfreetype6-dev \
+    && docker-php-ext-configure gd --with-webp --with-jpeg --with-freetype \
+    && docker-php-ext-install gd
+
 # ติดตั้ง extensions ที่จำเป็นสำหรับการเชื่อมต่อ MySQL
 RUN docker-php-ext-install pdo pdo_mysql mysqli && docker-php-ext-enable pdo_mysql
 
