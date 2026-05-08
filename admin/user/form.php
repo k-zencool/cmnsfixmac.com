@@ -99,20 +99,21 @@ if ($isModal):
 </div>
 
 <!-- BODY -->
-<div style="padding:20px 24px;">
+<div style="padding:14px 20px;">
 <?php else:
     $pageTitle = $is_edit ? 'แก้ไขผู้ใช้งาน' : 'เพิ่มผู้ใช้งาน';
     include __DIR__ . '/../templates/header_admin.php';
 endif; ?>
 
 <style>
-.usr-card{background:var(--bg-surface,#fff);border:1px solid var(--border,#e5e7eb);border-radius:14px;padding:24px;margin-bottom:16px;}
-.usr-card h3{margin:0 0 18px;font-size:14px;font-weight:700;color:var(--text-main,#111);display:flex;align-items:center;gap:8px;padding-bottom:12px;border-bottom:1px solid var(--border,#e5e7eb);}
-.usr-label{font-size:12px;font-weight:600;color:var(--text-muted,#6b7280);margin-bottom:5px;display:block;text-transform:uppercase;letter-spacing:.4px;}
-.usr-input,.usr-select{width:100%;padding:10px 13px;border:1.5px solid var(--border,#e5e7eb);border-radius:9px;font-size:14px;background:var(--bg-surface,#fff);color:var(--text-main,#111);box-sizing:border-box;transition:border-color .15s;font-family:'Sarabun',sans-serif;}
+.usr-card{background:var(--bg-surface,#fff);border:1px solid var(--border,#e5e7eb);border-radius:12px;padding:<?= $isModal ? '14px 16px' : '24px' ?>;margin-bottom:12px;}
+.usr-card h3{margin:0 0 12px;font-size:13px;font-weight:700;color:var(--text-main,#111);display:flex;align-items:center;gap:8px;padding-bottom:10px;border-bottom:1px solid var(--border,#e5e7eb);}
+.usr-label{font-size:11px;font-weight:600;color:var(--text-muted,#6b7280);margin-bottom:4px;display:block;text-transform:uppercase;letter-spacing:.4px;}
+.usr-input,.usr-select{width:100%;padding:<?= $isModal ? '8px 11px' : '10px 13px' ?>;border:1.5px solid var(--border,#e5e7eb);border-radius:8px;font-size:14px;background:var(--bg-surface,#fff);color:var(--text-main,#111);box-sizing:border-box;transition:border-color .15s;font-family:'Sarabun',sans-serif;}
 .usr-input:focus,.usr-select:focus{outline:none;border-color:var(--primary,#3b82f6);}
-.usr-hint{font-size:11px;color:var(--text-muted,#9ca3af);margin-top:4px;}
-.usr-field{margin-bottom:14px;}
+.usr-hint{font-size:11px;color:var(--text-muted,#9ca3af);margin-top:3px;}
+.usr-field{margin-bottom:<?= $isModal ? '10px' : '14px' ?>;}
+.usr-pw-toggle .material-symbols-rounded{font-size:18px;}
 .usr-pw-wrap{position:relative;}
 .usr-pw-wrap .usr-input{padding-right:44px;}
 .usr-pw-toggle{position:absolute;right:11px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:var(--text-muted,#9ca3af);padding:0;display:flex;align-items:center;transition:.15s;}
@@ -250,12 +251,6 @@ function togglePw(id, btn) {
     icon.textContent = inp.type === 'password' ? 'visibility' : 'visibility_off';
 }
 <?php if ($isModal): ?>
-function reportHeight() {
-    window.parent.postMessage({ type:'usr-resize', h: document.body.scrollHeight }, '*');
-}
-window.addEventListener('load', reportHeight);
-new ResizeObserver(reportHeight).observe(document.body);
-
 let formDirty = false;
 const _form = document.getElementById('usr-form');
 _form.addEventListener('input',  () => { formDirty = true; });
