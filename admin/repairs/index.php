@@ -22,7 +22,7 @@ $where = []; $params = [];
 if ($q)   { $where[] = '(r.title LIKE ? OR r.model LIKE ?)'; $params[] = "%$q%"; $params[] = "%$q%"; }
 if ($cat) { $where[] = 'r.category = ?'; $params[] = $cat; }
 $where_sql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
-$order_sql  = match($sort) { 'oldest'=>'r.created_at ASC','title'=>'r.title ASC', default=>'r.created_at DESC' };
+$order_sql  = match($sort) { 'oldest'=>'r.created_at ASC','title'=>'r.title ASC','popular'=>'r.views DESC', default=>'r.created_at DESC' };
 
 $cnt = $pdo->prepare("SELECT COUNT(*) FROM repairs r $where_sql");
 $cnt->execute($params); $total = (int)$cnt->fetchColumn();
@@ -131,9 +131,10 @@ include __DIR__ . '/../templates/header_admin.php';
             <div class="log-filter-group">
                 <label>เรียงตาม</label>
                 <select name="sort">
-                    <option value="newest" <?= $sort==='newest'?'selected':'' ?>>ล่าสุดก่อน</option>
-                    <option value="oldest" <?= $sort==='oldest'?'selected':'' ?>>เก่าสุดก่อน</option>
-                    <option value="title"  <?= $sort==='title' ?'selected':'' ?>>ชื่อ A→Z</option>
+                    <option value="newest"  <?= $sort==='newest' ?'selected':'' ?>>ล่าสุดก่อน</option>
+                    <option value="oldest"  <?= $sort==='oldest' ?'selected':'' ?>>เก่าสุดก่อน</option>
+                    <option value="title"   <?= $sort==='title'  ?'selected':'' ?>>ชื่อ A→Z</option>
+                    <option value="popular" <?= $sort==='popular'?'selected':'' ?>>ยอดนิยม (วิวสูงสุด)</option>
                 </select>
             </div>
             <button type="submit" class="btn-filter">
@@ -179,7 +180,11 @@ include __DIR__ . '/../templates/header_admin.php';
                         </div>
                     </td>
                     <td>
-                        <div style="font-weight:700;font-size:13px;color:var(--text-main);"><?= h($r['title']) ?></div>
+                        <a href="/works/detail.php?id=<?= $r['id'] ?>" target="_blank" rel="noopener"
+                           style="font-weight:700;font-size:13px;color:var(--primary);text-decoration:none;"
+                           onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                            <?= h($r['title']) ?>
+                        </a>
                         <?php if ($r['views']): ?>
                             <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">
                                 <span class="material-symbols-rounded" style="font-size:12px;vertical-align:-2px;">visibility</span>
@@ -220,11 +225,11 @@ include __DIR__ . '/../templates/header_admin.php';
                     </td>
                     <td>
                         <div style="display:flex;gap:6px;justify-content:center;">
-                            <a href="edit.php?id=<?= $r['id'] ?>" class="cmns-btn cmns-btn-secondary" style="padding:6px 14px;font-size:12px;">
-                                <span class="material-symbols-rounded" style="font-size:14px;">edit</span> แก้ไข
+                            <a href="edit.php?id=<?= $r['id'] ?>" class="cmns-btn cmns-btn-secondary" style="padding:6px 10px;font-size:12px;">
+                                <span class="material-symbols-rounded" style="font-size:14px;">edit</span>
                             </a>
                             <a href="delete.php?id=<?= $r['id'] ?>" onclick="return confirm('ลบผลงานนี้?')"
-                               style="padding:6px 10px;font-size:12px;border:1px solid #fca5a5;border-radius:8px;color:#dc2626;text-decoration:none;display:inline-flex;align-items:center;gap:4px;transition:.15s;"
+                               class="cmns-btn cmns-btn-secondary" style="padding:6px 10px;font-size:12px;border-color:#fca5a5;color:#dc2626;"
                                onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background=''">
                                 <span class="material-symbols-rounded" style="font-size:14px;">delete</span>
                             </a>

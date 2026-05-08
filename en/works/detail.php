@@ -12,7 +12,14 @@ if (!$id) {
   exit;
 }
 
-$pdo->prepare("UPDATE repairs SET views = views + 1 WHERE id = ?")->execute([$id]);
+$ip    = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+$ip    = trim(explode(',', $ip)[0]);
+$today = date('Y-m-d');
+$log   = $pdo->prepare("INSERT IGNORE INTO repair_views (repair_id, ip, viewed_date) VALUES (?, ?, ?)");
+$log->execute([$id, $ip, $today]);
+if ($log->rowCount() > 0) {
+    $pdo->prepare("UPDATE repairs SET views = views + 1 WHERE id = ?")->execute([$id]);
+}
 
 $stmt = $pdo->prepare("SELECT *, title AS title_th, issue AS issue_th, fix_detail AS fix_detail_th FROM repairs WHERE id = ?");
 $stmt->execute([$id]);
