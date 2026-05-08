@@ -251,7 +251,6 @@ function _loadIframe(url) {
     const iframe = document.getElementById('user-iframe');
     if (_loadedUrl === url) return;
     _loadedUrl = url;
-    iframe.style.height = '0';
     iframe.src = url;
 }
 // Preload add form immediately on page ready
