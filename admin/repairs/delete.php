@@ -35,10 +35,12 @@ try {
     }
 
     $_SESSION['flash'] = 'ลบผลงานเรียบร้อยแล้ว';
+    if (!empty($_GET['ajax'])) { header('Content-Type: application/json'); echo '{"ok":true}'; exit; }
 
 } catch (Exception $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     error_log('repairs/delete: ' . $e->getMessage());
+    if (!empty($_GET['ajax'])) { header('Content-Type: application/json'); echo '{"ok":false}'; exit; }
 }
 
 header('Location: index.php');

@@ -60,6 +60,7 @@ $statusMap = [
 if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['id'])) {
     $pdo->prepare("DELETE FROM tracking WHERE id = ?")->execute([(int)$_POST['id']]);
     $_SESSION['success'] = "ลบรายการเรียบร้อย";
+    if (!empty($_POST['ajax'])) { header('Content-Type: application/json'); echo '{"ok":true}'; exit; }
     header("Location: index.php");
     exit;
 }
@@ -302,7 +303,7 @@ include __DIR__ . '/../templates/header_admin.php';
                                 else                 { $timeText = 'เกิน ' . number_format(abs($days)) . ' วัน'; $timeClass = 'time-danger'; $rowClass = 'tr-overdue'; }
                             }
                         ?>
-                        <tr class="<?= $rowClass ?>">
+                        <tr class="<?= $rowClass ?>" id="trk-row-<?= $row['id'] ?>">
 
                             <td>
                                 <a href="edit.php?id=<?= $row['id'] ?>" class="job-link" onclick="showLoader()">
@@ -423,25 +424,20 @@ include __DIR__ . '/../templates/header_admin.php';
 </div><!-- .cmns-wrapper -->
 
 <!-- ── Delete Modal ── -->
+
 <div id="deleteModal" class="trk-modal-overlay">
     <div class="trk-modal">
         <div class="trk-modal-header">
-            <div class="trk-modal-icon">
-                <span class="material-symbols-rounded" style="font-size:26px;">warning</span>
-            </div>
+            <div class="trk-modal-icon"><span class="material-symbols-rounded" style="font-size:26px;">warning</span></div>
             <h3>ยืนยันการลบ?</h3>
         </div>
         <div class="trk-modal-body">
-            คุณต้องการลบรายการ <strong id="delTicketNum">...</strong> ใช่หรือไม่?<br>
-            <span style="font-size:.85em; color:#ef4444;">การกระทำนี้ไม่สามารถย้อนกลับได้</span>
+            ลบรายการ <strong id="delTicketNum">...</strong> ใช่หรือไม่?<br>
+            <span style="font-size:.85em;color:#ef4444;">ไม่สามารถย้อนกลับได้</span>
         </div>
         <div class="trk-modal-footer">
             <button type="button" class="trk-btn-cancel" onclick="closeDeleteModal()">ยกเลิก</button>
-            <form method="post" id="deleteForm" onsubmit="showLoader()">
-                <input type="hidden" name="action" value="delete">
-                <input type="hidden" name="id" id="delInputId">
-                <button type="submit" class="trk-btn-confirm">ลบรายการ</button>
-            </form>
+            <button id="trk-del-btn" type="button" class="trk-btn-confirm" onclick="doDeleteTracking()">ลบรายการ</button>
         </div>
     </div>
 </div>
@@ -458,18 +454,37 @@ window.addEventListener('pageshow', () => {
     if (el) el.style.display = 'none';
 });
 
+let _trkDelId = null;
 function openDeleteModal(id, ticket) {
-    document.getElementById('delInputId').value = id;
+    _trkDelId = id;
     document.getElementById('delTicketNum').innerText = ticket;
     const m = document.getElementById('deleteModal');
     m.style.display = 'flex';
-    m.offsetHeight;
-    m.classList.add('show');
+    requestAnimationFrame(() => m.classList.add('show'));
 }
 function closeDeleteModal() {
     const m = document.getElementById('deleteModal');
     m.classList.remove('show');
-    setTimeout(() => { m.style.display = 'none'; }, 200);
+    setTimeout(() => { m.style.display = 'none'; }, 150);
+}
+function doDeleteTracking() {
+    if (!_trkDelId) return;
+    const btn = document.getElementById('trk-del-btn');
+    btn.disabled = true; btn.textContent = 'กำลังลบ...';
+    const fd = new FormData();
+    fd.append('action','delete'); fd.append('id', _trkDelId); fd.append('ajax','1');
+    fetch('', { method:'POST', body: fd }).then(r => r.json()).then(data => {
+        closeDeleteModal();
+        if (data.ok) {
+            const row = document.getElementById('trk-row-' + _trkDelId);
+            if (row) {
+                row.style.transition = 'opacity .25s,transform .25s';
+                row.style.opacity = '0'; row.style.transform = 'translateX(30px)';
+                setTimeout(() => row.remove(), 260);
+            }
+        }
+        btn.disabled = false; btn.textContent = 'ลบรายการ';
+    });
 }
 document.getElementById('deleteModal').addEventListener('click', function(e) {
     if (e.target === this) closeDeleteModal();
