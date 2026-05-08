@@ -152,6 +152,7 @@ include __DIR__ . '/../templates/header_admin.php';
                 <td style="text-align:center;">
                     <div style="display:flex;align-items:center;justify-content:center;gap:5px;">
                         <button type="button" class="t-btn t-edit" title="แก้ไข"
+                                onmouseenter="_loadIframe('form.php?id=<?= $u['id'] ?>&modal=1')"
                                 onclick="openUserModal('form.php?id=<?= $u['id'] ?>&modal=1')">
                             <span class="material-symbols-rounded">edit</span>
                         </button>
@@ -245,15 +246,28 @@ document.getElementById('usr-del-modal').addEventListener('click', function(e) {
     if (e.target === this) closeDeleteConfirm();
 });
 
+let _loadedUrl = '';
+function _loadIframe(url) {
+    const iframe = document.getElementById('user-iframe');
+    if (_loadedUrl === url) return;
+    _loadedUrl = url;
+    iframe.style.height = '0';
+    iframe.src = url;
+}
+// Preload add form immediately on page ready
+document.addEventListener('DOMContentLoaded', () => _loadIframe('form.php?modal=1'));
+
 function openUserModal(url) {
-    document.getElementById('user-iframe').src = url;
+    _loadIframe(url);
     document.getElementById('modal-user').classList.add('show');
     document.body.style.overflow = 'hidden';
 }
 function closeUserModal() {
     document.getElementById('modal-user').classList.remove('show');
     document.body.style.overflow = '';
-    setTimeout(() => document.getElementById('user-iframe').src = '', 300);
+    // Reset to add form so it's ready for next open
+    setTimeout(() => _loadIframe('form.php?modal=1'), 300);
+    _loadedUrl = '';
 }
 document.getElementById('modal-user').addEventListener('click', function(e) {
     if (e.target === this) closeUserModal();
@@ -261,8 +275,8 @@ document.getElementById('modal-user').addEventListener('click', function(e) {
 window.addEventListener('message', function(e) {
     if (e.data === 'user-saved') { closeUserModal(); location.reload(); return; }
     if (e.data?.type === 'usr-resize') {
-        const iframe = document.getElementById('user-iframe');
-        iframe.style.height = Math.min(e.data.h, window.innerHeight * 0.9) + 'px';
+        document.getElementById('user-iframe').style.height =
+            Math.min(e.data.h, window.innerHeight * 0.9) + 'px';
     }
 });
 </script>
