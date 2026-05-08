@@ -123,6 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $current_count_stmt = $pdo->prepare("SELECT COUNT(*) FROM repair_images WHERE repair_id = ?");
             $current_count_stmt->execute([$id]);
             $current_count = (int)$current_count_stmt->fetchColumn();
+            if ($current_count === 0 && !empty($repair['image'])) $current_count = 1; // count legacy
             $slots_left = MAX_IMGS - $current_count;
 
             $new_images = [];
@@ -207,7 +208,7 @@ if ($repair['tracking_id']) {
     $linked_tracking = $t->fetch(PDO::FETCH_ASSOC);
 }
 
-$current_img_count = count(array_filter($existing_images, fn($x) => $x['id'] !== 'legacy'));
+$current_img_count = count($existing_images); // includes legacy image
 $slots_available   = MAX_IMGS - $current_img_count;
 
 if ($isModal):
