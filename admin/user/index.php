@@ -26,6 +26,7 @@ include __DIR__ . '/../templates/header_admin.php';
 ?>
 <link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=9">
 <link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=9">
+<link rel="stylesheet" href="../templates/assets/css/modal.css?v=9">
 <style>
 .t-btn{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:7px;border:1px solid var(--border);background:var(--bg-surface-alt);color:var(--text-muted);cursor:pointer;transition:all .18s;text-decoration:none;padding:0;}
 .t-btn .material-symbols-rounded{font-size:16px;line-height:1;}
@@ -64,9 +65,9 @@ include __DIR__ . '/../templates/header_admin.php';
             </p>
         </div>
         <div class="cmns-action-buttons">
-            <a href="form.php" class="cmns-btn cmns-btn-primary">
+            <button type="button" onclick="openUserModal('form.php?modal=1')" class="cmns-btn cmns-btn-primary">
                 <span class="material-symbols-rounded">person_add</span> เพิ่มผู้ใช้งาน
-            </a>
+            </button>
         </div>
     </div>
 
@@ -150,9 +151,10 @@ include __DIR__ . '/../templates/header_admin.php';
                 </td>
                 <td style="text-align:center;">
                     <div style="display:flex;align-items:center;justify-content:center;gap:5px;">
-                        <a href="form.php?id=<?= $u['id'] ?>" class="t-btn t-edit" title="แก้ไข">
+                        <button type="button" class="t-btn t-edit" title="แก้ไข"
+                                onclick="openUserModal('form.php?id=<?= $u['id'] ?>&modal=1')">
                             <span class="material-symbols-rounded">edit</span>
-                        </a>
+                        </button>
                         <?php if (!$isSelf): ?>
                         <button type="button" class="t-btn t-del" title="ลบ"
                                 onclick="openDeleteConfirm(<?= $u['id'] ?>, '<?= h($u['username']) ?>')">
@@ -176,6 +178,13 @@ include __DIR__ . '/../templates/header_admin.php';
     </div>
 
 </div><!-- .cmns-wrapper -->
+
+<!-- User Form Modal -->
+<div id="modal-user" class="cmns-modal">
+    <div class="modal-content" style="width:min(540px,calc(100vw - 40px));max-width:none;max-height:none;padding:0;overflow:hidden;border-radius:16px;flex-shrink:0;">
+        <iframe id="user-iframe" src="" style="width:100%;height:auto;min-height:480px;border:none;display:block;background:var(--bg-surface);"></iframe>
+    </div>
+</div>
 
 <!-- Delete Confirm Modal -->
 <div id="usr-del-modal" class="usr-modal-overlay">
@@ -234,5 +243,25 @@ function doDelete() {
 }
 document.getElementById('usr-del-modal').addEventListener('click', function(e) {
     if (e.target === this) closeDeleteConfirm();
+});
+
+function openUserModal(url) {
+    document.getElementById('user-iframe').src = url;
+    document.getElementById('modal-user').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+function closeUserModal() {
+    document.getElementById('modal-user').classList.remove('show');
+    document.body.style.overflow = '';
+    setTimeout(() => document.getElementById('user-iframe').src = '', 300);
+}
+document.getElementById('modal-user').addEventListener('click', function(e) {
+    if (e.target === this) closeUserModal();
+});
+window.addEventListener('message', function(e) {
+    if (e.data === 'user-saved') {
+        closeUserModal();
+        location.reload();
+    }
 });
 </script>
