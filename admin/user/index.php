@@ -182,7 +182,7 @@ include __DIR__ . '/../templates/header_admin.php';
 <!-- User Form Modal -->
 <div id="modal-user" class="cmns-modal">
     <div class="modal-content" style="width:min(540px,calc(100vw - 40px));max-width:none;max-height:none;padding:0;overflow:hidden;border-radius:16px;flex-shrink:0;">
-        <iframe id="user-iframe" src="" style="width:100%;height:auto;min-height:480px;border:none;display:block;background:var(--bg-surface);"></iframe>
+        <iframe id="user-iframe" src="" style="width:100%;height:0;border:none;display:block;background:var(--bg-surface);transition:height .15s;"></iframe>
     </div>
 </div>
 
@@ -259,9 +259,10 @@ document.getElementById('modal-user').addEventListener('click', function(e) {
     if (e.target === this) closeUserModal();
 });
 window.addEventListener('message', function(e) {
-    if (e.data === 'user-saved') {
-        closeUserModal();
-        location.reload();
+    if (e.data === 'user-saved') { closeUserModal(); location.reload(); return; }
+    if (e.data?.type === 'usr-resize') {
+        const iframe = document.getElementById('user-iframe');
+        iframe.style.height = Math.min(e.data.h, window.innerHeight * 0.9) + 'px';
     }
 });
 </script>

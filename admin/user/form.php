@@ -83,7 +83,7 @@ if ($isModal):
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
 <link rel="stylesheet" href="/admin/templates/assets/css/admin.css?v=9">
 </head>
-<body style="margin:0;padding:0;background:var(--bg-surface);height:100vh;overflow:hidden;display:flex;flex-direction:column;">
+<body style="margin:0;padding:0;background:var(--bg-surface);display:flex;flex-direction:column;">
 
 <!-- HEADER -->
 <div style="flex-shrink:0;display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border,#e5e7eb);">
@@ -99,7 +99,7 @@ if ($isModal):
 </div>
 
 <!-- BODY -->
-<div style="flex:1;overflow-y:auto;padding:20px 24px;">
+<div style="padding:20px 24px;">
 <?php else:
     $pageTitle = $is_edit ? 'แก้ไขผู้ใช้งาน' : 'เพิ่มผู้ใช้งาน';
     include __DIR__ . '/../templates/header_admin.php';
@@ -250,6 +250,12 @@ function togglePw(id, btn) {
     icon.textContent = inp.type === 'password' ? 'visibility' : 'visibility_off';
 }
 <?php if ($isModal): ?>
+function reportHeight() {
+    window.parent.postMessage({ type:'usr-resize', h: document.body.scrollHeight }, '*');
+}
+window.addEventListener('load', reportHeight);
+new ResizeObserver(reportHeight).observe(document.body);
+
 let formDirty = false;
 const _form = document.getElementById('usr-form');
 _form.addEventListener('input',  () => { formDirty = true; });
