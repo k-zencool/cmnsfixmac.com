@@ -9,18 +9,21 @@ function page_url(int $p): string { $q = $_GET; $q['page'] = $p; return '?' . ht
 
 $flash = $_SESSION['flash'] ?? ''; unset($_SESSION['flash']);
 
-$q      = trim($_GET['q']   ?? '');
-$cat    = trim($_GET['cat'] ?? '');
+$q      = trim($_GET['q']      ?? '');
+$cat    = trim($_GET['cat']    ?? '');
+$status = trim($_GET['status'] ?? '');
 $sort   = $_GET['sort']  ?? 'newest';
 $per    = max(10, min(100, (int)($_GET['per']  ?? 20)));
 $page   = max(1, (int)($_GET['page'] ?? 1));
 $offset = ($page - 1) * $per;
 
 $CATEGORIES = ['MacBook','iPhone','iPad','iMac','MacMini','AirPods','AppleWatch','Adapter','Other'];
+$STATUSES   = ['published'=>'เผยแพร่','draft'=>'ฉบับร่าง','hidden'=>'ซ่อน'];
 
 $where = []; $params = [];
-if ($q)   { $where[] = '(r.title LIKE ? OR r.model LIKE ?)'; $params[] = "%$q%"; $params[] = "%$q%"; }
-if ($cat) { $where[] = 'r.category = ?'; $params[] = $cat; }
+if ($q)      { $where[] = '(r.title LIKE ? OR r.model LIKE ?)'; $params[] = "%$q%"; $params[] = "%$q%"; }
+if ($cat)    { $where[] = 'r.category = ?'; $params[] = $cat; }
+if ($status) { $where[] = 'r.status = ?';   $params[] = $status; }
 $where_sql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
 $order_sql  = match($sort) { 'oldest'=>'r.created_at ASC','title'=>'r.title ASC','popular'=>'r.views DESC', default=>'r.created_at DESC' };
 
@@ -31,10 +34,12 @@ $page  = min($page, $pages);
 $offset = ($page - 1) * $per;
 
 $stmt = $pdo->prepare("
-    SELECT r.id, r.title, r.model, r.category, r.image, r.slug, r.created_at, r.views,
-           t.ticket_number, t.customer_name
+    SELECT r.id, r.title, r.model, r.category, r.image, r.slug, r.created_at, r.views, r.status,
+           r.tracking_id, t.ticket_number, t.customer_name,
+           u.username AS author
     FROM repairs r
     LEFT JOIN tracking t ON t.id = r.tracking_id
+    LEFT JOIN admin_users u ON u.id = r.admin_id
     $where_sql
     ORDER BY $order_sql
     LIMIT $per OFFSET $offset
@@ -48,7 +53,10 @@ $stats = $pdo->query("
         COUNT(*) AS total_posts,
         SUM(tracking_id IS NOT NULL) AS linked_jobs,
         SUM(MONTH(created_at) = MONTH(NOW()) AND YEAR(created_at) = YEAR(NOW())) AS this_month,
-        SUM(slug IS NOT NULL AND slug != '') AS has_slug
+        SUM(slug IS NOT NULL AND slug != '') AS has_slug,
+        SUM(status = 'published') AS cnt_published,
+        SUM(status = 'draft')     AS cnt_draft,
+        SUM(status = 'hidden')    AS cnt_hidden
     FROM repairs
 ")->fetch(PDO::FETCH_ASSOC);
 
@@ -56,7 +64,15 @@ $pageTitle = 'ผลงานทั้งหมด';
 include __DIR__ . '/../templates/header_admin.php';
 ?>
 <link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time() ?>">
+<style>
+.t-btn{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:7px;border:1px solid var(--border);background:var(--bg-surface-alt);color:var(--text-muted);cursor:pointer;transition:all .18s;text-decoration:none;padding:0;flex-shrink:0;}
+.t-btn .material-symbols-rounded{font-size:16px;line-height:1;}
+.t-btn:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.1);}
+.t-edit:hover{color:var(--primary);background:rgba(37,99,235,.07);border-color:var(--primary);}
+.t-del:hover{color:#ef4444;background:rgba(239,68,68,.07);border-color:#ef4444;}
+</style>
 <link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= time() ?>">
+<link rel="stylesheet" href="../templates/assets/css/modal.css?v=<?= time() ?>">
 
 <div class="cmns-wrapper">
 
@@ -72,17 +88,19 @@ include __DIR__ . '/../templates/header_admin.php';
             </p>
         </div>
         <div class="cmns-action-buttons">
-            <a href="add.php" class="cmns-btn cmns-btn-primary">
+            <button type="button" onclick="openRepairModal('add.php?modal=1')" class="cmns-btn cmns-btn-primary">
                 <span class="material-symbols-rounded">add_circle</span> เพิ่มผลงาน
-            </a>
+            </button>
         </div>
     </div>
 
-    <!-- Flash -->
     <?php if ($flash): ?>
-        <div style="background:#f0fdf4;border:1px solid #86efac;color:#16a34a;padding:10px 16px;border-radius:10px;margin-bottom:16px;font-size:13px;">
-            <?= h($flash) ?>
-        </div>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        Swal.fire({ icon:'success', title: <?= json_encode($flash) ?>, toast:true, position:'top-end',
+            showConfirmButton:false, timer:3000, timerProgressBar:true });
+    });
+    </script>
     <?php endif; ?>
 
     <!-- Stats -->
@@ -129,6 +147,15 @@ include __DIR__ . '/../templates/header_admin.php';
                 </select>
             </div>
             <div class="log-filter-group">
+                <label>สถานะ</label>
+                <select name="status">
+                    <option value="">ทั้งหมด</option>
+                    <?php foreach($STATUSES as $v => $label): ?>
+                        <option value="<?= $v ?>" <?= $status===$v?'selected':'' ?>><?= $label ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="log-filter-group">
                 <label>เรียงตาม</label>
                 <select name="sort">
                     <option value="newest"  <?= $sort==='newest' ?'selected':'' ?>>ล่าสุดก่อน</option>
@@ -140,7 +167,7 @@ include __DIR__ . '/../templates/header_admin.php';
             <button type="submit" class="btn-filter">
                 <span class="material-symbols-rounded">search</span> ค้นหา
             </button>
-            <?php if ($q || $cat): ?>
+            <?php if ($q || $cat || $status): ?>
                 <a href="index.php" class="btn-reset">
                     <span class="material-symbols-rounded">close</span>
                 </a>
@@ -157,10 +184,11 @@ include __DIR__ . '/../templates/header_admin.php';
                     <th style="width:72px;">รูปปก</th>
                     <th>ชื่อผลงาน</th>
                     <th style="width:120px;text-align:center;">หมวด / รุ่น</th>
-                    <th style="width:150px;text-align:center;">Slug / SEO</th>
-                    <th style="width:120px;text-align:center;">ผูกงาน</th>
-                    <th style="width:90px;text-align:center;">วันที่</th>
-                    <th style="width:100px;text-align:center;">จัดการ</th>
+                    <th style="width:90px;text-align:center;">สถานะ</th>
+                    <th style="width:110px;text-align:center;">ผูกงาน</th>
+                    <th style="width:76px;text-align:center;">โดย</th>
+                    <th style="width:86px;text-align:center;">วันที่</th>
+                    <th style="width:80px;text-align:center;">จัดการ</th>
                 </tr>
             </thead>
             <tbody>
@@ -168,7 +196,7 @@ include __DIR__ . '/../templates/header_admin.php';
                     $img = $r['image'] ?? '';
                     if ($img && strpos($img, '/') === false) $img = '/uploads/repairs/' . $img;
                 ?>
-                <tr>
+                <tr id="repair-row-<?= $r['id'] ?>">
                     <td>
                         <div style="width:56px;height:56px;border-radius:10px;background:var(--bg-surface-alt);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;overflow:hidden;">
                             <?php if ($img): ?>
@@ -201,21 +229,39 @@ include __DIR__ . '/../templates/header_admin.php';
                         <div style="font-size:12px;color:var(--text-muted);margin-top:4px;"><?= h($r['model']) ?></div>
                     </td>
                     <td style="text-align:center;">
-                        <?php if ($r['slug']): ?>
-                            <div style="font-size:12px;font-family:monospace;color:var(--text-muted);">/work/<?= h($r['slug']) ?></div>
-                        <?php else: ?>
-                            <span style="font-size:11px;color:#f59e0b;font-weight:700;">⚠ ยังไม่มี slug</span>
+                        <?php
+                        $sBadge = match($r['status'] ?? 'published') {
+                            'published' => ['เผยแพร่',  '#10b981','#f0fdf4','#bbf7d0'],
+                            'draft'     => ['ฉบับร่าง', '#d97706','#fffbeb','#fde68a'],
+                            'hidden'    => ['ซ่อน',     '#6b7280','#f9fafb','#e5e7eb'],
+                            default     => ['เผยแพร่',  '#10b981','#f0fdf4','#bbf7d0'],
+                        };
+                        ?>
+                        <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;background:<?= $sBadge[2] ?>;color:<?= $sBadge[1] ?>;border:1px solid <?= $sBadge[3] ?>;">
+                            <span style="width:6px;height:6px;border-radius:50%;background:<?= $sBadge[1] ?>;display:inline-block;flex-shrink:0;"></span>
+                            <?= $sBadge[0] ?>
+                        </span>
+                        <?php if (!$r['slug']): ?>
+                            <div style="font-size:10px;color:#f59e0b;margin-top:3px;font-weight:700;">⚠ ไม่มี slug</div>
                         <?php endif; ?>
                     </td>
                     <td style="text-align:center;">
                         <?php if ($r['ticket_number']): ?>
-                            <span class="action-badge badge-in">
-                                <span class="material-symbols-rounded" style="font-size:12px;">task_alt</span>
-                                <?= h($r['ticket_number']) ?>
+                            <a href="../tracking/edit.php?id=<?= $r['tracking_id'] ?>" target="_blank" rel="noopener" style="text-decoration:none;">
+                                <span class="action-badge badge-in" style="cursor:pointer;" onmouseover="this.style.opacity='.75'" onmouseout="this.style.opacity='1'">
+                                    <span class="material-symbols-rounded" style="font-size:12px;">task_alt</span>
+                                    <?= h($r['ticket_number']) ?>
+                                </span>
+                            </a>
+                        <?php else: ?>
+                            <span style="color:var(--text-muted);font-size:12px;">—</span>
+                        <?php endif; ?>
+                    </td>
+                    <td style="text-align:center;">
+                        <?php if ($r['author']): ?>
+                            <span style="font-size:11px;font-weight:600;color:var(--text-muted);">
+                                <?= h($r['author']) ?>
                             </span>
-                            <?php if ($r['customer_name']): ?>
-                                <div style="font-size:11px;color:var(--text-muted);margin-top:3px;"><?= h($r['customer_name']) ?></div>
-                            <?php endif; ?>
                         <?php else: ?>
                             <span style="color:var(--text-muted);font-size:12px;">—</span>
                         <?php endif; ?>
@@ -224,15 +270,13 @@ include __DIR__ . '/../templates/header_admin.php';
                         <?= $r['created_at'] ? date('d/m/Y', strtotime($r['created_at'])) : '-' ?>
                     </td>
                     <td>
-                        <div style="display:flex;gap:6px;justify-content:center;">
-                            <a href="edit.php?id=<?= $r['id'] ?>" class="cmns-btn cmns-btn-secondary" style="padding:6px 10px;font-size:12px;">
-                                <span class="material-symbols-rounded" style="font-size:14px;">edit</span>
-                            </a>
-                            <a href="delete.php?id=<?= $r['id'] ?>" onclick="return confirm('ลบผลงานนี้?')"
-                               class="cmns-btn cmns-btn-secondary" style="padding:6px 10px;font-size:12px;border-color:#fca5a5;color:#dc2626;"
-                               onmouseover="this.style.background='#fef2f2'" onmouseout="this.style.background=''">
-                                <span class="material-symbols-rounded" style="font-size:14px;">delete</span>
-                            </a>
+                        <div style="display:flex;gap:5px;justify-content:center;">
+                            <button type="button" onclick="openRepairModal('edit.php?id=<?= $r['id'] ?>&modal=1')" class="t-btn t-edit" title="แก้ไข">
+                                <span class="material-symbols-rounded">edit</span>
+                            </button>
+                            <button type="button" onclick="openDeleteConfirm(<?= $r['id'] ?>, '<?= h($r['title']) ?>')" class="t-btn t-del" title="ลบ">
+                                <span class="material-symbols-rounded">delete</span>
+                            </button>
                         </div>
                     </td>
                 </tr>
@@ -282,6 +326,33 @@ include __DIR__ . '/../templates/header_admin.php';
 
 </div>
 
+<!-- Delete Confirm -->
+<div id="del-confirm" style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:none;align-items:center;justify-content:center;">
+  <div id="del-confirm-box" style="background:var(--bg-surface);width:90%;max-width:360px;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.2);overflow:hidden;border:1px solid var(--border);">
+    <div style="padding:20px 20px 12px;text-align:center;background:rgba(239,68,68,.06);border-bottom:1px solid var(--border);">
+      <div style="width:44px;height:44px;border-radius:50%;background:rgba(239,68,68,.12);color:#ef4444;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
+        <span class="material-symbols-rounded" style="font-size:22px;">delete</span>
+      </div>
+      <h3 style="margin:0;font-size:15px;font-weight:700;color:#dc2626;">ยืนยันการลบ?</h3>
+    </div>
+    <div style="padding:16px 20px;text-align:center;color:var(--text-main);font-size:14px;line-height:1.6;">
+      ลบ <strong id="del-title" style="color:var(--primary);"></strong><br>
+      <span style="font-size:12px;color:#ef4444;">ไม่สามารถย้อนกลับได้</span>
+    </div>
+    <div style="padding:12px 20px;border-top:1px solid var(--border);background:var(--bg-surface-alt);display:flex;gap:8px;justify-content:center;">
+      <button type="button" onclick="closeDeleteConfirm()" class="cmns-btn cmns-btn-secondary">ยกเลิก</button>
+      <button id="del-confirm-btn" type="button" onclick="doDelete()" class="cmns-btn cmns-btn-primary" style="background:#ef4444;border-color:#ef4444;">ลบผลงาน</button>
+    </div>
+  </div>
+</div>
+
+<!-- Repair Modal -->
+<div id="modal-repair" class="cmns-modal">
+    <div class="modal-content" style="width:min(940px,calc(100vw - 40px));max-width:none;max-height:none;padding:0;overflow:hidden;border-radius:16px;flex-shrink:0;">
+        <iframe id="repair-iframe" src="" style="width:100%;height:88vh;min-height:88vh;border:none;display:block;background:var(--bg-surface);"></iframe>
+    </div>
+</div>
+
 <script>
 function goPerPage(sel) {
     const u = new URL(location.href);
@@ -289,6 +360,61 @@ function goPerPage(sel) {
     u.searchParams.set('page', '1');
     location.href = u.toString();
 }
+
+let _delId = null;
+function openDeleteConfirm(id, title) {
+  _delId = id;
+  document.getElementById('del-title').textContent = title;
+  document.getElementById('del-confirm').style.display = 'flex';
+}
+function closeDeleteConfirm() {
+  document.getElementById('del-confirm').style.display = 'none';
+}
+function doDelete() {
+  if (!_delId) return;
+  const btn = document.getElementById('del-confirm-btn');
+  btn.disabled = true; btn.textContent = 'กำลังลบ...';
+  fetch('delete.php?id=' + _delId + '&ajax=1').then(r => r.json()).then(d => {
+    closeDeleteConfirm();
+    if (d.ok) {
+      const row = document.getElementById('repair-row-' + _delId);
+      if (row) {
+        row.style.transition = 'opacity .25s,transform .25s';
+        row.style.opacity = '0'; row.style.transform = 'translateX(30px)';
+        setTimeout(() => row.remove(), 260);
+      }
+    }
+    btn.disabled = false; btn.textContent = 'ลบผลงาน';
+  });
+}
+document.getElementById('del-confirm').addEventListener('click', function(e) {
+  if (e.target === this) closeDeleteConfirm();
+});
+
+function openRepairModal(url) {
+    document.getElementById('repair-iframe').src = url;
+    document.getElementById('modal-repair').classList.add('show');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeRepairModal() {
+    document.getElementById('modal-repair').classList.remove('show');
+    document.body.style.overflow = '';
+    setTimeout(() => document.getElementById('repair-iframe').src = '', 300);
+}
+
+// click backdrop = close
+document.getElementById('modal-repair').addEventListener('click', function(e) {
+    if (e.target === this) closeRepairModal();
+});
+
+// iframe signals success via postMessage
+window.addEventListener('message', function(e) {
+    if (e.data === 'repair-saved') {
+        closeRepairModal();
+        location.reload();
+    }
+});
 </script>
 
 <?php include __DIR__ . '/../templates/footer_admin.php'; ?>
