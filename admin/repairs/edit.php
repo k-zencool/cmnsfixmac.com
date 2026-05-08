@@ -123,7 +123,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $current_count_stmt = $pdo->prepare("SELECT COUNT(*) FROM repair_images WHERE repair_id = ?");
             $current_count_stmt->execute([$id]);
             $current_count = (int)$current_count_stmt->fetchColumn();
-            if ($current_count === 0 && !empty($repair['image'])) $current_count = 1; // count legacy
+            if ($current_count === 0 && !empty($repair['image'])) {
+                $abs = realpath(__DIR__ . '/../../' . ltrim($repair['image'], '/'));
+                if ($abs && file_exists($abs)) $current_count = 1; // count legacy only if file exists
+            }
             $slots_left = MAX_IMGS - $current_count;
 
             $new_images = [];
@@ -217,8 +220,12 @@ if ($repair['tracking_id']) {
     $linked_tracking = $t->fetch(PDO::FETCH_ASSOC);
 }
 
-$current_img_count = count($existing_images); // includes legacy image
-$slots_available   = MAX_IMGS - $current_img_count;
+$current_img_count = count(array_filter($existing_images, function($img) {
+    if ($img['id'] !== 'legacy') return true; // repair_images entries always count
+    $abs = realpath(__DIR__ . '/../../' . ltrim($img['image_path'], '/'));
+    return $abs && file_exists($abs); // legacy counts only if file exists on disk
+}));
+$slots_available = MAX_IMGS - $current_img_count;
 
 if ($isModal):
 ?><!DOCTYPE html><html lang="th">
