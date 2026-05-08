@@ -3,6 +3,15 @@ RewriteEngine On
 RewriteBase /
 
 # ══════════════════════════════════════════════════════════════
+# PHP UPLOAD LIMITS
+# ══════════════════════════════════════════════════════════════
+<IfModule mod_php.c>
+    php_value upload_max_filesize 20M
+    php_value post_max_size       60M
+    php_value memory_limit        256M
+</IfModule>
+
+# ══════════════════════════════════════════════════════════════
 # 1. HTTPS REDIRECT (production only — skip localhost/127.0.0.1)
 # ══════════════════════════════════════════════════════════════
 RewriteCond %{HTTP_HOST} !^localhost [NC]
