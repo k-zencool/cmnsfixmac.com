@@ -311,7 +311,7 @@ include __DIR__ . '/../templates/header_admin.php';
                         </div>
                     </td>
                     <td>
-                        <a href="/articles/<?= h($row['slug'] ?? '') ?>" target="_blank" rel="noopener"
+                        <a href="/article/<?= h($row['slug'] ?? '') ?>" target="_blank" rel="noopener"
                            style="font-weight:700;font-size:13px;color:var(--primary);text-decoration:none;"
                            onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
                             <?= h($row['title']) ?>
