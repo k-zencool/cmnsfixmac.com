@@ -169,343 +169,318 @@ $articles = $st->fetchAll(PDO::FETCH_ASSOC);
 
 /* =============== Template =============== */
 include __DIR__ . '/../templates/header_admin.php';
-
 ?>
-<main class="main" id="main-content">
-  <div class="topbar">
-    <span><?= h($pageTitle) ?></span>
-    <a href="../../" class="view-site" target="_blank">ดูเว็บไซต์</a>
-  </div>
-
-  <div class="section-header">
-    <h2>บทความทั้งหมด</h2>
-    <button type="button" class="cmns-btn cmns-btn-primary" onclick="openArticleModal('add.php?modal=1')">
-      <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">add</span> เพิ่มบทความ
-    </button>
-  </div>
-
-  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px;">
-    <div class="stat-card" style="border-left:4px solid #3b82f6">
-      <div class="stat-card-num"><?= (int)($stats['total'] ?? 0) ?></div>
-      <div class="stat-card-label">บทความทั้งหมด</div>
-    </div>
-    <div class="stat-card" style="border-left:4px solid #10b981">
-      <div class="stat-card-num"><?= (int)($stats['published'] ?? 0) ?></div>
-      <div class="stat-card-label">เผยแพร่แล้ว</div>
-    </div>
-    <div class="stat-card" style="border-left:4px solid #f59e0b">
-      <div class="stat-card-num"><?= (int)($stats['this_month'] ?? 0) ?></div>
-      <div class="stat-card-label">เดือนนี้</div>
-    </div>
-    <div class="stat-card" style="border-left:4px solid #8b5cf6">
-      <div class="stat-card-num"><?= (int)($stats['has_slug'] ?? 0) ?></div>
-      <div class="stat-card-label">มี Slug / SEO</div>
-    </div>
-  </div>
-
-  <form action="index.php" method="get" class="search-and-filter-group">
-    <input class="filter-input" name="q" value="<?= h($q) ?>" placeholder="ค้นหา ชื่อ/หมวด/เนื้อหา">
-    <select name="status" class="filter-input" aria-label="สถานะ">
-      <option value="">ทุกสถานะ</option>
-      <option value="1" <?= $status === '1' ? 'selected' : '' ?>>เผยแพร่</option>
-      <option value="0" <?= $status === '0' ? 'selected' : '' ?>>ซ่อน</option>
-    </select>
-    <select name="sort" class="filter-input" aria-label="เรียง">
-      <option value="created_desc" <?= $sort === 'created_desc' ? 'selected' : '' ?>>ล่าสุดก่อน</option>
-      <option value="created_asc" <?= $sort === 'created_asc' ? 'selected' : '' ?>>เก่าสุดก่อน</option>
-      <option value="title_asc" <?= $sort === 'title_asc'   ? 'selected' : '' ?>>ชื่อ (A→Z)</option>
-    </select>
-
-    <div class="filter-dropdown">
-      <button type="button" class="btn-secondary" onclick="toggleMenu('filterMenuArticles')">ตัวกรอง</button>
-      <div id="filterMenuArticles" class="filter-menu">
-        <div class="filter-section">
-          <div class="filter-title">หมวดหมู่</div>
-          <?php foreach ($catRows as $c): $checked = in_array($c, $cats, true) ? 'checked' : ''; ?>
-            <label class="checkline"><input type="checkbox" name="cat[]" value="<?= h($c) ?>" <?= $checked ?>><span><?= h($c) ?></span></label>
-          <?php endforeach;
-          if (!$catRows): ?><div class="muted">ยังไม่มีหมวด</div><?php endif; ?>
-        </div>
-        <div class="filter-section">
-          <div class="filter-title">วันที่</div>
-          <div class="range-inline">
-            <input type="date" name="date_from" value="<?= h($dfrom) ?>">
-            <span class="mx-4">ถึง</span>
-            <input type="date" name="date_to" value="<?= h($dto) ?>">
-          </div>
-        </div>
-        <div class="filter-actions">
-          <button type="button" class="btn-secondary" onclick="clearMenu('filterMenuArticles')">ล้าง</button>
-          <button type="submit" class="btn-primary">ใช้ตัวกรอง</button>
-        </div>
-      </div>
-    </div>
-
-    <input type="hidden" name="page" value="1">
-    <button class="btn-search">ค้นหา</button>
-  </form>
-
-  <div class="table-container">
-    <table class="data-table">
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>รูป</th>
-          <th>ชื่อบทความ</th>
-          <th>หมวดหมู่</th>
-          <th>ผู้สร้าง</th>
-          <th>วันที่</th>
-          <th>สถานะ</th>
-          <th>จัดการ</th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php if ($articles): foreach ($articles as $i => $row): ?>
-            <tr>
-              <td><?= ($offset + $i + 1) ?></td>
-              <td>
-                <?php if (!empty($row['image'])): ?>
-                  <button type="button" class="thumb-btn" data-src="<?= h($row['image']) ?>">
-                    <img src="<?= h($row['image']) ?>" class="thumb" alt="">
-                  </button>
-                <?php else: ?><div class="thumb"></div><?php endif; ?>
-              </td>
-              <td><strong><?= h($row['title']) ?></strong></td>
-              <td><?= h($row['category'] ?: '-') ?></td>
-              <td><?= h($row['admin_name'] ?? 'N/A') ?></td>
-              <td class="muted">
-                <?php $ts = isset($row['created_at']) ? strtotime($row['created_at']) : false;
-                echo $ts ? date('d/m/Y', $ts) : '-'; ?>
-              </td>
-              <td style="text-align:center">
-                <?php $active = (int)($row['status'] ?? 1) === 1; ?>
-                <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:100px;<?= $active ? 'background:rgba(16,185,129,0.12);color:#10b981;border:1px solid rgba(16,185,129,0.3)' : 'background:rgba(107,114,128,0.12);color:#9ca3af;border:1px solid rgba(107,114,128,0.25)' ?>">
-                  <span style="width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;"></span>
-                  <?= $active ? 'เผยแพร่' : 'ซ่อน' ?>
-                </span>
-              </td>
-              <td>
-                <?php
-                $_is_super = ($_SESSION['admin_role'] ?? '') === 'super_admin';
-                $_own_id   = (int)($row['admin_id'] ?? 0);
-                $_can_act  = $_is_super || $_own_id === 0 || $_own_id === (int)$_SESSION['admin_id'];
-                ?>
-                <div style="display:flex;gap:5px;justify-content:center;">
-                  <?php if ($_can_act): ?>
-                    <button type="button" onclick="openArticleModal('edit.php?id=<?= (int)$row['id'] ?>&modal=1')" class="t-btn t-edit" title="แก้ไข">
-                      <span class="material-symbols-rounded">edit</span>
-                    </button>
-                    <button type="button" onclick="deleteArticle(<?= (int)$row['id'] ?>, '<?= h(addslashes($row['title'])) ?>')" class="t-btn t-del" title="ลบ">
-                      <span class="material-symbols-rounded">delete</span>
-                    </button>
-                  <?php else: ?>
-                    <span title="บทความของ <?= h($row['admin_name'] ?? 'ผู้อื่น') ?>" style="color:var(--text-muted);padding:4px 8px;">
-                      <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">lock</span>
-                    </span>
-                  <?php endif; ?>
-                </div>
-              </td>
-            </tr>
-          <?php endforeach;
-        else: ?>
-          <tr>
-            <td colspan="8" class="text-center">ยังไม่มีบทความ</td>
-          </tr>
-        <?php endif; ?>
-      </tbody>
-    </table>
-  </div>
-
-  <div class="pager-bar">
-    <div class="pager-left">
-      <span class="pager-total">พบ <?= (int)$total ?> รายการ</span>
-      <span class="divider">•</span>
-      <span>หน้า <?= (int)$page ?> / <?= (int)$pages ?></span>
-    </div>
-    <nav class="pager-nav" aria-label="Pagination">
-      <a class="page-btn <?= $page <= 1 ? 'is-disabled' : '' ?>" href="<?= $page > 1 ? page_url($page - 1) : '#' ?>" rel="prev" aria-label="ก่อนหน้า">‹</a>
-      <?php $start = max(1, $page - 2);
-      $end = min($pages, $page + 2);
-      if ($start > 1) echo '<span class="page-ellipsis">…</span>';
-      for ($i = $start; $i <= $end; $i++): ?>
-        <a class="page-btn <?= $i == $page ? 'is-active' : '' ?>" href="<?= page_url($i) ?>"><?= $i ?></a>
-      <?php endfor;
-      if ($end < $pages) echo '<span class="page-ellipsis">…</span>'; ?>
-      <a class="page-btn <?= $page >= $pages ? 'is-disabled' : '' ?>" href="<?= $page < $pages ? page_url($page + 1) : '#' ?>" rel="next" aria-label="ถัดไป">›</a>
-      <div class="page-size">
-        <select id="ppSelect" class="pager-select" aria-label="จำนวนต่อหน้า">
-          <?php foreach ([20, 50, 100] as $pp): ?>
-            <option value="<?= $pp ?>" <?= (int)$per === $pp ? 'selected' : '' ?>><?= $pp ?>/หน้า</option>
-          <?php endforeach; ?>
-        </select>
-      </div>
-    </nav>
-  </div>
-
-  <!-- ── ARTICLE MODAL ── -->
-  <div id="modal-article" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;">
-    <div style="background:var(--bg-surface,#fff);width:min(96vw,1100px);height:90vh;border-radius:16px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.35);">
-      <iframe id="article-iframe" src="" style="flex:1;border:none;width:100%;display:block;"></iframe>
-    </div>
-  </div>
-
-  <div id="imgPreviewOverlay" class="imgpv-overlay" aria-hidden="true">
-    <div class="imgpv-dialog" role="dialog" aria-modal="true" aria-label="ตัวอย่างรูป">
-      <button type="button" class="imgpv-close" aria-label="ปิด">✕</button>
-      <img id="imgPreview" src="" alt="" class="imgpv-img">
-    </div>
-  </div>
-</main>
-
-<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
-<?php include __DIR__ . '/../templates/footer_admin.php'; ?>
-
+<link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time() ?>">
 <style>
-  .stat-card{background:var(--bg-surface,#fff);border-radius:12px;padding:18px 22px;border:1px solid var(--border,#e5e7eb);}
-  .stat-card-num{font-size:32px;font-weight:800;letter-spacing:-0.03em;color:var(--text-main,#111);}
-  .stat-card-label{font-size:12px;color:var(--text-muted,#6b7280);margin-top:4px;font-weight:500;}
-  .t-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:1px solid var(--border,#e5e7eb);background:transparent;cursor:pointer;color:var(--text-muted,#6b7280);transition:background .15s,color .15s;}
-  .t-edit:hover{color:var(--primary,#2563eb);background:rgba(37,99,235,.07);border-color:var(--primary,#2563eb);}
-  .t-del:hover{color:#ef4444;background:rgba(239,68,68,.07);border-color:#ef4444;}
-  .t-btn .material-symbols-rounded{font-size:16px;}
-  .cmns-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:8px;border:none;font-size:14px;font-weight:600;cursor:pointer;}
-  .cmns-btn-primary{background:var(--primary,#2563eb);color:#fff;}
-  .cmns-btn-primary:hover{opacity:.88;}
+.t-btn{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:7px;border:1px solid var(--border);background:var(--bg-surface-alt);color:var(--text-muted);cursor:pointer;transition:all .18s;padding:0;flex-shrink:0;}
+.t-btn .material-symbols-rounded{font-size:16px;line-height:1;}
+.t-btn:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.1);}
+.t-edit:hover{color:var(--primary);background:rgba(37,99,235,.07);border-color:var(--primary);}
+.t-del:hover{color:#ef4444;background:rgba(239,68,68,.07);border-color:#ef4444;}
 </style>
+<link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= time() ?>">
+<link rel="stylesheet" href="../templates/assets/css/modal.css?v=<?= time() ?>">
+
+<div class="cmns-wrapper">
+
+    <!-- Header -->
+    <div class="cmns-header-bar">
+        <div>
+            <h1 class="cmns-page-title" style="color:var(--primary);">
+                <span class="material-symbols-rounded" style="font-size:32px;">article</span>
+                บทความ / ARTICLES
+            </h1>
+            <p style="color:var(--text-muted);margin-top:5px;font-size:13px;">
+                จัดการบทความ · แสดง <b><?= number_format($total) ?></b> รายการ
+            </p>
+        </div>
+        <div class="cmns-action-buttons">
+            <button type="button" onclick="openArticleModal('add.php?modal=1')" class="cmns-btn cmns-btn-primary">
+                <span class="material-symbols-rounded">add_circle</span> เพิ่มบทความ
+            </button>
+        </div>
+    </div>
+
+    <?php if ($flash): ?>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        Swal.fire({ icon:'success', title: <?= json_encode($flash) ?>, toast:true, position:'top-end',
+            showConfirmButton:false, timer:3000, timerProgressBar:true });
+    });
+    </script>
+    <?php endif; ?>
+
+    <!-- Stats -->
+    <div class="log-stats" style="margin-bottom:24px;">
+        <div class="log-stat-card stat-accent-blue">
+            <span class="stat-label">บทความทั้งหมด</span>
+            <span class="stat-value"><?= number_format($stats['total'] ?? 0) ?></span>
+            <span class="stat-sub">ในระบบ</span>
+        </div>
+        <div class="log-stat-card stat-accent-green">
+            <span class="stat-label">เผยแพร่แล้ว</span>
+            <span class="stat-value"><?= number_format($stats['published'] ?? 0) ?></span>
+            <span class="stat-sub">สาธารณะ</span>
+        </div>
+        <div class="log-stat-card stat-accent-yellow">
+            <span class="stat-label">เดือนนี้</span>
+            <span class="stat-value"><?= number_format($stats['this_month'] ?? 0) ?></span>
+            <span class="stat-sub"><?= date('M Y') ?></span>
+        </div>
+        <div class="log-stat-card stat-accent-purple">
+            <span class="stat-label">มี Slug (SEO)</span>
+            <span class="stat-value"><?= number_format($stats['has_slug'] ?? 0) ?></span>
+            <span class="stat-sub">จาก <?= number_format($stats['total'] ?? 0) ?></span>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <form method="GET">
+        <div class="log-filter-bar">
+            <div class="log-filter-group" style="flex:1;min-width:220px;">
+                <label>ค้นหา</label>
+                <div class="log-search-wrap">
+                    <span class="material-symbols-rounded search-icon">search</span>
+                    <input type="text" name="q" value="<?= h($q) ?>" placeholder="ชื่อบทความ / หมวด / เนื้อหา" style="padding-left:38px;">
+                </div>
+            </div>
+            <div class="log-filter-group">
+                <label>หมวดหมู่</label>
+                <select name="cat[]">
+                    <option value="">ทั้งหมด</option>
+                    <?php foreach ($catRows as $c): ?>
+                        <option value="<?= h($c) ?>" <?= in_array($c, $cats, true) ? 'selected' : '' ?>><?= h($c) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+            <div class="log-filter-group">
+                <label>สถานะ</label>
+                <select name="status">
+                    <option value="">ทั้งหมด</option>
+                    <option value="1" <?= $status === '1' ? 'selected' : '' ?>>เผยแพร่</option>
+                    <option value="0" <?= $status === '0' ? 'selected' : '' ?>>ซ่อน</option>
+                </select>
+            </div>
+            <div class="log-filter-group">
+                <label>เรียงตาม</label>
+                <select name="sort">
+                    <option value="created_desc" <?= $sort === 'created_desc' ? 'selected' : '' ?>>ล่าสุดก่อน</option>
+                    <option value="created_asc"  <?= $sort === 'created_asc'  ? 'selected' : '' ?>>เก่าสุดก่อน</option>
+                    <option value="title_asc"    <?= $sort === 'title_asc'    ? 'selected' : '' ?>>ชื่อ A→Z</option>
+                </select>
+            </div>
+            <button type="submit" class="btn-filter">
+                <span class="material-symbols-rounded">search</span> ค้นหา
+            </button>
+            <?php if ($q || $status || $cats): ?>
+                <a href="index.php" class="btn-reset">
+                    <span class="material-symbols-rounded">close</span>
+                </a>
+            <?php endif; ?>
+        </div>
+    </form>
+
+    <!-- Table -->
+    <div class="log-card">
+        <div style="overflow-x:auto;">
+        <table class="log-table">
+            <thead>
+                <tr>
+                    <th style="width:72px;">รูปปก</th>
+                    <th>ชื่อบทความ</th>
+                    <th style="width:120px;text-align:center;">หมวดหมู่</th>
+                    <th style="width:90px;text-align:center;">สถานะ</th>
+                    <th style="width:76px;text-align:center;">โดย</th>
+                    <th style="width:90px;text-align:center;">วันที่</th>
+                    <th style="width:80px;text-align:center;">จัดการ</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if ($articles): foreach ($articles as $row):
+                    $img = $row['image'] ?? '';
+                ?>
+                <tr>
+                    <td>
+                        <div style="width:56px;height:56px;border-radius:10px;background:var(--bg-surface-alt);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;overflow:hidden;">
+                            <?php if ($img): ?>
+                                <img src="<?= h($img) ?>" alt="" loading="lazy"
+                                     style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:10px;"
+                                     onerror="this.remove()">
+                            <?php endif; ?>
+                            <span class="material-symbols-rounded" style="color:var(--text-muted);font-size:20px;">article</span>
+                        </div>
+                    </td>
+                    <td>
+                        <a href="/articles/<?= h($row['slug'] ?? '') ?>" target="_blank" rel="noopener"
+                           style="font-weight:700;font-size:13px;color:var(--primary);text-decoration:none;"
+                           onmouseover="this.style.textDecoration='underline'" onmouseout="this.style.textDecoration='none'">
+                            <?= h($row['title']) ?>
+                        </a>
+                        <?php if ($row['views']): ?>
+                            <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">
+                                <span class="material-symbols-rounded" style="font-size:12px;vertical-align:-2px;">visibility</span>
+                                <?= number_format($row['views']) ?>
+                            </div>
+                        <?php endif; ?>
+                        <?php if (!$row['slug']): ?>
+                            <div style="font-size:10px;color:#f59e0b;margin-top:2px;font-weight:700;">⚠ ไม่มี slug</div>
+                        <?php endif; ?>
+                    </td>
+                    <td style="text-align:center;">
+                        <?php if ($row['category']): ?>
+                            <span class="action-badge" style="background:var(--primary-light,#eff6ff);color:var(--primary);border-color:rgba(37,99,235,.2);">
+                                <?= h($row['category']) ?>
+                            </span>
+                        <?php else: ?>
+                            <span style="color:var(--text-muted);font-size:12px;">—</span>
+                        <?php endif; ?>
+                    </td>
+                    <td style="text-align:center;">
+                        <?php $active = (int)($row['status'] ?? 1) === 1; ?>
+                        <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;background:<?= $active ? '#f0fdf4' : '#f9fafb' ?>;color:<?= $active ? '#10b981' : '#6b7280' ?>;border:1px solid <?= $active ? '#bbf7d0' : '#e5e7eb' ?>;">
+                            <span style="width:6px;height:6px;border-radius:50%;background:currentColor;display:inline-block;flex-shrink:0;"></span>
+                            <?= $active ? 'เผยแพร่' : 'ซ่อน' ?>
+                        </span>
+                    </td>
+                    <td style="text-align:center;">
+                        <?php if ($row['admin_name']): ?>
+                            <span style="font-size:11px;font-weight:600;color:var(--text-muted);"><?= h($row['admin_name']) ?></span>
+                        <?php else: ?>
+                            <span style="color:var(--text-muted);font-size:12px;">—</span>
+                        <?php endif; ?>
+                    </td>
+                    <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;text-align:center;">
+                        <?= $row['created_at'] ? date('d/m/Y', strtotime($row['created_at'])) : '-' ?>
+                    </td>
+                    <td>
+                        <?php
+                        $_is_super = ($_SESSION['admin_role'] ?? '') === 'super_admin';
+                        $_own_id   = (int)($row['admin_id'] ?? 0);
+                        $_can_act  = $_is_super || $_own_id === 0 || $_own_id === (int)$_SESSION['admin_id'];
+                        ?>
+                        <div style="display:flex;gap:5px;justify-content:center;">
+                            <?php if ($_can_act): ?>
+                                <button type="button" onclick="openArticleModal('edit.php?id=<?= (int)$row['id'] ?>&modal=1')" class="t-btn t-edit" title="แก้ไข">
+                                    <span class="material-symbols-rounded">edit</span>
+                                </button>
+                                <button type="button" onclick="deleteArticle(<?= (int)$row['id'] ?>, '<?= h(addslashes($row['title'])) ?>')" class="t-btn t-del" title="ลบ">
+                                    <span class="material-symbols-rounded">delete</span>
+                                </button>
+                            <?php else: ?>
+                                <span title="บทความของ <?= h($row['admin_name'] ?? 'ผู้อื่น') ?>" style="color:var(--text-muted);cursor:default;padding:4px 8px;">
+                                    <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">lock</span>
+                                </span>
+                            <?php endif; ?>
+                        </div>
+                    </td>
+                </tr>
+                <?php endforeach; else: ?>
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <span class="material-symbols-rounded">article</span>
+                            <p>ยังไม่มีบทความ · <a href="javascript:void(0)" onclick="openArticleModal('add.php?modal=1')" style="color:var(--primary);">เพิ่มบทความแรก</a></p>
+                        </div>
+                    </td>
+                </tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+        </div>
+
+        <div class="log-pagination">
+            <div>
+                แสดง <b><?= number_format(min($total, $offset+1)) ?>–<?= number_format(min($total, $offset+$per)) ?></b>
+                จาก <b><?= number_format($total) ?></b> รายการ
+                &nbsp;·&nbsp; หน้า <?= $page ?> / <?= $pages ?>
+            </div>
+            <div class="page-btns">
+                <a href="<?= $page > 1 ? page_url($page-1) : '#' ?>" class="page-btn <?= $page<=1?'disabled':'' ?>">
+                    <span class="material-symbols-rounded" style="font-size:16px;">chevron_left</span>
+                </a>
+                <?php
+                $pStart = max(1, $page - 2);
+                $pEnd   = min($pages, $pStart + 4);
+                for ($p = $pStart; $p <= $pEnd; $p++): ?>
+                    <a href="<?= page_url($p) ?>" class="page-btn <?= $p===$page?'active':'' ?>"><?= $p ?></a>
+                <?php endfor; ?>
+                <a href="<?= $page < $pages ? page_url($page+1) : '#' ?>" class="page-btn <?= $page>=$pages?'disabled':'' ?>">
+                    <span class="material-symbols-rounded" style="font-size:16px;">chevron_right</span>
+                </a>
+                <select onchange="goPerPage(this)"
+                        style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-main);font-size:13px;outline:none;cursor:pointer;font-family:'Sarabun',sans-serif;">
+                    <?php foreach([10,20,50] as $pp): ?>
+                        <option value="<?= $pp ?>" <?= $per===$pp?'selected':'' ?>><?= $pp ?>/หน้า</option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /.cmns-wrapper -->
+
+<!-- Article Modal -->
+<div id="modal-article" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;">
+    <div style="background:var(--bg-surface,#fff);width:min(96vw,1100px);height:90vh;border-radius:16px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.35);">
+        <iframe id="article-iframe" src="" style="flex:1;border:none;width:100%;display:block;"></iframe>
+    </div>
+</div>
+
 <script>
-  // Modal
-  const _modal = document.getElementById('modal-article');
-  const _iframe = document.getElementById('article-iframe');
-
-  function openArticleModal(url) {
-    _iframe.src = url;
-    _modal.style.display = 'flex';
+function openArticleModal(url) {
+    document.getElementById('article-iframe').src = url;
+    const m = document.getElementById('modal-article');
+    m.style.display = 'flex';
     document.body.style.overflow = 'hidden';
-  }
-
-  function closeArticleModal() {
-    _modal.style.display = 'none';
+}
+function closeArticleModal() {
+    document.getElementById('modal-article').style.display = 'none';
     document.body.style.overflow = '';
-    setTimeout(() => { _iframe.src = ''; }, 200);
-  }
-
-  _modal.addEventListener('click', e => { if (e.target === _modal) closeArticleModal(); });
-  document.addEventListener('keydown', e => { if (e.key === 'Escape' && _modal.style.display !== 'none') closeArticleModal(); });
-
-  window.addEventListener('message', function(e) {
+    setTimeout(() => { document.getElementById('article-iframe').src = ''; }, 200);
+}
+document.getElementById('modal-article').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-article')) closeArticleModal();
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.getElementById('modal-article').style.display !== 'none') closeArticleModal();
+});
+window.addEventListener('message', function(e) {
     if (e.data === 'article-saved') {
-      closeArticleModal();
-      <?php if (!empty($flash)): ?>
-      <?php else: ?>
-      Swal.fire({ toast:true, position:'top-end', icon:'success', title:'บันทึกเรียบร้อยแล้ว', showConfirmButton:false, timer:2500, timerProgressBar:true });
-      <?php endif; ?>
-      setTimeout(() => location.reload(), 400);
+        closeArticleModal();
+        Swal.fire({ toast:true, position:'top-end', icon:'success', title:'บันทึกเรียบร้อยแล้ว', showConfirmButton:false, timer:2500, timerProgressBar:true });
+        setTimeout(() => location.reload(), 400);
     }
-  });
-
-  // Delete
-  function deleteArticle(id, title) {
+});
+function deleteArticle(id, title) {
     Swal.fire({
-      title: 'ลบบทความ?',
-      html: `<span style="color:#6b7280;font-size:14px;">"${title}"</span>`,
-      icon: 'warning',
-      showCancelButton: true,
-      confirmButtonColor: '#ef4444',
-      cancelButtonText: 'ยกเลิก',
-      confirmButtonText: 'ลบเลย'
+        title: 'ลบบทความ?',
+        html: `<span style="color:#6b7280;font-size:14px;">"${title}"</span>`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#ef4444',
+        cancelButtonText: 'ยกเลิก',
+        confirmButtonText: 'ลบเลย'
     }).then(r => {
-      if (r.isConfirmed) {
-        fetch(`delete.php?id=${id}&ajax=1`, { method: 'GET' })
-          .then(res => res.json())
-          .then(data => {
-            if (data.ok) {
-              Swal.fire({ toast:true, position:'top-end', icon:'success', title:'ลบเรียบร้อยแล้ว', showConfirmButton:false, timer:2000 });
-              setTimeout(() => location.reload(), 600);
-            } else {
-              Swal.fire('เกิดข้อผิดพลาด', data.msg || '', 'error');
-            }
-          });
-      }
+        if (r.isConfirmed) {
+            fetch(`delete.php?id=${id}&ajax=1`)
+                .then(res => res.json())
+                .then(data => {
+                    if (data.ok) {
+                        Swal.fire({ toast:true, position:'top-end', icon:'success', title:'ลบเรียบร้อยแล้ว', showConfirmButton:false, timer:2000 });
+                        setTimeout(() => location.reload(), 600);
+                    } else {
+                        Swal.fire('เกิดข้อผิดพลาด', data.msg || '', 'error');
+                    }
+                });
+        }
     });
-  }
-
-  <?php if ($flash): ?>
-  document.addEventListener('DOMContentLoaded', () => {
-    Swal.fire({ toast:true, position:'top-end', icon:'success', title:<?= json_encode($flash) ?>, showConfirmButton:false, timer:3000, timerProgressBar:true });
-  });
-  <?php endif; ?>
-
-  // Dropdown
-  function toggleMenu(id) {
-    var m = document.getElementById(id);
-    if (m) m.classList.toggle('show');
-  }
-
-  function clearMenu(id) {
-    var root = document.getElementById(id);
-    if (!root) return;
-    root.querySelectorAll('input[type="checkbox"]').forEach(el => el.checked = false);
-    root.querySelectorAll('input[type="date"]').forEach(el => el.value = '');
-  }
-  document.addEventListener('click', function(e) {
-    var dd = e.target.closest ? e.target.closest('.filter-dropdown') : null;
-    document.querySelectorAll('.filter-menu.show').forEach(function(m) {
-      if (!dd || !dd.contains(m)) m.classList.remove('show');
-    });
-  });
-
-  // Image preview modal
-  (function() {
-    var overlay = document.getElementById('imgPreviewOverlay');
-    var imgEl = document.getElementById('imgPreview');
-
-    function openPreview(src) {
-      if (!overlay || !imgEl) return;
-      imgEl.src = src;
-      overlay.classList.add('show');
-      overlay.setAttribute('aria-hidden', 'false');
-    }
-
-    function closePreview() {
-      if (!overlay) return;
-      overlay.classList.remove('show');
-      overlay.setAttribute('aria-hidden', 'true');
-      imgEl.src = '';
-    }
-    document.addEventListener('click', function(e) {
-      var btn = e.target.closest ? e.target.closest('.thumb-btn') : null;
-      if (!btn) return;
-      var src = btn.getAttribute('data-src');
-      if (src) openPreview(src);
-    });
-    if (overlay) {
-      overlay.addEventListener('click', function(e) {
-        if (e.target === overlay || e.target.classList.contains('imgpv-close')) closePreview();
-      });
-    }
-    document.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape' && overlay && overlay.classList.contains('show')) closePreview();
-    });
-  })();
-
-  // Per page
-  (function() {
-    const sel = document.getElementById('ppSelect');
-    if (!sel) return;
-    sel.addEventListener('change', function() {
-      const u = new URL(location.href);
-      u.searchParams.set('per', this.value);
-      u.searchParams.set('page', '1');
-      location = u.toString();
-    });
-  })();
-
-  // Arrow keys
-  (function() {
-    document.addEventListener('keydown', function(e) {
-      if (e.altKey || e.metaKey || e.ctrlKey) return;
-      if (e.key === 'ArrowRight') document.querySelector('.page-btn[rel="next"]')?.click();
-      if (e.key === 'ArrowLeft') document.querySelector('.page-btn[rel="prev"]')?.click();
-    });
-  })();
+}
+function goPerPage(sel) {
+    const u = new URL(location.href);
+    u.searchParams.set('per', sel.value);
+    u.searchParams.set('page', '1');
+    location = u.toString();
+}
 </script>
+
+<?php include __DIR__ . '/../templates/footer_admin.php'; ?>
