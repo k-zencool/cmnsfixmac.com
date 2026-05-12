@@ -102,13 +102,14 @@ try {
         }
     }
 
-    header('Location: index.php?msg=deleted');
+    if (!empty($_GET['ajax'])) { header('Content-Type: application/json'); echo '{"ok":true}'; exit; }
+    $_SESSION['flash'] = 'ลบบทความเรียบร้อยแล้ว';
+    header('Location: index.php');
     exit;
 } catch (Exception $e) {
-    if ($pdo->inTransaction()) {
-        $pdo->rollBack();
-    }
+    if ($pdo->inTransaction()) $pdo->rollBack();
     error_log("Delete Article $id FAILED: " . $e->getMessage());
+    if (!empty($_GET['ajax'])) { header('Content-Type: application/json'); echo '{"ok":false,"msg":"' . addslashes($e->getMessage()) . '"}'; exit; }
     header('Location: index.php?err=deletefail');
     exit;
 }

@@ -11,6 +11,8 @@ require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_login();
 
+$isModal = !empty($_GET['modal']);
+
 // Helper Function
 function h($s)
 {
@@ -135,7 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $pdo->commit();
-        echo json_encode(['status' => 'success', 'redirect' => "index.php"]); // Success -> Go to Index
+        echo json_encode(['status' => 'success', 'redirect' => 'index.php', 'modal' => $isModal]);
 
     } catch (Exception $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
@@ -615,7 +617,10 @@ include __DIR__ . '/../templates/header_admin.php';
                 });
                 const data = await res.json();
                 loader.classList.remove('show');
-                if (data.status === 'success') window.location.href = data.redirect;
+                if (data.status === 'success') {
+                    if (data.modal) { window.parent.postMessage('article-saved', '*'); return; }
+                    window.location.href = data.redirect;
+                }
                 else {
                     myAlert(data.message || 'เกิดข้อผิดพลาด');
                     if (data.bad_input_index !== undefined) {

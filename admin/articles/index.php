@@ -128,6 +128,18 @@ $ORDER_MAP = [
 ];
 $orderBy = $ORDER_MAP[$sort] ?? $ORDER_MAP['created_desc'];
 
+/* =============== Stats =============== */
+$stats = $pdo->query("
+  SELECT
+    COUNT(*) AS total,
+    SUM(status = 1) AS published,
+    SUM(MONTH(created_at) = MONTH(NOW()) AND YEAR(created_at) = YEAR(NOW())) AS this_month,
+    SUM(slug IS NOT NULL AND slug != '') AS has_slug
+  FROM articles
+")->fetch(PDO::FETCH_ASSOC);
+
+$flash = $_SESSION['flash'] ?? ''; unset($_SESSION['flash']);
+
 /* =============== Count + Fetch =============== */
 $stc = $pdo->prepare("SELECT COUNT(*) FROM articles a {$where_sql}");
 foreach ($params as $k => $v) $stc->bindValue($k, $v);
@@ -167,7 +179,28 @@ include __DIR__ . '/../templates/header_admin.php';
 
   <div class="section-header">
     <h2>บทความทั้งหมด</h2>
-    <a href="add.php" class="btn-primary">+ เพิ่มบทความ</a>
+    <button type="button" class="cmns-btn cmns-btn-primary" onclick="openArticleModal('add.php?modal=1')">
+      <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">add</span> เพิ่มบทความ
+    </button>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin-bottom:24px;">
+    <div class="stat-card" style="border-left:4px solid #3b82f6">
+      <div class="stat-card-num"><?= (int)($stats['total'] ?? 0) ?></div>
+      <div class="stat-card-label">บทความทั้งหมด</div>
+    </div>
+    <div class="stat-card" style="border-left:4px solid #10b981">
+      <div class="stat-card-num"><?= (int)($stats['published'] ?? 0) ?></div>
+      <div class="stat-card-label">เผยแพร่แล้ว</div>
+    </div>
+    <div class="stat-card" style="border-left:4px solid #f59e0b">
+      <div class="stat-card-num"><?= (int)($stats['this_month'] ?? 0) ?></div>
+      <div class="stat-card-label">เดือนนี้</div>
+    </div>
+    <div class="stat-card" style="border-left:4px solid #8b5cf6">
+      <div class="stat-card-num"><?= (int)($stats['has_slug'] ?? 0) ?></div>
+      <div class="stat-card-label">มี Slug / SEO</div>
+    </div>
   </div>
 
   <form action="index.php" method="get" class="search-and-filter-group">
@@ -244,13 +277,33 @@ include __DIR__ . '/../templates/header_admin.php';
                 <?php $ts = isset($row['created_at']) ? strtotime($row['created_at']) : false;
                 echo $ts ? date('d/m/Y', $ts) : '-'; ?>
               </td>
-              <td>
+              <td style="text-align:center">
                 <?php $active = (int)($row['status'] ?? 1) === 1; ?>
-                <span class="badge <?= $active ? '' : 'badge-gray' ?>"><?= $active ? 'เผยแพร่' : 'ซ่อน' ?></span>
+                <span style="display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;padding:3px 10px;border-radius:100px;<?= $active ? 'background:rgba(16,185,129,0.12);color:#10b981;border:1px solid rgba(16,185,129,0.3)' : 'background:rgba(107,114,128,0.12);color:#9ca3af;border:1px solid rgba(107,114,128,0.25)' ?>">
+                  <span style="width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;"></span>
+                  <?= $active ? 'เผยแพร่' : 'ซ่อน' ?>
+                </span>
               </td>
-              <td class="no-wrap">
-                <a href="edit.php?id=<?= (int)$row['id'] ?>" class="btn-edit">แก้ไข</a>
-                <a href="delete.php?id=<?= (int)$row['id'] ?>" class="btn-delete" onclick="return confirm('ยืนยันการลบใช่ไหม?')">ลบ</a>
+              <td>
+                <?php
+                $_is_super = ($_SESSION['admin_role'] ?? '') === 'super_admin';
+                $_own_id   = (int)($row['admin_id'] ?? 0);
+                $_can_act  = $_is_super || $_own_id === 0 || $_own_id === (int)$_SESSION['admin_id'];
+                ?>
+                <div style="display:flex;gap:5px;justify-content:center;">
+                  <?php if ($_can_act): ?>
+                    <button type="button" onclick="openArticleModal('edit.php?id=<?= (int)$row['id'] ?>&modal=1')" class="t-btn t-edit" title="แก้ไข">
+                      <span class="material-symbols-rounded">edit</span>
+                    </button>
+                    <button type="button" onclick="deleteArticle(<?= (int)$row['id'] ?>, '<?= h(addslashes($row['title'])) ?>')" class="t-btn t-del" title="ลบ">
+                      <span class="material-symbols-rounded">delete</span>
+                    </button>
+                  <?php else: ?>
+                    <span title="บทความของ <?= h($row['admin_name'] ?? 'ผู้อื่น') ?>" style="color:var(--text-muted);padding:4px 8px;">
+                      <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">lock</span>
+                    </span>
+                  <?php endif; ?>
+                </div>
               </td>
             </tr>
           <?php endforeach;
@@ -289,6 +342,13 @@ include __DIR__ . '/../templates/header_admin.php';
     </nav>
   </div>
 
+  <!-- ── ARTICLE MODAL ── -->
+  <div id="modal-article" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;">
+    <div style="background:var(--bg-surface,#fff);width:min(96vw,1100px);height:90vh;border-radius:16px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.35);">
+      <iframe id="article-iframe" src="" style="flex:1;border:none;width:100%;display:block;"></iframe>
+    </div>
+  </div>
+
   <div id="imgPreviewOverlay" class="imgpv-overlay" aria-hidden="true">
     <div class="imgpv-dialog" role="dialog" aria-modal="true" aria-label="ตัวอย่างรูป">
       <button type="button" class="imgpv-close" aria-label="ปิด">✕</button>
@@ -297,9 +357,84 @@ include __DIR__ . '/../templates/header_admin.php';
   </div>
 </main>
 
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.all.min.js"></script>
 <?php include __DIR__ . '/../templates/footer_admin.php'; ?>
 
+<style>
+  .stat-card{background:var(--bg-surface,#fff);border-radius:12px;padding:18px 22px;border:1px solid var(--border,#e5e7eb);}
+  .stat-card-num{font-size:32px;font-weight:800;letter-spacing:-0.03em;color:var(--text-main,#111);}
+  .stat-card-label{font-size:12px;color:var(--text-muted,#6b7280);margin-top:4px;font-weight:500;}
+  .t-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:1px solid var(--border,#e5e7eb);background:transparent;cursor:pointer;color:var(--text-muted,#6b7280);transition:background .15s,color .15s;}
+  .t-edit:hover{color:var(--primary,#2563eb);background:rgba(37,99,235,.07);border-color:var(--primary,#2563eb);}
+  .t-del:hover{color:#ef4444;background:rgba(239,68,68,.07);border-color:#ef4444;}
+  .t-btn .material-symbols-rounded{font-size:16px;}
+  .cmns-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:8px;border:none;font-size:14px;font-weight:600;cursor:pointer;}
+  .cmns-btn-primary{background:var(--primary,#2563eb);color:#fff;}
+  .cmns-btn-primary:hover{opacity:.88;}
+</style>
 <script>
+  // Modal
+  const _modal = document.getElementById('modal-article');
+  const _iframe = document.getElementById('article-iframe');
+
+  function openArticleModal(url) {
+    _iframe.src = url;
+    _modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeArticleModal() {
+    _modal.style.display = 'none';
+    document.body.style.overflow = '';
+    setTimeout(() => { _iframe.src = ''; }, 200);
+  }
+
+  _modal.addEventListener('click', e => { if (e.target === _modal) closeArticleModal(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && _modal.style.display !== 'none') closeArticleModal(); });
+
+  window.addEventListener('message', function(e) {
+    if (e.data === 'article-saved') {
+      closeArticleModal();
+      <?php if (!empty($flash)): ?>
+      <?php else: ?>
+      Swal.fire({ toast:true, position:'top-end', icon:'success', title:'บันทึกเรียบร้อยแล้ว', showConfirmButton:false, timer:2500, timerProgressBar:true });
+      <?php endif; ?>
+      setTimeout(() => location.reload(), 400);
+    }
+  });
+
+  // Delete
+  function deleteArticle(id, title) {
+    Swal.fire({
+      title: 'ลบบทความ?',
+      html: `<span style="color:#6b7280;font-size:14px;">"${title}"</span>`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonText: 'ยกเลิก',
+      confirmButtonText: 'ลบเลย'
+    }).then(r => {
+      if (r.isConfirmed) {
+        fetch(`delete.php?id=${id}&ajax=1`, { method: 'GET' })
+          .then(res => res.json())
+          .then(data => {
+            if (data.ok) {
+              Swal.fire({ toast:true, position:'top-end', icon:'success', title:'ลบเรียบร้อยแล้ว', showConfirmButton:false, timer:2000 });
+              setTimeout(() => location.reload(), 600);
+            } else {
+              Swal.fire('เกิดข้อผิดพลาด', data.msg || '', 'error');
+            }
+          });
+      }
+    });
+  }
+
+  <?php if ($flash): ?>
+  document.addEventListener('DOMContentLoaded', () => {
+    Swal.fire({ toast:true, position:'top-end', icon:'success', title:<?= json_encode($flash) ?>, showConfirmButton:false, timer:3000, timerProgressBar:true });
+  });
+  <?php endif; ?>
+
   // Dropdown
   function toggleMenu(id) {
     var m = document.getElementById(id);

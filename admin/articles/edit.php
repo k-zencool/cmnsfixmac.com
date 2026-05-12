@@ -11,6 +11,8 @@ require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_login();
 
+$isModal = !empty($_GET['modal']);
+
 // Helper
 function h($s)
 {
@@ -167,7 +169,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $pdo->commit();
-        echo json_encode(['status' => 'success', 'redirect' => "edit.php?id=$id&updated=1"]);
+        echo json_encode(['status' => 'success', 'redirect' => "edit.php?id=$id&updated=1", 'modal' => $isModal]);
     } catch (Exception $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
@@ -185,6 +187,14 @@ $stmt = $pdo->prepare("SELECT * FROM articles WHERE id = ?");
 $stmt->execute([$id]);
 $article = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$article) die('Error: Article not found');
+
+$_art_role  = $_SESSION['admin_role'] ?? '';
+$_art_owner = (int)($article['admin_id'] ?? 0);
+if ($_art_owner !== 0 && $_art_owner !== (int)$_SESSION['admin_id'] && $_art_role !== 'super_admin') {
+    if ($isModal) { echo json_encode(['status'=>'error','message'=>'คุณไม่มีสิทธิ์แก้ไขบทความนี้']); exit; }
+    $_SESSION['flash'] = 'คุณไม่มีสิทธิ์แก้ไขบทความนี้';
+    header('Location: index.php'); exit;
+}
 
 $stmtImg = $pdo->prepare("SELECT * FROM article_images WHERE article_id = ? ORDER BY id ASC");
 $stmtImg->execute([$id]);
@@ -901,6 +911,7 @@ include __DIR__ . '/../templates/header_admin.php';
                 loader.classList.remove('show');
 
                 if (data.status === 'success') {
+                    if (data.modal) { window.parent.postMessage('article-saved', '*'); return; }
                     window.location.href = data.redirect;
                 } else {
                     myAlert(data.message || 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ');
