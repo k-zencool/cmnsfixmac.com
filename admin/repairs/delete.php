@@ -7,6 +7,16 @@ require_login();
 $id = (int)($_GET['id'] ?? 0);
 if (!$id) { header('Location: index.php'); exit; }
 
+$_role = $_SESSION['admin_role'] ?? '';
+$_owner = $pdo->prepare("SELECT admin_id FROM repairs WHERE id = ?");
+$_owner->execute([$id]);
+$_owner_id = (int)$_owner->fetchColumn();
+if ($_owner_id !== 0 && $_owner_id !== (int)$_SESSION['admin_id'] && $_role !== 'super_admin') {
+    if (!empty($_GET['ajax'])) { header('Content-Type: application/json'); echo '{"ok":false,"msg":"permission denied"}'; exit; }
+    header('Location: index.php');
+    exit;
+}
+
 try {
     $pdo->beginTransaction();
 

@@ -59,6 +59,14 @@ $repair->execute([$id]);
 $repair = $repair->fetch(PDO::FETCH_ASSOC);
 if (!$repair) { header('Location: index.php'); exit; }
 
+$_role        = $_SESSION['admin_role'] ?? '';
+$_repair_owner = (int)($repair['admin_id'] ?? 0);
+if ($_repair_owner !== 0 && $_repair_owner !== (int)$_SESSION['admin_id'] && $_role !== 'super_admin') {
+    $_SESSION['flash'] = 'คุณไม่มีสิทธิ์แก้ไขงานของผู้อื่น';
+    header('Location: index.php');
+    exit;
+}
+
 // Load existing images from repair_images
 $img_stmt = $pdo->prepare("SELECT * FROM repair_images WHERE repair_id = ? ORDER BY sort_order ASC, id ASC");
 $img_stmt->execute([$id]);
@@ -889,7 +897,16 @@ function gotoTab(n) {
   const icon = document.getElementById('btn-action-icon');
   const text = document.getElementById('btn-action-text');
   if (n === TOTAL_TABS) {
-    btn.type = 'submit'; btn.onclick = null;
+    btn.type = 'button';
+    btn.onclick = function(e) {
+      e.preventDefault();
+      if (qIssue)   document.getElementById('issue_input').value         = qIssue.root.innerHTML;
+      if (qIssueEn) document.querySelector('[name="issue_en"]').value     = qIssueEn.root.innerHTML;
+      if (qFix)     document.getElementById('fix_detail_input').value     = qFix.root.innerHTML;
+      if (qFixEn)   document.querySelector('[name="fix_detail_en"]').value = qFixEn.root.innerHTML;
+      formDirty = false;
+      document.getElementById('repair-form').submit();
+    };
     icon.textContent = 'save'; text.textContent = 'บันทึก';
   } else {
     btn.type = 'button'; btn.onclick = nextTab;

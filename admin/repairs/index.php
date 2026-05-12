@@ -35,7 +35,7 @@ $offset = ($page - 1) * $per;
 
 $stmt = $pdo->prepare("
     SELECT r.id, r.title, r.model, r.category, r.image, r.slug, r.created_at, r.views, r.status,
-           r.tracking_id, t.ticket_number, t.customer_name,
+           r.tracking_id, r.admin_id, t.ticket_number, t.customer_name,
            u.username AS author
     FROM repairs r
     LEFT JOIN tracking t ON t.id = r.tracking_id
@@ -270,13 +270,24 @@ include __DIR__ . '/../templates/header_admin.php';
                         <?= $r['created_at'] ? date('d/m/Y', strtotime($r['created_at'])) : '-' ?>
                     </td>
                     <td>
+                        <?php
+                        $_is_super    = ($_SESSION['admin_role'] ?? '') === 'super_admin';
+                        $_owner_id    = (int)($r['admin_id'] ?? 0);
+                        $_can_act     = $_is_super || $_owner_id === 0 || $_owner_id === (int)$_SESSION['admin_id'];
+                        ?>
                         <div style="display:flex;gap:5px;justify-content:center;">
-                            <button type="button" onclick="openRepairModal('edit.php?id=<?= $r['id'] ?>&modal=1')" class="t-btn t-edit" title="แก้ไข">
-                                <span class="material-symbols-rounded">edit</span>
-                            </button>
-                            <button type="button" onclick="openDeleteConfirm(<?= $r['id'] ?>, '<?= h($r['title']) ?>')" class="t-btn t-del" title="ลบ">
-                                <span class="material-symbols-rounded">delete</span>
-                            </button>
+                            <?php if ($_can_act): ?>
+                                <button type="button" onclick="openRepairModal('edit.php?id=<?= $r['id'] ?>&modal=1')" class="t-btn t-edit" title="แก้ไข">
+                                    <span class="material-symbols-rounded">edit</span>
+                                </button>
+                                <button type="button" onclick="openDeleteConfirm(<?= $r['id'] ?>, '<?= h($r['title']) ?>')" class="t-btn t-del" title="ลบ">
+                                    <span class="material-symbols-rounded">delete</span>
+                                </button>
+                            <?php else: ?>
+                                <span title="งานของ <?= h($r['author'] ?? 'ผู้อื่น') ?>" style="color:var(--text-muted);cursor:default;padding:4px 8px;font-size:12px;">
+                                    <span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">lock</span>
+                                </span>
+                            <?php endif; ?>
                         </div>
                     </td>
                 </tr>
