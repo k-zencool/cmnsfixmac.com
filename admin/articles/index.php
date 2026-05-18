@@ -299,7 +299,7 @@ include __DIR__ . '/../templates/header_admin.php';
                 <?php if ($articles): foreach ($articles as $row):
                     $img = $row['image'] ?? '';
                 ?>
-                <tr>
+                <tr id="article-row-<?= (int)$row['id'] ?>">
                     <td>
                         <div style="width:56px;height:56px;border-radius:10px;background:var(--bg-surface-alt);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;overflow:hidden;">
                             <?php if ($img): ?>
@@ -419,6 +419,26 @@ include __DIR__ . '/../templates/header_admin.php';
 
 </div><!-- /.cmns-wrapper -->
 
+<!-- Delete Confirm -->
+<div id="del-confirm" style="position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;display:none;align-items:center;justify-content:center;">
+  <div style="background:var(--bg-surface);width:90%;max-width:360px;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.2);overflow:hidden;border:1px solid var(--border);">
+    <div style="padding:20px 20px 12px;text-align:center;background:rgba(239,68,68,.06);border-bottom:1px solid var(--border);">
+      <div style="width:44px;height:44px;border-radius:50%;background:rgba(239,68,68,.12);color:#ef4444;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
+        <span class="material-symbols-rounded" style="font-size:22px;">delete</span>
+      </div>
+      <h3 style="margin:0;font-size:15px;font-weight:700;color:#dc2626;">ยืนยันการลบ?</h3>
+    </div>
+    <div style="padding:16px 20px;text-align:center;color:var(--text-main);font-size:14px;line-height:1.6;">
+      ลบ <strong id="del-title" style="color:var(--primary);"></strong><br>
+      <span style="font-size:12px;color:#ef4444;">ไม่สามารถย้อนกลับได้</span>
+    </div>
+    <div style="padding:12px 20px;border-top:1px solid var(--border);background:var(--bg-surface-alt);display:flex;gap:8px;justify-content:center;">
+      <button type="button" onclick="closeDeleteConfirm()" class="cmns-btn cmns-btn-secondary">ยกเลิก</button>
+      <button id="del-confirm-btn" type="button" onclick="doDelete()" class="cmns-btn cmns-btn-primary" style="background:#ef4444;border-color:#ef4444;">ลบบทความ</button>
+    </div>
+  </div>
+</div>
+
 <!-- Article Modal -->
 <div id="modal-article" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.55);align-items:center;justify-content:center;">
     <div style="background:var(--bg-surface,#fff);width:min(96vw,1100px);height:90vh;border-radius:16px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 80px rgba(0,0,0,.35);">
@@ -451,30 +471,40 @@ window.addEventListener('message', function(e) {
         setTimeout(() => location.reload(), 400);
     }
 });
+let _delId = null;
 function deleteArticle(id, title) {
-    Swal.fire({
-        title: 'ลบบทความ?',
-        html: `<span style="color:#6b7280;font-size:14px;">"${title}"</span>`,
-        icon: 'warning',
-        showCancelButton: true,
-        confirmButtonColor: '#ef4444',
-        cancelButtonText: 'ยกเลิก',
-        confirmButtonText: 'ลบเลย'
-    }).then(r => {
-        if (r.isConfirmed) {
-            fetch(`delete.php?id=${id}&ajax=1`)
-                .then(res => res.json())
-                .then(data => {
-                    if (data.ok) {
-                        Swal.fire({ toast:true, position:'top-end', icon:'success', title:'ลบเรียบร้อยแล้ว', showConfirmButton:false, timer:2000 });
-                        setTimeout(() => location.reload(), 600);
-                    } else {
-                        Swal.fire('เกิดข้อผิดพลาด', data.msg || '', 'error');
-                    }
-                });
+    _delId = id;
+    document.getElementById('del-title').textContent = title;
+    document.getElementById('del-confirm').style.display = 'flex';
+}
+function closeDeleteConfirm() {
+    document.getElementById('del-confirm').style.display = 'none';
+}
+function doDelete() {
+    if (!_delId) return;
+    const btn = document.getElementById('del-confirm-btn');
+    btn.disabled = true; btn.textContent = 'กำลังลบ...';
+    fetch('delete.php?id=' + _delId + '&ajax=1').then(r => r.json()).then(d => {
+        closeDeleteConfirm();
+        if (d.ok) {
+            const row = document.getElementById('article-row-' + _delId);
+            if (row) {
+                row.style.transition = 'opacity .25s,transform .25s';
+                row.style.opacity = '0'; row.style.transform = 'translateX(30px)';
+                setTimeout(() => row.remove(), 260);
+            }
+            Swal.fire({ icon:'success', title:'ลบบทความเรียบร้อยแล้ว', toast:true, position:'top-end',
+                showConfirmButton:false, timer:3000, timerProgressBar:true });
+        } else {
+            Swal.fire({ icon:'error', title:'เกิดข้อผิดพลาด', text: d.msg || '', toast:true, position:'top-end',
+                showConfirmButton:false, timer:3000 });
         }
+        btn.disabled = false; btn.textContent = 'ลบบทความ';
     });
 }
+document.getElementById('del-confirm').addEventListener('click', function(e) {
+    if (e.target === this) closeDeleteConfirm();
+});
 function goPerPage(sel) {
     const u = new URL(location.href);
     u.searchParams.set('per', sel.value);
