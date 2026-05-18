@@ -30,109 +30,110 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    // ── Image helpers ──────────────────────────────────────────
+    function art_process_webp(string $tmp, string $dest, int $maxW = 1200, int $q = 82): array|false {
+        $info = @getimagesize($tmp);
+        if (!$info) return false;
+        [$w, $h, $type] = $info;
+        $src = match($type) {
+            IMAGETYPE_JPEG => @imagecreatefromjpeg($tmp),
+            IMAGETYPE_PNG  => @imagecreatefrompng($tmp),
+            IMAGETYPE_WEBP => @imagecreatefromwebp($tmp),
+            default        => false,
+        };
+        if (!$src) return false;
+        if ($w > $maxW) {
+            $nh = (int)round($h * $maxW / $w);
+            $dst = imagecreatetruecolor($maxW, $nh);
+            imagecopyresampled($dst, $src, 0, 0, 0, 0, $maxW, $nh, $w, $h);
+            imagedestroy($src); $src = $dst;
+            $w = $maxW; $h = $nh;
+        }
+        $ok = imagewebp($src, $dest, $q);
+        imagedestroy($src);
+        if (!$ok) return false;
+        return ['w' => $w, 'h' => $h, 'size' => filesize($dest)];
+    }
+    function art_upload_slot(): array {
+        $ym = date('Y/m');
+        $dir = __DIR__ . '/../../uploads/articles/' . $ym;
+        if (!is_dir($dir)) @mkdir($dir, 0775, true);
+        $name = bin2hex(random_bytes(8)) . '.webp';
+        return [$dir . '/' . $name, '/uploads/articles/' . $ym . '/' . $name];
+    }
+    function art_mime_ok(string $tmp): bool {
+        $mime = (new finfo(FILEINFO_MIME_TYPE))->file($tmp);
+        return in_array($mime, ['image/jpeg','image/png','image/webp'], true);
+    }
+
     try {
         $pdo->beginTransaction();
 
-        // 1. Variables
-        $title = $_POST['title'] ?? '';
-        $slug = trim($_POST['slug'] ?? '');
-        $content = $_POST['content'] ?? '';
-        $excerpt = $_POST['excerpt'] ?? '';
-        $title_en = $_POST['title_en'] ?? '';
-        $slug_en = trim($_POST['slug_en'] ?? '');
-        $content_en = $_POST['content_en'] ?? '';
-        $excerpt_en = $_POST['excerpt_en'] ?? '';
-        $category = $_POST['category'] ?? 'tip';
-        $youtube_url = $_POST['youtube_url'] ?? '';
-        $status = isset($_POST['status']) ? 1 : 0;
+        $title       = trim($_POST['title']       ?? '');
+        $slug        = trim($_POST['slug']        ?? '');
+        $content     = $_POST['content']     ?? '';
+        $excerpt     = trim($_POST['excerpt']     ?? '');
+        $title_en    = trim($_POST['title_en']    ?? '');
+        $slug_en     = trim($_POST['slug_en']     ?? '');
+        $content_en  = $_POST['content_en']  ?? '';
+        $excerpt_en  = trim($_POST['excerpt_en']  ?? '');
+        $category    = trim($_POST['category']    ?? 'tip');
+        $youtube_url = trim($_POST['youtube_url'] ?? '');
+        $status      = (int)($_POST['status']     ?? 0);
 
-        // Config
-        $MAX_MAIN = 5 * 1024 * 1024;
-        $MAX_GALLERY = 5 * 1024 * 1024;
-        $ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp'];
-        $upload_path = __DIR__ . '/../../uploads/articles';
-        $upload_url  = '/uploads/articles';
-        if (!is_dir($upload_path)) @mkdir($upload_path, 0775, true);
+        if (!$title) throw new Exception('กรุณากรอกชื่อบทความ');
 
-        function validate_img_server($f, $max, $mime)
-        {
-            return ($f['error'] === UPLOAD_ERR_OK && $f['size'] <= $max && in_array((new finfo(FILEINFO_MIME_TYPE))->file($f['tmp_name']), $mime));
-        }
-        function clean_name_server($n)
-        {
-            return preg_replace('/[^a-zA-Z0-9\._-]/', '_', $n);
-        }
-
-        // 2. Handle Main Image
-        $mainImageDb = '';
-        if (isset($_FILES['main_image']) && $_FILES['main_image']['error'] !== UPLOAD_ERR_NO_FILE) {
-            if ($_FILES['main_image']['error'] !== UPLOAD_ERR_OK) throw new Exception('รูปหลักมีปัญหาการอัปโหลด');
-            if (!validate_img_server($_FILES['main_image'], $MAX_MAIN, $ALLOWED_MIME)) throw new Exception('รูปหลักไม่ถูกต้อง (ใหญ่เกิน 5MB หรือผิดประเภท)');
-
-            $ext = strtolower(pathinfo($_FILES['main_image']['name'], PATHINFO_EXTENSION));
-            $fname = time() . '_' . clean_name_server($_FILES['main_image']['name']);
-            if (!move_uploaded_file($_FILES['main_image']['tmp_name'], $upload_path . '/' . $fname)) throw new Exception('ย้ายไฟล์รูปหลักไม่สำเร็จ');
-            $mainImageDb = $upload_url . '/' . $fname;
+        // ── Main Image (WebP conversion) ─────────────────────────
+        $mainImageDb  = '';
+        $ogW = null; $ogH = null;
+        $f = $_FILES['main_image'] ?? null;
+        if ($f && $f['error'] !== UPLOAD_ERR_NO_FILE) {
+            if ($f['error'] !== UPLOAD_ERR_OK) throw new Exception('รูปหลักมีปัญหาการอัปโหลด (code ' . $f['error'] . ')');
+            if ($f['size'] > 10 * 1024 * 1024) throw new Exception('รูปหลักใหญ่เกิน 10MB');
+            if (!art_mime_ok($f['tmp_name']))   throw new Exception('รูปหลักผิดประเภท (รองรับ JPEG, PNG, WebP)');
+            [$destPath, $destUrl] = art_upload_slot();
+            $dims = art_process_webp($f['tmp_name'], $destPath);
+            if (!$dims) throw new Exception('แปลงรูปหลักเป็น WebP ไม่สำเร็จ');
+            $mainImageDb = $destUrl;
+            $ogW = $dims['w']; $ogH = $dims['h'];
         }
 
-        // 3. Insert Article
-        $sql = "INSERT INTO articles (admin_id, title, slug, category, content, excerpt, youtube_url, image, status, created_at, title_en, slug_en, content_en, excerpt_en) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?)";
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute([
-            $_SESSION['admin_id'],
-            $title,
-            $slug,
-            $category,
-            $content,
-            $excerpt,
-            $youtube_url,
-            $mainImageDb,
-            $status,
-            $title_en,
-            $slug_en,
-            $content_en,
-            $excerpt_en
-        ]);
-        $newId = $pdo->lastInsertId();
+        // ── Insert Article ───────────────────────────────────────
+        $pdo->prepare("INSERT INTO articles
+            (admin_id, title, slug, category, content, excerpt, youtube_url,
+             image, og_image_width, og_image_height, status, created_at,
+             title_en, slug_en, content_en, excerpt_en)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,NOW(),?,?,?,?)")
+          ->execute([
+            $_SESSION['admin_id'], $title, $slug, $category, $content, $excerpt,
+            $youtube_url, $mainImageDb, $ogW, $ogH, $status,
+            $title_en, $slug_en, $content_en, $excerpt_en,
+          ]);
+        $newId = (int)$pdo->lastInsertId();
 
-        // 4. Handle Gallery (New)
-        if (isset($_FILES['additional_images']) && !empty($_FILES['additional_images']['name'][0])) {
-            $ins = $pdo->prepare("INSERT INTO article_images (article_id, image_path, caption, caption_en) VALUES (?,?,?,?)");
-
+        // ── Gallery Images (WebP conversion) ─────────────────────
+        if (!empty($_FILES['additional_images']['tmp_name'][0])) {
+            $ins = $pdo->prepare("INSERT INTO article_images
+                (article_id, image_path, alt, alt_en, caption, caption_en, width, height, file_size, sort_order, is_cover)
+                VALUES (?,?,?,?,?,?,?,?,?,?,0)");
+            $ord = 1;
             foreach ($_FILES['additional_images']['tmp_name'] as $i => $tmp) {
                 $err = $_FILES['additional_images']['error'][$i];
                 if ($err === UPLOAD_ERR_NO_FILE) continue;
-
-                // Check Server Error
-                if ($err !== UPLOAD_ERR_OK) {
-                    $msg = "Error Code $err";
-                    if ($err == 1) $msg = "ไฟล์ใหญ่เกินค่า Server Limit (php.ini)";
-                    $pdo->rollBack(); // Cancel everything
-                    echo json_encode([
-                        'status' => 'error',
-                        'message' => "รูปรายการที่ " . ($i + 1) . " มีปัญหา: $msg",
-                        'bad_input_index' => $i
-                    ]);
-                    exit;
-                }
-
-                $chk = ['tmp_name' => $tmp, 'error' => 0, 'size' => $_FILES['additional_images']['size'][$i]];
-                if (!validate_img_server($chk, $MAX_GALLERY, $ALLOWED_MIME)) {
-                    $pdo->rollBack();
-                    echo json_encode([
-                        'status' => 'error',
-                        'message' => "รูปรายการที่ " . ($i + 1) . " ไม่ผ่านการตรวจสอบ (ขนาด/ประเภท)",
-                        'bad_input_index' => $i
-                    ]);
-                    exit;
-                }
-
-                $ext = strtolower(pathinfo($_FILES['additional_images']['name'][$i], PATHINFO_EXTENSION));
-                $fname = time() . '-' . uniqid() . '.' . $ext;
-                if (move_uploaded_file($tmp, $upload_path . '/' . $fname)) {
-                    $ins->execute([$newId, $upload_url . '/' . $fname, $_POST['caption_detail'][$i] ?? '', $_POST['caption_detail_en'][$i] ?? '']);
-                }
+                if ($err !== UPLOAD_ERR_OK) throw new Exception("รูปประกอบที่ " . ($i+1) . " มีปัญหา (code $err)");
+                if ($_FILES['additional_images']['size'][$i] > 10 * 1024 * 1024) throw new Exception("รูปประกอบที่ " . ($i+1) . " ใหญ่เกิน 10MB");
+                if (!art_mime_ok($tmp)) throw new Exception("รูปประกอบที่ " . ($i+1) . " ผิดประเภท");
+                [$destPath, $destUrl] = art_upload_slot();
+                $dims = art_process_webp($tmp, $destPath);
+                if (!$dims) throw new Exception("แปลงรูปประกอบที่ " . ($i+1) . " ไม่สำเร็จ");
+                $ins->execute([
+                    $newId, $destUrl,
+                    trim($_POST['alt_detail'][$i]    ?? '') ?: null,
+                    trim($_POST['alt_detail_en'][$i] ?? '') ?: null,
+                    trim($_POST['caption_detail'][$i]    ?? '') ?: null,
+                    trim($_POST['caption_detail_en'][$i] ?? '') ?: null,
+                    $dims['w'], $dims['h'], $dims['size'], $ord++,
+                ]);
             }
         }
 
@@ -152,608 +153,589 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 if (empty($_SESSION['csrf_token'])) $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 $CSRF = $_SESSION['csrf_token'];
 
-include __DIR__ . '/../templates/header_admin.php';
-?>
+$catRows = [];
+try {
+    $catRows = $pdo->query("SELECT DISTINCT category FROM articles WHERE category IS NOT NULL AND category<>'' ORDER BY category")->fetchAll(PDO::FETCH_COLUMN);
+} catch (Throwable $e) {}
+
+if ($isModal): ?>
+<!DOCTYPE html><html lang="th">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<script>document.documentElement.setAttribute('data-theme',localStorage.getItem('admin_theme')||'dark');</script>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link rel="stylesheet" href="/admin/templates/assets/css/admin.css?v=<?= time() ?>">
+<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+<?php else: ?>
+<?php include __DIR__ . '/../templates/header_admin.php'; ?>
+<?php endif; ?>
 
 <style>
-    /* --- DRAG & DROP & PREVIEW --- */
-    .drop-zone {
-        border: 2px dashed #ccc;
-        border-radius: 8px;
-        padding: 25px;
-        text-align: center;
-        color: #777;
-        cursor: pointer;
-        transition: all .2s;
-        background: #fff;
-    }
+html,body{margin:0;padding:0;}
+.modal-mode{height:100vh;overflow:hidden;display:flex;flex-direction:column;background:var(--bg-surface);}
 
-    .drop-zone.is-dragover {
-        border-color: var(--primary, #007aff);
-        background: var(--primary-ghost, #f4f8ff);
-    }
+/* ── ifrm layout ── */
+#ifrm-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--bg-surface);flex-shrink:0;}
+#ifrm-header h2{margin:0;font-size:15px;font-weight:700;color:var(--text-main);}
+#ifrm-body{flex:1;overflow-y:auto;padding:0;}
+#ifrm-footer{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-top:1px solid var(--border);background:var(--bg-surface);flex-shrink:0;gap:8px;}
 
-    .drop-zone input[type=file] {
-        display: none;
-    }
+/* ── tab nav ── */
+.tab-nav{display:flex;gap:4px;padding:14px 20px 0;background:var(--bg-surface);border-bottom:1px solid var(--border);flex-shrink:0;}
+.tab-btn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:8px 8px 0 0;border:1px solid transparent;border-bottom:none;font-size:13px;font-weight:600;cursor:pointer;color:var(--text-muted);background:transparent;transition:all .18s;}
+.tab-btn.active{color:var(--primary);background:var(--bg-surface);border-color:var(--border);margin-bottom:-1px;border-bottom:1px solid var(--bg-surface);}
+.tab-btn.done{color:var(--text-muted);}
+.tab-step{width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;background:var(--border);color:var(--text-muted);}
+.tab-btn.active .tab-step{background:var(--primary);color:#fff;}
+.tab-btn.done .tab-step{background:#10b981;color:#fff;}
+.tab-pane{display:none;padding:20px;}
+.tab-pane.active{display:block;}
 
-    .image-preview {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 10px;
-        margin-top: 15px;
-        min-height: 20px;
-    }
+/* ── rp elements ── */
+.rp-wrap{max-width:900px;margin:0 auto;padding:32px 24px;}
+.rp-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:16px;}
+.rp-card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:16px;display:flex;align-items:center;gap:6px;}
+.rp-card-title .material-symbols-rounded{font-size:17px;}
+.rp-label{font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:5px;display:block;text-transform:uppercase;letter-spacing:.4px;}
+.rp-input,.rp-select,.rp-textarea{width:100%;padding:8px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-surface-alt);color:var(--text-main);font-size:14px;outline:none;font-family:'Sarabun',sans-serif;box-sizing:border-box;}
+.rp-input:focus,.rp-select:focus,.rp-textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.1);}
+.rp-textarea{resize:vertical;min-height:80px;}
+.rp-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+.rp-field{margin-bottom:14px;}
+.rp-hint{font-size:11px;color:var(--text-muted);margin-top:4px;}
+.rp-slug-row{display:flex;gap:6px;align-items:center;}
+.rp-slug-row input{flex:1;}
+.btn-slug{padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-surface-alt);color:var(--text-muted);font-size:12px;cursor:pointer;white-space:nowrap;font-family:'Sarabun',sans-serif;}
+.btn-slug:hover{border-color:var(--primary);color:var(--primary);}
 
-    .image-preview-item {
-        position: relative;
-        border: 1px solid #ddd;
-        border-radius: 5px;
-        padding: 5px;
-        background: #f9f9f9;
-    }
+/* ── buttons ── */
+.btn-save{display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border-radius:8px;background:var(--primary,#3b82f6);color:#fff;font-size:14px;font-weight:600;border:none;cursor:pointer;font-family:'Sarabun',sans-serif;transition:opacity .2s;}
+.btn-save:hover{opacity:.88;}
+.btn-cancel{display:inline-flex;align-items:center;gap:6px;padding:9px 16px;border-radius:8px;background:transparent;color:var(--text-muted);font-size:14px;font-weight:600;border:1px solid var(--border);cursor:pointer;font-family:'Sarabun',sans-serif;}
+.btn-cancel:hover{border-color:var(--text-muted);color:var(--text-main);}
 
-    .image-preview-item img {
-        max-width: 100px;
-        max-height: 100px;
-        object-fit: cover;
-        border-radius: 4px;
-        display: block;
-    }
+/* ── image upload ── */
+.img-slots{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-top:4px;}
+.img-slot{aspect-ratio:1;border:2px dashed var(--border);border-radius:10px;position:relative;overflow:hidden;background:var(--bg-surface-alt);}
+.img-slot.has-img{border-style:solid;border-color:var(--primary);}
+.img-slot img{width:100%;height:100%;object-fit:cover;}
+.slot-label{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:var(--text-muted);font-size:11px;gap:4px;cursor:pointer;}
+.slot-rm{position:absolute;top:4px;right:4px;width:20px;height:20px;background:#ef4444;color:#fff;border-radius:50%;border:none;cursor:pointer;font-size:12px;display:none;align-items:center;justify-content:center;line-height:1;}
+.img-slot.has-img .slot-rm{display:flex;}
+.cover-badge{position:absolute;bottom:4px;left:4px;background:#10b981;color:#fff;font-size:9px;font-weight:700;padding:2px 5px;border-radius:4px;}
+.img-dropzone{border:2px dashed var(--border);border-radius:10px;padding:20px;text-align:center;color:var(--text-muted);cursor:pointer;transition:all .2s;margin-top:10px;}
+.img-dropzone.drag-over{border-color:var(--primary);background:rgba(37,99,235,.05);}
 
-    .js-delete-preview {
-        position: absolute;
-        top: -8px;
-        right: -8px;
-        width: 22px;
-        height: 22px;
-        background: #c00;
-        color: white;
-        border: 2px solid white;
-        border-radius: 50%;
-        font-size: 14px;
-        font-weight: bold;
-        line-height: 18px;
-        text-align: center;
-        cursor: pointer;
-        padding: 0;
-        z-index: 2;
-    }
+/* ── quill editor ── */
+.rp-editor{border:1px solid var(--border);border-radius:8px;overflow:hidden;}
+.rp-editor .ql-toolbar.ql-snow{border:none;border-bottom:1px solid var(--border);background:var(--bg-surface-alt);padding:6px 10px;}
+.rp-editor .ql-container.ql-snow{border:none;}
+.rp-editor .ql-editor{min-height:180px;padding:10px 12px;line-height:1.7;font-family:'Sarabun',sans-serif;font-size:15px;color:var(--text-main);}
+[data-theme="dark"] .rp-editor .ql-toolbar.ql-snow .ql-stroke{stroke:#9ca3af;}
+[data-theme="dark"] .rp-editor .ql-toolbar.ql-snow .ql-fill{fill:#9ca3af;}
+[data-theme="dark"] .rp-editor .ql-toolbar.ql-snow .ql-picker-label{color:#9ca3af;}
+[data-theme="dark"] .rp-editor .ql-toolbar.ql-snow button:hover .ql-stroke{stroke:var(--primary);}
+[data-theme="dark"] .rp-editor .ql-editor{color:var(--text-main);}
+[data-theme="dark"] .rp-editor .ql-editor.ql-blank::before{color:var(--text-muted);}
 
-    /* --- GALLERY ITEMS --- */
-    .gallery-item-box {
-        border: 1px solid #ddd;
-        border-radius: 8px;
-        padding: 15px;
-        margin-bottom: 15px;
-        background: #fff;
-        position: relative;
-    }
+/* ── subtabs ── */
+.subtab-nav{display:flex;gap:8px;margin-bottom:16px;}
+.subtab-btn{padding:5px 14px;border-radius:6px;border:1px solid var(--border);font-size:13px;font-weight:600;cursor:pointer;color:var(--text-muted);background:transparent;font-family:'Sarabun',sans-serif;}
+.subtab-btn.active{background:var(--primary);color:#fff;border-color:var(--primary);}
+.subtab-pane{display:none;}.subtab-pane.active{display:block;}
 
-    .gallery-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 10px;
-    }
+/* ── error msg ── */
+.msg-error{background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);color:#dc2626;padding:10px 14px;border-radius:8px;font-size:13px;margin-bottom:14px;}
 
-    .gallery-title {
-        font-weight: bold;
-        font-size: 1.1em;
-        color: #333;
-    }
+/* ── confirm overlay ── */
+.rp-confirm-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;align-items:center;justify-content:center;}
+.rp-confirm-overlay.show{display:flex;}
+.rp-confirm-box{background:var(--bg-surface);width:90%;max-width:340px;border-radius:14px;overflow:hidden;border:1px solid var(--border);box-shadow:0 8px 32px rgba(0,0,0,.2);}
+.rp-confirm-head{padding:18px 20px 12px;text-align:center;background:rgba(239,68,68,.05);border-bottom:1px solid var(--border);}
+.rp-confirm-body{padding:14px 20px;text-align:center;color:var(--text-main);font-size:14px;line-height:1.6;}
+.rp-confirm-foot{padding:10px 16px;border-top:1px solid var(--border);background:var(--bg-surface-alt);display:flex;gap:8px;justify-content:flex-end;}
 
-    .btn-remove-text {
-        background: #ffebee;
-        color: #c62828;
-        border: 1px solid #ffcdd2;
-        padding: 4px 12px;
-        border-radius: 4px;
-        font-size: 0.85rem;
-        cursor: pointer;
-        transition: background 0.2s;
-    }
-
-    .btn-remove-text:hover {
-        background: #ef9a9a;
-        color: #fff;
-        border-color: #ef9a9a;
-    }
-
-    /* --- PUBLISH BOX --- */
-    .publish-box {
-        margin-top: 20px;
-        padding: 15px;
-        background: #f9f9f9;
-        border-radius: 8px;
-        border: 1px solid #eee;
-    }
-
-    /* --- BUTTONS ACTION ROW (FIXED HEIGHT 50PX) --- */
-    .actions-row {
-        margin-top: 20px;
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 20px;
-    }
-
-    .actions-row button,
-    .actions-row a {
-        width: 100%;
-        height: 50px;
-        /* Force Height */
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        font-size: 1rem;
-        font-weight: 600;
-        text-decoration: none;
-        font-family: inherit;
-        line-height: normal;
-        margin: 0 !important;
-        padding: 0 !important;
-        box-sizing: border-box !important;
-        border-radius: 6px;
-        cursor: pointer;
-        appearance: none;
-        outline: none;
-        border: none;
-    }
-
-    .btn-save {
-        background: #4169e1;
-        color: white;
-        transition: background 0.2s;
-    }
-
-    .btn-save:hover {
-        background: #3154b3;
-    }
-
-    .btn-cancel {
-        background: #e0e0e0;
-        color: #333;
-        border: 1px solid #ccc !important;
-        transition: background 0.2s;
-    }
-
-    .btn-cancel:hover {
-        background: #d0d0d0;
-    }
-
-    /* --- TRIX EDITOR FIXES (LISTS & BOLD) --- */
-    trix-editor {
-        min-height: 300px !important;
-        border: 1px solid #ddd !important;
-        border-radius: 8px !important;
-        padding: 20px !important;
-        background: #fff;
-        font-size: 16px;
-        line-height: 1.6;
-        overflow-y: auto;
-    }
-
-    trix-editor ul,
-    trix-editor ol,
-    .trix-content ul,
-    .trix-content ol {
-        padding-left: 30px !important;
-        margin-bottom: 15px !important;
-        list-style-position: outside !important;
-    }
-
-    trix-editor li,
-    .trix-content li {
-        margin-bottom: 5px;
-    }
-
-    trix-editor strong,
-    .trix-content strong {
-        font-weight: bold !important;
-        color: #000;
-    }
-
-    trix-editor em,
-    .trix-content em {
-        font-style: italic !important;
-    }
-
-    trix-editor u,
-    .trix-content u {
-        text-decoration: underline !important;
-    }
-
-    trix-editor h1,
-    .trix-content h1 {
-        font-size: 1.5em !important;
-        font-weight: bold !important;
-        margin: 15px 0 10px 0 !important;
-    }
-
-    trix-editor a,
-    .trix-content a {
-        color: #007aff !important;
-        text-decoration: underline !important;
-    }
-
-    /* --- OVERLAYS --- */
-    .loading-overlay,
-    .alert-overlay,
-    .confirm-overlay {
-        display: none;
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.6);
-        z-index: 9999;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-    }
-
-    .loading-overlay.show,
-    .alert-overlay.show,
-    .confirm-overlay.show {
-        display: flex;
-    }
-
-    .loading-spinner {
-        border: 4px solid #f3f3f3;
-        border-top: 4px solid var(--primary, #007aff);
-        border-radius: 50%;
-        width: 50px;
-        height: 50px;
-        animation: spin 1s linear infinite;
-        margin-bottom: 20px;
-    }
-
-    @keyframes spin {
-        0% {
-            transform: rotate(0deg);
-        }
-
-        100% {
-            transform: rotate(360deg);
-        }
-    }
-
-    .alert-dialog,
-    .confirm-dialog {
-        background: #fff;
-        padding: 25px 30px;
-        border-radius: 16px;
-        width: 90%;
-        max-width: 400px;
-        text-align: center;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-    }
-
-    .cmodal-btn-primary {
-        background: #007aff;
-        color: white;
-        padding: 10px 20px;
-        border-radius: 6px;
-        border: none;
-        cursor: pointer;
-        margin-top: 15px;
-        font-weight: 600;
-    }
-
-    .cmodal-btn-confirm {
-        background: #c00;
-        color: white;
-        padding: 8px 16px;
-        border-radius: 6px;
-        border: none;
-        cursor: pointer;
-        margin: 0 5px;
-        font-weight: 600;
-    }
-
-    .cmodal-btn-cancel {
-        background: #f0f0f0;
-        color: #333;
-        padding: 8px 16px;
-        border-radius: 6px;
-        border: none;
-        cursor: pointer;
-        margin: 0 5px;
-        font-weight: 600;
-    }
+/* non-modal topbar */
+.rp-page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;}
+.rp-page-header h1{font-size:22px;font-weight:700;color:var(--text-main);margin:0;display:flex;align-items:center;gap:8px;}
+.rp-page-header .material-symbols-rounded{font-size:26px;color:var(--primary);}
 </style>
 
-<main class="main">
-    <div class="topbar"><span>เพิ่มบทความใหม่ (Add New)</span><a href="index.php" class="view-site">← กลับ</a></div>
-    <div class="form-section">
+<?php if ($isModal): ?>
+<body class="modal-mode">
+<?php endif; ?>
 
-        <form id="addArticleForm"> <input type="hidden" name="csrf_token" value="<?= h($CSRF) ?>">
+<?php if ($isModal): ?>
+<div id="ifrm-header">
+    <h2><span class="material-symbols-rounded" style="font-size:17px;vertical-align:-3px;">article</span> เพิ่มบทความใหม่</h2>
+    <button type="button" onclick="safeClose()"
+            style="background:var(--bg-surface-alt);border:1px solid var(--border);width:34px;height:34px;border-radius:9px;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;justify-content:center;transition:.2s;padding:0;"
+            onmouseover="this.style.background='#ef4444';this.style.color='#fff'" onmouseout="this.style.background='var(--bg-surface-alt)';this.style.color='var(--text-muted)'">
+        <span class="material-symbols-rounded" style="font-size:18px;">close</span>
+    </button>
+</div>
+<div class="tab-nav">
+    <button type="button" class="tab-btn active" data-tab="1" onclick="gotoTab(1)">
+        <span class="tab-step">1</span> ข้อมูล / SEO
+    </button>
+    <button type="button" class="tab-btn" data-tab="2" onclick="gotoTab(2)">
+        <span class="tab-step">2</span> รูปภาพ
+    </button>
+    <button type="button" class="tab-btn" data-tab="3" onclick="gotoTab(3)">
+        <span class="tab-step">3</span> เนื้อหา
+    </button>
+</div>
+<div id="ifrm-body">
+<?php else: ?>
+<div class="rp-wrap">
+<div class="rp-page-header">
+    <h1><span class="material-symbols-rounded">article</span> เพิ่มบทความใหม่</h1>
+    <a href="index.php" class="btn-cancel">
+        <span class="material-symbols-rounded" style="font-size:14px;">arrow_back</span> กลับ
+    </a>
+</div>
+<?php endif; ?>
 
-            <fieldset>
-                <legend>Thai</legend>
-                <label>Title:</label><input type="text" name="title" required>
-                <label>Slug:</label><input type="text" name="slug" required>
-                <label>Content:</label><input id="content" type="hidden" name="content"><trix-editor input="content"></trix-editor>
-                <label>Excerpt:</label><textarea name="excerpt" rows="3"></textarea>
-            </fieldset>
+<div id="msg-error" class="msg-error" style="display:none;<?= $isModal ? 'margin:12px 20px 0;' : '' ?>"></div>
 
-            <hr style="margin: 20px 0;">
-            <fieldset>
-                <legend>English</legend>
-                <label>Title (EN):</label><input type="text" name="title_en">
-                <label>Slug (EN):</label><input type="text" name="slug_en">
-                <label>Content (EN):</label><input id="content_en" type="hidden" name="content_en"><trix-editor input="content_en"></trix-editor>
-                <label>Excerpt (EN):</label><textarea name="excerpt_en" rows="3"></textarea>
-            </fieldset>
+<form id="article-form" method="POST" enctype="multipart/form-data">
+<input type="hidden" name="csrf_token" value="<?= h($CSRF) ?>">
 
-            <hr style="margin: 20px 0;">
-            <fieldset>
-                <legend>Images & Settings</legend>
-                <label>Category:</label>
-                <select name="category">
-                    <option value="tip">Tips</option>
-                    <option value="repair">Repair</option>
-                    <option value="update">Update</option>
-                </select>
-                <label>YouTube ID:</label><input type="text" name="youtube_url">
+<?php if (!$isModal): ?>
+<div class="subtab-nav" style="margin-bottom:0;border-bottom:1px solid var(--border);padding-bottom:0;gap:0;">
+    <button type="button" class="tab-btn active" data-tab="1" onclick="gotoTab(1)" style="border-radius:8px 8px 0 0;">
+        <span class="tab-step">1</span> ข้อมูล / SEO
+    </button>
+    <button type="button" class="tab-btn" data-tab="2" onclick="gotoTab(2)" style="border-radius:8px 8px 0 0;">
+        <span class="tab-step">2</span> รูปภาพ
+    </button>
+    <button type="button" class="tab-btn" data-tab="3" onclick="gotoTab(3)" style="border-radius:8px 8px 0 0;">
+        <span class="tab-step">3</span> เนื้อหา
+    </button>
+</div>
+<?php endif; ?>
 
-                <label style="margin-top:20px; font-weight:bold;">Main Image:</label>
-                <input type="file" id="main_image" name="main_image" accept="image/*" style="display:none">
-                <div class="drop-zone" id="main_drop"><span class="material-symbols-rounded" style="font-size:30px">image</span><br>คลิกเพื่อเลือกรูปหลัก (หรือลากมาวาง)</div>
-                <div class="image-preview" id="main_preview"></div>
-
-                <label style="margin-top:30px; font-weight:bold; display:block;">Gallery (รูปประกอบ):</label>
-                <p style="font-size:0.85rem; color:#666; margin-bottom:15px;">ใส่ได้สูงสุด 5 รูป (5MB/รูป)</p>
-
-                <div id="gallery_wrapper">
+<!-- ══ TAB 1: ข้อมูล / SEO ══ -->
+<div id="tab-1" class="tab-pane active" style="<?= $isModal ? '' : 'padding:20px 0;' ?>">
+    <div class="rp-card">
+        <div class="rp-card-title"><span class="material-symbols-rounded">tune</span> ข้อมูลหลัก</div>
+        <div class="rp-grid">
+            <div class="rp-field">
+                <label class="rp-label">ชื่อบทความ (TH) <span style="color:#ef4444">*</span></label>
+                <input type="text" name="title" class="rp-input" placeholder="ชื่อบทความภาษาไทย" required id="inp-title">
+            </div>
+            <div class="rp-field">
+                <label class="rp-label">ชื่อบทความ (EN)</label>
+                <input type="text" name="title_en" class="rp-input" placeholder="Article title in English" id="inp-title-en">
+            </div>
+        </div>
+        <div class="rp-grid">
+            <div class="rp-field">
+                <label class="rp-label">Slug (TH)</label>
+                <div class="rp-slug-row">
+                    <input type="text" name="slug" class="rp-input" placeholder="slug-th" id="inp-slug">
+                    <button type="button" class="btn-slug" onclick="autoSlug('th')">Auto</button>
                 </div>
-                <button type="button" id="add_gallery_btn" class="btn-secondary" style="width:100%; padding:10px; background:#f0f0f0; border:1px solid #ccc; margin-top:10px; border-radius:6px; cursor:pointer;">+ เพิ่มรูปประกอบ</button>
-            </fieldset>
-
-            <div class="publish-box">
-                <label class="publish-label" style="display:flex; gap:10px; cursor:pointer;">
-                    <input type="checkbox" name="status" id="status" checked style="width:20px; height:20px;">
-                    <span>เผยแพร่บทความ (Publish)</span>
-                </label>
+                <div class="rp-hint">ใช้ใน URL: /article/<b id="slug-preview">...</b></div>
             </div>
-
-            <div class="actions-row">
-                <button type="submit" class="btn-save">บันทึกข้อมูล (Save)</button>
-                <a href="index.php" class="btn-cancel">ยกเลิก</a>
+            <div class="rp-field">
+                <label class="rp-label">Slug (EN)</label>
+                <div class="rp-slug-row">
+                    <input type="text" name="slug_en" class="rp-input" placeholder="slug-en" id="inp-slug-en">
+                    <button type="button" class="btn-slug" onclick="autoSlug('en')">Auto</button>
+                </div>
             </div>
-        </form>
+        </div>
+        <div class="rp-grid">
+            <div class="rp-field">
+                <label class="rp-label">หมวดหมู่</label>
+                <input type="text" name="category" class="rp-input" placeholder="tip / news / review ..." list="cat-list" value="tip" id="inp-cat">
+                <datalist id="cat-list">
+                    <?php foreach ($catRows as $c): ?>
+                        <option value="<?= h($c) ?>">
+                    <?php endforeach; ?>
+                </datalist>
+            </div>
+            <div class="rp-field">
+                <label class="rp-label">สถานะ</label>
+                <select name="status" class="rp-select">
+                    <option value="1">เผยแพร่</option>
+                    <option value="0">ซ่อน</option>
+                </select>
+                <input type="hidden" name="status" id="status-hidden" style="display:none">
+            </div>
+        </div>
+        <div class="rp-field">
+            <label class="rp-label">YouTube URL (ถ้ามี)</label>
+            <input type="text" name="youtube_url" class="rp-input" placeholder="https://www.youtube.com/watch?v=...">
+        </div>
     </div>
-</main>
-
-<div id="loadingOverlay" class="loading-overlay">
-    <div class="loading-spinner"></div>
-    <p style="color:white">กำลังบันทึก...</p>
 </div>
-<div id="alertOverlay" class="alert-overlay">
-    <div class="alert-dialog"><span class="material-symbols-rounded" style="font-size:48px;color:#f59e0b;">warning</span>
-        <p id="alertMessage"></p><button id="alertBtn" class="cmodal-btn-primary">OK</button>
+
+<!-- ══ TAB 2: รูปภาพ ══ -->
+<div id="tab-2" class="tab-pane" style="<?= $isModal ? '' : 'padding:20px 0;' ?>">
+    <div class="rp-card">
+        <div class="rp-card-title"><span class="material-symbols-rounded" style="color:#f59e0b;">photo_library</span> รูปภาพ (สูงสุด 5 รูป — รูปแรก = ปก)</div>
+        <div class="img-slots" id="img-slots">
+            <?php for ($i = 0; $i < 5; $i++): ?>
+            <div class="img-slot" id="slot-<?= $i ?>">
+                <div class="slot-label">
+                    <span class="material-symbols-rounded" style="font-size:22px;">add_photo_alternate</span>
+                    <span><?= $i === 0 ? 'ปก' : 'รูป '.($i+1) ?></span>
+                </div>
+                <button type="button" class="slot-rm" onclick="removeSlot(<?= $i ?>)">✕</button>
+                <?php if ($i === 0): ?><div class="cover-badge">ปก</div><?php endif; ?>
+            </div>
+            <?php endfor; ?>
+        </div>
+        <div class="img-dropzone" id="img-dropzone">
+            <span class="material-symbols-rounded" style="font-size:28px;display:block;margin-bottom:6px;">cloud_upload</span>
+            คลิกหรือลากรูปมาใส่ · JPG, PNG, WebP · ระบบแปลง WebP อัตโนมัติ
+        </div>
+        <input type="file" id="main_img_input" name="main_image" accept="image/jpeg,image/png,image/webp" style="display:none">
+        <input type="file" id="gallery_input" name="additional_images[]" multiple accept="image/jpeg,image/png,image/webp" style="display:none">
+        <input type="file" id="picker_input" multiple accept="image/jpeg,image/png,image/webp" style="display:none">
+        <p class="rp-hint" style="margin-top:8px;">ขนาดสูงสุด 10MB/รูป · รูปแรกเป็นปก · ระบบ resize เป็น WebP ก่อนบันทึก</p>
+        <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:14px;">
+            <div class="rp-label" style="margin-bottom:10px;">คำอธิบายใต้ภาพ (ไม่บังคับ)</div>
+            <?php for ($ci = 0; $ci < 4; $ci++): ?>
+            <div id="cap-row-<?= $ci ?>" style="display:grid;grid-template-columns:44px 1fr 1fr;gap:8px;align-items:center;margin-bottom:8px;opacity:.3;transition:opacity .2s;">
+                <span style="font-size:11px;color:var(--text-muted);font-weight:600;white-space:nowrap;">รูป <?= $ci+2 ?></span>
+                <input type="text" name="caption_detail[]" id="cap-th-<?= $ci ?>" class="rp-input" placeholder="คำอธิบาย (TH)" style="font-size:12px;padding:5px 8px;">
+                <input type="text" name="caption_detail_en[]" id="cap-en-<?= $ci ?>" class="rp-input" placeholder="Caption (EN)" style="font-size:12px;padding:5px 8px;">
+            </div>
+            <?php endfor; ?>
+        </div>
     </div>
 </div>
-<div id="confirmOverlay" class="confirm-overlay">
-    <div class="confirm-dialog">
-        <p id="confirmMessage"></p><button id="confirmCancel" class="cmodal-btn-cancel">Cancel</button><button id="confirmOk" class="cmodal-btn-confirm">OK</button>
+
+<!-- ══ TAB 3: เนื้อหา ══ -->
+<div id="tab-3" class="tab-pane" style="<?= $isModal ? '' : 'padding:20px 0;' ?>">
+    <div class="rp-card">
+        <div class="subtab-nav">
+            <button type="button" class="subtab-btn active" onclick="gotoSubtab(1)">ภาษาไทย</button>
+            <button type="button" class="subtab-btn" onclick="gotoSubtab(2)">English</button>
+        </div>
+        <div id="subtab-1" class="subtab-pane active">
+            <div class="rp-field">
+                <label class="rp-label">เนื้อหา (TH)</label>
+                <div class="rp-editor" id="editor-content-th"></div>
+                <input type="hidden" name="content" id="content-th-val">
+            </div>
+            <div class="rp-field" style="margin-top:14px;">
+                <label class="rp-label">ข้อความย่อ / Excerpt (TH)</label>
+                <textarea name="excerpt" class="rp-textarea" placeholder="สรุปสั้นๆ สำหรับ SEO และ preview..." rows="3"></textarea>
+            </div>
+        </div>
+        <div id="subtab-2" class="subtab-pane">
+            <div class="rp-field">
+                <label class="rp-label">Content (EN)</label>
+                <div class="rp-editor" id="editor-content-en"></div>
+                <input type="hidden" name="content_en" id="content-en-val">
+            </div>
+            <div class="rp-field" style="margin-top:14px;">
+                <label class="rp-label">Excerpt (EN)</label>
+                <textarea name="excerpt_en" class="rp-textarea" placeholder="Short summary for SEO and preview..." rows="3"></textarea>
+            </div>
+        </div>
     </div>
 </div>
 
-<?php include '../templates/footer_admin.php'; ?>
+</form>
 
-<link rel="stylesheet" href="https://unpkg.com/trix@2.0.0/dist/trix.css">
-<script src="https://unpkg.com/trix@2.0.0/dist/trix.umd.min.js"></script>
+<?php if ($isModal): ?>
+</div><!-- #ifrm-body -->
+<?php else: ?>
+<div style="display:flex;gap:10px;justify-content:flex-end;margin-top:8px;">
+    <a href="index.php" class="btn-cancel">ยกเลิก</a>
+    <button type="button" class="btn-save" id="btn-save-main">
+        <span class="material-symbols-rounded" style="font-size:15px;">save</span> บันทึก
+    </button>
+</div>
+</div><!-- .rp-wrap -->
+<?php endif; ?>
 
+<?php if ($isModal): ?>
+<div id="ifrm-footer">
+    <button type="button" class="btn-cancel" onclick="safeClose()">
+        <span class="material-symbols-rounded" style="font-size:14px;">close</span> ยกเลิก
+    </button>
+    <div style="display:flex;gap:8px;">
+        <button type="button" id="btn-prev" class="btn-cancel" onclick="prevTab()" style="visibility:hidden;">
+            <span class="material-symbols-rounded" style="font-size:14px;">arrow_back</span> ก่อนหน้า
+        </button>
+        <button type="button" id="btn-action" class="btn-save" onclick="nextTab()">
+            ถัดไป <span class="material-symbols-rounded" style="font-size:15px;">arrow_forward</span>
+        </button>
+    </div>
+</div>
+
+<div id="rp-confirm" class="rp-confirm-overlay">
+    <div class="rp-confirm-box">
+        <div class="rp-confirm-head">
+            <div style="width:40px;height:40px;border-radius:50%;background:rgba(239,68,68,.12);color:#ef4444;display:flex;align-items:center;justify-content:center;margin:0 auto 8px;">
+                <span class="material-symbols-rounded" style="font-size:20px;">warning</span>
+            </div>
+            <h3 style="margin:0;font-size:14px;font-weight:700;color:#dc2626;">ออกโดยไม่บันทึก?</h3>
+        </div>
+        <div class="rp-confirm-body">ข้อมูลที่กรอกจะหาย<br><span style="font-size:12px;color:#ef4444;">ยืนยันจะปิดหน้านี้หรือไม่?</span></div>
+        <div class="rp-confirm-foot">
+            <button type="button" class="btn-cancel" onclick="closeConfirm()" style="font-size:13px;">อยู่ต่อ</button>
+            <button type="button" class="btn-save" style="background:#ef4444;font-size:13px;" onclick="confirmClose()">ออกเลย</button>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
+<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const MAX_BYTES = 5242880; // 5MB
-        const MAX_TOTAL = 5;
-        const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp'];
-        const ALLOWED_EXTS = ['jpg', 'jpeg', 'png', 'webp'];
+const IS_MODAL = <?= $isModal ? 'true' : 'false' ?>;
+const TOTAL_TABS = 3;
+let currentTab = 1;
+let formDirty = false;
+let qTh = null, qEn = null, quillsInited = false;
 
-        const alertOv = document.getElementById('alertOverlay');
-        const alertMsg = document.getElementById('alertMessage');
-        document.getElementById('alertBtn').onclick = () => alertOv.classList.remove('show');
+const QUILL_TB = [
+    [{ header: [2,3,false] }],
+    ['bold','italic','underline'],
+    [{ list:'ordered' },{ list:'bullet' }],
+    ['link'],['clean']
+];
 
-        function myAlert(msg) {
-            alertMsg.textContent = msg;
-            alertOv.classList.add('show');
-        }
+function initQuillEditors() {
+    if (quillsInited) return;
+    quillsInited = true;
+    qTh = new Quill('#editor-content-th', { theme:'snow', placeholder:'เนื้อหาบทความภาษาไทย...', modules:{ toolbar: QUILL_TB } });
+    qEn = new Quill('#editor-content-en', { theme:'snow', placeholder:'Article content in English...', modules:{ toolbar: QUILL_TB } });
+    qTh.on('text-change', () => { formDirty = true; });
+    qEn.on('text-change', () => { formDirty = true; });
+}
 
-        const confOv = document.getElementById('confirmOverlay');
-        const confMsg = document.getElementById('confirmMessage');
-        let confCb = null;
-        document.getElementById('confirmCancel').onclick = () => {
-            confOv.classList.remove('show');
-            confCb = null;
-        };
-        document.getElementById('confirmOk').onclick = () => {
-            if (confCb) confCb();
-            confOv.classList.remove('show');
-        };
+function syncQuill() {
+    if (qTh) document.getElementById('content-th-val').value = qTh.root.innerHTML;
+    if (qEn) document.getElementById('content-en-val').value = qEn.root.innerHTML;
+}
 
-        function myConfirm(msg, cb) {
-            confMsg.textContent = msg;
-            confCb = cb;
-            confOv.classList.add('show');
-        }
+// Status select fix (avoid duplicate field name)
+document.querySelector('[name="status"]')?.addEventListener('change', function() {});
 
-        function validateFile(file) {
-            if (!file) return null;
-            const ext = (file.name.split('.').pop() || '').toLowerCase();
-            if (file.size > MAX_BYTES) return `ไฟล์ใหญ่เกิน! (${(file.size/1024/1024).toFixed(2)}MB)`;
-            if (!ALLOWED_EXTS.includes(ext)) return `นามสกุล .${ext} ไม่รองรับ!`;
-            return null;
-        }
-
-        function createPreview(file, container, inputEl) {
-            container.innerHTML = '';
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = e => {
-                const div = document.createElement('div');
-                div.className = 'image-preview-item';
-                div.innerHTML = `<img src="${e.target.result}"><button type="button" class="js-delete-preview" onclick="this.closest('.image-preview-item').remove(); document.getElementById('${inputEl.id}').value='';">&times;</button>`;
-                div.querySelector('.js-delete-preview').onclick = () => {
-                    inputEl.value = '';
-                    container.innerHTML = '';
-                };
-                container.appendChild(div);
-            };
-            reader.readAsDataURL(file);
-        }
-
-        // AJAX SUBMIT
-        const form = document.getElementById('addArticleForm');
-        const loader = document.getElementById('loadingOverlay');
-
-        form.onsubmit = async (e) => {
-            e.preventDefault();
-            loader.classList.add('show');
-            const formData = new FormData(form);
-            try {
-                const res = await fetch(window.location.href, {
-                    method: 'POST',
-                    body: formData
-                });
-                const data = await res.json();
-                loader.classList.remove('show');
-                if (data.status === 'success') {
-                    if (data.modal) { window.parent.postMessage('article-saved', '*'); return; }
-                    window.location.href = data.redirect;
-                }
-                else {
-                    myAlert(data.message || 'เกิดข้อผิดพลาด');
-                    if (data.bad_input_index !== undefined) {
-                        const inputs = document.getElementsByName('additional_images[]');
-                        if (inputs[data.bad_input_index]) {
-                            inputs[data.bad_input_index].value = '';
-                            const preview = inputs[data.bad_input_index].nextElementSibling.nextElementSibling;
-                            if (preview) preview.innerHTML = '';
-                        }
-                    }
-                }
-            } catch (err) {
-                loader.classList.remove('show');
-                myAlert('การเชื่อมต่อขัดข้อง: ' + err.message);
-            }
-        };
-
-        // Main Image Logic
-        const mDrop = document.getElementById('main_drop');
-        const mInput = document.getElementById('main_image');
-        mDrop.onclick = () => mInput.click();
-        mDrop.ondragover = e => {
-            e.preventDefault();
-            mDrop.classList.add('is-dragover');
-        };
-        mDrop.ondragleave = () => mDrop.classList.remove('is-dragover');
-        mDrop.ondrop = e => {
-            e.preventDefault();
-            mDrop.classList.remove('is-dragover');
-            if (e.dataTransfer.files.length) {
-                const f = e.dataTransfer.files[0];
-                const err = validateFile(f);
-                if (err) {
-                    mInput.value = '';
-                    document.getElementById('main_preview').innerHTML = '';
-                    myAlert(err);
-                    return;
-                }
-                mInput.files = e.dataTransfer.files;
-                createPreview(f, document.getElementById('main_preview'), mInput);
-            }
-        };
-        mInput.onchange = () => {
-            if (mInput.files.length) {
-                const err = validateFile(mInput.files[0]);
-                if (err) {
-                    mInput.value = '';
-                    document.getElementById('main_preview').innerHTML = '';
-                    myAlert(err);
-                    return;
-                }
-                createPreview(mInput.files[0], document.getElementById('main_preview'), mInput);
-            }
-        };
-
-        // Gallery Logic
-        let gIdx = 0;
-        const wrapper = document.getElementById('gallery_wrapper');
-
-        function updateIndexes() {
-            document.querySelectorAll('.gallery-item-box').forEach((box, idx) => {
-                const title = box.querySelector('.gallery-title');
-                if (title) title.textContent = `รูปที่ ${idx + 1}`;
-            });
-        }
-
-        document.getElementById('add_gallery_btn').onclick = () => {
-            if (document.querySelectorAll('.gallery-item-box').length >= MAX_TOTAL) return myAlert(`เพิ่มได้สูงสุด ${MAX_TOTAL} รูปครับ`);
-
-            const div = document.createElement('div');
-            div.className = 'gallery-item-box';
-            const inputId = `g_input_${gIdx}`;
-
-            div.innerHTML = `
-            <div class="gallery-header">
-                <span class="gallery-title">รูปที่ ...</span>
-                <button type="button" class="btn-remove-text rem-btn">ลบรายการนี้</button>
-            </div>
-            <input type="file" name="additional_images[]" id="${inputId}" class="gallery-input" accept="image/*" style="display:none">
-            <div class="drop-zone gallery-drop-zone"><span class="material-symbols-rounded">cloud_upload</span><br>เลือกรูปภาพ</div>
-            <div class="image-preview gallery-preview"></div>
-            <div style="display:grid; gap:10px; grid-template-columns: 1fr 1fr; margin-top:15px;">
-                <div><label>คำอธิบาย (TH):</label><input type="hidden" id="trix_th_${gIdx}" name="caption_detail[]"><trix-editor input="trix_th_${gIdx}" style="min-height:80px;"></trix-editor></div>
-                <div><label>Caption (EN):</label><input type="hidden" id="trix_en_${gIdx}" name="caption_detail_en[]"><trix-editor input="trix_en_${gIdx}" style="min-height:80px;"></trix-editor></div>
-            </div>
-        `;
-            wrapper.appendChild(div);
-            updateIndexes();
-
-            const drop = div.querySelector('.gallery-drop-zone');
-            const input = div.querySelector('.gallery-input');
-            const preview = div.querySelector('.gallery-preview');
-            const rem = div.querySelector('.rem-btn');
-
-            rem.onclick = () => myConfirm("ลบช่องนี้?", () => {
-                div.remove();
-                updateIndexes();
-            });
-            drop.onclick = () => input.click();
-            drop.ondragover = e => {
-                e.preventDefault();
-                drop.classList.add('is-dragover');
-            };
-            drop.ondragleave = () => drop.classList.remove('is-dragover');
-            drop.ondrop = e => {
-                e.preventDefault();
-                drop.classList.remove('is-dragover');
-                if (e.dataTransfer.files.length) {
-                    const f = e.dataTransfer.files[0];
-                    const err = validateFile(f);
-                    if (err) {
-                        input.value = '';
-                        preview.innerHTML = '';
-                        myAlert(err);
-                        return;
-                    }
-                    input.files = e.dataTransfer.files;
-                    createPreview(f, preview, input);
-                }
-            };
-            input.onchange = () => {
-                if (input.files.length) {
-                    const err = validateFile(input.files[0]);
-                    if (err) {
-                        input.value = '';
-                        preview.innerHTML = '';
-                        myAlert(err);
-                        return;
-                    }
-                    createPreview(input.files[0], preview, input);
-                }
-            };
-            gIdx++;
-        };
+// Tabs
+function gotoTab(n) {
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + n)?.classList.add('active');
+    document.querySelectorAll('.tab-btn').forEach((b, i) => {
+        b.classList.remove('active','done');
+        const ti = parseInt(b.dataset.tab);
+        if (ti === n) b.classList.add('active');
+        else if (ti < n) b.classList.add('done');
     });
+    if (IS_MODAL) {
+        const prev = document.getElementById('btn-prev');
+        if (prev) prev.style.visibility = n > 1 ? 'visible' : 'hidden';
+        const btn = document.getElementById('btn-action');
+        if (btn) {
+            if (n === TOTAL_TABS) {
+                btn.innerHTML = '<span class="material-symbols-rounded" style="font-size:15px;">save</span> บันทึก';
+                btn.onclick = doSave;
+            } else {
+                btn.innerHTML = 'ถัดไป <span class="material-symbols-rounded" style="font-size:15px;">arrow_forward</span>';
+                btn.onclick = nextTab;
+            }
+        }
+    }
+    if (n === 3) initQuillEditors();
+    currentTab = n;
+    if (IS_MODAL) document.getElementById('ifrm-body')?.scrollTo(0, 0);
+}
+
+function nextTab() { if (currentTab < TOTAL_TABS) gotoTab(currentTab + 1); }
+function prevTab() { if (currentTab > 1) gotoTab(currentTab - 1); }
+
+function gotoSubtab(n) {
+    document.querySelectorAll('.subtab-pane').forEach(p => p.classList.remove('active'));
+    document.getElementById('subtab-' + n)?.classList.add('active');
+    document.querySelectorAll('.subtab-btn').forEach((b, i) => b.classList.toggle('active', i + 1 === n));
+    if (n === 2 && qEn) qEn.update?.();
+}
+
+// Form dirty tracking
+const _form = document.getElementById('article-form');
+_form.addEventListener('input', () => { formDirty = true; });
+_form.addEventListener('change', () => { formDirty = true; });
+
+// Auto slug
+function makeSlug(s) {
+    return s.toLowerCase()
+            .replace(/[^\x00-\x7F]/g, c => {
+                const map = {'ก':'k','ข':'k','ค':'k','ง':'ng','จ':'j','ช':'ch','ซ':'s','ญ':'y','ด':'d','ต':'t','น':'n','บ':'b','ป':'p','ผ':'p','พ':'p','ฝ':'f','ฟ':'f','ม':'m','ย':'y','ร':'r','ล':'l','ว':'w','ส':'s','ห':'h','อ':'a','ะ':'-','า':'-','ิ':'','ี':'','ึ':'','ื':'','ุ':'','ู':'','เ':'e','แ':'ae','โ':'o','ใ':'ai','ไ':'ai','่':'','้':'','๊':'','๋':''};
+                return map[c] || '';
+            })
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+}
+function autoSlug(lang) {
+    if (lang === 'th') {
+        document.getElementById('inp-slug').value = makeSlug(document.getElementById('inp-title')?.value || '');
+        updateSlugPreview();
+    } else {
+        document.getElementById('inp-slug-en').value = makeSlug(document.getElementById('inp-title-en')?.value || '');
+    }
+}
+function updateSlugPreview() {
+    const p = document.getElementById('slug-preview');
+    if (p) p.textContent = document.getElementById('inp-slug')?.value || '...';
+}
+document.getElementById('inp-slug')?.addEventListener('input', updateSlugPreview);
+
+// ── Image upload (repairs-style slots) ───────────────────────
+const MAX_IMG_SLOTS = 5;
+let imageFiles = new Array(MAX_IMG_SLOTS).fill(null);
+
+function renderSlots() {
+    for (let i = 0; i < MAX_IMG_SLOTS; i++) {
+        const slot = document.getElementById('slot-' + i);
+        if (!slot) continue;
+        const label = slot.querySelector('.slot-label');
+        const file  = imageFiles[i];
+        const oldImg = slot.querySelector('img');
+        if (oldImg) oldImg.remove();
+        if (file) {
+            slot.classList.add('has-img');
+            if (label) label.style.display = 'none';
+            const img = document.createElement('img');
+            img.src = URL.createObjectURL(file);
+            slot.insertBefore(img, slot.firstChild);
+        } else {
+            slot.classList.remove('has-img');
+            if (label) label.style.display = '';
+        }
+        // Update caption row opacity for gallery slots (i >= 1)
+        if (i >= 1) {
+            const capRow = document.getElementById('cap-row-' + (i - 1));
+            if (capRow) capRow.style.opacity = file ? '1' : '.3';
+        }
+    }
+    syncInputs();
+}
+
+function syncInputs() {
+    const mainDT = new DataTransfer();
+    if (imageFiles[0]) mainDT.items.add(imageFiles[0]);
+    document.getElementById('main_img_input').files = mainDT.files;
+
+    const galDT = new DataTransfer();
+    for (let i = 1; i < MAX_IMG_SLOTS; i++) {
+        if (imageFiles[i]) galDT.items.add(imageFiles[i]);
+    }
+    document.getElementById('gallery_input').files = galDT.files;
+}
+
+function addFiles(newFiles) {
+    for (const f of newFiles) {
+        if (!['image/jpeg','image/png','image/webp'].includes(f.type)) continue;
+        if (f.size > 10 * 1024 * 1024) continue;
+        const idx = imageFiles.indexOf(null);
+        if (idx === -1) break;
+        imageFiles[idx] = f;
+    }
+    renderSlots();
+    formDirty = true;
+}
+
+function removeSlot(i) {
+    imageFiles.splice(i, 1);
+    imageFiles.push(null);
+    // Shift caption values left for gallery slots
+    if (i >= 1) {
+        const galIdx = i - 1;
+        for (let ci = galIdx; ci < 3; ci++) {
+            const cur  = document.getElementById('cap-th-' + ci);
+            const next = document.getElementById('cap-th-' + (ci + 1));
+            const curEn  = document.getElementById('cap-en-' + ci);
+            const nextEn = document.getElementById('cap-en-' + (ci + 1));
+            if (cur && next)   cur.value   = next.value;
+            if (curEn && nextEn) curEn.value = nextEn.value;
+        }
+        const lastTh = document.getElementById('cap-th-3');
+        const lastEn = document.getElementById('cap-en-3');
+        if (lastTh) lastTh.value = '';
+        if (lastEn) lastEn.value = '';
+    }
+    renderSlots();
+    formDirty = true;
+}
+
+// Click empty slot → picker
+for (let i = 0; i < MAX_IMG_SLOTS; i++) {
+    document.getElementById('slot-' + i)?.querySelector('.slot-label')
+        ?.addEventListener('click', () => document.getElementById('picker_input').click());
+}
+
+// Picker
+document.getElementById('picker_input').addEventListener('change', function() {
+    addFiles(Array.from(this.files));
+    this.value = '';
+});
+
+// Dropzone
+const _dz = document.getElementById('img-dropzone');
+_dz.addEventListener('click', () => document.getElementById('picker_input').click());
+_dz.addEventListener('dragover',  e => { e.preventDefault(); _dz.classList.add('drag-over'); });
+_dz.addEventListener('dragleave', ()  => _dz.classList.remove('drag-over'));
+_dz.addEventListener('drop', e => {
+    e.preventDefault();
+    _dz.classList.remove('drag-over');
+    addFiles(Array.from(e.dataTransfer.files));
+});
+
+// Save
+async function doSave() {
+    syncQuill();
+    const errEl = document.getElementById('msg-error');
+    errEl.style.display = 'none';
+    const btn = IS_MODAL ? document.getElementById('btn-action') : document.getElementById('btn-save-main');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="material-symbols-rounded" style="font-size:15px;animation:spin 1s linear infinite;">progress_activity</span> กำลังบันทึก...'; }
+
+    // Fix: select has 2 names="status", keep only first value
+    const form = document.getElementById('article-form');
+    const fd = new FormData(form);
+
+    try {
+        const res = await fetch(window.location.href, { method:'POST', body: fd });
+        const data = await res.json();
+        if (data.status === 'success') {
+            if (data.modal) { window.parent.postMessage('article-saved','*'); return; }
+            window.location.href = data.redirect;
+        } else {
+            errEl.textContent = data.message || 'เกิดข้อผิดพลาด';
+            errEl.style.display = 'block';
+            if (btn) { btn.disabled = false; btn.innerHTML = IS_MODAL ? 'บันทึก <span class="material-symbols-rounded" style="font-size:15px;">save</span>' : '<span class="material-symbols-rounded" style="font-size:15px;">save</span> บันทึก'; }
+        }
+    } catch(e) {
+        errEl.textContent = 'ไม่สามารถเชื่อมต่อได้';
+        errEl.style.display = 'block';
+        if (btn) { btn.disabled = false; }
+    }
+}
+
+document.getElementById('btn-save-main')?.addEventListener('click', doSave);
+
+// Modal guards
+function safeClose() {
+    if (!formDirty) { window.parent.closeArticleModal(); return; }
+    document.getElementById('rp-confirm')?.classList.add('show');
+}
+function closeConfirm() { document.getElementById('rp-confirm')?.classList.remove('show'); }
+function confirmClose() { formDirty = false; window.parent.closeArticleModal(); }
+
+
+// spin animation
+const style = document.createElement('style');
+style.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+document.head.appendChild(style);
 </script>
+
+<?php if (!$isModal): ?>
+<?php include __DIR__ . '/../templates/footer_admin.php'; ?>
+<?php endif; ?>
