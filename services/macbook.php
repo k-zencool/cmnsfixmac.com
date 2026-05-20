@@ -192,7 +192,7 @@ $page_keywords = "ซ่อม MacBook, MacBook เปิดไม่ติด, 
             <div class="fix-result-grid">
                 <?php
                 require_once __DIR__ . '/../includes/db.php';
-                $stmt = $pdo->prepare("SELECT * FROM repairs WHERE LOWER(category) = 'macbook' ORDER BY created_at DESC LIMIT 6");
+                $stmt = $pdo->prepare("SELECT * FROM repairs WHERE status = 'published' AND LOWER(category) = 'macbook' ORDER BY created_at DESC LIMIT 6");
                 $stmt->execute();
                 while ($row = $stmt->fetch()):
                     $imagePath = (!empty($row['image']) && file_exists(__DIR__ . '/../uploads/' . $row['image']))

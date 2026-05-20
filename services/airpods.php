@@ -156,7 +156,7 @@ $page_keywords = "ซ่อม AirPods เชียงใหม่, ร้าน
     <h2 data-aos="fade-up">ตัวอย่างผลงานซ่อม AirPods</h2>
     <div class="fix-result-grid">
       <?php
-      $stmt = $pdo->prepare("SELECT * FROM repairs WHERE LOWER(category) = 'airpods' ORDER BY created_at DESC LIMIT 6");
+      $stmt = $pdo->prepare("SELECT * FROM repairs WHERE status = 'published' AND LOWER(category) = 'airpods' ORDER BY created_at DESC LIMIT 6");
       $stmt->execute();
       while ($row = $stmt->fetch()):
         $imagePath = (!empty($row['image']) && file_exists(__DIR__ . '/../uploads/' . $row['image']))

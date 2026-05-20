@@ -141,7 +141,7 @@ require_once '../../includes/db.php';
     <h2 data-aos="fade-up">Examples of Our iMac Repairs</h2> <div class="fix-result-grid">
       <?php
       // Fetching both Thai and English titles from `repairs` table
-      $stmt_repairs = $pdo->prepare("SELECT id, image, title, title_en, model, views FROM repairs WHERE LOWER(category) = 'imac' ORDER BY created_at DESC LIMIT 6");
+      $stmt_repairs = $pdo->prepare("SELECT id, image, title, title_en, model, views FROM repairs WHERE status = 'published' AND LOWER(category) = 'imac' ORDER BY created_at DESC LIMIT 6");
       $stmt_repairs->execute();
       while ($row = $stmt_repairs->fetch()):
         $imagePath = '/uploads/' . htmlspecialchars($row['image']); // Root-relative path

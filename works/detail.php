@@ -14,6 +14,16 @@ if (!$id) {
   exit;
 }
 
+// ดึงข้อมูลก่อน — ไม่ให้ draft/hidden โชว์ public
+$stmt = $pdo->prepare("SELECT * FROM repairs WHERE id = ?");
+$stmt->execute([$id]);
+$data = $stmt->fetch();
+if (!$data || $data['status'] !== 'published') {
+  http_response_code(404);
+  header("Location: /works/");
+  exit;
+}
+
 // unique view: 1 IP per day
 $ip    = $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
 $ip    = trim(explode(',', $ip)[0]);
@@ -22,15 +32,6 @@ $log   = $pdo->prepare("INSERT IGNORE INTO repair_views (repair_id, ip, viewed_d
 $log->execute([$id, $ip, $today]);
 if ($log->rowCount() > 0) {
     $pdo->prepare("UPDATE repairs SET views = views + 1 WHERE id = ?")->execute([$id]);
-}
-
-// ✅ ดึงข้อมูลซ่อม
-$stmt = $pdo->prepare("SELECT * FROM repairs WHERE id = ?");
-$stmt->execute([$id]);
-$data = $stmt->fetch();
-if (!$data) {
-  echo "<p>ไม่พบข้อมูล</p>";
-  exit;
 }
 
 // ✅ ดึงภาพเพิ่มเติม

@@ -121,7 +121,7 @@ $page_keywords = "install macOS Chiang Mai, Mac software installation, Office fo
             <h2 data-aos="fade-up">Examples of Our Software Services</h2> <div class="fix-result-grid">
                 <?php
                 // Fetching both Thai and English titles from `repairs` table
-                $stmt_repairs = $pdo->prepare("SELECT id, image, title, title_en, model, views FROM repairs WHERE LOWER(category) = 'software' ORDER BY created_at DESC LIMIT 6");
+                $stmt_repairs = $pdo->prepare("SELECT id, image, title, title_en, model, views FROM repairs WHERE status = 'published' AND LOWER(category) = 'software' ORDER BY created_at DESC LIMIT 6");
                 $stmt_repairs->execute();
                 while ($row = $stmt_repairs->fetch()):
                     $imagePath = '/uploads/' . htmlspecialchars($row['image']); // Root-relative path

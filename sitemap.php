@@ -80,7 +80,7 @@ try {
 
 // --- 4. ผลงาน (Work) ---
 try {
-    $stmt = $pdo->prepare("SELECT * FROM repairs LIMIT 2000");
+    $stmt = $pdo->prepare("SELECT * FROM repairs WHERE status = 'published' LIMIT 2000");
     $stmt->execute();
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
         $mySlug = !empty($row['slug']) ? $row['slug'] : '';

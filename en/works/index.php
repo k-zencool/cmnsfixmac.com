@@ -78,7 +78,7 @@ $title_for_display_alias = "title_display"; // Alias for easier use in template
     </form>
 
     <?php
-    $where = [];
+    $where = ["status = 'published'"]; // base filter: published only
     $params = [];
 
     // IMPORTANT: Only show items that have an English title

@@ -115,7 +115,7 @@ include '../includes/db.php';
     <h2>Recent Work</h2>
     <div class="work-grid">
       <?php
-      $stmt = $pdo->query("SELECT * FROM repairs ORDER BY created_at DESC LIMIT 2");
+      $stmt = $pdo->query("SELECT * FROM repairs WHERE status = 'published' ORDER BY created_at DESC LIMIT 2");
       while ($row = $stmt->fetch()) {
         echo '<div class="work-card">';
         // Note: Title and Model from DB might still be in Thai

@@ -82,7 +82,7 @@ if (!$page || $page < 1) $page = 1;
     </form>
 
     <?php
-    $where = [];
+    $where = ["status = 'published'"]; // base filter: published only
     $params = [];
 
     if (!empty($q)) {

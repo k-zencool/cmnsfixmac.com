@@ -259,7 +259,7 @@
     <div class="work-grid">
       <!-- วนลูปแสดงข้อมูลจากฐานข้อมูล table repairs -->
       <?php
-      $stmt = $pdo->query("SELECT * FROM repairs ORDER BY created_at DESC LIMIT 2");
+      $stmt = $pdo->query("SELECT * FROM repairs WHERE status = 'published' ORDER BY created_at DESC LIMIT 2");
       while ($row = $stmt->fetch()) {
         echo '<div class="work-card">';
         echo '<img src="uploads/' . htmlspecialchars($row["image"]) . '" alt="' . htmlspecialchars($row["title"]) . '" loading="lazy">';

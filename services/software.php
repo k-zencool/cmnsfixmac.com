@@ -161,7 +161,7 @@ $page_keywords = "ลงโปรแกรม Mac เชียงใหม่, �
     <h2 data-aos="fade-up">ผลงานลงโปรแกรมล่าสุด</h2>
     <div class="fix-result-grid">
       <?php
-      $stmt = $pdo->prepare("SELECT * FROM repairs WHERE LOWER(category) = 'software' ORDER BY created_at DESC LIMIT 6");
+      $stmt = $pdo->prepare("SELECT * FROM repairs WHERE status = 'published' AND LOWER(category) = 'software' ORDER BY created_at DESC LIMIT 6");
       $stmt->execute();
       while ($row = $stmt->fetch()):
         $imagePath = (!empty($row['image']) && file_exists(__DIR__ . '/../uploads/' . $row['image']))
