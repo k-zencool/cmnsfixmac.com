@@ -69,10 +69,10 @@ try {
 
 // --- 3. Shop Listings ---
 try {
-    $stmt = $pdo->prepare("SELECT slug, updated_at FROM listings WHERE status = 'published' LIMIT 2000");
+    $stmt = $pdo->prepare("SELECT sl.id, sl.slug, sl.updated_at FROM shop_listings sl JOIN inventory inv ON inv.id = sl.inventory_id WHERE sl.status = 'published' AND inv.status != 'SOLD' LIMIT 2000");
     $stmt->execute();
     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-        $url = $baseUrl . '/shop/product-detail.php?slug=' . rawurlencode($row['slug']);
+        $url = $baseUrl . '/shop/product-detail.php?id=' . (int)$row['id'];
         $lastmod = !empty($row['updated_at']) ? date('Y-m-d', strtotime($row['updated_at'])) : $today;
         addUrl($url, $lastmod, 'weekly', '0.8');
     }

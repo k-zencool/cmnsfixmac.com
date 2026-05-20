@@ -1,27 +1,16 @@
 <?php
 require_once __DIR__ . '/../includes/db.php';
 
-/* ---------- Helpers ---------- */
-function h($s) {
-  return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8');
-}
-function getv($k, $d = null) {
-  return isset($_GET[$k]) ? trim((string)$_GET[$k]) : $d;
-}
+function h($s) { return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
+function getv($k, $d = null) { return isset($_GET[$k]) ? trim((string)$_GET[$k]) : $d; }
 function build_url($patch) {
-  $qs = array_merge($_GET, $patch);
-  foreach ($qs as $k => $v) {
-    if ($v === '' || $v === null) unset($qs[$k]);
-  }
-  // [FIX] ลบ page=1 ออกจาก URL
-  if (isset($qs['page']) && (int)$qs['page'] === 1) {
-    unset($qs['page']);
-  }
-  $q = http_build_query($qs);
-  return '/shop/' . ($q ? '?' . $q : '');
+    $qs = array_merge($_GET, $patch);
+    foreach ($qs as $k => $v) { if ($v === '' || $v === null) unset($qs[$k]); }
+    if (isset($qs['page']) && (int)$qs['page'] === 1) unset($qs['page']);
+    $q = http_build_query($qs);
+    return '/shop/' . ($q ? '?' . $q : '');
 }
 
-/* ---------- Lang link ---------- */
 $en_version_url = 'https://cmnsfixmac.com/en' . $_SERVER['REQUEST_URI'];
 $en_version_url = str_replace('/index.php', '/', $en_version_url);
 
@@ -30,205 +19,92 @@ $q        = getv('q', '');
 $cat      = getv('cat', '');
 $min      = getv('min', '') !== '' ? (float)getv('min') : null;
 $max      = getv('max', '') !== '' ? (float)getv('max') : null;
+$sort     = getv('sort', 'new');
+$page     = max(1, (int)getv('page', 1));
+$pp       = min(60, max(12, (int)getv('pp', 24)));
+$off      = ($page - 1) * $pp;
 
+// kept for URL backward-compat (filter-bar HTML uses them), no longer drives queries
 $ram_min  = getv('ram_min', '')  !== '' ? (int)getv('ram_min')  : null;
 $ssd_min  = getv('ssd_min', '')  !== '' ? (int)getv('ssd_min')  : null;
 $year_min = getv('year_min', '') !== '' ? (int)getv('year_min') : null;
 $year_max = getv('year_max', '') !== '' ? (int)getv('year_max') : null;
 $color    = getv('color', '');
 
-$sort     = getv('sort', 'new'); // new|price_asc|price_desc
-$page     = max(1, (int)getv('page', 1));
-$pp       = min(60, max(12, (int)getv('pp', 24)));
-$off      = ($page - 1) * $pp;
-
 /* ---------- Base WHERE ---------- */
-$where  = ["l.status='published'", "l.in_stock=1"];
+$where  = ["sl.status = 'published'", "inv.status != 'SOLD'"];
 $params = [];
 if ($q !== '') {
-  // ค้นหาทั้ง title ไทยและอังกฤษ
-  $where[] = "(l.title LIKE :q OR l.title_en LIKE :q)";
-  $params[':q'] = "%$q%";
+    $where[] = "(sl.title LIKE :q OR inv.name LIKE :q)";
+    $params[':q'] = "%$q%";
 }
 if ($cat !== '') {
-  // ใช้ brand เป็นหมวดใน UI
-  $where[] = "l.brand = :cat";
-  $params[':cat'] = $cat;
+    $where[] = "sc.name = :cat";
+    $params[':cat'] = $cat;
 }
-if ($min !== null) {
-  $where[] = "l.price >= :min";
-  $params[':min'] = $min;
-}
-if ($max !== null) {
-  $where[] = "l.price <= :max";
-  $params[':max'] = $max;
-}
+if ($min !== null) { $where[] = "sl.price >= :min"; $params[':min'] = $min; }
+if ($max !== null) { $where[] = "sl.price <= :max"; $params[':max'] = $max; }
 $WHERE_BASE = 'WHERE ' . implode(' AND ', $where);
 
-/* ---------- Base IDs for facets ---------- */
-$sqlBaseIds = "SELECT l.id FROM listings l $WHERE_BASE";
-$st = $pdo->prepare($sqlBaseIds);
-$st->execute($params);
-$baseIds = array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN));
-$idsList = $baseIds ? implode(',', $baseIds) : '0';
-
-/* ---------- [REFACTORED] Facets (1 Query) ---------- */
-$attrKeys = ['ram_gb', 'ssd_gb', 'year', 'color'];
-$attrMap  = $pdo->query("SELECT key_name, id FROM attrs WHERE key_name IN ('" . implode("','", $attrKeys) . "')")
-  ->fetchAll(PDO::FETCH_KEY_PAIR);
-
-$idToKeyMap = [];
-if ($attrMap) {
-  $idToKeyMap = array_flip($attrMap);
-}
-
-$facets = ['ram' => [], 'ssd' => [], 'year' => [], 'color' => []];
-
-if ($baseIds && $attrMap) {
-  $attrIdPlaceholders = implode(',', array_fill(0, count($attrMap), '?'));
-  $attrIds = array_values($attrMap);
-
-  $sqlFacets = "
-    SELECT v.attr_id, v.value_int, v.value_string, COUNT(DISTINCT v.listing_id) c
-    FROM listing_attr_values v
-    WHERE v.listing_id IN ($idsList)
-      AND v.attr_id IN ($attrIdPlaceholders)
-    GROUP BY v.attr_id, v.value_int, v.value_string
-  ";
-
-  $st = $pdo->prepare($sqlFacets);
-  $st->execute($attrIds);
-  $allFacetRows = $st->fetchAll(PDO::FETCH_ASSOC);
-
-  $tempFacets = ['ram_gb' => [], 'ssd_gb' => [], 'year' => [], 'color' => []];
-
-  foreach ($allFacetRows as $row) {
-    $keyName = $idToKeyMap[$row['attr_id']] ?? null;
-    if (!$keyName) continue;
-    $value = ($keyName === 'color') ? ($row['value_string'] ?? null) : ($row['value_int'] ?? null);
-    if ($value === null || $value === '') continue;
-
-    $tempFacets[$keyName][] = [
-      'val' => ($keyName === 'color') ? (string)$value : (int)$value,
-      'c'   => (int)$row['c']
-    ];
-  }
-
-  usort($tempFacets['ram_gb'], fn($a, $b) => $a['val'] <=> $b['val']); // ASC
-  usort($tempFacets['ssd_gb'], fn($a, $b) => $a['val'] <=> $b['val']); // ASC
-  usort($tempFacets['year'],   fn($a, $b) => $b['val'] <=> $a['val']); // DESC
-  usort($tempFacets['color'],  fn($a, $b) => strcasecmp((string)$a['val'], (string)$b['val']));
-
-  $facets['ram']   = $tempFacets['ram_gb'];
-  $facets['ssd']   = $tempFacets['ssd_gb'];
-  $facets['year']  = $tempFacets['year'];
-  $facets['color'] = $tempFacets['color'];
-}
-
-/* ---------- [REFACTORED] Items WHERE (with chosen facets) ---------- */
-$whereItems  = $where;
-$paramsItems = $params;
-$facetConditions = []; $facetParams = []; $activeAttrKeys = [];
-
-$facetFiltersConfig = [
-  'ram_min'  => ['key' => 'ram_gb', 'param' => $ram_min,  'type' => 'int',    'op' => '>='],
-  'ssd_min'  => ['key' => 'ssd_gb', 'param' => $ssd_min,  'type' => 'int',    'op' => '>='],
-  'year_min' => ['key' => 'year',   'param' => $year_min, 'type' => 'int',    'op' => '>='],
-  'year_max' => ['key' => 'year',   'param' => $year_max, 'type' => 'int',    'op' => '<='],
-  'color'    => ['key' => 'color',  'param' => $color,    'type' => 'string', 'op' => '='],
-];
-
-foreach ($facetFiltersConfig as $config) {
-  $attrKey    = $config['key'];
-  $paramValue = $config['param'];
-  $op         = $config['op'];
-  if ($paramValue === null || $paramValue === '' || empty($attrMap[$attrKey])) continue;
-
-  $attrId   = (int)$attrMap[$attrKey];
-  $valueCol = $config['type'] === 'int' ? 'v.value_int' : 'v.value_string';
-  $facetConditions[] = "($valueCol $op ? AND v.attr_id = ?)";
-  $facetParams[] = $paramValue;
-  $facetParams[] = $attrId;
-  $activeAttrKeys[$attrKey] = 1;
-}
-
-$activeFilterCount = count($activeAttrKeys);
-if ($activeFilterCount > 0) {
-  $sqlFacetFilter = "
-    SELECT v.listing_id
-    FROM listing_attr_values v
-    WHERE " . implode(' OR ', $facetConditions) . "
-    GROUP BY v.listing_id
-    HAVING COUNT(DISTINCT v.attr_id) = " . (int)$activeFilterCount;
-
-  $st = $pdo->prepare($sqlFacetFilter);
-  $st->execute($facetParams);
-  $matchingFacetIds = array_map('intval', $st->fetchAll(PDO::FETCH_COLUMN));
-
-  if ($matchingFacetIds) {
-    $whereItems[] = "l.id IN (" . implode(',', $matchingFacetIds) . ")";
-  } else {
-    $whereItems[] = "1=0"; // Force no results
-  }
-}
-$WHERE_ITEMS = 'WHERE ' . implode(' AND ', $whereItems);
-
 /* ---------- ORDER ---------- */
-$ORDER = 'ORDER BY l.created_at DESC, l.id DESC';
-if ($sort === 'price_asc')  $ORDER = 'ORDER BY l.price ASC, l.id DESC';
-if ($sort === 'price_desc') $ORDER = 'ORDER BY l.price DESC, l.id DESC';
+$ORDER = 'ORDER BY sl.created_at DESC, sl.id DESC';
+if ($sort === 'price_asc')  $ORDER = 'ORDER BY sl.price ASC, sl.id DESC';
+if ($sort === 'price_desc') $ORDER = 'ORDER BY sl.price DESC, sl.id DESC';
 
-
-/* ---------- [OPTIMIZED] COUNT + ITEMS (1 Query) ---------- */
-$sqlItems = "SELECT SQL_CALC_FOUND_ROWS
-                l.id,
-                l.title AS name,          /* ใช้ชื่อไทย */
-                l.brand AS category,      /* ใช้ brand เป็นหมวด */
-                l.price, l.price_old, l.stock_qty, l.created_at, l.main_image, l.in_stock
-             FROM listings l
-             $WHERE_ITEMS
-             $ORDER
-             LIMIT :lim OFFSET :off";
+/* ---------- Items ---------- */
+$sqlItems = "
+    SELECT SQL_CALC_FOUND_ROWS
+        sl.id,
+        COALESCE(sl.title, inv.name)        AS name,
+        sc.name                              AS category,
+        sl.price,
+        sl.price_original                    AS price_old,
+        COALESCE(sl.cover_image, inv.image)  AS main_image,
+        1                                    AS in_stock,
+        1                                    AS stock_qty,
+        sl.created_at
+    FROM shop_listings sl
+    JOIN inventory inv ON inv.id = sl.inventory_id
+    JOIN shop_categories sc ON sc.id = sl.category_id
+    $WHERE_BASE
+    $ORDER
+    LIMIT :lim OFFSET :off
+";
 $st = $pdo->prepare($sqlItems);
-foreach ($paramsItems as $k => $v) $st->bindValue($k, $v);
+foreach ($params as $k => $v) $st->bindValue($k, $v);
 $st->bindValue(':lim', $pp, PDO::PARAM_INT);
 $st->bindValue(':off', $off, PDO::PARAM_INT);
 $st->execute();
 $items = $st->fetchAll(PDO::FETCH_ASSOC);
-
-// แล้วดึง total count จาก query เมื่อกี้แทน
 $total = (int)$pdo->query("SELECT FOUND_ROWS()")->fetchColumn();
 
-/* ---------- [ADDED] Sold Items (Random 4 items) ---------- */
-// ดึงสินค้าที่สถานะเป็น sold หรือ published แต่ของหมด
-$sqlSold = "SELECT id, title AS name, brand AS category, price, price_old, main_image
-            FROM listings
-            WHERE (status = 'sold' OR (status = 'published' AND in_stock = 0))
-              AND main_image IS NOT NULL AND main_image != ''
-            ORDER BY RAND()
-            LIMIT 4";
+/* ---------- Facets (EAV removed — category counts in sidebar only) ---------- */
+$facets = ['ram' => [], 'ssd' => [], 'year' => [], 'color' => []];
+
+/* ---------- Sold Items ---------- */
+$sqlSold = "
+    SELECT sl.id,
+           COALESCE(sl.title, inv.name)        AS name,
+           sc.name                              AS category,
+           sl.price,
+           COALESCE(sl.cover_image, inv.image)  AS main_image
+    FROM shop_listings sl
+    JOIN inventory inv ON inv.id = sl.inventory_id
+    JOIN shop_categories sc ON sc.id = sl.category_id
+    WHERE sl.status = 'sold'
+      AND COALESCE(sl.cover_image, inv.image) IS NOT NULL
+    ORDER BY sl.updated_at DESC
+    LIMIT 4
+";
 $soldItems = $pdo->query($sqlSold)->fetchAll(PDO::FETCH_ASSOC);
 
-
-/* ---------- Build Active Filter List for UI ---------- */
+/* ---------- Active filter chips ---------- */
 $activeFilters = [];
-if ($q !== '')       $activeFilters[] = ['label' => "ค้นหา: \"".h($q)."\"", 'url' => build_url(['q' => null, 'page' => 1])];
-if ($cat !== '')     $activeFilters[] = ['label' => "หมวด: ".h($cat), 'url' => build_url(['cat' => null, 'page' => 1])];
-if ($min !== null)   $activeFilters[] = ['label' => "ราคา: ≥ ".h($min), 'url' => build_url(['min' => null, 'page' => 1])];
-if ($max !== null)   $activeFilters[] = ['label' => "ราคา: ≤ ".h($max), 'url' => build_url(['max' => null, 'page' => 1])];
-if ($ram_min !== null)  $activeFilters[] = ['label' => "RAM: ≥ ".h($ram_min)."GB", 'url' => build_url(['ram_min' => null, 'page' => 1])];
-if ($ssd_min !== null)  $activeFilters[] = ['label' => "SSD: ≥ ".h($ssd_min)."GB", 'url' => build_url(['ssd_min' => null, 'page' => 1])];
-if ($year_min !== null && $year_max !== null && $year_min === $year_max) {
-    $activeFilters[] = ['label' => "ปี: ".h($year_min), 'url' => build_url(['year_min' => null, 'year_max' => null, 'page' => 1])];
-} elseif ($year_min !== null) {
-    $activeFilters[] = ['label' => "ปี: ≥ ".h($year_min), 'url' => build_url(['year_min' => null, 'page' => 1])];
-} elseif ($year_max !== null) {
-    $activeFilters[] = ['label' => "ปี: ≤ ".h($year_max), 'url' => build_url(['year_max' => null, 'page' => 1])];
-}
-if ($color !== '')   $activeFilters[] = ['label' => "สี: ".h($color), 'url' => build_url(['color' => null, 'page' => 1])];
+if ($q !== '')     $activeFilters[] = ['label' => "ค้นหา: \"".h($q)."\"",  'url' => build_url(['q'   => null, 'page' => 1])];
+if ($cat !== '')   $activeFilters[] = ['label' => "หมวด: ".h($cat),         'url' => build_url(['cat' => null, 'page' => 1])];
+if ($min !== null) $activeFilters[] = ['label' => "ราคา: ≥ ".h($min),       'url' => build_url(['min' => null, 'page' => 1])];
+if ($max !== null) $activeFilters[] = ['label' => "ราคา: ≤ ".h($max),       'url' => build_url(['max' => null, 'page' => 1])];
 
-
-/* ---------- Render product section into buffer (AJAX-ready) ---------- */
 ob_start();
 ?>
 <section id="cmnsx-products" class="cmnsx-products" aria-label="สินค้าทั้งหมด">

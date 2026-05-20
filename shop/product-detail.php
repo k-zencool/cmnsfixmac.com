@@ -1,152 +1,130 @@
 <?php
 require_once __DIR__ . '/../includes/db.php';
 
-// !!! กูเพิ่มตรงนี้ให้ มึงจะได้ไม่ต้องไปยุ่งกับ db.php !!!
 defined('BASE_URL') or define('BASE_URL', 'https://cmnsfixmac.com');
 
+function h($s) { return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
+function getv($k, $d = null) { return isset($_GET[$k]) ? trim((string)$_GET[$k]) : $d; }
+$q = getv('q', '');
 
-/* ---------- Helpers ---------- */
-function h($s)
-{
-  return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8');
-}
-function getv($k, $d = null)
-{
-  return isset($_GET[$k]) ? trim((string)$_GET[$k]) : $d;
-}
-$q = getv('q', ''); // <-- กูนแอบเพิ่มตรงนี้ กัน error ตรงช่อง search
-
-
-/* ---------- Get Product ID ---------- */
 $id = max(0, (int)getv('id', 0));
 
-/* ---------- Init Vars ---------- */
 $product = null;
 $attrs = [];
 $all_images = [];
 $related_items = [];
 $error = '';
-$tags = []; // For storing tags
+$tags = [];
 
-/* ---------- Fetch Data (Logic เดิมของมึง) ---------- */
 if ($id > 0) {
-  // 1. Fetch Main Product
-  $sqlProduct = "
-    SELECT l.*,
-           JSON_UNQUOTE(JSON_EXTRACT(l.attrs, '$.description')) as description,
-           JSON_UNQUOTE(JSON_EXTRACT(l.attrs, '$.meta_description')) as meta_description,
-           JSON_UNQUOTE(JSON_EXTRACT(l.attrs, '$.tags')) as tags_json
-    FROM listings l
-    WHERE l.id = :id AND l.status = 'published'
-  ";
-  $st = $pdo->prepare($sqlProduct);
-  $st->execute([':id' => $id]);
-  $product = $st->fetch(PDO::FETCH_ASSOC);
-
-  if ($product) {
-    // 2. Fetch Attributes
-    $sqlAttrs = "
-      SELECT a.key_name, v.value_string, v.value_int
-      FROM listing_attr_values v
-      JOIN attrs a ON a.id = v.attr_id
-      WHERE v.listing_id = :id
-      ORDER BY a.id
-    ";
-    $st = $pdo->prepare($sqlAttrs);
+    // 1. Fetch product from new shop_listings schema
+    $st = $pdo->prepare("
+        SELECT sl.id, sl.slug, sl.category_id,
+               COALESCE(sl.title, inv.name)        AS title,
+               sc.name                              AS brand,
+               sl.price,
+               sl.price_original                    AS price_old,
+               sl.description,
+               sl.description_en,
+               COALESCE(sl.cover_image, inv.image)  AS main_image,
+               IF(inv.status = 'SOLD', 0, 1)        AS in_stock,
+               IF(inv.status = 'SOLD', 0, 1)        AS stock_qty,
+               inv.sku, inv.serial_number, inv.color,
+               inv.condition_grade, inv.cpu_spec, inv.ram_spec,
+               inv.storage_spec, inv.gpu_spec,
+               inv.battery_health, inv.store_warranty_days,
+               inv.apple_warranty_date, inv.condition_note
+        FROM shop_listings sl
+        JOIN inventory inv ON inv.id = sl.inventory_id
+        JOIN shop_categories sc ON sc.id = sl.category_id
+        WHERE sl.id = :id AND sl.status = 'published'
+    ");
     $st->execute([':id' => $id]);
-    $attrs = $st->fetchAll(PDO::FETCH_ASSOC);
+    $product = $st->fetch(PDO::FETCH_ASSOC);
 
-    // 3. Fetch Gallery Images
-    $sqlGallery = "
-      SELECT url FROM listing_images
-      WHERE listing_id = :id ORDER BY sort_order
-    ";
-    $st = $pdo->prepare($sqlGallery);
-    $st->execute([':id' => $id]);
-    $gallery_images = $st->fetchAll(PDO::FETCH_COLUMN);
+    if ($product) {
+        // 2. Gallery images
+        $st2 = $pdo->prepare("SELECT url FROM shop_images WHERE listing_id = ? ORDER BY sort_order ASC");
+        $st2->execute([$id]);
+        $gallery = $st2->fetchAll(PDO::FETCH_COLUMN);
 
-    // Build final image list
-    $all_images = [];
-    if (!empty($product['main_image'])) {
-      $all_images[] = $product['main_image'];
-    }
-    foreach ($gallery_images as $img) {
-      if (!empty($img) && !in_array($img, $all_images)) {
-        $all_images[] = $img;
-      }
-    }
-    if (empty($all_images)) {
-      $all_images[] = '';
-    }
+        $all_images = array_values(array_unique(array_filter(
+            array_merge([$product['main_image']], $gallery)
+        )));
+        if (empty($all_images)) $all_images[] = '';
 
-    // 4. Fetch Related Products
-    $sqlRelated = "
-      SELECT l.id, l.title name, l.brand as category, l.price, l.price_old, l.stock_qty, l.created_at, l.main_image
-      FROM listings l
-      WHERE l.brand = :brand
-        AND l.id != :id
-        AND l.status = 'published'
-        AND l.in_stock = 1
-      ORDER BY RAND()
-      LIMIT 4
-    ";
-    $st = $pdo->prepare($sqlRelated);
-    $st->execute([':brand' => $product['brand'], ':id' => $id]);
-    $related_items = $st->fetchAll(PDO::FETCH_ASSOC);
+        // 3. Build specs from inventory columns (replaces EAV attrs table)
+        $specMap = [
+            'cpu'     => $product['cpu_spec'],
+            'ram'     => $product['ram_spec'],
+            'storage' => $product['storage_spec'],
+            'gpu'     => $product['gpu_spec'],
+            'color'   => $product['color'],
+            'grade'   => !empty($product['condition_grade']) ? 'Grade ' . $product['condition_grade'] : null,
+            'serial'  => $product['serial_number'],
+            'battery' => !empty($product['battery_health'])  ? $product['battery_health'] . '%' : null,
+            'warranty'=> !empty($product['store_warranty_days']) ? $product['store_warranty_days'] . ' วัน' : null,
+        ];
+        foreach ($specMap as $key => $val) {
+            if ($val !== null && $val !== '') {
+                $attrs[] = ['key_name' => $key, 'value_string' => $val, 'value_int' => null];
+            }
+        }
 
-    // 5. Prepare Tags
-    if (!empty($product['brand'])) {
-      $tags[] = $product['brand'];
+        // 4. Related products — same shop category
+        $stR = $pdo->prepare("
+            SELECT sl2.id,
+                   COALESCE(sl2.title, inv2.name)        AS name,
+                   sc2.name                              AS category,
+                   sl2.price,
+                   sl2.price_original                    AS price_old,
+                   1                                     AS stock_qty,
+                   COALESCE(sl2.cover_image, inv2.image) AS main_image
+            FROM shop_listings sl2
+            JOIN inventory inv2 ON inv2.id = sl2.inventory_id
+            JOIN shop_categories sc2 ON sc2.id = sl2.category_id
+            WHERE sl2.category_id = :cat_id
+              AND sl2.id != :id
+              AND sl2.status = 'published'
+              AND inv2.status != 'SOLD'
+            ORDER BY RAND()
+            LIMIT 4
+        ");
+        $stR->execute([':cat_id' => $product['category_id'], ':id' => $id]);
+        $related_items = $stR->fetchAll(PDO::FETCH_ASSOC);
+
+        // 5. Tags
+        if (!empty($product['brand'])) $tags[] = $product['brand'];
+        $tags = array_unique(array_filter($tags));
+    } else {
+        $error = "ไม่พบสินค้าที่ตรงกัน";
     }
-    if (!empty($product['tags_json'])) {
-      $json_tags = json_decode($product['tags_json'], true);
-      if (is_array($json_tags)) {
-        $tags = array_merge($tags, $json_tags);
-      }
-    }
-    foreach ($attrs as $attr) {
-      if ($attr['key_name'] === 'year' && !empty($attr['value_int'])) {
-        $tags[] = (string)$attr['value_int'];
-        break;
-      }
-    }
-    $tags = array_unique(array_filter($tags));
-  } else {
-    $error = "ไม่พบสินค้าที่ตรงกัน";
-  }
 } else {
-  $error = "ID สินค้าไม่ถูกต้อง";
+    $error = "ID สินค้าไม่ถูกต้อง";
 }
 
-if ($error) {
-  http_response_code(404);
-}
-/* ---------- Lang link (แก้ให้ใช้ BASE_URL) ---------- */
+if ($error) http_response_code(404);
+
 $request_uri = $_SERVER['REQUEST_URI'];
-if (!$product) {
-  $request_uri = '/shop/';
-}
+if (!$product) $request_uri = '/shop/';
 $en_version_url = rtrim(BASE_URL, '/') . '/en' . $request_uri;
 $en_version_url = str_replace('/index.php', '/', $en_version_url);
 
-/* ---------- SEO & Page Vars (แก้ให้ใช้ BASE_URL) ---------- */
 $page_title = "ไม่พบสินค้า";
 $meta_description = "ไม่พบสินค้าที่คุณค้นหา กรุณาลองใหม่ หรือกลับไปที่หน้าสินค้ารวม";
-$og_image = BASE_URL . "/assets/img/Logo1.png"; // <-- ใช้ BASE_URL
-$name = ''; // [!!] กูแก้ตรงนี้: ประกาศให้มีค่าว่างไว้ก่อน [!!]
+$og_image = BASE_URL . "/assets/img/Logo1.png";
+$name = '';
 
 if ($product) {
-  // [!!] กูแก้ตรงนี้: ย้าย $name มาข้างใน if [!!]
-  $name = $product['title'];
-  $clean_desc = trim(preg_replace('/\s+/', ' ', strip_tags($product['description'] ?? '')));
-  $page_title = h($name); // ใช้ $name
-  $meta_description = h($product['meta_description'] ?: mb_substr($clean_desc, 0, 155));
-  $main_img_path = $all_images[0] ?? '';
-  if ($main_img_path && substr($main_img_path, 0, 1) === '/') {
-    $og_image = BASE_URL . h($main_img_path); // <-- ใช้ BASE_URL
-  }
+    $name = $product['title'];
+    $clean_desc = trim(preg_replace('/\s+/', ' ', strip_tags($product['description'] ?? '')));
+    $page_title = h($name);
+    $meta_description = h(mb_substr($clean_desc, 0, 155) ?: $name . ' มือสอง คุณภาพดี พร้อมรับประกัน');
+    $main_img_path = $all_images[0] ?? '';
+    if ($main_img_path && substr($main_img_path, 0, 1) === '/') {
+        $og_image = BASE_URL . h($main_img_path);
+    }
 }
-// [!!] กูแก้ตรงนี้: ลบ else ทิ้ง [!!]
 ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -503,7 +481,7 @@ if ($product) {
             <table class="pdp-specs-table">
               <tbody>
                 <?php
-                $key_to_label_map = ['ram_gb' => 'RAM', 'ssd_gb' => 'ความจุ SSD', 'year' => 'ปี', 'color' => 'สี', 'model' => 'รุ่น', 'cpu' => 'ชิป', 'gpu' => 'การ์ดจอ'];
+                $key_to_label_map = ['ram_gb' => 'RAM', 'ssd_gb' => 'ความจุ SSD', 'year' => 'ปี', 'color' => 'สี', 'model' => 'รุ่น', 'cpu' => 'ชิป', 'gpu' => 'การ์ดจอ', 'ram' => 'RAM', 'storage' => 'ความจุ', 'grade' => 'เกรดสภาพ', 'serial' => 'Serial Number', 'battery' => 'Battery Health', 'warranty' => 'ประกันร้าน'];
                 foreach ($attrs as $attr):
                   $key = $attr['key_name'];
                   $label = $key_to_label_map[$key] ?? ucwords(str_replace('_', ' ', $key));
