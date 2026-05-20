@@ -315,11 +315,29 @@ include '../templates/header_admin.php';
                             </td>
 
                             <!-- Action badge -->
+                            <?php
+                                $remarks_raw = $log['remarks'] ?? '';
+                                $is_sale_transfer = !$is_in && str_starts_with($remarks_raw, 'TRANSFER_TO_SALE');
+                                $is_converted     = !$is_in && str_starts_with($remarks_raw, 'CONVERTED_TO_SALE');
+                                $is_sold          = !$is_in && $remarks_raw === 'SOLD';
+                            ?>
                             <td style="text-align:center;">
-                                <span class="action-badge <?= $is_in ? 'badge-in' : 'badge-out' ?>">
-                                    <span class="material-symbols-rounded" style="font-size:12px;"><?= $is_in ? 'arrow_downward' : 'output' ?></span>
-                                    <?= $action ?>
-                                </span>
+                                <?php if ($is_sale_transfer || $is_converted): ?>
+                                    <span class="action-badge" style="background:rgba(239,68,68,.1); color:#ef4444; border:1px solid rgba(239,68,68,.25);">
+                                        <span class="material-symbols-rounded" style="font-size:12px;">sell</span>
+                                        → SALE
+                                    </span>
+                                <?php elseif ($is_sold): ?>
+                                    <span class="action-badge" style="background:rgba(16,185,129,.1); color:#10b981; border:1px solid rgba(16,185,129,.25);">
+                                        <span class="material-symbols-rounded" style="font-size:12px;">payments</span>
+                                        SOLD
+                                    </span>
+                                <?php else: ?>
+                                    <span class="action-badge <?= $is_in ? 'badge-in' : 'badge-out' ?>">
+                                        <span class="material-symbols-rounded" style="font-size:12px;"><?= $is_in ? 'arrow_downward' : 'output' ?></span>
+                                        <?= $action ?>
+                                    </span>
+                                <?php endif; ?>
                             </td>
 
                             <!-- Item name -->
@@ -395,9 +413,19 @@ include '../templates/header_admin.php';
                                             <span class="material-symbols-rounded" style="font-size:12px; vertical-align:-2px;">person</span>
                                             <?= htmlspecialchars($log['admin_name']) ?>
                                         <?php endif; ?>
-                                        <?php if ($log['remarks']): ?>
-                                            <span style="opacity:.6;"> · <?= htmlspecialchars($log['remarks']) ?></span>
-                                        <?php endif; ?>
+                                        <?php if ($remarks_raw):
+                                            if ($is_sale_transfer) {
+                                                $sale_id = explode(':', $remarks_raw)[1] ?? '';
+                                                echo '<span style="color:#ef4444; font-weight:700;"> · → SALE' . ($sale_id ? " #{$sale_id}" : '') . '</span>';
+                                            } elseif ($is_converted) {
+                                                $src_type = strtoupper(explode(':', $remarks_raw)[1] ?? '');
+                                                echo "<span style='color:#ef4444; font-weight:700;'> · {$src_type} → SALE</span>";
+                                            } elseif ($is_sold) {
+                                                echo '<span style="color:#10b981; font-weight:700;"> · ขายแล้ว</span>';
+                                            } else {
+                                                echo '<span style="opacity:.6;"> · ' . htmlspecialchars($remarks_raw) . '</span>';
+                                            }
+                                        endif; ?>
                                     <?php endif; ?>
                                 </div>
                             </td>

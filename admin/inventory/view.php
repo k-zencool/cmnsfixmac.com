@@ -419,7 +419,7 @@ include '../templates/header_admin.php';
                         <?php endif; ?>
                         <th width="130" style="text-align:center;">STATUS / WARRANTY</th>
                         <th width="100" style="text-align:right;">PRICE</th>
-                        <th width="<?= in_array($current_type, ['new','used','machine']) ? '100' : '60' ?>" style="text-align:center;">ACTION</th>
+                        <th width="<?= $current_type === 'sale' ? '80' : '130' ?>" style="text-align:center;">ACTION</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -685,13 +685,19 @@ include '../templates/header_admin.php';
 
                             <!-- ACTIONS -->
                             <td style="text-align:center;" onclick="event.stopPropagation()">
-                                <div style="display:flex; justify-content:center; gap:5px;">
+                                <div style="display:flex; justify-content:center; gap:4px;">
                                     <?php if($it === 'new'): ?>
                                         <button class="inv-btn inv-btn-requisition <?= $isOos ? 'disabled' : '' ?>"
                                                 title="เบิกอะไหล่ NEW"
                                                 onclick="<?= $isOos ? '' : "openRequisitionModal({$item['id']},'new')" ?>"
                                                 <?= $isOos ? 'disabled' : '' ?>>
                                             <span class="material-symbols-rounded">output</span>
+                                        </button>
+                                        <button class="inv-btn inv-btn-to-sale <?= $isOos ? 'disabled' : '' ?>"
+                                                title="ย้ายไป SALE"
+                                                onclick="<?= $isOos ? '' : "openToSaleModal({$item['id']},'new')" ?>"
+                                                <?= $isOos ? 'disabled' : '' ?>>
+                                            <span class="material-symbols-rounded">sell</span>
                                         </button>
                                     <?php elseif($it === 'used'): ?>
                                         <button class="inv-btn <?= $isOos ? 'disabled' : '' ?>"
@@ -701,6 +707,12 @@ include '../templates/header_admin.php';
                                                 <?= $isOos ? 'disabled' : '' ?>>
                                             <span class="material-symbols-rounded">build</span>
                                         </button>
+                                        <button class="inv-btn inv-btn-to-sale <?= $isOos ? 'disabled' : '' ?>"
+                                                title="ย้ายไป SALE"
+                                                onclick="<?= $isOos ? '' : "openToSaleModal({$item['id']},'used')" ?>"
+                                                <?= $isOos ? 'disabled' : '' ?>>
+                                            <span class="material-symbols-rounded">sell</span>
+                                        </button>
                                     <?php elseif($it === 'machine'): ?>
                                         <button class="inv-btn"
                                                 title="แยกอะไหล่ → USED"
@@ -708,6 +720,35 @@ include '../templates/header_admin.php';
                                                 onclick="openStripModal(<?= $item['id'] ?>, '<?= htmlspecialchars(addslashes($item['name'])) ?>', '<?= htmlspecialchars(addslashes($item['asset_tag'] ?? '')) ?>')">
                                             <span class="material-symbols-rounded">content_cut</span>
                                         </button>
+                                        <button class="inv-btn inv-btn-to-sale"
+                                                title="ย้ายไป SALE"
+                                                onclick="openToSaleModal(<?= $item['id'] ?>,'machine')">
+                                            <span class="material-symbols-rounded">sell</span>
+                                        </button>
+                                    <?php elseif($it === 'sale'): ?>
+                                        <?php if($st === 'PENDING'): ?>
+                                            <button class="inv-btn"
+                                                    title="Mark READY"
+                                                    style="background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.35); color:#10b981;"
+                                                    onclick="updateSaleStatus(<?= $item['id'] ?>,'mark_ready')">
+                                                <span class="material-symbols-rounded">check_circle</span>
+                                            </button>
+                                        <?php elseif($st === 'READY'): ?>
+                                            <button class="inv-btn"
+                                                    title="ยืนยันขาย SOLD"
+                                                    style="background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.35); color:#ef4444;"
+                                                    onclick="openMarkSoldModal(<?= $item['id'] ?>, <?= htmlspecialchars(json_encode($item['name'])) ?>, <?= (float)$item['sell_price'] ?>)">
+                                                <span class="material-symbols-rounded">payments</span>
+                                            </button>
+                                        <?php endif; ?>
+                                        <?php if($st !== 'SOLD'): ?>
+                                            <button class="inv-btn"
+                                                    title="คืนของที่เดิม"
+                                                    style="background:rgba(245,158,11,.12); border:1px solid rgba(245,158,11,.35); color:#f59e0b;"
+                                                    onclick="confirmRevertSale(<?= $item['id'] ?>, <?= htmlspecialchars(json_encode($item['name'])) ?>)">
+                                                <span class="material-symbols-rounded">undo</span>
+                                            </button>
+                                        <?php endif; ?>
                                     <?php endif; ?>
                                     <button class="inv-btn inv-btn-edit" title="แก้ไข"
                                             onclick="openEditModal(<?= $item['id'] ?>)">
@@ -1309,6 +1350,9 @@ document.getElementById('req-job-results').addEventListener('mouseout', e => {
 .inv-btn-requisition:hover { color:#10b981; background:rgba(16,185,129,.07); border-color:#10b981; }
 .inv-btn-requisition.disabled { opacity:.35; cursor:not-allowed; }
 .inv-btn-requisition.disabled:hover { transform:none; box-shadow:none; color:var(--text-muted); background:var(--bg-surface-alt); border-color:var(--border); }
+.inv-btn-to-sale:hover { color:#ef4444; background:rgba(239,68,68,.08); border-color:#ef4444; }
+.inv-btn-to-sale.disabled { opacity:.35; cursor:not-allowed; }
+.inv-btn-to-sale.disabled:hover { transform:none; box-shadow:none; color:var(--text-muted); background:var(--bg-surface-alt); border-color:var(--border); }
 
 /* ── OOS row ── */
 .row-oos td { opacity:.55; }
@@ -1317,6 +1361,525 @@ document.getElementById('req-job-results').addEventListener('mouseout', e => {
 .row-dead:hover td { opacity:.7; }
 </style>
 <link rel="stylesheet" href="../templates/assets/css/modal.css?v=<?= time(); ?>">
+
+<!-- ══════════════════════════════════════════════════════
+     Transfer to SALE Modal
+═══════════════════════════════════════════════════════ -->
+<div id="modal-to-sale" class="cmns-modal">
+    <div class="modal-content" style="max-width:820px; padding:30px; max-height:92vh; overflow-y:auto;">
+
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:18px; margin-bottom:22px;">
+            <h3 style="margin:0; display:flex; align-items:center; gap:10px; font-weight:800; font-size:20px; color:var(--text-main);">
+                <span class="material-symbols-rounded" style="color:#ef4444; font-size:26px;">sell</span>
+                ย้ายไป SALE
+            </h3>
+            <button class="modal-close-btn" onclick="closeToSaleModal()"><span class="material-symbols-rounded">close</span></button>
+        </div>
+
+        <!-- Source info badge -->
+        <div id="ts-source-info" style="display:flex; align-items:center; gap:12px; padding:12px 16px; border-radius:10px; border:1px solid var(--border); background:var(--bg-surface-alt); margin-bottom:20px;">
+            <span id="ts-source-icon" class="material-symbols-rounded" style="font-size:22px;"></span>
+            <div>
+                <div id="ts-source-name" style="font-weight:700; font-size:14px; color:var(--text-main);">กำลังโหลด...</div>
+                <div id="ts-source-meta" style="font-size:11px; color:var(--text-muted); margin-top:2px;"></div>
+            </div>
+        </div>
+
+        <!-- Lot selector + Qty (NEW only) -->
+        <div id="ts-lot-section" style="display:none; margin-bottom:20px; padding:16px; border:1px solid rgba(37,99,235,.25); border-radius:10px; background:rgba(37,99,235,.04);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <div style="font-size:11px; font-weight:800; color:var(--primary); text-transform:uppercase; letter-spacing:.8px; display:flex; align-items:center; gap:6px;">
+                    <span class="material-symbols-rounded" style="font-size:16px;">account_tree</span>
+                    เลือก LOT
+                </div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <label style="font-size:11px; font-weight:800; color:var(--primary); text-transform:uppercase; letter-spacing:.8px;">จำนวน</label>
+                    <button type="button" onclick="tsAdjQty(-1)" style="width:28px;height:28px;border-radius:6px;border:1px solid rgba(37,99,235,.35);background:rgba(37,99,235,.08);color:var(--primary);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">−</button>
+                    <input type="number" id="ts-qty" name="qty" value="1" min="1" max="1"
+                           style="width:56px;text-align:center;padding:5px 6px;border:1.5px solid rgba(37,99,235,.4);border-radius:8px;background:var(--bg-surface);color:var(--text-main);font-size:15px;font-weight:800;outline:none;">
+                    <button type="button" onclick="tsAdjQty(1)" style="width:28px;height:28px;border-radius:6px;border:1px solid rgba(37,99,235,.35);background:rgba(37,99,235,.08);color:var(--primary);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">+</button>
+                    <span id="ts-qty-max-label" style="font-size:11px;color:var(--text-muted);"></span>
+                </div>
+            </div>
+            <div id="ts-lots-wrap"></div>
+            <input type="hidden" id="ts-lot-id" value="">
+        </div>
+
+        <form id="form-to-sale">
+            <input type="hidden" id="ts-source-type"  name="source_type">
+            <input type="hidden" id="ts-inventory-id" name="inventory_id">
+
+            <!-- Row 1: Name + Sell Price + Status + Grade -->
+            <div style="display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:12px; margin-bottom:14px;">
+                <div>
+                    <label class="cmns-label">ชื่อสินค้า <span style="color:red">*</span></label>
+                    <input type="text" name="name" id="ts-name" class="cmns-input" required>
+                </div>
+                <div>
+                    <label class="cmns-label">ราคาขาย (฿)</label>
+                    <input type="number" name="sell_price" id="ts-sell-price" class="cmns-input" step="1" value="0" min="0">
+                </div>
+                <div>
+                    <label class="cmns-label">Status</label>
+                    <select name="status" id="ts-status" class="cmns-input" style="font-weight:700;">
+                        <option value="PENDING">PENDING</option>
+                        <option value="READY">READY</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="cmns-label">Grade</label>
+                    <select name="condition_grade" id="ts-grade" class="cmns-input" style="font-weight:700;">
+                        <option value="">— ไม่ระบุ —</option>
+                        <option value="A">A</option>
+                        <option value="B">B</option>
+                        <option value="C">C</option>
+                        <option value="D">D</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Row 2: Serial + Asset Tag + Color -->
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:14px;">
+                <div>
+                    <label class="cmns-label">Serial No.</label>
+                    <input type="text" name="serial_number" id="ts-serial" class="cmns-input" placeholder="XXXXXXXXXXXXX">
+                </div>
+                <div>
+                    <label class="cmns-label">Asset Tag</label>
+                    <input type="text" name="asset_tag" id="ts-asset-tag" class="cmns-input" placeholder="CMNS-0001">
+                </div>
+                <div>
+                    <label class="cmns-label">สี (Color)</label>
+                    <input type="text" name="color" id="ts-color" class="cmns-input" placeholder="Space Gray">
+                </div>
+            </div>
+
+            <!-- Row 3: Specs -->
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; margin-bottom:14px;">
+                <div>
+                    <label class="cmns-label">CPU / Chip</label>
+                    <input type="text" name="cpu_spec" id="ts-cpu" class="cmns-input" placeholder="M2 Pro 12-core">
+                </div>
+                <div>
+                    <label class="cmns-label">RAM</label>
+                    <input type="text" name="ram_spec" id="ts-ram" class="cmns-input" placeholder="16GB">
+                </div>
+                <div>
+                    <label class="cmns-label">Storage</label>
+                    <input type="text" name="storage_spec" id="ts-storage" class="cmns-input" placeholder="512GB SSD">
+                </div>
+            </div>
+
+            <!-- Row 4: Warranty + Battery -->
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:12px; margin-bottom:14px;">
+                <div>
+                    <label class="cmns-label">ประกัน Apple (วันหมด)</label>
+                    <input type="date" name="apple_warranty_date" id="ts-apple-warranty" class="cmns-input">
+                </div>
+                <div>
+                    <label class="cmns-label">ประกันร้าน (วัน)</label>
+                    <input type="number" name="store_warranty_days" id="ts-store-warranty" class="cmns-input" min="0" placeholder="90">
+                </div>
+                <div>
+                    <label class="cmns-label">Battery Health (%)</label>
+                    <input type="number" name="battery_health" id="ts-battery-health" class="cmns-input" min="0" max="100" placeholder="89">
+                </div>
+                <div>
+                    <label class="cmns-label">Battery Cycles</label>
+                    <input type="number" name="battery_cycles" id="ts-battery-cycles" class="cmns-input" min="0" placeholder="150">
+                </div>
+            </div>
+
+            <!-- Row 5: Condition note -->
+            <div style="margin-bottom:6px;">
+                <label class="cmns-label">ตำหนิ / สภาพ</label>
+                <input type="text" name="condition_note" id="ts-condition-note" class="cmns-input" placeholder="มีรอยขีดข่วนเล็กน้อยด้านล่าง...">
+            </div>
+        </form>
+
+        <div id="ts-error" style="display:none; margin-top:14px; padding:10px 14px; background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.3); border-radius:8px; color:#dc2626; font-size:13px; font-weight:600;"></div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:22px; padding-top:16px; border-top:1px solid var(--border);">
+            <button type="button" class="cmns-btn cmns-btn-secondary" onclick="closeToSaleModal()">ยกเลิก</button>
+            <button type="button" id="ts-submit-btn" class="cmns-btn cmns-btn-primary" style="background:#ef4444; border-color:#ef4444;" onclick="submitToSale()">
+                <span class="material-symbols-rounded">sell</span> ย้ายไป SALE
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     Mark Sold Modal
+═══════════════════════════════════════════════════════ -->
+<div id="modal-mark-sold" class="cmns-modal">
+    <div class="modal-content" style="max-width:420px; padding:28px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:16px; margin-bottom:20px;">
+            <h3 style="margin:0; display:flex; align-items:center; gap:10px; font-size:18px; color:var(--text-main); font-weight:800;">
+                <span class="material-symbols-rounded" style="color:#ef4444; font-size:24px;">payments</span>
+                ยืนยันขาย
+            </h3>
+            <button class="modal-close-btn" onclick="closeMarkSoldModal()"><span class="material-symbols-rounded">close</span></button>
+        </div>
+
+        <div id="ms-item-info" style="background:var(--bg-surface-alt); border:1px solid var(--border); border-radius:10px; padding:12px 16px; margin-bottom:20px;">
+            <div id="ms-item-name" style="font-weight:700; font-size:14px; color:var(--text-main);"></div>
+        </div>
+
+        <div style="margin-bottom:20px;">
+            <label class="cmns-label">ราคาที่ขายจริง (฿)</label>
+            <input type="number" id="ms-sold-price" class="cmns-input" step="1" min="0" style="font-size:20px; font-weight:800; text-align:center;">
+        </div>
+
+        <input type="hidden" id="ms-inventory-id">
+
+        <div id="ms-error" style="display:none; margin-bottom:14px; padding:10px 14px; background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.3); border-radius:8px; color:#dc2626; font-size:13px; font-weight:600;"></div>
+
+        <div style="display:flex; justify-content:flex-end; gap:10px; padding-top:16px; border-top:1px solid var(--border);">
+            <button type="button" class="cmns-btn cmns-btn-secondary" onclick="closeMarkSoldModal()">ยกเลิก</button>
+            <button type="button" id="ms-submit-btn" class="cmns-btn cmns-btn-primary" style="background:#ef4444; border-color:#ef4444;" onclick="submitMarkSold()">
+                <span class="material-symbols-rounded">payments</span> ยืนยันขาย
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════
+     JS: Transfer to SALE + Mark Sold + SALE status
+═══════════════════════════════════════════════════════ -->
+<script>
+// ─── Transfer to SALE ─────────────────────────────────
+let _tsInventoryId  = null;
+let _tsSourceType   = null;
+let _tsTotalQty     = 0;
+
+const _tsTypeIcon  = { new:'fiber_new', used:'build', machine:'computer' };
+const _tsTypeColor = { new:'#10b981',  used:'#f59e0b', machine:'#8b5cf6' };
+const _tsTypeLabel = { new:'NEW',      used:'USED',     machine:'MACHINE' };
+
+function openToSaleModal(inventoryId, sourceType) {
+    _tsInventoryId = inventoryId;
+    _tsSourceType  = sourceType;
+    _tsTotalQty    = 0;
+
+    // Reset form
+    document.getElementById('ts-source-type').value  = sourceType;
+    document.getElementById('ts-inventory-id').value = inventoryId;
+    document.getElementById('ts-lot-id').value        = '';
+    document.getElementById('ts-error').style.display = 'none';
+    document.getElementById('form-to-sale').reset();
+    document.getElementById('ts-source-type').value  = sourceType;
+    document.getElementById('ts-inventory-id').value = inventoryId;
+
+    // Source badge
+    const icon  = _tsTypeIcon[sourceType]  || 'inventory_2';
+    const color = _tsTypeColor[sourceType] || '#888';
+    const el = document.getElementById('ts-source-icon');
+    el.textContent     = icon;
+    el.style.color     = color;
+    document.getElementById('ts-source-name').textContent = 'กำลังโหลด...';
+    document.getElementById('ts-source-meta').textContent = '';
+
+    // Lot section: show only for NEW
+    const qtyInp = document.getElementById('ts-qty');
+    if (qtyInp) { qtyInp.value = 1; qtyInp.max = 1; }
+    const maxLabel = document.getElementById('ts-qty-max-label');
+    if (maxLabel) maxLabel.textContent = '';
+
+    document.getElementById('ts-lot-section').style.display = sourceType === 'new' ? 'block' : 'none';
+    document.getElementById('ts-lots-wrap').innerHTML =
+        '<div style="padding:16px; text-align:center; color:var(--text-muted); font-size:13px;"><span class="material-symbols-rounded" style="animation:spin 1s linear infinite; font-size:18px; display:block; margin-bottom:4px;">sync</span>กำลังโหลด lots...</div>';
+
+    document.getElementById('modal-to-sale').classList.add('show');
+    document.body.style.overflow = 'hidden';
+
+    // Fetch item data
+    const fetches = [
+        fetch(`process_to_sale.php?action=get_item&id=${inventoryId}`).then(r => r.json()),
+    ];
+    if (sourceType === 'new') {
+        fetches.push(fetch(`process_requisition.php?action=get_lots&item_id=${inventoryId}`).then(r => r.json()));
+    }
+
+    Promise.all(fetches).then(([item, lots]) => {
+        if (!item) { document.getElementById('ts-source-name').textContent = 'โหลดไม่สำเร็จ'; return; }
+        _tsTotalQty = parseInt(item.total_qty) || 0;
+
+        // Fill source info
+        document.getElementById('ts-source-name').textContent = item.name || '—';
+        const metaParts = [`${_tsTypeLabel[sourceType]}`];
+        if (item.sku)          metaParts.push(`SKU: ${item.sku}`);
+        if (item.total_qty > 0) metaParts.push(`คงเหลือ: ${item.total_qty}`);
+        document.getElementById('ts-source-meta').textContent = metaParts.join(' · ');
+
+        // Pre-fill SALE fields
+        document.getElementById('ts-name').value          = item.name || '';
+        document.getElementById('ts-sell-price').value    = item.sell_price || 0;
+        document.getElementById('ts-serial').value        = item.serial_number || '';
+        document.getElementById('ts-asset-tag').value     = item.asset_tag || '';
+        document.getElementById('ts-color').value         = item.color || '';
+        document.getElementById('ts-cpu').value           = item.cpu_spec || '';
+        document.getElementById('ts-ram').value           = item.ram_spec || '';
+        document.getElementById('ts-storage').value       = item.storage_spec || '';
+        document.getElementById('ts-condition-note').value = item.condition_note || '';
+        if (item.condition_grade) document.getElementById('ts-grade').value = item.condition_grade;
+        if (item.apple_warranty_date) document.getElementById('ts-apple-warranty').value = item.apple_warranty_date;
+        if (item.store_warranty_days) document.getElementById('ts-store-warranty').value = item.store_warranty_days;
+        if (item.battery_health)  document.getElementById('ts-battery-health').value  = item.battery_health;
+        if (item.battery_cycles)  document.getElementById('ts-battery-cycles').value  = item.battery_cycles;
+
+        // For USED → default READY (สินค้ามีอยู่แล้ว)
+        if (sourceType === 'used' || sourceType === 'machine') {
+            document.getElementById('ts-status').value = 'READY';
+        }
+
+        // Render lots for NEW
+        if (sourceType === 'new' && lots) {
+            renderTsLots(lots);
+        }
+    }).catch(() => {
+        document.getElementById('ts-source-name').textContent = 'โหลดไม่สำเร็จ';
+    });
+}
+
+let _tsLots = [];
+
+function renderTsLots(lots) {
+    _tsLots = lots || [];
+    const wrap = document.getElementById('ts-lots-wrap');
+    if (!_tsLots.length) {
+        wrap.innerHTML = '<div style="font-size:13px; color:#ef4444;">ไม่มีสต็อกในระบบ</div>';
+        return;
+    }
+
+    let html = '';
+    _tsLots.forEach((lot, i) => {
+        const wEnd   = lot.warranty_end ? new Date(lot.warranty_end) : null;
+        const dLeft  = wEnd ? Math.ceil((wEnd - new Date()) / 86400000) : null;
+        const wColor = !wEnd ? 'var(--text-muted)' : dLeft < 0 ? '#ef4444' : dLeft < 30 ? '#f59e0b' : '#10b981';
+        const wText  = !wEnd ? '—' : wEnd.toLocaleDateString('th-TH', {day:'2-digit', month:'2-digit', year:'2-digit'});
+
+        html += `
+            <label class="lot-option" style="margin-bottom:6px;">
+                <input type="radio" name="ts_lot_pick" value="${lot.id}" data-max="${lot.qty_remaining}" ${i===0?'checked':''}
+                       onchange="tsOnLotChange(this)">
+                <div class="lot-opt-body">
+                    <div>
+                        <div style="font-weight:700; font-size:13px; font-family:monospace;">${_escH(lot.lot_number)}</div>
+                        <div style="font-size:11px; color:var(--text-muted);">${lot.supplier_name ? _escH(lot.supplier_name) : 'ไม่ระบุ Supplier'}</div>
+                    </div>
+                    <div style="display:flex; flex-direction:column; align-items:flex-end; gap:2px;">
+                        <span style="font-size:14px; font-weight:800;">${lot.qty_remaining} <span style="font-size:10px; font-weight:400; color:var(--text-muted);">/ ${lot.qty_received}</span></span>
+                        <span style="font-size:10px; font-weight:700; color:${wColor};">Warranty: ${wText}</span>
+                        ${lot.cost_price > 0 ? `<span style="font-size:11px; color:var(--text-muted);">ทุน ฿${Number(lot.cost_price).toLocaleString()}</span>` : ''}
+                    </div>
+                </div>
+            </label>`;
+    });
+
+    wrap.innerHTML = html;
+    // Init with first lot
+    document.getElementById('ts-lot-id').value = _tsLots[0].id;
+    tsSetQtyMax(_tsLots[0].qty_remaining);
+}
+
+function tsOnLotChange(radio) {
+    document.getElementById('ts-lot-id').value = radio.value;
+    tsSetQtyMax(parseInt(radio.dataset.max) || 1);
+}
+
+function tsSetQtyMax(max) {
+    const inp = document.getElementById('ts-qty');
+    if (!inp) return;
+    inp.max = max;
+    if (parseInt(inp.value) > max) inp.value = max;
+    const label = document.getElementById('ts-qty-max-label');
+    if (label) label.textContent = `max ${max}`;
+}
+
+function tsAdjQty(delta) {
+    const inp = document.getElementById('ts-qty');
+    if (!inp) return;
+    const max = parseInt(inp.max) || 1;
+    inp.value = Math.max(1, Math.min(max, (parseInt(inp.value) || 1) + delta));
+}
+
+function closeToSaleModal() {
+    document.getElementById('modal-to-sale').classList.remove('show');
+    document.body.style.overflow = '';
+}
+
+function submitToSale() {
+    const btn = document.getElementById('ts-submit-btn');
+    const err = document.getElementById('ts-error');
+    err.style.display = 'none';
+
+    const name = document.getElementById('ts-name').value.trim();
+    if (!name) { err.textContent = 'กรุณากรอกชื่อสินค้า'; err.style.display = 'block'; return; }
+
+    if (_tsSourceType === 'new' && !document.getElementById('ts-lot-id').value) {
+        err.textContent = 'กรุณาเลือก Lot'; err.style.display = 'block'; return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-rounded" style="animation:spin 1s linear infinite;">sync</span> กำลังย้าย...';
+
+    const fd = new FormData(document.getElementById('form-to-sale'));
+    if (_tsSourceType === 'new') {
+        fd.append('lot_id', document.getElementById('ts-lot-id').value);
+        fd.append('qty', document.getElementById('ts-qty').value || 1);
+    }
+
+    fetch('process_to_sale.php', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(res => {
+            if (res.ok) {
+                closeToSaleModal();
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon:'success', title: res.msg, toast:true, position:'top-end', showConfirmButton:false, timer:3000, timerProgressBar:true });
+                }
+                setTimeout(() => location.reload(), 500);
+            } else {
+                err.textContent = res.msg;
+                err.style.display = 'block';
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-symbols-rounded">sell</span> ย้ายไป SALE';
+            }
+        })
+        .catch(() => {
+            err.textContent = 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+            err.style.display = 'block';
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-symbols-rounded">sell</span> ย้ายไป SALE';
+        });
+}
+
+document.getElementById('modal-to-sale').addEventListener('click', function(e) {
+    if (e.target === this) closeToSaleModal();
+});
+
+// ─── SALE Status: PENDING → READY ─────────────────────
+function updateSaleStatus(inventoryId, action) {
+    const fd = new FormData();
+    fd.append('action', action);
+    fd.append('inventory_id', inventoryId);
+
+    fetch('process_sale_status.php', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(res => {
+            if (res.ok) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon:'success', title: res.msg, toast:true, position:'top-end', showConfirmButton:false, timer:2500, timerProgressBar:true });
+                }
+                setTimeout(() => location.reload(), 400);
+            } else {
+                alert(res.msg);
+            }
+        })
+        .catch(() => alert('เกิดข้อผิดพลาด'));
+}
+
+// ─── Mark Sold Modal ───────────────────────────────────
+function openMarkSoldModal(inventoryId, itemName, listPrice) {
+    document.getElementById('ms-inventory-id').value = inventoryId;
+    document.getElementById('ms-item-name').textContent = itemName;
+    document.getElementById('ms-sold-price').value = listPrice;
+    document.getElementById('ms-error').style.display = 'none';
+    const btn = document.getElementById('ms-submit-btn');
+    btn.disabled = false;
+    btn.innerHTML = '<span class="material-symbols-rounded">payments</span> ยืนยันขาย';
+    document.getElementById('modal-mark-sold').classList.add('show');
+    document.body.style.overflow = 'hidden';
+    setTimeout(() => document.getElementById('ms-sold-price').select(), 100);
+}
+
+function closeMarkSoldModal() {
+    document.getElementById('modal-mark-sold').classList.remove('show');
+    document.body.style.overflow = '';
+}
+
+function submitMarkSold() {
+    const btn = document.getElementById('ms-submit-btn');
+    const err = document.getElementById('ms-error');
+    err.style.display = 'none';
+
+    const soldPrice = document.getElementById('ms-sold-price').value;
+    if (soldPrice === '' || isNaN(parseFloat(soldPrice))) {
+        err.textContent = 'กรุณากรอกราคาที่ขายจริง'; err.style.display = 'block'; return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-rounded" style="animation:spin 1s linear infinite;">sync</span> กำลังบันทึก...';
+
+    const fd = new FormData();
+    fd.append('action',       'mark_sold');
+    fd.append('inventory_id', document.getElementById('ms-inventory-id').value);
+    fd.append('sold_price',   soldPrice);
+
+    fetch('process_sale_status.php', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(res => {
+            if (res.ok) {
+                closeMarkSoldModal();
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon:'success', title: res.msg, toast:true, position:'top-end', showConfirmButton:false, timer:3000, timerProgressBar:true });
+                }
+                setTimeout(() => location.reload(), 500);
+            } else {
+                err.textContent = res.msg;
+                err.style.display = 'block';
+                btn.disabled = false;
+                btn.innerHTML = '<span class="material-symbols-rounded">payments</span> ยืนยันขาย';
+            }
+        })
+        .catch(() => {
+            err.textContent = 'เกิดข้อผิดพลาด';
+            err.style.display = 'block';
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-symbols-rounded">payments</span> ยืนยันขาย';
+        });
+}
+
+document.getElementById('modal-mark-sold').addEventListener('click', function(e) {
+    if (e.target === this) closeMarkSoldModal();
+});
+
+// ─── Revert SALE → ที่เดิม ─────────────────────────────
+function confirmRevertSale(inventoryId, itemName) {
+    if (typeof Swal !== 'undefined') {
+        Swal.fire({
+            icon: 'warning',
+            title: 'คืนของที่เดิม?',
+            html: `<b>${_escH(itemName)}</b><br><span style="font-size:13px;color:#888;">จะถูกย้ายกลับไปยังประเภทเดิม (NEW/USED/MACHINE)</span>`,
+            showCancelButton: true,
+            confirmButtonText: 'คืนเลย',
+            cancelButtonText: 'ยกเลิก',
+            confirmButtonColor: '#f59e0b',
+        }).then(result => { if (result.isConfirmed) _doRevertSale(inventoryId); });
+    } else {
+        if (confirm(`คืน "${itemName}" กลับที่เดิม?`)) _doRevertSale(inventoryId);
+    }
+}
+
+function _doRevertSale(inventoryId) {
+    const fd = new FormData();
+    fd.append('inventory_id', inventoryId);
+
+    fetch('process_revert_sale.php', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(res => {
+            if (res.ok) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon:'success', title: res.msg, toast:true, position:'top-end', showConfirmButton:false, timer:3000, timerProgressBar:true });
+                }
+                setTimeout(() => location.reload(), 500);
+            } else {
+                alert(res.msg);
+            }
+        })
+        .catch(() => alert('เกิดข้อผิดพลาด'));
+}
+</script>
+
 <?php include 'modal_add.php'; ?>
 
 <!-- Edit Modal -->

@@ -1,454 +1,376 @@
 <?php
-
-/********************************************************************
- * admin/shop/index.php (ดัดแปลงจาก products/index.php)
- * - ใช้ตาราง listings
- * - ค้นหา: title, brand, sku
- * - ตัวกรอง: status (enum), brand, ช่วงราคา, วันที่
- * - แบ่งหน้า
- ********************************************************************/
-
 session_start();
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
-require_login(); // <-- Ensure admin is logged in
+require_login();
 
-$pageTitle = "จัดการรายการสินค้า (Listings)";
+function h($s) { return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 
-// ============== [CSRF: เพิ่มตรงนี้ แค่ไม่กี่บรรทัด] ==============
-if (empty($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
-$CSRF = $_SESSION['csrf_token'];
+// ── Stats ─────────────────────────────────────────────────────
+$stats = $pdo->query("
+    SELECT COUNT(*) total,
+           SUM(status='published') published,
+           SUM(status='reserved')  reserved,
+           SUM(status='sold')      sold,
+           SUM(status='draft')     draft
+    FROM shop_listings
+")->fetch(PDO::FETCH_ASSOC);
 
-// =======================[ Helpers ]==================================
-// Assuming h(), getv(), get_pager(), page_url(), whereSearch() exist from includes or are defined here/globally
-// Re-define if not included globally:
-if (!function_exists('h')) {
-    function h($s)
-    {
-        return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8');
-    }
-}
-if (!function_exists('getv')) {
-    function getv($k, $d = null)
-    {
-        return isset($_GET[$k]) ? trim($_GET[$k]) : $d;
-    }
-}
-if (!function_exists('get_pager')) {
-    /** คืนค่า [per, page, offset] */
-    function get_pager(): array
-    {
-        $per  = max(5, min(200, (int) getv('per', 20)));
-        $page = max(1, (int) getv('page', 1));
-        return [$per, $page, ($page - 1) * $per];
-    }
-}
-if (!function_exists('page_url')) {
-    /** page url คงพารามอื่นๆไว้ */
-    function page_url($i)
-    {
-        $q = $_GET;
-        $q['page'] = max(1, (int)$i);
-        // Remove empty params
-        foreach ($q as $k => $v) {
-            if ($v === '' || $v === null) unset($q[$k]);
-        }
-        return '?' . http_build_query($q);
-    }
-}
-if (!function_exists('whereSearch')) {
-    /** where LIKE หลายคอลัมน์ */
-    function whereSearch(string $q, array $cols, array &$params, string $pfx): ?string
-    {
-        $q = trim($q);
-        if ($q === '') return null;
-        $ors = [];
-        $i = 0;
-        foreach ($cols as $c) {
-            $ph = ":{$pfx}{$i}";
-            $ors[] = "$c LIKE $ph";
-            $params[$ph] = "%{$q}%";
-            $i++;
-        }
-        return '(' . implode(' OR ', $ors) . ')';
-    }
-}
-// =======================[ State ]====================================
-$q         = getv('q', '');
-$status    = getv('status', ''); // '', 'published', 'draft', 'archived', 'sold'
-$brands    = isset($_GET['brand']) ? (array)$_GET['brand'] : [];  // multi select brands
-$price_min = getv('pmin', '');
-$price_max = getv('pmax', '');
-$dfrom     = getv('date_from', '');
-$dto = getv('date_to', '');
-$sort      = getv('sort', 'created_desc');
-[$per, $page, $offset] = get_pager();
+$available_count = (int)$pdo->query("
+    SELECT COUNT(*) FROM inventory
+    WHERE type='sale' AND status IN ('READY','STOCK')
+    AND NOT EXISTS (SELECT 1 FROM shop_listings sl WHERE sl.inventory_id = inventory.id)
+")->fetchColumn();
 
-// =======================[ Brand list ]============================
-// NOTE: For better performance on large tables, consider a separate `brands` table.
-$brandRows = [];
-try {
-    $st = $pdo->query("SELECT DISTINCT brand FROM listings WHERE brand IS NOT NULL AND brand <> '' ORDER BY brand");
-    $brandRows = $st ? $st->fetchAll(PDO::FETCH_COLUMN, 0) : [];
-} catch (Throwable $e) {
-    $brandRows = [];
-}
-$brandRows = array_values(array_filter($brandRows, function ($b) {
-    return $b !== null && $b !== '';
-}));
+// ── Filters ───────────────────────────────────────────────────
+$filter_status = $_GET['status'] ?? '';
+$filter_cat    = (int)($_GET['cat'] ?? 0);
+$q             = trim($_GET['q'] ?? '');
+$_per          = (int)($_GET['per'] ?? 25);
+$per           = in_array($_per, [25,50,100]) ? $_per : 25;
+$page          = max(1, (int)($_GET['page'] ?? 1));
+$offset        = ($page - 1) * $per;
 
-// =======================[ Build WHERE ]==============================
+$where = ['1=1'];
 $params = [];
-$where = [];
-if ($w = whereSearch($q, ['l.title', 'l.brand', 'l.sku'], $params, 'q')) $where[] = $w;
-
-$valid_statuses = ['published', 'draft', 'archived', 'sold'];
-if (in_array($status, $valid_statuses, true)) {
-    $where[] = "l.status = :status";
-    $params[':status'] = $status;
+if ($filter_status) { $where[] = 'sl.status = ?'; $params[] = $filter_status; }
+if ($filter_cat)    { $where[] = 'sl.category_id = ?'; $params[] = $filter_cat; }
+if ($q) {
+    $where[] = '(COALESCE(sl.title,inv.name) LIKE ? OR inv.sku LIKE ?)';
+    $params[] = "%$q%"; $params[] = "%$q%";
 }
+$whereSQL = implode(' AND ', $where);
 
-if ($brands) {
-    $sel = array_values(array_intersect($brands, $brandRows)); // Whitelist selected brands
-    if ($sel) {
-        $in = [];
-        foreach ($sel as $i => $b) {
-            $ph = ":b{$i}";
-            $params[$ph] = $b;
-            $in[] = $ph;
-        }
-        $where[] = 'l.brand IN (' . implode(',', $in) . ')';
-    }
-}
-if ($price_min !== '' && is_numeric($price_min)) {
-    $where[] = 'l.price >= :pmin';
-    $params[':pmin'] = (float)$price_min;
-}
-if ($price_max !== '' && is_numeric($price_max)) {
-    $where[] = 'l.price <= :pmax';
-    $params[':pmax'] = (float)$price_max;
-}
+$cnt = $pdo->prepare("SELECT COUNT(*) FROM shop_listings sl JOIN inventory inv ON inv.id = sl.inventory_id WHERE $whereSQL");
+$cnt->execute($params);
+$total_rows = (int)$cnt->fetchColumn();
+$total_pages = max(1, (int)ceil($total_rows / $per));
 
-// <-- [กูแก้ตรงนี้] แก้ฟิลเตอร์วันที่ให้ใช้ Index ได้เต็มประสิทธิภาพ
-if ($dfrom !== '') {
-    $where[] = 'l.created_at >= :df'; // ไม่ต้องใช้ DATE()
-    $params[':df'] = $dfrom;
-}
-if ($dto !== '') {
-    // ใช้ <= และเพิ่มเวลา 23:59:59 เพื่อให้รวมวันสุดท้ายทั้งวัน
-    $where[] = 'l.created_at <= :dt_end';
-    try {
-        $dt_end_obj = new DateTime($dto);
-        $params[':dt_end'] = $dt_end_obj->setTime(23, 59, 59)->format('Y-m-d H:i:s');
-    } catch (Exception $e) {
-        $params[':dt_end'] = $dto . ' 23:59:59'; // Fallback
-    }
-}
-// <-- [จบจุดที่กูแก้]
+$lst = $pdo->prepare("
+    SELECT sl.*,
+           COALESCE(sl.title, inv.name) display_title,
+           inv.name inv_name, inv.sku, inv.condition_grade, inv.color,
+           inv.cpu_spec, inv.ram_spec, inv.storage_spec, inv.battery_health,
+           sc.name cat_name,
+           (SELECT COUNT(*) FROM shop_images si WHERE si.listing_id = sl.id) img_count
+    FROM shop_listings sl
+    JOIN inventory inv ON inv.id = sl.inventory_id
+    JOIN shop_categories sc ON sc.id = sl.category_id
+    WHERE $whereSQL
+    ORDER BY sl.created_at DESC
+    LIMIT $per OFFSET $offset
+");
+$lst->execute($params);
+$listings = $lst->fetchAll(PDO::FETCH_ASSOC);
 
-$where_sql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
+// ── Available inventory (not yet listed) ─────────────────────
+$available = $pdo->query("
+    SELECT inv.*, pc.name parts_cat_name
+    FROM inventory inv
+    LEFT JOIN parts_categories pc ON pc.id = inv.category_id
+    WHERE inv.type = 'sale'
+      AND inv.status IN ('READY','STOCK')
+      AND NOT EXISTS (SELECT 1 FROM shop_listings sl WHERE sl.inventory_id = inv.id)
+    ORDER BY inv.created_at DESC
+")->fetchAll(PDO::FETCH_ASSOC);
 
-// =======================[ Sort ]=====================================
-$ORDER_MAP = [
-    'created_desc' => 'l.created_at DESC',
-    'created_asc'  => 'l.created_at ASC',
-    'price_desc'   => 'l.price DESC',
-    'price_asc'    => 'l.price ASC',
-    'title_asc'    => 'l.title ASC'
-];
-$orderBy = $ORDER_MAP[$sort] ?? $ORDER_MAP['created_desc'];
+$categories = $pdo->query("SELECT * FROM shop_categories ORDER BY sort_order")->fetchAll(PDO::FETCH_ASSOC);
 
-// =======================[ Count + Fetch ]============================
-$stc = $pdo->prepare("SELECT COUNT(*) FROM listings l {$where_sql}");
-foreach ($params as $k => $v) $stc->bindValue($k, $v);
-$stc->execute();
-$total = (int)($stc->fetchColumn() ?: 0);
-$pages = max(1, (int)ceil($total / $per));
-if ($page > $pages) {
-    $page = $pages;
-    $offset = ($page - 1) * $per;
-}
-
-$sql = "
-SELECT l.*
-FROM listings l
-{$where_sql}
-ORDER BY {$orderBy}, l.id DESC
-LIMIT :limit OFFSET :off";
-$st = $pdo->prepare($sql);
-foreach ($params as $k => $v) $st->bindValue($k, $v);
-$st->bindValue(':limit', $per, PDO::PARAM_INT);
-$st->bindValue(':off', $offset, PDO::PARAM_INT);
-$st->execute();
-$listings = $st->fetchAll(PDO::FETCH_ASSOC);
-
-// Helper function to map status enum to Thai text
-function format_listing_status($status, $in_stock, $stock_qty)
-{
-    if (!$in_stock || $stock_qty <= 0) {
-        return '<span class="badge badge-red">หมดสต็อก</span>';
-    }
-    switch ($status) {
-        case 'published':
-            return '<span class="badge">เผยแพร่</span>';
-        case 'draft':
-            return '<span class="badge badge-gray">ฉบับร่าง</span>';
-        case 'archived':
-            return '<span class="badge badge-blue">จัดเก็บ</span>';
-        case 'sold':
-            return '<span class="badge badge-purple">ขายแล้ว</span>';
-        default:
-            return '<span class="badge badge-gray">ไม่ระบุ</span>';
-    }
-}
-
-// =======================[ Template ]=================================
-require_once __DIR__ . '/../templates/header_admin.php';
-
+$flash = $_SESSION['flash'] ?? ''; unset($_SESSION['flash']);
+$pageTitle = 'จัดการร้านค้า';
+include __DIR__ . '/../templates/header_admin.php';
 ?>
-<main class="main" id="main-content">
-    <div class="topbar">
-        <span><?= h($pageTitle) ?></span>
-        <a href="../dashboard/index.php" class="view-site">กลับแดชบอร์ด</a>
+<style>
+.shop-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:24px;}
+.stat-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:14px;}
+.stat-icon{width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+.stat-icon .material-symbols-rounded{font-size:20px;}
+.stat-val{font-size:22px;font-weight:800;color:var(--text-main);line-height:1;}
+.stat-lbl{font-size:11px;color:var(--text-muted);margin-top:3px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;}
+.filter-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
+.filter-bar select,.filter-bar input{padding:7px 11px;border-radius:8px;border:1px solid var(--border);background:var(--bg-surface-alt);color:var(--text-main);font-size:13px;font-family:'Sarabun',sans-serif;}
+.filter-bar input{min-width:220px;}
+.shop-table{width:100%;border-collapse:collapse;font-size:13px;}
+.shop-table th{padding:9px 12px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--border);white-space:nowrap;}
+.shop-table td{padding:10px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.shop-table tr:last-child td{border-bottom:none;}
+.shop-table tbody tr:hover td{background:var(--bg-surface-alt);}
+.thumb{width:52px;height:52px;border-radius:8px;object-fit:cover;border:1px solid var(--border);background:var(--bg-surface-alt);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;}
+.thumb img{width:100%;height:100%;object-fit:cover;}
+.thumb .material-symbols-rounded{font-size:22px;color:var(--text-muted);}
+.grade-badge{display:inline-block;padding:2px 7px;border-radius:5px;font-size:11px;font-weight:800;}
+.g-A,.g-AS{background:#d1fae5;color:#065f46;}
+.g-B{background:#fef3c7;color:#92400e;}
+.g-C{background:#fee2e2;color:#991b1b;}
+.s-badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;}
+.s-published{background:#d1fae5;color:#065f46;}
+.s-draft{background:var(--bg-surface-alt);color:var(--text-muted);border:1px solid var(--border);}
+.s-reserved{background:#fef3c7;color:#92400e;}
+.s-sold{background:#fee2e2;color:#991b1b;}
+.icon-btn{width:30px;height:30px;border-radius:7px;border:1px solid var(--border);background:var(--bg-surface-alt);color:var(--text-muted);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;transition:.15s;text-decoration:none;}
+.icon-btn:hover{border-color:var(--primary);color:var(--primary);}
+.icon-btn.del:hover{border-color:#ef4444;color:#ef4444;}
+.icon-btn .material-symbols-rounded{font-size:15px;}
+.specs-line{font-size:11px;color:var(--text-muted);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:220px;}
+.avail-table{width:100%;border-collapse:collapse;font-size:13px;}
+.avail-table th{padding:8px 12px;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--border);text-align:left;}
+.avail-table td{padding:9px 12px;border-bottom:1px solid var(--border);vertical-align:middle;}
+.avail-table tr:last-child td{border-bottom:none;}
+.avail-table tbody tr:hover td{background:var(--bg-surface-alt);}
+.btn-add-shop{display:inline-flex;align-items:center;gap:5px;padding:5px 12px;border-radius:7px;background:var(--primary);color:#fff;font-size:12px;font-weight:700;text-decoration:none;white-space:nowrap;transition:opacity .15s;}
+.btn-add-shop:hover{opacity:.88;}
+.empty-cell{text-align:center;padding:40px!important;color:var(--text-muted);}
+</style>
+
+<div class="cmns-wrapper">
+<div class="cmns-page-header">
+    <div>
+        <h1 class="cmns-page-title">
+            <span class="material-symbols-rounded">storefront</span> จัดการร้านค้า
+        </h1>
+        <p class="cmns-page-subtitle">เลือกสินค้าจากคลัง (type=sale) มาลงขาย</p>
     </div>
+</div>
 
-    <div class="section-header">
-        <h2>รายการสินค้า (Listings)</h2>
-        <a href="add_listing.php" class="btn-primary">+ เพิ่มรายการใหม่</a>
+<?php if ($flash): ?>
+<div class="cmns-alert cmns-alert-success" style="margin-bottom:16px;"><?= h($flash) ?></div>
+<?php endif; ?>
+
+<!-- Stats -->
+<div class="shop-stats">
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#eff6ff;"><span class="material-symbols-rounded" style="color:#3b82f6;">inventory_2</span></div>
+        <div><div class="stat-val"><?= (int)$stats['total'] ?></div><div class="stat-lbl">สินค้าในร้าน</div></div>
     </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#f0fdf4;"><span class="material-symbols-rounded" style="color:#10b981;">check_circle</span></div>
+        <div><div class="stat-val"><?= (int)$stats['published'] ?></div><div class="stat-lbl">เผยแพร่</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#fffbeb;"><span class="material-symbols-rounded" style="color:#f59e0b;">schedule</span></div>
+        <div><div class="stat-val"><?= (int)$stats['reserved'] ?></div><div class="stat-lbl">จอง</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#fef2f2;"><span class="material-symbols-rounded" style="color:#ef4444;">sell</span></div>
+        <div><div class="stat-val"><?= (int)$stats['sold'] ?></div><div class="stat-lbl">ขายแล้ว</div></div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-icon" style="background:#f5f3ff;"><span class="material-symbols-rounded" style="color:#8b5cf6;">add_box</span></div>
+        <div><div class="stat-val"><?= $available_count ?></div><div class="stat-lbl">คลังพร้อมลงขาย</div></div>
+    </div>
+</div>
 
-    <form action="index.php" method="get" class="search-and-filter-group">
-        <input class="filter-input" name="q" value="<?= h($q) ?>" placeholder="ค้นหา ชื่อ/แบรนด์/SKU">
-
-        <select name="status" class="filter-input" aria-label="สถานะ">
-            <option value="">ทุกสถานะ</option>
-            <option value="published" <?= $status === 'published' ? 'selected' : '' ?>>เผยแพร่</option>
-            <option value="draft" <?= $status === 'draft' ? 'selected' : '' ?>>ฉบับร่าง</option>
-            <option value="archived" <?= $status === 'archived' ? 'selected' : '' ?>>จัดเก็บ</option>
-            <option value="sold" <?= $status === 'sold' ? 'selected' : '' ?>>ขายแล้ว</option>
-        </select>
-
-        <select name="sort" class="filter-input" aria-label="เรียง">
-            <option value="created_desc" <?= $sort === 'created_desc' ? 'selected' : '' ?>>ล่าสุดก่อน</option>
-            <option value="created_asc" <?= $sort === 'created_asc' ? 'selected' : ''  ?>>เก่าสุดก่อน</option>
-            <option value="price_desc" <?= $sort === 'price_desc' ? 'selected' : ''   ?>>ราคา: มากไปน้อย</option>
-            <option value="price_asc" <?= $sort === 'price_asc' ? 'selected' : ''    ?>>ราคา: น้อยไปมาก</option>
-            <option value="title_asc" <?= $sort === 'title_asc' ? 'selected' : ''    ?>>ชื่อ (A→Z)</option>
-        </select>
-
-        <div class="filter-dropdown">
-            <button type="button" class="btn-secondary" onclick="toggleMenu('filterMenuListings')">ตัวกรอง</button>
-            <div id="filterMenuListings" class="filter-menu">
-                <div class="filter-section">
-                    <div class="filter-title">แบรนด์</div>
-                    <?php foreach ($brandRows as $b): $checked = in_array($b, $brands, true) ? 'checked' : ''; ?>
-                        <label class="checkline"><input type="checkbox" name="brand[]" value="<?= h($b) ?>" <?= $checked ?>><span><?= h($b) ?></span></label>
-                    <?php endforeach;
-                    if (!$brandRows): ?>
-                        <div class="muted">ยังไม่มีแบรนด์</div>
-                    <?php endif; ?>
-                </div>
-                <div class="filter-section">
-                    <div class="filter-title">ราคา</div>
-                    <div class="range-inline">
-                        <input type="number" step="1" name="pmin" placeholder="ต่ำสุด" value="<?= h($price_min) ?>">
-                        <span class="mx-4">ถึง</span>
-                        <input type="number" step="1" name="pmax" placeholder="สูงสุด" value="<?= h($price_max) ?>">
-                    </div>
-                </div>
-                <div class="filter-section">
-                    <div class="filter-title">วันที่เพิ่ม</div>
-                    <div class="range-inline">
-                        <input type="date" name="date_from" value="<?= h($dfrom) ?>">
-                        <span class="mx-4">ถึง</span>
-                        <input type="date" name="date_to" value="<?= h($dto) ?>">
-                    </div>
-                </div>
-                <div class="filter-actions">
-                    <button type="button" class="btn-secondary" onclick="clearMenu('filterMenuListings')">ล้าง</button>
-                    <button type="submit" class="btn-primary">ใช้ตัวกรอง</button>
-                </div>
-            </div>
-        </div>
-
-        <input type="hidden" name="page" value="1">
-        <button type="submit" class="btn-search">ค้นหา</button>
-        <a href="index.php" class="btn-secondary" style="margin-left: 8px;">ล้างทั้งหมด</a>
-    </form>
-
-    <div class="table-container">
-        <table class="data-table">
+<!-- ══ สินค้าในร้าน ══ -->
+<div class="cmns-card" style="padding:0;overflow:hidden;margin-bottom:28px;">
+    <div style="padding:14px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+        <h2 style="margin:0;font-size:15px;font-weight:700;display:flex;align-items:center;gap:7px;">
+            <span class="material-symbols-rounded" style="font-size:18px;color:var(--primary);">storefront</span>
+            สินค้าในร้าน
+            <span style="font-size:12px;color:var(--text-muted);font-weight:400;">(<?= $total_rows ?> รายการ)</span>
+        </h2>
+        <form method="GET" class="filter-bar">
+            <input type="text" name="q" value="<?= h($q) ?>" placeholder="ค้นหาชื่อ / SKU...">
+            <select name="status" onchange="this.form.submit()">
+                <option value="">ทุกสถานะ</option>
+                <option value="published" <?= $filter_status==='published'?'selected':'' ?>>เผยแพร่</option>
+                <option value="draft"     <?= $filter_status==='draft'    ?'selected':'' ?>>Draft</option>
+                <option value="reserved"  <?= $filter_status==='reserved' ?'selected':'' ?>>จอง</option>
+                <option value="sold"      <?= $filter_status==='sold'     ?'selected':'' ?>>ขายแล้ว</option>
+            </select>
+            <select name="cat" onchange="this.form.submit()">
+                <option value="">ทุกหมวด</option>
+                <?php foreach ($categories as $c): ?>
+                <option value="<?= $c['id'] ?>" <?= $filter_cat==$c['id']?'selected':'' ?>><?= h($c['name']) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <button type="submit" class="cmns-btn cmns-btn-secondary" style="padding:7px 14px;font-size:13px;">ค้นหา</button>
+        </form>
+    </div>
+    <div style="overflow-x:auto;">
+        <table class="shop-table">
             <thead>
                 <tr>
-                    <th>#</th>
-                    <th>รูป</th>
+                    <th style="width:64px;">รูป</th>
                     <th>ชื่อสินค้า</th>
-                    <th>แบรนด์</th>
-                    <th>SKU</th>
-                    <th class="ta-r">ราคา</th>
-                    <th class="ta-c">สต็อก</th>
-                    <th>วันที่เพิ่ม</th>
+                    <th>หมวด</th>
+                    <th>Grade</th>
+                    <th>ราคา</th>
                     <th>สถานะ</th>
-                    <th>จัดการ</th>
+                    <th style="text-align:center;">รูป</th>
+                    <th>วันที่</th>
+                    <th style="width:80px;"></th>
                 </tr>
             </thead>
             <tbody>
-                <?php if ($listings): foreach ($listings as $i => $l): ?>
-                        <tr>
-                            <td><?= ($offset + $i + 1) ?></td>
-                            <td>
-                                <?php
-                                $img_src = (!empty($l['main_image']) && substr($l['main_image'], 0, 1) !== '/' && !preg_match('~^https?://~', $l['main_image']))
-                                    ? '/' . ltrim($l['main_image'], '/')
-                                    : $l['main_image'];
-                                ?>
-                                <?php if (!empty($img_src)): ?>
-                                    <button type="button" class="thumb-btn" data-src="<?= h($img_src) ?>">
-                                        <img src="<?= h($img_src) ?>" class="thumb" alt="">
-                                    </button>
-                                <?php else: ?><div class="thumb"></div><?php endif; ?>
-                            </td>
-                            <td><strong><?= h($l['title']) ?></strong></td>
-                            <td><?= h($l['brand'] ?: '-') ?></td>
-                            <td><?= h($l['sku'] ?: '-') ?></td>
-                            <td class="ta-r"><?= number_format((float)($l['price'] ?? 0), 0) ?></td>
-                            <td class="ta-c"><?= $l['in_stock'] ? (h($l['stock_qty'] ?? '✓')) : '0' ?></td>
-                            <td class="muted"><?= h(date('d/m/y H:i', strtotime($l['created_at'] ?? 'now'))) ?></td>
-                            <td><?= format_listing_status($l['status'], $l['in_stock'], $l['stock_qty']) ?></td>
-                            <td class="no-wrap">
-                                <a href="edit_listing.php?id=<?= (int)$l['id'] ?>" class="btn-edit">แก้ไข</a>
-
-                                <form action="delete_listing.php" method="post" style="display:inline">
-                                    <input type="hidden" name="csrf_token" value="<?= h($CSRF) ?>">
-                                    <input type="hidden" name="id" value="<?= (int)$l['id'] ?>">
-
-                                    <a href="#" class="btn-delete"
-                                        onclick="if (confirm('ต้องการลบรายการสินค้านี้ใช่หรือไม่?')) { this.closest('form').submit(); } return false;">
-                                        ลบ
-                                    </a>
-                                </form>
-                            </td>
-                        </tr>
-                    <?php endforeach;
-                else: ?>
-                    <tr>
-                        <td colspan="10" class="text-center">ไม่พบรายการสินค้า</td>
-                    </tr>
-                <?php endif; ?>
+            <?php if (!$listings): ?>
+                <tr><td colspan="9" class="empty-cell">
+                    <span class="material-symbols-rounded" style="font-size:36px;display:block;margin-bottom:8px;opacity:.3;">storefront</span>
+                    ยังไม่มีสินค้าในร้าน
+                </td></tr>
+            <?php else: foreach ($listings as $row):
+                $g = $row['condition_grade'] ?? '';
+                $gc = str_starts_with($g,'A') ? 'g-A' : (str_starts_with($g,'B') ? 'g-B' : 'g-C');
+                $specs = implode(' / ', array_filter([$row['cpu_spec'],$row['ram_spec'],$row['storage_spec']]));
+            ?>
+                <tr id="lr-<?= $row['id'] ?>">
+                    <td>
+                        <div class="thumb">
+                        <?php if ($row['cover_image']): ?>
+                            <img src="<?= h($row['cover_image']) ?>" alt=""
+                                 <?= $row['cover_w']&&$row['cover_h'] ? 'width="'.$row['cover_w'].'" height="'.$row['cover_h'].'"' : '' ?>>
+                        <?php else: ?>
+                            <span class="material-symbols-rounded">image</span>
+                        <?php endif; ?>
+                        </div>
+                    </td>
+                    <td>
+                        <div style="font-weight:600;"><?= h($row['display_title']) ?></div>
+                        <div style="font-size:11px;color:var(--text-muted);"><?= h($row['sku']) ?></div>
+                        <?php if ($specs): ?><div class="specs-line"><?= h($specs) ?></div><?php endif; ?>
+                    </td>
+                    <td style="white-space:nowrap;font-size:12px;"><?= h($row['cat_name']) ?></td>
+                    <td><?= $g ? '<span class="grade-badge '.$gc.'">'.h($g).'</span>' : '—' ?></td>
+                    <td style="white-space:nowrap;">
+                        <div style="font-weight:700;">฿<?= number_format($row['price']) ?></div>
+                        <?php if ($row['price_original']): ?><div style="font-size:11px;color:var(--text-muted);text-decoration:line-through;">฿<?= number_format($row['price_original']) ?></div><?php endif; ?>
+                    </td>
+                    <td>
+                        <span class="s-badge s-<?= h($row['status']) ?>"><?= match($row['status']){'published'=>'เผยแพร่','draft'=>'Draft','reserved'=>'จอง','sold'=>'ขายแล้ว',default=>h($row['status'])} ?></span>
+                    </td>
+                    <td style="text-align:center;color:var(--text-muted);"><?= $row['img_count'] ?></td>
+                    <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;"><?= date('d/m/y', strtotime($row['created_at'])) ?></td>
+                    <td>
+                        <div style="display:flex;gap:4px;">
+                            <a href="edit.php?id=<?= $row['id'] ?>" class="icon-btn" title="แก้ไข">
+                                <span class="material-symbols-rounded">edit</span>
+                            </a>
+                            <button type="button" class="icon-btn del" onclick="confirmDel(<?= $row['id'] ?>,'<?= h(addslashes($row['display_title'])) ?>')" title="ลบ">
+                                <span class="material-symbols-rounded">delete</span>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            <?php endforeach; endif; ?>
             </tbody>
         </table>
     </div>
-
-    <div class="pager-bar">
-        <div class="pager-left">
-            <span class="pager-total">พบ <?= (int)$total ?> รายการ</span>
-            <span class="divider">•</span>
-            <span>หน้า <?= (int)$page ?> / <?= (int)$pages ?></span>
-        </div>
-        <nav class="pager-nav" aria-label="Pagination">
-            <a class="page-btn <?= $page <= 1 ? 'is-disabled' : '' ?>" href="<?= $page > 1 ? page_url($page - 1) : '#' ?>" rel="prev" aria-label="ก่อนหน้า">‹</a>
-            <?php $start = max(1, $page - 2);
-            $end = min($pages, $page + 2);
-            if ($start > 1) echo '<span class="page-ellipsis">…</span>';
-            for ($i = $start; $i <= $end; $i++): ?>
-                <a class="page-btn <?= $i == $page ? 'is-active' : '' ?>" href="<?= page_url($i) ?>"><?= $i ?></a>
-            <?php endfor;
-            if ($end < $pages) echo '<span class="page-ellipsis">…</span>'; ?>
-            <a class="page-btn <?= $page >= $pages ? 'is-disabled' : '' ?>" href="<?= $page < $pages ? page_url($page + 1) : '#' ?>" rel="next" aria-label="ถัดไป">›</a>
-            <div class="page-size">
-                <select id="ppSelect" class="pager-select" aria-label="จำนวนต่อหน้า">
-                    <?php foreach ([20, 50, 100] as $pp): ?>
-                        <option value="<?= $pp ?>" <?= (int)$per === $pp ? 'selected' : '' ?>><?= $pp ?>/หน้า</option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-        </nav>
-    </div>
-
-    <div id="imgPreviewOverlay" class="imgpv-overlay" aria-hidden="true">
-        <div class="imgpv-dialog" role="dialog" aria-modal="true" aria-label="ตัวอย่างรูป">
-            <button type="button" class="imgpv-close" aria-label="ปิด">✕</button>
-            <img id="imgPreview" src="" alt="" class="imgpv-img">
+    <?php if ($total_pages > 1): ?>
+    <div style="padding:10px 20px;border-top:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+        <span style="font-size:12px;color:var(--text-muted);">หน้า <?= $page ?>/<?= $total_pages ?></span>
+        <div style="display:flex;gap:6px;">
+            <?php if ($page>1): ?><a href="?<?= http_build_query(array_merge($_GET,['page'=>$page-1])) ?>" class="cmns-btn cmns-btn-secondary" style="padding:5px 12px;font-size:12px;">← ก่อนหน้า</a><?php endif; ?>
+            <?php if ($page<$total_pages): ?><a href="?<?= http_build_query(array_merge($_GET,['page'=>$page+1])) ?>" class="cmns-btn cmns-btn-secondary" style="padding:5px 12px;font-size:12px;">ถัดไป →</a><?php endif; ?>
         </div>
     </div>
-</main>
+    <?php endif; ?>
+</div>
 
-<?php include __DIR__ . '/../templates/footer_admin.php'; ?>
+<!-- ══ คลังพร้อมลงขาย ══ -->
+<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+    <h2 style="margin:0;font-size:15px;font-weight:700;display:flex;align-items:center;gap:7px;">
+        <span class="material-symbols-rounded" style="font-size:18px;color:#8b5cf6;">add_box</span>
+        คลังพร้อมลงขาย
+        <span style="font-size:12px;color:var(--text-muted);font-weight:400;">(<?= count($available) ?> รายการ)</span>
+    </h2>
+</div>
+
+<?php if (!$available): ?>
+<div style="text-align:center;padding:40px;background:var(--bg-surface);border:1px solid var(--border);border-radius:12px;color:var(--text-muted);">
+    <span class="material-symbols-rounded" style="font-size:36px;display:block;margin-bottom:8px;opacity:.3;">inventory_2</span>
+    ไม่มีสินค้าในคลังที่รอลงขาย
+</div>
+<?php else: ?>
+<div class="cmns-card" style="padding:0;overflow:hidden;">
+    <div style="overflow-x:auto;">
+        <table class="avail-table">
+            <thead>
+                <tr>
+                    <th>ชื่อสินค้า</th>
+                    <th>SKU</th>
+                    <th>Grade</th>
+                    <th>สเปก</th>
+                    <th>ราคาในคลัง</th>
+                    <th>หมวด (คลัง)</th>
+                    <th style="width:130px;"></th>
+                </tr>
+            </thead>
+            <tbody>
+            <?php foreach ($available as $inv):
+                $g = $inv['condition_grade'] ?? '';
+                $gc = str_starts_with($g,'A') ? 'g-A' : (str_starts_with($g,'B') ? 'g-B' : 'g-C');
+                $sp = array_filter([$inv['cpu_spec'],$inv['ram_spec'],$inv['storage_spec']]);
+                if ($inv['battery_health']) $sp[] = 'Battery '.$inv['battery_health'].'%';
+            ?>
+                <tr>
+                    <td>
+                        <div style="font-weight:600;"><?= h($inv['name']) ?></div>
+                        <?php if ($inv['color']): ?><div style="font-size:11px;color:var(--text-muted);"><?= h($inv['color']) ?></div><?php endif; ?>
+                    </td>
+                    <td style="font-size:12px;color:var(--text-muted);"><?= h($inv['sku']) ?></td>
+                    <td><?= $g ? '<span class="grade-badge '.$gc.'">'.h($g).'</span>' : '—' ?></td>
+                    <td><div class="specs-line"><?= $sp ? h(implode(' / ',$sp)) : '—' ?></div></td>
+                    <td style="font-weight:700;">฿<?= number_format($inv['sell_price']) ?></td>
+                    <td style="font-size:12px;color:var(--text-muted);"><?= h($inv['parts_cat_name'] ?? '—') ?></td>
+                    <td>
+                        <a href="add.php?inv_id=<?= $inv['id'] ?>" class="btn-add-shop">
+                            <span class="material-symbols-rounded" style="font-size:15px;">add_circle</span>
+                            เพิ่มลงร้าน
+                        </a>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+</div>
+<?php endif; ?>
+</div>
+
+<!-- Delete Confirm Dialog -->
+<div id="del-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:var(--bg-surface);width:90%;max-width:360px;border-radius:16px;overflow:hidden;border:1px solid var(--border);box-shadow:0 8px 32px rgba(0,0,0,.2);">
+    <div style="padding:20px 20px 12px;text-align:center;background:rgba(239,68,68,.06);border-bottom:1px solid var(--border);">
+      <div style="width:44px;height:44px;border-radius:50%;background:rgba(239,68,68,.12);color:#ef4444;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
+        <span class="material-symbols-rounded" style="font-size:22px;">delete</span>
+      </div>
+      <h3 style="margin:0;font-size:15px;font-weight:700;color:#dc2626;">ยืนยันการลบ?</h3>
+    </div>
+    <div style="padding:16px 20px;text-align:center;font-size:14px;line-height:1.6;">
+      ลบ <strong id="del-title" style="color:var(--primary)"></strong> ออกจากร้านค้า<br>
+      <span style="font-size:12px;color:#6b7280;">สินค้าในคลังจะไม่ถูกลบ</span>
+    </div>
+    <div style="padding:12px 20px;border-top:1px solid var(--border);background:var(--bg-surface-alt);display:flex;gap:8px;justify-content:center;">
+      <button onclick="closeDel()" class="cmns-btn cmns-btn-secondary">ยกเลิก</button>
+      <button id="del-btn" onclick="doDel()" class="cmns-btn cmns-btn-primary" style="background:#ef4444;border-color:#ef4444;">ลบออกจากร้าน</button>
+    </div>
+  </div>
+</div>
 
 <script>
-    // Dropdown filter
-    function toggleMenu(id) {
-        var m = document.getElementById(id);
-        if (m) m.classList.toggle('show');
-    }
-
-    function clearMenu(id) {
-        var root = document.getElementById(id);
-        if (!root) return;
-        root.querySelectorAll('input[type="checkbox"]').forEach(el => el.checked = false);
-        root.querySelectorAll('input[type="number"],input[type="date"]').forEach(el => el.value = '');
-    }
-    document.addEventListener('click', function(e) {
-        var dd = e.target.closest ? e.target.closest('.filter-dropdown') : null;
-        document.querySelectorAll('.filter-menu.show').forEach(function(m) {
-            if (!dd || !dd.contains(m)) m.classList.remove('show');
-        });
+let _dId = null;
+function confirmDel(id, title) {
+    _dId = id;
+    document.getElementById('del-title').textContent = title;
+    document.getElementById('del-overlay').style.display = 'flex';
+}
+function closeDel() { document.getElementById('del-overlay').style.display = 'none'; }
+function doDel() {
+    if (!_dId) return;
+    const btn = document.getElementById('del-btn');
+    btn.disabled = true; btn.textContent = 'กำลังลบ...';
+    fetch('delete.php?id=' + _dId + '&ajax=1').then(r => r.json()).then(d => {
+        closeDel();
+        if (d.ok) {
+            const row = document.getElementById('lr-' + _dId);
+            if (row) { row.style.transition='opacity .25s'; row.style.opacity='0'; setTimeout(()=>row.remove(),260); }
+            Swal.fire({icon:'success',title:'ลบเรียบร้อยแล้ว',toast:true,position:'top-end',showConfirmButton:false,timer:2500,timerProgressBar:true});
+        } else {
+            Swal.fire({icon:'error',title:'เกิดข้อผิดพลาด',text:d.msg||'',toast:true,position:'top-end',showConfirmButton:false,timer:3000});
+        }
+        btn.disabled = false; btn.textContent = 'ลบออกจากร้าน';
     });
-
-    // Image preview modal
-    (function() {
-        var overlay = document.getElementById('imgPreviewOverlay');
-        var imgEl = document.getElementById('imgPreview');
-
-        function openPreview(src) {
-            if (!overlay || !imgEl) return;
-            imgEl.src = src;
-            overlay.classList.add('show');
-            overlay.setAttribute('aria-hidden', 'false');
-        }
-
-        function closePreview() {
-            if (!overlay) return;
-            overlay.classList.remove('show');
-            overlay.setAttribute('aria-hidden', 'true');
-            imgEl.src = '';
-        }
-        document.addEventListener('click', function(e) {
-            var btn = e.target.closest ? e.target.closest('.thumb-btn') : null;
-            if (!btn) return;
-            var src = btn.getAttribute('data-src');
-            if (src) openPreview(src);
-        });
-        if (overlay) {
-            overlay.addEventListener('click', function(e) {
-                if (e.target === overlay || e.target.closest('.imgpv-close')) closePreview();
-            });
-        }
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && overlay && overlay.classList.contains('show')) closePreview();
-        });
-    })();
-
-    // Per-page selector
-    (function() {
-        const sel = document.getElementById('ppSelect');
-        if (!sel) return;
-        sel.addEventListener('change', function() {
-            const u = new URL(location.href);
-            u.searchParams.set('per', this.value);
-            u.searchParams.set('page', '1'); // Reset to page 1 when changing per page
-            location = u.toString();
-        });
-    })();
-
-    // Arrow keys pager
-    (function() {
-        document.addEventListener('keydown', function(e) {
-            if (e.altKey || e.metaKey || e.ctrlKey || e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
-            if (e.key === 'ArrowRight') document.querySelector('.page-btn[rel="next"]')?.click();
-            if (e.key === 'ArrowLeft') document.querySelector('.page-btn[rel="prev"]')?.click();
-        });
-    })();
+}
+document.getElementById('del-overlay').addEventListener('click', e => { if (e.target===document.getElementById('del-overlay')) closeDel(); });
 </script>
+
+<?php include __DIR__ . '/../templates/footer_admin.php'; ?>

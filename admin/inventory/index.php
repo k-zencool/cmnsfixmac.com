@@ -48,12 +48,16 @@ foreach ($root_categories as $key => $cat) {
     $all_ids = $stmt_sub_ids->fetchAll(PDO::FETCH_COLUMN);
     $ids_in = implode(',', $all_ids);
 
-    // 🔴 แก้ SQL ตรงนี้: JOIN กับ inventory_lots เพื่อหาจำนวนที่เหลือจริง
+    // machine/sale = individual units (no lots) → COUNT items; new/used = lot-based → SUM qty_remaining
     $stmt_stats = $pdo->prepare("
-        SELECT i.type, SUM(l.qty_remaining) as total_qty 
+        SELECT i.type,
+            CASE
+                WHEN i.type IN ('machine','sale') THEN COUNT(DISTINCT i.id)
+                ELSE COALESCE(SUM(l.qty_remaining), 0)
+            END as total_qty
         FROM inventory i
         LEFT JOIN inventory_lots l ON i.id = l.inventory_id
-        WHERE i.category_id IN ($ids_in) 
+        WHERE i.category_id IN ($ids_in)
         GROUP BY i.type
     ");
     $stmt_stats->execute();
