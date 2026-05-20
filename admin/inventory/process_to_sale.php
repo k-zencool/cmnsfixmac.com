@@ -37,7 +37,6 @@ $qty_transfer = max(1, (int)($_POST['qty'] ?? 1));
 $admin_id     = $_SESSION['admin_id'] ?? null;
 $admin_name   = $_SESSION['admin_username'] ?? null;
 
-// SALE fields
 $name               = trim($_POST['name'] ?? '');
 $sell_price         = (float)($_POST['sell_price'] ?? 0);
 $status             = in_array($_POST['status'] ?? '', ['READY', 'PENDING']) ? $_POST['status'] : 'PENDING';
@@ -73,7 +72,7 @@ try {
     $new_sale_id = null;
 
     // ──────────────────────────────────────────────────
-    // NEW → SALE: ตัด 1 จาก lot แล้วสร้าง record ใหม่
+    // NEW → SALE: ตัด qty จาก lot แล้วสร้าง record ใหม่
     // ──────────────────────────────────────────────────
     if ($source_type === 'new') {
         if ($lot_id) {
@@ -83,7 +82,6 @@ try {
             if (!$lot) throw new Exception("Lot ที่เลือกไม่มีสต็อก");
             if ($qty_transfer > $lot['qty_remaining']) throw new Exception("จำนวนเกินที่มีใน Lot ({$lot['qty_remaining']} ชิ้น)");
         } else {
-            // FIFO
             $lot_stmt = $pdo->prepare("SELECT * FROM inventory_lots WHERE inventory_id = ? AND qty_remaining > 0 ORDER BY warranty_end ASC, created_at ASC LIMIT 1");
             $lot_stmt->execute([$inventory_id]);
             $lot = $lot_stmt->fetch(PDO::FETCH_ASSOC);
@@ -91,17 +89,14 @@ try {
             if ($qty_transfer > $lot['qty_remaining']) throw new Exception("จำนวนเกินที่มีใน Lot ({$lot['qty_remaining']} ชิ้น)");
         }
 
-        // Deduct qty
         $pdo->prepare("UPDATE inventory_lots SET qty_remaining = qty_remaining - ? WHERE id = ?")->execute([$qty_transfer, $lot['id']]);
 
-        // Mark source OOS if empty
         $avail = $pdo->prepare("SELECT COALESCE(SUM(qty_remaining), 0) FROM inventory_lots WHERE inventory_id = ?");
         $avail->execute([$inventory_id]);
         if ((int)$avail->fetchColumn() === 0) {
             $pdo->prepare("UPDATE inventory SET status = 'OOS' WHERE id = ?")->execute([$inventory_id]);
         }
 
-        // สร้าง SALE record ใหม่
         $new_sku = 'SL-' . strtoupper(substr(uniqid(), -7));
         $pdo->prepare("INSERT INTO inventory
             (category_id, sku, name, type, serial_number, asset_tag, color, condition_note,
@@ -118,7 +113,6 @@ try {
             ]);
         $new_sale_id = $pdo->lastInsertId();
 
-        // Log OUT
         $pdo->prepare("INSERT INTO parts_requisitions
             (inventory_id, lot_id, item_name, item_sku, qty, cost_price, sell_price, requisitioned_by, admin_name, remarks)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
@@ -131,17 +125,28 @@ try {
                 "TRANSFER_TO_SALE:{$new_sale_id}",
             ]);
 
+        // Audit log
+        $pdo->prepare("INSERT INTO inventory_status_log
+            (inventory_id, action, from_type, to_type, from_status, to_status, reference_id, created_by, admin_name)
+            VALUES (?, 'to_sale', 'new', 'sale', ?, 'READY', ?, ?, ?)")
+            ->execute([$new_sale_id, $status, $inventory_id, $admin_id, $admin_name]);
+
     // ──────────────────────────────────────────────────
     // USED / MACHINE → SALE: convert in place
     // ──────────────────────────────────────────────────
     } else {
+        $orig_type   = $src_item['type'];
+        $orig_status = $src_item['status'];
+
         $pdo->prepare("UPDATE inventory SET
-            type = 'sale', name = ?, sell_price = ?, status = ?,
+            type = 'sale', original_type = ?, original_status = ?,
+            name = ?, sell_price = ?, status = ?,
             condition_grade = ?, serial_number = ?, asset_tag = ?, color = ?, condition_note = ?,
             cpu_spec = ?, ram_spec = ?, storage_spec = ?,
             apple_warranty_date = ?, store_warranty_days = ?, battery_health = ?, battery_cycles = ?
             WHERE id = ?")
             ->execute([
+                $orig_type, $orig_status,
                 $name, $sell_price, $status,
                 $condition_grade, $serial_number, $asset_tag, $color, $condition_note,
                 $cpu_spec, $ram_spec, $storage_spec,
@@ -149,12 +154,10 @@ try {
                 $inventory_id,
             ]);
 
-        // USED: consume lot (qty_remaining = 0)
         if ($source_type === 'used') {
             $pdo->prepare("UPDATE inventory_lots SET qty_remaining = 0 WHERE inventory_id = ?")->execute([$inventory_id]);
         }
 
-        // Log
         $pdo->prepare("INSERT INTO parts_requisitions
             (inventory_id, item_name, item_sku, qty, sell_price, requisitioned_by, admin_name, remarks)
             VALUES (?, ?, ?, 1, ?, ?, ?, ?)")
@@ -163,6 +166,12 @@ try {
                 $sell_price, $admin_id, $admin_name,
                 "CONVERTED_TO_SALE:{$source_type}",
             ]);
+
+        // Audit log
+        $pdo->prepare("INSERT INTO inventory_status_log
+            (inventory_id, action, from_type, to_type, from_status, to_status, created_by, admin_name)
+            VALUES (?, 'to_sale', ?, 'sale', ?, ?, ?, ?)")
+            ->execute([$inventory_id, $orig_type, $orig_status, $status, $admin_id, $admin_name]);
 
         $new_sale_id = $inventory_id;
     }
