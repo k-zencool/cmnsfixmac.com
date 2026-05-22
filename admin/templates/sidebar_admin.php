@@ -118,6 +118,26 @@ if (session_status() === PHP_SESSION_NONE) {
             </div>
         </div>
 
+        <div class="has-sub">
+            <div class="sub-head" onclick="toggleSubmenu(this)">
+                <div class="sub-link">
+                    <span class="material-symbols-rounded">chat</span>
+                    <span class="link-text">Chat Inbox</span>
+                </div>
+                <span class="material-symbols-rounded sub-toggle">keyboard_arrow_down</span>
+            </div>
+            <div class="submenu-wrapper">
+                <div class="submenu-inner">
+                    <a href="/admin/chat/">
+                        <span class="material-symbols-rounded" style="font-size:18px">inbox</span> Inbox
+                    </a>
+                    <a href="/admin/chat/settings.php">
+                        <span class="material-symbols-rounded" style="font-size:18px">link</span> Connections
+                    </a>
+                </div>
+            </div>
+        </div>
+
         <hr style="margin: 15px 10px; border: 0; border-top: 1px solid #e2e8f0;">
 
         <?php if (!empty($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'super_admin'): ?>

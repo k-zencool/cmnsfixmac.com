@@ -5,6 +5,7 @@ require_once __DIR__ . '/../../includes/auth.php';
 require_login();
 
 function h($s) { return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
+$isModal = !empty($_GET['modal']);
 
 if (empty($_SESSION['csrf_token'])) $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 $CSRF = $_SESSION['csrf_token'];
@@ -141,7 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $price, $price_original, $cover, $cover_w, $cover_h, $status, $id]);
 
         $pdo->commit();
-        echo json_encode(['status'=>'success','redirect'=>"edit.php?id=$id&updated=1"]);
+        echo json_encode(['status'=>'success','redirect'=>"edit.php?id=$id&updated=1",'modal'=>$isModal]);
     } catch (Exception $e) {
         if ($pdo->inTransaction()) $pdo->rollBack();
         echo json_encode(['status'=>'error','message'=>$e->getMessage()]);
@@ -151,16 +152,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $success = isset($_GET['updated']) ? 'บันทึกเรียบร้อยแล้ว!' : '';
 $pageTitle = 'แก้ไขสินค้าในร้าน';
-include __DIR__ . '/../templates/header_admin.php';
-
 $specs = array_filter([$listing['cpu_spec'],$listing['ram_spec'],$listing['storage_spec'],$listing['gpu_spec']]);
 $grade = $listing['condition_grade'] ?? '';
 $gc = str_starts_with($grade,'A') ? '#065f46:#d1fae5' : (str_starts_with($grade,'B') ? '#92400e:#fef3c7' : '#991b1b:#fee2e2');
 [$gc_text, $gc_bg] = explode(':', $gc);
 $existingCount = count($existing_images);
 $maxNew = max(0, 8 - $existingCount);
-?>
+if ($isModal): ?>
+<!DOCTYPE html><html lang="th">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<script>document.documentElement.setAttribute('data-theme',localStorage.getItem('admin_theme')||'dark');</script>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link rel="stylesheet" href="/admin/templates/assets/css/admin.css?v=<?= time() ?>">
+<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+</head>
+<body class="modal-mode">
+<?php else: include __DIR__ . '/../templates/header_admin.php'; endif; ?>
 <style>
+html,body{margin:0;padding:0;}
+.modal-mode{height:100vh;overflow:hidden;display:flex;flex-direction:column;background:var(--bg-surface);}
+#ifrm-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;border-bottom:1px solid var(--border);background:var(--bg-surface);flex-shrink:0;}
+#ifrm-header h2{margin:0;font-size:15px;font-weight:700;color:var(--text-main);}
+#ifrm-body{flex:1;overflow:hidden;display:flex;flex-direction:column;}
+#ifrm-footer{flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:12px 20px;border-top:1px solid var(--border);background:var(--bg-surface);}
+.modal-mode .rp-wrap{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;padding:0;max-width:100%;margin:0;}
+.modal-mode #shop-form{flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;}
+.modal-mode .tab-nav{flex-shrink:0;padding:10px 20px 0;}
+.modal-mode .tab-pane{display:none;}
+.modal-mode .tab-pane.active{flex:1;overflow-y:auto;padding:16px 20px 8px;}
+.tab-nav{display:flex;gap:3px;background:var(--bg-surface-alt);border:1px solid var(--border);border-radius:12px;padding:4px;}
+.tab-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;padding:9px 6px;border:none;background:transparent;cursor:pointer;color:var(--text-muted);font-family:inherit;font-size:11px;font-weight:600;transition:.15s;border-radius:9px;line-height:1.3;}
+.tab-btn:hover:not(.active){background:var(--bg-surface);}
+.tab-btn.active{background:var(--primary);color:#fff;}
+.tab-btn.done{color:#10b981;}
+.tab-step{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;background:var(--border);color:var(--text-muted);flex-shrink:0;}
+.tab-btn.active .tab-step{background:rgba(255,255,255,.25);color:#fff;}
+.tab-btn.done .tab-step{background:#10b98120;color:#10b981;}
+.tab-pane{display:none;}.tab-pane.active{display:block;}
 .rp-wrap{max-width:900px;margin:0 auto;padding:32px 24px 60px;}
 .rp-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:12px;padding:20px 24px;margin-bottom:16px;}
 .rp-card-title{font-size:13px;font-weight:700;color:var(--primary);margin-bottom:16px;display:flex;align-items:center;gap:6px;}
@@ -200,13 +230,26 @@ $maxNew = max(0, 8 - $existingCount);
 @keyframes spin{to{transform:rotate(360deg)}}
 </style>
 
+<?php if ($isModal): ?>
+<div id="ifrm-header">
+    <h2><span class="material-symbols-rounded" style="font-size:17px;vertical-align:-3px;">edit</span> แก้ไขสินค้าในร้าน</h2>
+    <button type="button" onclick="window.parent.postMessage('shop-close','*')"
+            style="background:var(--bg-surface-alt);border:1px solid var(--border);width:34px;height:34px;border-radius:9px;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;justify-content:center;padding:0;"
+            onmouseover="this.style.background='#ef4444';this.style.color='#fff'" onmouseout="this.style.background='var(--bg-surface-alt)';this.style.color='var(--text-muted)'">
+        <span class="material-symbols-rounded" style="font-size:18px;">close</span>
+    </button>
+</div>
+<div id="ifrm-body">
+<?php endif; ?>
 <div class="rp-wrap">
+<?php if (!$isModal): ?>
 <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
     <h1 style="margin:0;font-size:20px;font-weight:700;display:flex;align-items:center;gap:8px;">
         <span class="material-symbols-rounded" style="color:var(--primary);">edit</span> แก้ไขสินค้าในร้าน
     </h1>
     <a href="index.php" class="btn-cancel"><span class="material-symbols-rounded" style="font-size:14px;">arrow_back</span> กลับ</a>
 </div>
+<?php endif; ?>
 
 <?php if ($success): ?><div class="msg-success"><?= h($success) ?></div><?php endif; ?>
 <div id="msg-error" class="msg-error" style="display:none;"></div>
@@ -232,6 +275,21 @@ $maxNew = max(0, 8 - $existingCount);
 
 <form id="shop-form" method="POST" enctype="multipart/form-data">
 <input type="hidden" name="csrf_token" value="<?= h($CSRF) ?>">
+
+<?php if ($isModal): ?>
+<div class="tab-nav">
+    <button type="button" class="tab-btn active" onclick="gotoTab(1)" id="tn-1">
+        <div class="tab-step">1</div><span>ข้อมูล</span>
+    </button>
+    <button type="button" class="tab-btn" onclick="gotoTab(2)" id="tn-2">
+        <div class="tab-step">2</div><span>รูปภาพ</span>
+    </button>
+    <button type="button" class="tab-btn" onclick="gotoTab(3)" id="tn-3">
+        <div class="tab-step">3</div><span>คำอธิบาย</span>
+    </button>
+</div>
+<div id="tab-1" class="tab-pane active">
+<?php endif; ?>
 
 <!-- ข้อมูลหลัก -->
 <div class="rp-card">
@@ -271,6 +329,10 @@ $maxNew = max(0, 8 - $existingCount);
     </div>
 </div>
 
+<?php if ($isModal): ?></div><!-- /tab-1 -->
+<div id="tab-2" class="tab-pane">
+<?php endif; ?>
+
 <!-- รูปภาพ -->
 <div class="rp-card">
     <div class="rp-card-title"><span class="material-symbols-rounded" style="color:#f59e0b;">photo_library</span> รูปภาพ (สูงสุด 8 รูป — รูปแรก = ปก)</div>
@@ -304,6 +366,10 @@ $maxNew = max(0, 8 - $existingCount);
     <p class="rp-hint" style="margin-top:8px;">สูงสุด 10MB/รูป</p>
 </div>
 
+<?php if ($isModal): ?></div><!-- /tab-2 -->
+<div id="tab-3" class="tab-pane">
+<?php endif; ?>
+
 <!-- คำอธิบาย -->
 <div class="rp-card">
     <div class="rp-card-title"><span class="material-symbols-rounded">article</span> คำอธิบายสินค้า</div>
@@ -321,16 +387,38 @@ $maxNew = max(0, 8 - $existingCount);
     </div>
 </div>
 
+<?php if ($isModal): ?>
+</div><!-- /tab-3 -->
+<?php else: ?>
 <div style="display:flex;gap:10px;justify-content:flex-end;padding-top:8px;">
     <a href="index.php" class="btn-cancel">ยกเลิก</a>
     <button type="button" class="btn-save" id="btn-save">
         <span class="material-symbols-rounded" style="font-size:15px;">save</span> บันทึก
     </button>
 </div>
+<?php endif; ?>
 </form>
 </div>
-
+<?php if ($isModal): ?>
+</div><!-- #ifrm-body -->
+<div id="ifrm-footer">
+    <button type="button" onclick="window.parent.postMessage('shop-close','*')" class="btn-cancel">
+        <span class="material-symbols-rounded" style="font-size:14px;">close</span> ยกเลิก
+    </button>
+    <div style="display:flex;gap:8px;">
+        <button type="button" id="btn-prev" class="btn-cancel" onclick="prevTab()" style="visibility:hidden;display:inline-flex;align-items:center;gap:6px;">
+            <span class="material-symbols-rounded" style="font-size:14px;">arrow_back</span> ก่อนหน้า
+        </button>
+        <button type="button" id="btn-action" class="btn-save" onclick="nextTab()" style="display:inline-flex;align-items:center;gap:6px;min-width:130px;justify-content:center;">
+            <span id="btn-action-icon" class="material-symbols-rounded" style="font-size:15px;">arrow_forward</span>
+            <span id="btn-action-text">ถัดไป</span>
+        </button>
+    </div>
+</div>
+<?php endif; ?>
+<?php if (!$isModal): ?>
 <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+<?php endif; ?>
 <style>
 .rp-editor{border:1px solid var(--border);border-radius:8px;overflow:hidden;}
 .rp-editor .ql-toolbar.ql-snow{border:none;border-bottom:1px solid var(--border);background:var(--bg-surface-alt);padding:6px 10px;}
@@ -342,22 +430,60 @@ $maxNew = max(0, 8 - $existingCount);
 </style>
 <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
 <script>
+const _isModal = <?= $isModal ? 'true' : 'false' ?>;
 const QB = [[{header:[2,3,false]}],['bold','italic','underline'],[{list:'ordered'},{list:'bullet'}],['link'],['clean']];
-const thEl = document.getElementById('editor-th');
-const enEl = document.getElementById('editor-en');
-const qTh = new Quill(thEl, {theme:'snow', placeholder:'คำอธิบายสินค้าภาษาไทย...', modules:{toolbar:QB}});
-const qEn = new Quill(enEl, {theme:'snow', placeholder:'Product description in English...', modules:{toolbar:QB}});
-const initTh = thEl?.getAttribute('data-init') || '';
-const initEn = enEl?.getAttribute('data-init') || '';
-if (initTh.trim()) qTh.clipboard.dangerouslyPasteHTML(initTh);
-if (initEn.trim()) qEn.clipboard.dangerouslyPasteHTML(initEn);
+let qTh = null, qEn = null, _quillInited = false;
+function initQuill() {
+    if (_quillInited) return;
+    _quillInited = true;
+    const thEl = document.getElementById('editor-th');
+    const enEl = document.getElementById('editor-en');
+    qTh = new Quill(thEl, {theme:'snow', placeholder:'คำอธิบายสินค้าภาษาไทย...', modules:{toolbar:QB}});
+    qEn = new Quill(enEl, {theme:'snow', placeholder:'Product description in English...', modules:{toolbar:QB}});
+    const initTh = thEl?.getAttribute('data-init') || '';
+    const initEn = enEl?.getAttribute('data-init') || '';
+    if (initTh.trim()) qTh.clipboard.dangerouslyPasteHTML(initTh);
+    if (initEn.trim()) qEn.clipboard.dangerouslyPasteHTML(initEn);
+}
+if (!_isModal) initQuill();
 
 function gotoSub(n) {
     document.querySelectorAll('.subtab-pane').forEach(p => p.classList.remove('active'));
     document.getElementById('sub-'+n)?.classList.add('active');
     document.querySelectorAll('.subtab-btn').forEach((b,i) => b.classList.toggle('active', i+1===n));
-    if (n===2) qEn.update?.();
+    if (n===2) qEn?.update?.();
 }
+
+// ── Tabs (modal only) ─────────────────────────────────────────
+let _curTab = 1;
+const TOTAL_TABS = 3;
+function gotoTab(n) {
+    document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-'+n)?.classList.add('active');
+    document.querySelectorAll('.tab-btn').forEach((b,i) => {
+        b.classList.remove('active','done');
+        if (i+1===n) b.classList.add('active');
+        else if (i+1<n) b.classList.add('done');
+    });
+    const prev = document.getElementById('btn-prev');
+    const act  = document.getElementById('btn-action');
+    const icon = document.getElementById('btn-action-icon');
+    const text = document.getElementById('btn-action-text');
+    if (prev) prev.style.visibility = n > 1 ? 'visible' : 'hidden';
+    if (n === TOTAL_TABS) {
+        initQuill();
+        if (act)  { act.onclick = doSave; }
+        if (icon) icon.textContent = 'save';
+        if (text) text.textContent = 'บันทึก';
+    } else {
+        if (act)  { act.onclick = nextTab; }
+        if (icon) icon.textContent = 'arrow_forward';
+        if (text) text.textContent = 'ถัดไป';
+    }
+    _curTab = n;
+}
+function nextTab() { if (_curTab < TOTAL_TABS) gotoTab(_curTab + 1); }
+function prevTab() { if (_curTab > 1) gotoTab(_curTab - 1); }
 
 // Existing image delete
 function markDel(id) {
@@ -425,30 +551,41 @@ dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('dra
 dz.addEventListener('dragleave', () => dz.classList.remove('drag-over'));
 dz.addEventListener('drop', e => { e.preventDefault(); dz.classList.remove('drag-over'); addNewFiles(Array.from(e.dataTransfer.files)); });
 
-// Save
-document.getElementById('btn-save').addEventListener('click', async function() {
-    document.getElementById('desc-th-val').value = qTh.root.innerHTML;
-    document.getElementById('desc-en-val').value = qEn.root.innerHTML;
+// ── Save ──────────────────────────────────────────────────────
+async function doSave() {
+    if (qTh) document.getElementById('desc-th-val').value = qTh.root.innerHTML;
+    if (qEn) document.getElementById('desc-en-val').value = qEn.root.innerHTML;
     const errEl = document.getElementById('msg-error');
     errEl.style.display = 'none';
-    this.disabled = true;
-    this.innerHTML = '<span class="material-symbols-rounded" style="font-size:15px;animation:spin 1s linear infinite;">progress_activity</span> กำลังบันทึก...';
+    const btn = document.getElementById(_isModal ? 'btn-action' : 'btn-save');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<span class="material-symbols-rounded" style="font-size:15px;animation:spin 1s linear infinite;">progress_activity</span> กำลังบันทึก...'; }
     try {
         const res = await fetch('', {method:'POST', body: new FormData(document.getElementById('shop-form'))});
         const data = await res.json();
         if (data.status === 'success') {
+            if (data.modal) { window.parent.postMessage('shop-saved', '*'); return; }
             window.location.href = data.redirect;
         } else {
             errEl.textContent = data.message || 'เกิดข้อผิดพลาด';
             errEl.style.display = 'block';
-            this.disabled = false;
-            this.innerHTML = '<span class="material-symbols-rounded" style="font-size:15px;">save</span> บันทึก';
+            if (btn) {
+                btn.disabled = false;
+                btn.innerHTML = _isModal
+                    ? '<span id="btn-action-icon" class="material-symbols-rounded" style="font-size:15px;">save</span><span id="btn-action-text">บันทึก</span>'
+                    : '<span class="material-symbols-rounded" style="font-size:15px;">save</span> บันทึก';
+            }
         }
     } catch(e) {
         errEl.textContent = 'ไม่สามารถเชื่อมต่อได้';
         errEl.style.display = 'block';
-        this.disabled = false;
+        if (btn) btn.disabled = false;
     }
-});
+}
+document.getElementById('btn-save')?.addEventListener('click', doSave);
+if (_isModal) {
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') window.parent.postMessage('shop-close', '*');
+    });
+}
 </script>
-<?php include __DIR__ . '/../templates/footer_admin.php'; ?>
+<?php if ($isModal): ?></body></html><?php else: include __DIR__ . '/../templates/footer_admin.php'; endif; ?>
