@@ -9,7 +9,8 @@ require_login();
 header('Content-Type: application/json');
 
 $platform = $_GET['platform'] ?? 'all';
-$params   = [];
+$archived = ($_GET['archived'] ?? '0') === '1' ? 1 : 0;
+$params   = [$archived];
 $where    = '';
 
 if (in_array($platform, ['facebook', 'line'])) {
@@ -24,12 +25,13 @@ $rows = $pdo->prepare("
         cv.last_message_at,
         cv.last_message_preview,
         cv.unread_count,
+        cv.archived,
         ct.display_name,
         ct.picture_url,
         ct.platform_user_id
     FROM chat_conversations cv
     JOIN chat_contacts ct ON ct.id = cv.contact_id
-    WHERE 1=1 {$where}
+    WHERE cv.archived = ? {$where}
     ORDER BY cv.last_message_at DESC
     LIMIT 100
 ");

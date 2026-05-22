@@ -32,7 +32,7 @@ $pageTitle = 'Chat Inbox';
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
     <link rel="stylesheet" href="/admin/templates/assets/css/admin.css?v=10">
-    <link rel="stylesheet" href="/assets/css/chat_admin.css?v=3">
+    <link rel="stylesheet" href="/assets/css/chat_admin.css?v=13">
 </head>
 <body>
 <div class="wrapper">
@@ -56,14 +56,18 @@ $pageTitle = 'Chat Inbox';
                 Chat Inbox
             </h2>
             <div class="chat-tabs">
-                <button class="chat-tab active" data-platform="all">ทั้งหมด</button>
-                <button class="chat-tab" data-platform="facebook">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="#1877f2"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
-                    Facebook
+                <button class="chat-tab active" data-platform="all" data-archived="0"><span class="tab-label">ทั้งหมด</span></button>
+                <button class="chat-tab" data-platform="facebook" data-archived="0">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="#1877f2" style="flex-shrink:0"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                    <span class="tab-label">Facebook</span>
                 </button>
-                <button class="chat-tab" data-platform="line">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="#06c755"><path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/></svg>
-                    LINE
+                <button class="chat-tab" data-platform="line" data-archived="0">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="#06c755" style="flex-shrink:0"><path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314"/></svg>
+                    <span class="tab-label">LINE</span>
+                </button>
+                <button class="chat-tab" data-platform="all" data-archived="1">
+                    <span class="material-symbols-rounded" style="font-size:13px;flex-shrink:0">inventory_2</span>
+                    <span class="tab-label">จัดเก็บ</span>
                 </button>
             </div>
         </div>
@@ -76,6 +80,9 @@ $pageTitle = 'Chat Inbox';
         </div>
     </div>
 
+    <!-- Resize handle -->
+    <div class="chat-resize-handle" id="chatResizeHandle"></div>
+
     <!-- RIGHT: Chat window -->
     <div class="chat-main" id="chatMain">
         <div class="chat-empty-state" id="chatEmptyState">
@@ -85,6 +92,9 @@ $pageTitle = 'Chat Inbox';
 
         <!-- Header (hidden until conv selected) -->
         <div class="chat-header" id="chatHeader" style="display:none">
+            <button class="chat-back-btn" id="backBtn" title="กลับ">
+                <span class="material-symbols-rounded">arrow_back_ios</span>
+            </button>
             <div class="chat-header-avatar">
                 <img id="headerAvatar" src="" alt="" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
                 <div class="avatar-placeholder" id="headerAvatarFallback" style="display:none">
@@ -93,11 +103,24 @@ $pageTitle = 'Chat Inbox';
                 <span class="platform-badge" id="headerPlatformBadge"></span>
             </div>
             <div class="chat-header-info">
-                <div class="chat-header-name" id="headerName"></div>
+                <div class="chat-header-name-wrap">
+                    <span class="chat-header-name" id="headerName"></span>
+                    <button class="chat-rename-btn" id="renameBtn" title="แก้ไขชื่อ">
+                        <span class="material-symbols-rounded">edit</span>
+                    </button>
+                </div>
                 <div class="chat-header-platform">
                     <span class="platform-dot" id="headerPlatformDot"></span>
                     <span id="headerPlatformLabel"></span>
                 </div>
+            </div>
+            <div class="chat-header-actions">
+                <button class="chat-action-btn" id="archiveBtn" title="จัดเก็บแชท">
+                    <span class="material-symbols-rounded">archive</span>
+                </button>
+                <button class="chat-action-btn danger" id="deleteBtn" title="ลบแชท">
+                    <span class="material-symbols-rounded">delete</span>
+                </button>
             </div>
         </div>
 
@@ -129,15 +152,21 @@ $pageTitle = 'Chat Inbox';
 <script>
 // ── State ────────────────────────────────────────────────────────────────────
 const state = {
-    platform:    'all',
-    activeConvId: null,
-    activeConv:   null,
-    lastMsgId:    0,
-    convTimer:    null,
-    msgTimer:     null,
+    platform:      'all',
+    archived:      0,
+    activeConvId:  null,
+    activeConv:    null,
+    lastMsgId:     0,
+    firstMsgId:    Infinity,
+    hasMoreHistory: false,
+    loadingHistory: false,
+    lastMsgDir:    null,
+    convTimer:     null,
+    msgTimer:      null,
 };
 
 // ── DOM refs ─────────────────────────────────────────────────────────────────
+const chatWrap        = document.querySelector('.chat-wrap');
 const convList        = document.getElementById('convList');
 const chatMain        = document.getElementById('chatMain');
 const chatEmptyState  = document.getElementById('chatEmptyState');
@@ -146,6 +175,7 @@ const chatMessages    = document.getElementById('chatMessages');
 const chatInputArea   = document.getElementById('chatInputArea');
 const chatInput       = document.getElementById('chatInput');
 const sendBtn         = document.getElementById('sendBtn');
+const backBtn         = document.getElementById('backBtn');
 const headerAvatar    = document.getElementById('headerAvatar');
 const headerAvatarFB  = document.getElementById('headerAvatarFallback');
 const headerName      = document.getElementById('headerName');
@@ -198,7 +228,7 @@ function avatarHtml(url, name, size = 42) {
 
 // ── Conversation List ─────────────────────────────────────────────────────────
 async function loadConversations() {
-    const res  = await fetch(`/admin/chat/api/conversations.php?platform=${state.platform}`);
+    const res  = await fetch(`/admin/chat/api/conversations.php?platform=${state.platform}&archived=${state.archived}`);
     const json = await res.json();
     if (!json.ok) return;
 
@@ -253,6 +283,7 @@ function openConversation(conv) {
     state.activeConvId = conv.id;
     state.activeConv   = conv;
     state.lastMsgId    = 0;
+    state.lastMsgDir   = null;
 
     // Update header
     const plat  = conv.platform;
@@ -272,28 +303,38 @@ function openConversation(conv) {
         headerAvatarFB.style.fontWeight = '700';
         headerAvatarFB.textContent      = initial;
     }
-    headerBadge.className  = `platform-badge ${badge}`;
+    headerBadge.className   = `platform-badge ${badge}`;
     headerBadge.textContent = plat === 'facebook' ? 'FB' : 'LN';
     headerName.textContent  = conv.display_name || 'ไม่ระบุชื่อ';
-    headerDot.className    = `platform-dot ${badge}`;
+    headerDot.className     = `platform-dot ${badge}`;
     headerLabel.textContent = label;
 
+    const isPlaceholder = !conv.display_name || ['Facebook User', 'LINE User', ''].includes(conv.display_name);
+    document.getElementById('renameBtn').classList.toggle('needs-name', isPlaceholder);
+    document.getElementById('renameBtn').title = isPlaceholder ? 'ยังไม่มีชื่อ — คลิกแก้ไข' : 'แก้ไขชื่อ';
+
     // Show panels
-    chatEmptyState.style.display  = 'none';
-    chatHeader.style.display      = 'flex';
-    chatMessages.style.display    = 'flex';
-    chatInputArea.style.display   = 'flex';
-    chatMessages.innerHTML        = '';
+    chatEmptyState.style.display = 'none';
+    chatHeader.style.display     = 'flex';
+    chatMessages.style.display   = 'flex';
+    chatInputArea.style.display  = 'flex';
+    chatMessages.innerHTML       = '<div class="chat-spacer"></div>';
+    lastDateLabel                = '';
+    state.firstMsgId             = Infinity;
+    state.hasMoreHistory         = false;
+    state.loadingHistory         = false;
+
+    // Mobile: switch to chat view
+    if (window.innerWidth <= 768) {
+        chatWrap.classList.add('mobile-chat-open');
+    }
 
     // Mark active in list
     document.querySelectorAll('.conv-item').forEach(el => {
         el.classList.toggle('active', parseInt(el.dataset.id) === conv.id);
     });
 
-    // Load messages
     loadMessages(true);
-
-    // Start polling messages
     clearInterval(state.msgTimer);
     state.msgTimer = setInterval(() => loadMessages(false), 2000);
 }
@@ -308,38 +349,61 @@ async function loadMessages(initial) {
     const json = await res.json();
     if (!json.ok || !json.data.length) return;
 
-    const msgs    = json.data;
+    const msgs        = json.data;
     const wasAtBottom = isAtBottom();
 
-    msgs.forEach(msg => {
+    msgs.forEach((msg, idx) => {
         const dateLabel = new Date(msg.sent_at).toLocaleDateString('th-TH', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
         if (dateLabel !== lastDateLabel) {
-            lastDateLabel = dateLabel;
+            lastDateLabel     = dateLabel;
+            state.lastMsgDir  = null; // reset grouping across date dividers
             chatMessages.insertAdjacentHTML('beforeend', `<div class="date-divider">${dateLabel}</div>`);
         }
 
         const dir     = msg.direction;
-        const av      = dir === 'incoming' ? avatarHtml(state.activeConv.picture_url, state.activeConv.display_name, 28) : '';
-        const bubble  = renderBubble(msg);
-        const time    = formatTime(msg.sent_at);
+        const nextMsg = msgs[idx + 1] ?? null;
+        const nextDir = nextMsg?.direction ?? null;
+
+        const isGrouped  = (state.lastMsgDir === dir);
+        const showAvatar = (dir === 'incoming') && (nextDir !== dir);
+
+        // Show time only when: different sender next, or gap >= 5 min, or last in batch
+        const TIME_GAP = 5 * 60 * 1000;
+        const showTime = !nextMsg
+            || nextDir !== dir
+            || (new Date(nextMsg.sent_at) - new Date(msg.sent_at)) >= TIME_GAP;
+
+        const avatarSlot = dir === 'incoming'
+            ? `<div class="msg-avatar-slot ${showAvatar ? '' : 'hidden'}">${showAvatar ? avatarHtml(state.activeConv.picture_url, state.activeConv.display_name, 28) : ''}</div>`
+            : '';
+
+        const bubble = renderBubble(msg);
+        const time   = formatTime(msg.sent_at);
 
         chatMessages.insertAdjacentHTML('beforeend', `
-            <div class="msg-row ${dir}">
-                ${dir === 'incoming' ? `<div class="msg-avatar">${av}</div>` : ''}
-                <div>
-                    ${bubble}
-                    <div class="msg-time">${time}</div>
-                </div>
+            <div class="msg-row ${dir}${isGrouped ? ' grouped' : ''}">
+                ${avatarSlot}
+                <div class="msg-content">${bubble}</div>
             </div>
+            ${showTime ? `<div class="msg-time ${dir}">${time}</div>` : ''}
         `);
 
-        state.lastMsgId = Math.max(state.lastMsgId, parseInt(msg.id));
+        state.lastMsgDir = dir;
     });
+
+    // Track first/last msg ids
+    if (msgs.length) {
+        state.firstMsgId = Math.min(state.firstMsgId, parseInt(msgs[0].id));
+        state.lastMsgId  = Math.max(state.lastMsgId,  parseInt(msgs[msgs.length - 1].id));
+    }
 
     if (initial || wasAtBottom) chatMessages.scrollTop = chatMessages.scrollHeight;
 
-    // Refresh conv list to clear unread badge
-    if (initial) loadConversations();
+    if (initial) {
+        loadConversations();
+        state.hasMoreHistory = !!json.has_more;
+        if (state.hasMoreHistory) showLoadMoreBtn();
+    }
 }
 
 function renderBubble(msg) {
@@ -360,6 +424,103 @@ function renderBubble(msg) {
 function isAtBottom() {
     return chatMessages.scrollHeight - chatMessages.scrollTop - chatMessages.clientHeight < 60;
 }
+
+// ── Load history (scroll up) ──────────────────────────────────────────────────
+function showLoadMoreBtn() {
+    const existing = chatMessages.querySelector('.chat-load-more');
+    if (existing) return;
+    const spacer = chatMessages.querySelector('.chat-spacer');
+    const div = document.createElement('div');
+    div.className = 'chat-load-more';
+    div.innerHTML = '<button onclick="loadHistory()">โหลดข้อความเก่า</button>';
+    chatMessages.insertBefore(div, spacer ? spacer.nextSibling : chatMessages.firstChild);
+}
+
+async function loadHistory() {
+    if (!state.activeConvId || state.loadingHistory || state.firstMsgId === Infinity) return;
+    state.loadingHistory = true;
+
+    const btn = chatMessages.querySelector('.chat-load-more button');
+    if (btn) btn.textContent = 'กำลังโหลด...';
+
+    const url  = `/admin/chat/api/messages.php?conv_id=${state.activeConvId}&before_id=${state.firstMsgId}`;
+    const res  = await fetch(url);
+    const json = await res.json();
+    state.loadingHistory = false;
+
+    if (!json.ok || !json.data.length) {
+        chatMessages.querySelector('.chat-load-more')?.remove();
+        return;
+    }
+
+    // Remember scroll position before prepending
+    const prevHeight = chatMessages.scrollHeight;
+
+    const frag        = document.createDocumentFragment();
+    const insertAfter = chatMessages.querySelector('.chat-load-more') || chatMessages.querySelector('.chat-spacer');
+    let   localDateLabel = '';
+    let   localLastDir   = null;
+
+    json.data.forEach((msg, idx) => {
+        const dateLabel = new Date(msg.sent_at).toLocaleDateString('th-TH', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+        if (dateLabel !== localDateLabel) {
+            localDateLabel = dateLabel;
+            localLastDir   = null;
+            const d = document.createElement('div');
+            d.className = 'date-divider';
+            d.textContent = dateLabel;
+            frag.appendChild(d);
+        }
+
+        const dir       = msg.direction;
+        const nextMsg   = json.data[idx + 1] ?? null;
+        const nextDir   = nextMsg?.direction ?? null;
+        const isGrouped = (localLastDir === dir);
+        const showAvatar = (dir === 'incoming') && (nextDir !== dir);
+        const TIME_GAP   = 5 * 60 * 1000;
+        const showTime   = !nextMsg || nextDir !== dir || (new Date(nextMsg.sent_at) - new Date(msg.sent_at)) >= TIME_GAP;
+
+        const avatarSlot = dir === 'incoming'
+            ? `<div class="msg-avatar-slot ${showAvatar ? '' : 'hidden'}">${showAvatar ? avatarHtml(state.activeConv.picture_url, state.activeConv.display_name, 28) : ''}</div>`
+            : '';
+
+        const row = document.createElement('div');
+        row.innerHTML = `
+            <div class="msg-row ${dir}${isGrouped ? ' grouped' : ''}">
+                ${avatarSlot}
+                <div class="msg-content">${renderBubble(msg)}</div>
+            </div>
+            ${showTime ? `<div class="msg-time ${dir}">${formatTime(msg.sent_at)}</div>` : ''}
+        `;
+        [...row.childNodes].forEach(n => { if (n.nodeType === 1 || (n.nodeType === 3 && n.textContent.trim())) frag.appendChild(n); });
+
+        localLastDir = dir;
+    });
+
+    // Insert history block after load-more button
+    insertAfter.after(frag);
+
+    // Update firstMsgId
+    state.firstMsgId = parseInt(json.data[0].id);
+
+    // Remove button if no more
+    if (!json.has_more) {
+        chatMessages.querySelector('.chat-load-more')?.remove();
+        state.hasMoreHistory = false;
+    } else if (btn) {
+        btn.textContent = 'โหลดข้อความเก่า';
+    }
+
+    // Maintain scroll position (don't jump to top)
+    chatMessages.scrollTop += chatMessages.scrollHeight - prevHeight;
+}
+
+// Auto-trigger loadHistory when scrolled near top
+chatMessages.addEventListener('scroll', () => {
+    if (chatMessages.scrollTop < 80 && state.hasMoreHistory && !state.loadingHistory) {
+        loadHistory();
+    }
+});
 
 // ── Send Message ──────────────────────────────────────────────────────────────
 async function sendMessage() {
@@ -389,12 +550,94 @@ async function sendMessage() {
     }
 }
 
+// ── Rename contact ────────────────────────────────────────────────────────────
+document.getElementById('renameBtn').addEventListener('click', async () => {
+    if (!state.activeConvId) return;
+    const current = state.activeConv?.display_name || '';
+    const newName = prompt('แก้ไขชื่อลูกค้า:', current);
+    if (!newName || newName.trim() === current) return;
+
+    const res  = await fetch('/admin/chat/api/rename_contact.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conv_id: state.activeConvId, name: newName.trim() }),
+    });
+    const json = await res.json();
+    if (json.ok) {
+        state.activeConv.display_name = newName.trim();
+        headerName.textContent = newName.trim();
+        loadConversations();
+    }
+});
+
+// ── Archive conversation ──────────────────────────────────────────────────────
+document.getElementById('archiveBtn').addEventListener('click', async () => {
+    if (!state.activeConvId) return;
+    const btn = document.getElementById('archiveBtn');
+    btn.disabled = true;
+    const res  = await fetch('/admin/chat/api/archive_conversation.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conv_id: state.activeConvId }),
+    });
+    const json = await res.json();
+    btn.disabled = false;
+    if (json.ok) {
+        chatWrap.classList.remove('mobile-chat-open');
+        state.activeConvId = null;
+        state.activeConv   = null;
+        chatHeader.style.display    = 'none';
+        chatMessages.style.display  = 'none';
+        chatInputArea.style.display = 'none';
+        chatEmptyState.style.display = 'flex';
+        clearInterval(state.msgTimer);
+        loadConversations();
+    }
+});
+
+// ── Delete conversation ───────────────────────────────────────────────────────
+document.getElementById('deleteBtn').addEventListener('click', async () => {
+    if (!state.activeConvId) return;
+    if (!confirm(`ลบการสนทนากับ "${state.activeConv?.display_name}" ออกถาวรเลยใช่ไหม?\nข้อความทั้งหมดจะหายไป`)) return;
+    const btn = document.getElementById('deleteBtn');
+    btn.disabled = true;
+    const res  = await fetch('/admin/chat/api/delete_conversation.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conv_id: state.activeConvId }),
+    });
+    const json = await res.json();
+    btn.disabled = false;
+    if (json.ok) {
+        chatWrap.classList.remove('mobile-chat-open');
+        state.activeConvId = null;
+        state.activeConv   = null;
+        chatHeader.style.display    = 'none';
+        chatMessages.style.display  = 'none';
+        chatInputArea.style.display = 'none';
+        chatEmptyState.style.display = 'flex';
+        clearInterval(state.msgTimer);
+        loadConversations();
+    } else {
+        alert('ลบไม่สำเร็จ: ' + (json.msg || ''));
+    }
+});
+
+// ── Back button (mobile) ──────────────────────────────────────────────────────
+backBtn.addEventListener('click', () => {
+    chatWrap.classList.remove('mobile-chat-open');
+    clearInterval(state.msgTimer);
+    state.activeConvId = null;
+    state.activeConv   = null;
+});
+
 // ── Platform Tabs ─────────────────────────────────────────────────────────────
 document.querySelectorAll('.chat-tab').forEach(tab => {
     tab.addEventListener('click', () => {
         document.querySelectorAll('.chat-tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
         state.platform = tab.dataset.platform;
+        state.archived = parseInt(tab.dataset.archived ?? '0');
         loadConversations();
     });
 });
@@ -413,6 +656,46 @@ chatInput.addEventListener('keydown', e => {
 });
 
 sendBtn.addEventListener('click', sendMessage);
+
+// ── Resizable sidebar ─────────────────────────────────────────────────────────
+const SIDEBAR_MIN = 200;
+const SIDEBAR_MAX = 520;
+const SIDEBAR_KEY = 'chat_sidebar_w';
+const resizeHandle = document.getElementById('chatResizeHandle');
+
+(function initSidebarWidth() {
+    const saved = parseInt(localStorage.getItem(SIDEBAR_KEY));
+    if (saved && saved >= SIDEBAR_MIN && saved <= SIDEBAR_MAX) {
+        chatWrap.style.setProperty('--chat-sidebar-w', saved + 'px');
+    }
+})();
+
+resizeHandle.addEventListener('mousedown', e => {
+    e.preventDefault();
+    resizeHandle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    function onMove(e) {
+        const rect = chatWrap.getBoundingClientRect();
+        let w = e.clientX - rect.left;
+        w = Math.max(SIDEBAR_MIN, Math.min(SIDEBAR_MAX, w));
+        chatWrap.style.setProperty('--chat-sidebar-w', w + 'px');
+    }
+
+    function onUp() {
+        resizeHandle.classList.remove('dragging');
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        const w = getComputedStyle(chatWrap).getPropertyValue('--chat-sidebar-w').trim();
+        localStorage.setItem(SIDEBAR_KEY, parseInt(w));
+    }
+
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+});
 
 // ── Bootstrap ─────────────────────────────────────────────────────────────────
 loadConversations();

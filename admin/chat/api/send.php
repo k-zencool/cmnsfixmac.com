@@ -70,7 +70,9 @@ if ($conv['platform'] === 'facebook') {
 }
 
 if ($sent) {
-    chat_store_message($pdo, $conv_id, null, 'outgoing', 'text', $text, null);
+    // Store with message_id so echo dedup works
+    $mid = $res['body']['message_id'] ?? null;
+    chat_store_message($pdo, $conv_id, $mid, 'outgoing', 'text', $text, null);
     echo json_encode(['ok' => true]);
 } else {
     $err = $res['body']['message'] ?? $res['body']['error']['message'] ?? 'API error';

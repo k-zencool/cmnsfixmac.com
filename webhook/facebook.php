@@ -49,25 +49,60 @@ if (($body['object'] ?? '') !== 'page') {
 
 foreach ($body['entry'] ?? [] as $entry) {
     foreach ($entry['messaging'] ?? [] as $event) {
-        // Skip echoes and delivery/read receipts
-        if (!isset($event['message']) || isset($event['message']['is_echo'])) continue;
+        if (!isset($event['message'])) continue;
 
+        $msg = $event['message'];
+        $mid = $msg['mid'] ?? null;
+
+        // ── Echo: admin replied from Facebook app ────────────────────────────
+        if (!empty($msg['is_echo'])) {
+            $recipient_id = $event['recipient']['id'] ?? null;
+            if (!$recipient_id) continue;
+
+            // Skip if already stored (sent via our send.php)
+            if ($mid) {
+                $exists = $pdo->prepare("SELECT id FROM chat_messages WHERE platform_message_id=? LIMIT 1");
+                $exists->execute([$mid]);
+                if ($exists->fetch()) continue;
+            }
+
+            // Find conversation by recipient PSID
+            $stmt = $pdo->prepare("
+                SELECT cv.id FROM chat_conversations cv
+                JOIN chat_contacts ct ON ct.id = cv.contact_id
+                WHERE ct.platform='facebook' AND ct.platform_user_id=?
+                LIMIT 1
+            ");
+            $stmt->execute([$recipient_id]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$row) continue; // no conversation yet for this user, skip
+
+            $content = $msg['text'] ?? null;
+            if (!$content && empty($msg['attachments'])) continue;
+
+            if (!empty($msg['attachments'])) {
+                $att  = $msg['attachments'][0];
+                $type = in_array($att['type'], ['image','video','audio','file']) ? $att['type'] : 'file';
+                chat_store_message($pdo, (int)$row['id'], $mid, 'outgoing', $type, null, $att['payload']['url'] ?? null);
+            } else {
+                chat_store_message($pdo, (int)$row['id'], $mid, 'outgoing', 'text', $content, null);
+            }
+            continue;
+        }
+
+        // ── Incoming message from user ────────────────────────────────────────
         $sender_id = $event['sender']['id'];
-        $msg       = $event['message'];
 
-        // Fetch + upsert contact
         $profile = fetch_fb_profile($sender_id);
         $contact = chat_upsert_contact($pdo, 'facebook', $sender_id, $profile['name'], $profile['picture']);
         $conv_id = chat_get_or_create_conversation($pdo, (int)$contact['id'], 'facebook');
 
-        // Determine type + content
         if (!empty($msg['attachments'])) {
             $att   = $msg['attachments'][0];
             $type  = in_array($att['type'], ['image','video','audio','file']) ? $att['type'] : 'file';
-            $media = $att['payload']['url'] ?? null;
-            chat_store_message($pdo, $conv_id, $msg['mid'] ?? null, 'incoming', $type, null, $media);
+            chat_store_message($pdo, $conv_id, $mid, 'incoming', $type, null, $att['payload']['url'] ?? null);
         } elseif (isset($msg['text'])) {
-            chat_store_message($pdo, $conv_id, $msg['mid'] ?? null, 'incoming', 'text', $msg['text'], null);
+            chat_store_message($pdo, $conv_id, $mid, 'incoming', 'text', $msg['text'], null);
         }
     }
 }
@@ -78,17 +113,27 @@ echo 'OK';
 // ─────────────────────────────────────────────────────────────────────────────
 function fetch_fb_profile(string $sender_id): array {
     global $fb_token;
-    $res = chat_http_get(
-        "https://graph.facebook.com/v18.0/me/conversations?user_id={$sender_id}&fields=participants&access_token={$fb_token}"
-    );
 
+    // 1st try: direct user profile — gets name + profile picture
+    $res = chat_http_get(
+        "https://graph.facebook.com/v20.0/{$sender_id}?fields=name,profile_pic&access_token={$fb_token}"
+    );
+    if (!empty($res['body']['name'])) {
+        return [
+            'name'    => $res['body']['name'],
+            'picture' => $res['body']['profile_pic'] ?? null,
+        ];
+    }
+
+    // 2nd try: conversations API (fallback, no picture)
+    $res2 = chat_http_get(
+        "https://graph.facebook.com/v20.0/me/conversations?user_id={$sender_id}&fields=participants&access_token={$fb_token}"
+    );
     $name = 'Facebook User';
-    if (!empty($res['body']['data'][0]['participants']['data'])) {
-        foreach ($res['body']['data'][0]['participants']['data'] as $p) {
-            if (($p['id'] ?? '') === $sender_id) {
-                $name = $p['name'];
-                break;
-            }
+    foreach ($res2['body']['data'][0]['participants']['data'] ?? [] as $p) {
+        if (($p['id'] ?? '') === $sender_id) {
+            $name = $p['name'];
+            break;
         }
     }
 

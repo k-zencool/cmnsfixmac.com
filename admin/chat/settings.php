@@ -209,7 +209,13 @@ $pageTitle = 'Chat Settings';
                     <div class="info-label">Facebook Page</div>
                     <div class="info-value"><?= htmlspecialchars($fb['page_name'] ?? '-') ?></div>
                 </div>
-                <button class="btn-disconnect" onclick="disconnect('facebook')">ยกเลิกการเชื่อมต่อ</button>
+                <div style="display:flex;gap:8px;flex-wrap:wrap">
+                    <button class="btn-disconnect" onclick="disconnect('facebook')">ยกเลิกการเชื่อมต่อ</button>
+                    <button class="btn-disconnect" id="refreshFbBtn" onclick="refreshFbContacts()" style="border-color:var(--primary);color:var(--primary)">
+                        <span class="material-symbols-rounded" style="font-size:16px;vertical-align:-3px">person_search</span>
+                        ดึงชื่อลูกค้า FB
+                    </button>
+                </div>
             <?php else: ?>
                 <span class="status-badge disconnected"><span class="status-dot"></span> ยังไม่เชื่อมต่อ</span>
                 <button class="btn-connect fb" onclick="document.getElementById('fbModal').classList.add('show')">
@@ -415,6 +421,17 @@ alert('<?= addslashes($_SESSION['success']) ?>');
 <?php if (!empty($_SESSION['error'])): ?>
 alert('❌ <?= addslashes($_SESSION['error']) ?>');
 <?php unset($_SESSION['error']); endif; ?>
+
+async function refreshFbContacts() {
+    const btn = document.getElementById('refreshFbBtn');
+    btn.disabled = true;
+    btn.textContent = 'กำลังดึงข้อมูล...';
+    const res  = await fetch('/admin/chat/api/refresh_fb_contacts.php', { method: 'POST' });
+    const json = await res.json();
+    btn.disabled = false;
+    btn.innerHTML = '<span class="material-symbols-rounded" style="font-size:16px;vertical-align:-3px">person_search</span> ดึงชื่อลูกค้า FB';
+    alert(json.ok ? '✅ ' + json.msg : '❌ ' + json.msg);
+}
 </script>
 </body>
 </html>
