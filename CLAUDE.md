@@ -72,8 +72,10 @@ DB_PASS=cmns_password
 /admin/shop/        # Shop listings management
 /admin/user/        # Admin user management
 /admin/cron/        # Telegram alert scripts (morning/evening)
-/assets/css/        # Per-page CSS files (no preprocessor)
-/database/          # 01_init.sql — authoritative schema + seed
+/assets/css/        # All public CSS (no preprocessor)
+/assets/css/services/  # Per-device service page CSS (macbook, iphone…)
+/assets/css/shop/   # Shop page CSS (shop-style, hero, cart-receipt, product-detail)
+/database/          # SQL files: full_dump.sql, seed_inventory.sql, migrations/
 /uploads/           # User-uploaded images (products, articles, avatars)
 /cron/              # Server cron scripts
 ```

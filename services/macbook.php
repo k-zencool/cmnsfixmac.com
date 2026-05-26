@@ -3,98 +3,37 @@ $page_title = "ซ่อม MacBook ทุกอาการ | ช่างผ�
 $page_description = "รับซ่อม MacBook ทุกรุ่น เช่น จอแตก แบตเสื่อม น้ำเข้า เครื่องเปิดไม่ติด โดยช่างผู้เชี่ยวชาญ มีประกันทุกงานซ่อม";
 $page_keywords = "ซ่อม MacBook, MacBook เปิดไม่ติด, เปลี่ยนจอ MacBook, เปลี่ยนแบต MacBook, MacBook ชาร์จไม่เข้า";
 
+
+$page_css        = [
+    '/assets/css/services/macbook-style.css',
+    'https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css',
+];
+ob_start();
 ?>
-
-<!DOCTYPE html>
-<html lang="th">
-
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <!-- SEO -->
-    <title><?= $page_title ?></title>
-    <meta name="description" content="<?= $page_description ?>">
-    <meta name="keywords" content="<?= $page_keywords ?>">
-    <meta name="robots" content="index, follow">
-    <link rel="canonical" href="https://cmnsfixmac.com/services/macbook.php">
-
-    <!-- Open Graph (Facebook, LINE) -->
-    <meta property="og:title" content="<?= $page_title ?>">
-    <meta property="og:description" content="<?= $page_description ?>">
-    <meta property="og:type" content="website">
-    <meta property="og:image" content="https://cmnsfixmac.com/assets/img/macbook-repair-og.jpg">
-    <meta property="og:image:width" content="1200">
-    <meta property="og:image:height" content="630">
-    <meta property="og:locale" content="th_TH">
-    <meta property="og:url" content="https://cmnsfixmac.com/services/macbook.php">
-
-    <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="<?= $page_title ?>">
-    <meta name="twitter:description" content="<?= $page_description ?>">
-    <meta name="twitter:image" content="https://cmnsfixmac.com/assets/img/macbook-repair-og.jpg">
-
-    <!-- Favicon & Font -->
-    <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
-
-    <!-- Stylesheets -->
-    <link rel="stylesheet" href="../assets/css/footer-style.css">
-    <link rel="stylesheet" href="assets/css/macbook-style.css">
-    <link href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" rel="stylesheet">
-
-    <!-- JavaScript -->
-    <script src="assets/js/script.js" defer></script>
-
-    <!-- Schema.org JSON-LD -->
-    <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@type": "LocalBusiness",
-    "name": "cmnsfixmac",
-    "image": "https://cmnsfixmac.com/assets/img/macbook-repair-og.jpg",
-    "description": "รับซ่อม MacBook ทุกรุ่น อาการจอแตก เปิดไม่ติด แบตเสื่อม น้ำเข้า โดยช่างผู้เชี่ยวชาญ",
-    "url": "https://cmnsfixmac.com//macbook.php",
-    "address": {
-      "@type": "PostalAddress",
-      "addressLocality": "เชียงใหม่",
-      "addressCountry": "TH"
-    },
-    "openingHours": "Mo-Sa 09:00-19:00",
-    "telephone": "084-151-1684"
-  }
-  </script>
-
-    <script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  "mainEntity": [
-    {
-      "@type": "Question",
-      "name": "ซ่อม MacBook ราคาเท่าไหร่?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "ราคาซ่อม MacBook ขึ้นอยู่กับรุ่นและอาการ เช่น เปลี่ยนจอเริ่มต้นประมาณ 5,900 บาท เปลี่ยนแบตเริ่มที่ 2,900 บาท"
-      }
-    },
-    {
-      "@type": "Question",
-      "name": "ใช้เวลาซ่อม MacBook นานไหม?",
-      "acceptedAnswer": {
-        "@type": "Answer",
-        "text": "งานซ่อมทั่วไปใช้เวลา 1–3 วัน โดยเราจะแจ้งลูกค้าก่อนทุกครั้งหากต้องรออะไหล่"
-      }
-    }
-  ]
-}
-</script>
-
-</head>
-
-<body>
-    <?php include_once '../includes/header.php'; ?>
+<meta name="description" content="<?= $page_description ?>">
+<meta name="keywords" content="<?= $page_keywords ?>">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://cmnsfixmac.com/services/macbook.php">
+<link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png">
+<meta property="og:title" content="<?= $page_title ?>">
+<meta property="og:description" content="<?= $page_description ?>">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://cmnsfixmac.com/assets/img/macbook-repair-og.jpg">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:locale" content="th_TH">
+<meta property="og:url" content="https://cmnsfixmac.com/services/macbook.php">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="<?= $page_title ?>">
+<meta name="twitter:description" content="<?= $page_description ?>">
+<meta name="twitter:image" content="https://cmnsfixmac.com/assets/img/macbook-repair-og.jpg">
+<script src="/services/assets/js/script.js" defer></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"LocalBusiness","name":"cmnsfixmac","image":"https://cmnsfixmac.com/assets/img/macbook-repair-og.jpg","description":"รับซ่อม MacBook ทุกรุ่น อาการจอแตก เปิดไม่ติด แบตเสื่อม น้ำเข้า โดยช่างผู้เชี่ยวชาญ","url":"https://cmnsfixmac.com/services/macbook.php","address":{"@type":"PostalAddress","addressLocality":"เชียงใหม่","addressCountry":"TH"},"openingHours":"Mo-Sa 09:00-19:00","telephone":"084-151-1684"}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"ซ่อม MacBook ราคาเท่าไหร่?","acceptedAnswer":{"@type":"Answer","text":"ราคาซ่อม MacBook ขึ้นอยู่กับรุ่นและอาการ เช่น เปลี่ยนจอเริ่มต้นประมาณ 5,900 บาท เปลี่ยนแบตเริ่มที่ 2,900 บาท"}},{"@type":"Question","name":"ใช้เวลาซ่อม MacBook นานไหม?","acceptedAnswer":{"@type":"Answer","text":"งานซ่อมทั่วไปใช้เวลา 1–3 วัน โดยเราจะแจ้งลูกค้าก่อนทุกครั้งหากต้องรออะไหล่"}}]}</script>
+<?php
+$page_head_extra = ob_get_clean();
+include_once '../includes/header.php';
+?>
 
     <main>
         <section class="hero-macbook">

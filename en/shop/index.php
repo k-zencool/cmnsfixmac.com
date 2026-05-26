@@ -327,9 +327,11 @@ if (isset($_GET['ajax']) && $_GET['ajax'] == '1') {
   <link rel="alternate" hreflang="en" href="<?= h($current_en_url) ?>" />
   <link rel="alternate" hreflang="x-default" href="<?= h($current_en_url) ?>" />
   <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png" />
-  <link rel="stylesheet" href="/shop/assets/css/shop-style.css">
-  <link rel="stylesheet" href="/shop/assets/css/hero.css">
-  <link rel="stylesheet" href="/shop/assets/css/cart-receipt.css">
+  <script src="/assets/js/theme.js"></script>
+  <link rel="stylesheet" href="/assets/css/design-tokens.css?v=1">
+  <link rel="stylesheet" href="/assets/css/shop/shop-style.css">
+  <link rel="stylesheet" href="/assets/css/shop/hero.css">
+  <link rel="stylesheet" href="/assets/css/shop/cart-receipt.css">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet" />
 </head>
 

@@ -34,7 +34,7 @@ $page_keywords = "install macOS Chiang Mai, Mac software installation, Office fo
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
     <link rel="stylesheet" href="/assets/css/style.css">
     <link rel="stylesheet" href="/assets/css/footer-style.css">
-    <link rel="stylesheet" href="/services/assets/css/software-style.css"> 
+    <link rel="stylesheet" href="/assets/css/services/software-style.css"> 
     <link href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" rel="stylesheet">
 
     <script type="application/ld+json">

@@ -157,10 +157,10 @@ if ($product) {
 
   <?php // (แก้ Path ให้เป็น Absolute Path ให้หมด จะได้ไม่พัง) 
   ?>
-  <link rel="stylesheet" href="/shop/assets/css/shop-style.css">
-  <link rel="stylesheet" href="/shop/assets/css/hero.css">
-  <link rel="stylesheet" href="/shop/assets/css/cart-receipt.css">
-  <link rel="stylesheet" href="/shop/assets/css/product-detail.css">
+  <link rel="stylesheet" href="/assets/css/shop/shop-style.css">
+  <link rel="stylesheet" href="/assets/css/shop/hero.css">
+  <link rel="stylesheet" href="/assets/css/shop/cart-receipt.css">
+  <link rel="stylesheet" href="/assets/css/shop/product-detail.css">
 
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet" />
 

@@ -3,113 +3,35 @@ require_once '../includes/db.php';
 $page_title = "ซ่อม iPad เชียงใหม่ ทุกอาการ โดยช่างผู้เชี่ยวชาญ | cmnsfixmac";
 $page_description = "ร้านซ่อม iPad เชียงใหม่ รับซ่อม iPad ทุกรุ่น จอแตก แบตเสื่อม เปิดไม่ติด น้ำเข้า โดยช่างผู้เชี่ยวชาญ พร้อมประกันงานซ่อม ราคาเป็นกันเอง";
 $page_keywords = "ซ่อม iPad เชียงใหม่, ร้านซ่อม iPad เชียงใหม่, iPad เปิดไม่ติด เชียงใหม่, เปลี่ยนจอ iPad เชียงใหม่, เปลี่ยนแบต iPad เชียงใหม่, iPad ชาร์จไม่เข้า เชียงใหม่, ซ่อมไอแพดเชียงใหม่";
+
+$page_css = [
+    '/assets/css/services/ipad-style.css',
+    'https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css',
+];
+ob_start();
 ?>
-
-<!DOCTYPE html>
-<html lang="th">
-
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><?= $page_title ?></title>
-    <meta name="description" content="<?= $page_description ?>">
-    <meta name="keywords" content="<?= $page_keywords ?>">
-    <meta name="robots" content="index, follow">
-    <link rel="canonical" href="https://cmnsfixmac.com/services/ipad.php">
-
-    <meta property="og:title" content="<?= $page_title ?>">
-    <meta property="og:description" content="<?= $page_description ?>">
-    <meta property="og:type" content="website">
-    <meta property="og:image" content="https://cmnsfixmac.com/assets/img/ipad-repair-og.jpg">
-    <meta property="og:url" content="https://cmnsfixmac.com/services/ipad.php">
-    <meta property="og:site_name" content="cmnsfixmac ซ่อม iPad เชียงใหม่">
-
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="<?= $page_title ?>">
-    <meta name="twitter:description" content="<?= $page_description ?>">
-    <meta name="twitter:image" content="https://cmnsfixmac.com/assets/img/ipad-repair-og.jpg">
-
-    <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
-    <link rel="stylesheet" href="../assets/css/footer-style.css">
-    <link rel="stylesheet" href="assets/css/ipad-style.css">
-    <link href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" rel="stylesheet">
-
-    <script src="assets/js/script.js" defer></script>
-
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "LocalBusiness",
-      "name": "cmnsfixmac - ซ่อม iPad เชียงใหม่",
-      "image": "https://cmnsfixmac.com/assets/img/ipad-repair-og.jpg",
-      "description": "ร้านซ่อม iPad ในจังหวัดเชียงใหม่ ให้บริการซ่อม iPad ทุกรุ่น ทุกอาการเสีย เช่น หน้าจอแตก แบตเตอรี่เสื่อม เครื่องเปิดไม่ติด เครื่องตกน้ำ โดยช่างผู้เชี่ยวชาญ มีประกันงานซ่อม",
-      "url": "https://cmnsfixmac.com/services/ipad.php",
-      "address": {
-        "@type": "PostalAddress",
-        "streetAddress": "482 หมู่ 8 ถ.เชียงใหม่-หางดง ต.แม่เหียะ อ.เมือง",
-        "addressLocality": "เชียงใหม่",
-        "addressRegion": "เชียงใหม่",
-        "postalCode": "50100",
-        "addressCountry": "TH"
-      },
-      "geo": { 
-        "@type": "GeoCoordinates",
-        "latitude": "18.756630",
-        "longitude": "98.962879"
-      },
-      "openingHours": "Mo-Sa 09:00-19:00",
-      "telephone": "084-151-1684",
-      "priceRange": "฿฿",
-      "department": [ 
-        {
-            "@type": "ElectronicsStore",
-            "name": "ซ่อม iPad เชียงใหม่",
-            "serviceArea": {
-                "@type": "City",
-                "name": "เชียงใหม่"
-            }
-        }
-      ]
-    }
-    </script>
-
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      "mainEntity": [
-        {
-          "@type": "Question",
-          "name": "ซ่อม iPad ที่เชียงใหม่ราคาเท่าไหร่?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "ราคาซ่อม iPad ที่ร้าน cmnsfixmac เชียงใหม่ ขึ้นอยู่กับรุ่นและอาการ เช่น เปลี่ยนจอเริ่มต้นประมาณ 1,500 บาท เปลี่ยนแบตเริ่มที่ 1,200 บาท ลูกค้าสามารถสอบถามราคาประเมินฟรีก่อนซ่อมได้ครับ"
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "ใช้เวลาซ่อม iPad ที่เชียงใหม่นานไหม?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "ที่ cmnsfixmac เชียงใหม่ งานซ่อม iPad ทั่วไปใช้เวลาประมาณ 1–3 วัน ขึ้นอยู่กับความพร้อมของอะไหล่และอาการเสียของเครื่อง ช่างของเราจะแจ้งระยะเวลาให้ทราบอีกครั้งหลังการตรวจเช็คครับ"
-          }
-        },
-        { 
-            "@type": "Question",
-            "name": "ร้าน cmnsfixmac ซ่อม iPad อยู่แถวไหนของเชียงใหม่?",
-            "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "ร้าน cmnsfixmac สำหรับซ่อม iPad ตั้งอยู่ที่ 482 หมู่ 8 ถนนเชียงใหม่-หางดง ตำบลแม่เหียะ อำเภอเมือง จังหวัดเชียงใหม่ ลูกค้าสามารถดูแผนที่การเดินทางมาที่ร้านได้จากหน้าเว็บไซต์ หรือสอบถามเส้นทางเพิ่มเติมได้ครับ"
-            }
-        }
-      ]
-    }
-    </script>
-</head>
-
-<body>
-<?php include_once '../includes/header.php'; ?>
+<meta name="description" content="<?= $page_description ?>">
+<meta name="keywords" content="<?= $page_keywords ?>">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://cmnsfixmac.com/services/ipad.php">
+<link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png">
+<meta property="og:title" content="<?= $page_title ?>">
+<meta property="og:description" content="<?= $page_description ?>">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://cmnsfixmac.com/assets/img/ipad-repair-og.jpg">
+<meta property="og:url" content="https://cmnsfixmac.com/services/ipad.php">
+<meta property="og:site_name" content="cmnsfixmac ซ่อม iPad เชียงใหม่">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="<?= $page_title ?>">
+<meta name="twitter:description" content="<?= $page_description ?>">
+<meta name="twitter:image" content="https://cmnsfixmac.com/assets/img/ipad-repair-og.jpg">
+<script src="/services/assets/js/script.js" defer></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"LocalBusiness","name":"cmnsfixmac - ซ่อม iPad เชียงใหม่","image":"https://cmnsfixmac.com/assets/img/ipad-repair-og.jpg","description":"ร้านซ่อม iPad ในจังหวัดเชียงใหม่ ให้บริการซ่อม iPad ทุกรุ่น ทุกอาการเสีย เช่น หน้าจอแตก แบตเตอรี่เสื่อม เครื่องเปิดไม่ติด เครื่องตกน้ำ โดยช่างผู้เชี่ยวชาญ มีประกันงานซ่อม","url":"https://cmnsfixmac.com/services/ipad.php","address":{"@type":"PostalAddress","streetAddress":"482 หมู่ 8 ถ.เชียงใหม่-หางดง ต.แม่เหียะ อ.เมือง","addressLocality":"เชียงใหม่","addressRegion":"เชียงใหม่","postalCode":"50100","addressCountry":"TH"},"geo":{"@type":"GeoCoordinates","latitude":"18.756630","longitude":"98.962879"},"openingHours":"Mo-Sa 09:00-19:00","telephone":"084-151-1684","priceRange":"฿฿","department":[{"@type":"ElectronicsStore","name":"ซ่อม iPad เชียงใหม่","serviceArea":{"@type":"City","name":"เชียงใหม่"}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"ซ่อม iPad ที่เชียงใหม่ราคาเท่าไหร่?","acceptedAnswer":{"@type":"Answer","text":"ราคาซ่อม iPad ที่ร้าน cmnsfixmac เชียงใหม่ ขึ้นอยู่กับรุ่นและอาการ เช่น เปลี่ยนจอเริ่มต้นประมาณ 1,500 บาท เปลี่ยนแบตเริ่มที่ 1,200 บาท ลูกค้าสามารถสอบถามราคาประเมินฟรีก่อนซ่อมได้ครับ"}},{"@type":"Question","name":"ใช้เวลาซ่อม iPad ที่เชียงใหม่นานไหม?","acceptedAnswer":{"@type":"Answer","text":"ที่ cmnsfixmac เชียงใหม่ งานซ่อม iPad ทั่วไปใช้เวลาประมาณ 1–3 วัน ขึ้นอยู่กับความพร้อมของอะไหล่และอาการเสียของเครื่อง ช่างของเราจะแจ้งระยะเวลาให้ทราบอีกครั้งหลังการตรวจเช็คครับ"}},{"@type":"Question","name":"ร้าน cmnsfixmac ซ่อม iPad อยู่แถวไหนของเชียงใหม่?","acceptedAnswer":{"@type":"Answer","text":"ร้าน cmnsfixmac สำหรับซ่อม iPad ตั้งอยู่ที่ 482 หมู่ 8 ถนนเชียงใหม่-หางดง ตำบลแม่เหียะ อำเภอเมือง จังหวัดเชียงใหม่ ลูกค้าสามารถดูแผนที่การเดินทางมาที่ร้านได้จากหน้าเว็บไซต์ หรือสอบถามเส้นทางเพิ่มเติมได้ครับ"}}]}</script>
+<?php
+$page_head_extra = ob_get_clean();
+include_once '../includes/header.php';
+?>
 
 <main>
     <section class="hero-ipad">

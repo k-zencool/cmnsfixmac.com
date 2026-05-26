@@ -3,110 +3,35 @@ require_once '../includes/db.php';
 $page_title = "ซ่อม AirPods เชียงใหม่ ทุกรุ่น ทุกอาการ โดยช่างผู้เชี่ยวชาญ | cmnsfixmac";
 $page_description = "ร้านซ่อม AirPods เชียงใหม่ รับซ่อม AirPods, AirPods Pro, AirPods Max แบตเสื่อม เคสชาร์จเสีย น้ำเข้า เสียงไม่ดัง โดยช่างเฉพาะทาง พร้อมประกัน";
 $page_keywords = "ซ่อม AirPods เชียงใหม่, ร้านซ่อม AirPods เชียงใหม่, AirPods แบตเสื่อม เชียงใหม่, เปลี่ยนแบต AirPods เชียงใหม่, เคส AirPods ชาร์จไม่เข้า เชียงใหม่, AirPods เสียงไม่ดัง เชียงใหม่, ซ่อมแอร์พอดเชียงใหม่";
+
+$page_css = [
+    '/assets/css/services/airpods-style.css',
+    'https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css',
+];
+ob_start();
 ?>
-
-<!DOCTYPE html>
-<html lang="th">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= $page_title ?></title>
-    <meta name="description" content="<?= $page_description ?>">
-    <meta name="keywords" content="<?= $page_keywords ?>">
-    <meta name="robots" content="index, follow">
-    <link rel="canonical" href="https://cmnsfixmac.com/services/airpods.php">
-
-    <meta property="og:title" content="<?= $page_title ?>">
-    <meta property="og:description" content="<?= $page_description ?>">
-    <meta property="og:type" content="website">
-    <meta property="og:image" content="https://cmnsfixmac.com/assets/img/airpods-repair-og.jpg">
-    <meta property="og:url" content="https://cmnsfixmac.com/services/airpods.php">
-    <meta property="og:site_name" content="cmnsfixmac ซ่อม AirPods เชียงใหม่">
-
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="<?= $page_title ?>">
-    <meta name="twitter:description" content="<?= $page_description ?>">
-    <meta name="twitter:image" content="https://cmnsfixmac.com/assets/img/airpods-repair-og.jpg">
-
-    <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
-    <link rel="stylesheet" href="../assets/css/footer-style.css">
-    <link rel="stylesheet" href="assets/css/airpods-style.css">
-    <link href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" rel="stylesheet">
-    <script src="assets/js/script.js" defer></script>
-
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "LocalBusiness",
-      "name": "cmnsfixmac - ซ่อม AirPods เชียงใหม่",
-      "image": "https://cmnsfixmac.com/assets/img/airpods-repair-og.jpg",
-      "description": "ร้านซ่อม AirPods ในจังหวัดเชียงใหม่ ให้บริการซ่อม AirPods ทุกรุ่น (AirPods, AirPods Pro, AirPods Max) ทุกอาการเสีย เช่น แบตเตอรี่เสื่อม, เคสชาร์จมีปัญหา, หูฟังโดนน้ำ, เสียงออกข้างเดียว โดยช่างผู้เชี่ยวชาญ พร้อมรับประกันงานซ่อม",
-      "url": "https://cmnsfixmac.com/services/airpods.php",
-      "address": {
-        "@type": "PostalAddress",
-        "streetAddress": "482 หมู่ 8 ถ.เชียงใหม่-หางดง ต.แม่เหียะ อ.เมือง",
-        "addressLocality": "เชียงใหม่",
-        "addressRegion": "เชียงใหม่",
-        "postalCode": "50100",
-        "addressCountry": "TH"
-      },
-      "geo": {
-        "@type": "GeoCoordinates",
-        "latitude": "18.756630",
-        "longitude": "98.962879"
-      },
-      "openingHours": "Mo-Sa 09:00-19:00",
-      "telephone": "084-151-1684",
-      "priceRange": "฿ - ฿฿",
-      "department": [
-        {
-            "@type": "ElectronicsStore",
-            "name": "ซ่อม AirPods เชียงใหม่",
-            "serviceArea": {
-                "@type": "City",
-                "name": "เชียงใหม่"
-            }
-        }
-      ]
-    }
-    </script>
-
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      "mainEntity": [
-        {
-          "@type": "Question",
-          "name": "เปลี่ยนแบต AirPods ที่เชียงใหม่ ราคาเท่าไหร่?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "ราคาเปลี่ยนแบตเตอรี่ AirPods ที่ร้าน cmnsfixmac เชียงใหม่ ขึ้นอยู่กับรุ่นของ AirPods (เช่น AirPods 1, 2, Pro, Max) โดยทั่วไปเริ่มต้นที่ประมาณหลักร้อยถึงพันกว่าบาทต่อข้างหรือต่อเคส สามารถสอบถามราคาที่แน่นอนสำหรับรุ่นของคุณได้ครับ"
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "AirPods เสียงเบาข้างเดียว ซ่อมที่เชียงใหม่ได้ไหม?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "ได้ครับ อาการ AirPods เสียงเบาข้างเดียว หรือเสียงไม่ออกข้างหนึ่ง สามารถนำมาให้ช่างที่ cmnsfixmac เชียงใหม่ ตรวจเช็คได้ครับ อาจเกิดจากปัญหาแบตเตอรี่ ลำโพง หรือการเชื่อมต่อภายใน ช่างจะประเมินและแจ้งแนวทางการซ่อมให้ทราบครับ"
-          }
-        },
-        {
-            "@type": "Question",
-            "name": "เคสชาร์จ AirPods เสีย ซ่อมหรือซื้อใหม่ที่ร้าน cmnsfixmac เชียงใหม่ แบบไหนดีกว่า?",
-            "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "ที่ cmnsfixmac เชียงใหม่ เรามีบริการทั้งซ่อมเคสชาร์จ AirPods และจำหน่ายเคสชาร์จ (ขึ้นอยู่กับสต็อกสินค้า) หากเคสชาร์จเสียหายเล็กน้อย การซ่อมอาจคุ้มค่ากว่า แต่ถ้าเสียหายมากหรือซ่อมไม่ได้ การซื้อเคสใหม่ก็เป็นอีกทางเลือกหนึ่ง ช่างของเรายินดีให้คำแนะนำครับ"
-            }
-        }
-      ]
-    }
-    </script>
-</head>
-<body>
-<?php include_once '../includes/header.php'; ?>
+<meta name="description" content="<?= $page_description ?>">
+<meta name="keywords" content="<?= $page_keywords ?>">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://cmnsfixmac.com/services/airpods.php">
+<link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png">
+<meta property="og:title" content="<?= $page_title ?>">
+<meta property="og:description" content="<?= $page_description ?>">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://cmnsfixmac.com/assets/img/airpods-repair-og.jpg">
+<meta property="og:url" content="https://cmnsfixmac.com/services/airpods.php">
+<meta property="og:site_name" content="cmnsfixmac ซ่อม AirPods เชียงใหม่">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="<?= $page_title ?>">
+<meta name="twitter:description" content="<?= $page_description ?>">
+<meta name="twitter:image" content="https://cmnsfixmac.com/assets/img/airpods-repair-og.jpg">
+<script src="/services/assets/js/script.js" defer></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"LocalBusiness","name":"cmnsfixmac - ซ่อม AirPods เชียงใหม่","image":"https://cmnsfixmac.com/assets/img/airpods-repair-og.jpg","description":"ร้านซ่อม AirPods ในจังหวัดเชียงใหม่ ให้บริการซ่อม AirPods ทุกรุ่น (AirPods, AirPods Pro, AirPods Max) ทุกอาการเสีย เช่น แบตเตอรี่เสื่อม, เคสชาร์จมีปัญหา, หูฟังโดนน้ำ, เสียงออกข้างเดียว โดยช่างผู้เชี่ยวชาญ พร้อมรับประกันงานซ่อม","url":"https://cmnsfixmac.com/services/airpods.php","address":{"@type":"PostalAddress","streetAddress":"482 หมู่ 8 ถ.เชียงใหม่-หางดง ต.แม่เหียะ อ.เมือง","addressLocality":"เชียงใหม่","addressRegion":"เชียงใหม่","postalCode":"50100","addressCountry":"TH"},"geo":{"@type":"GeoCoordinates","latitude":"18.756630","longitude":"98.962879"},"openingHours":"Mo-Sa 09:00-19:00","telephone":"084-151-1684","priceRange":"฿ - ฿฿","department":[{"@type":"ElectronicsStore","name":"ซ่อม AirPods เชียงใหม่","serviceArea":{"@type":"City","name":"เชียงใหม่"}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"เปลี่ยนแบต AirPods ที่เชียงใหม่ ราคาเท่าไหร่?","acceptedAnswer":{"@type":"Answer","text":"ราคาเปลี่ยนแบตเตอรี่ AirPods ที่ร้าน cmnsfixmac เชียงใหม่ ขึ้นอยู่กับรุ่นของ AirPods (เช่น AirPods 1, 2, Pro, Max) โดยทั่วไปเริ่มต้นที่ประมาณหลักร้อยถึงพันกว่าบาทต่อข้างหรือต่อเคส สามารถสอบถามราคาที่แน่นอนสำหรับรุ่นของคุณได้ครับ"}},{"@type":"Question","name":"AirPods เสียงเบาข้างเดียว ซ่อมที่เชียงใหม่ได้ไหม?","acceptedAnswer":{"@type":"Answer","text":"ได้ครับ อาการ AirPods เสียงเบาข้างเดียว หรือเสียงไม่ออกข้างหนึ่ง สามารถนำมาให้ช่างที่ cmnsfixmac เชียงใหม่ ตรวจเช็คได้ครับ อาจเกิดจากปัญหาแบตเตอรี่ ลำโพง หรือการเชื่อมต่อภายใน ช่างจะประเมินและแจ้งแนวทางการซ่อมให้ทราบครับ"}},{"@type":"Question","name":"เคสชาร์จ AirPods เสีย ซ่อมหรือซื้อใหม่ที่ร้าน cmnsfixmac เชียงใหม่ แบบไหนดีกว่า?","acceptedAnswer":{"@type":"Answer","text":"ที่ cmnsfixmac เชียงใหม่ เรามีบริการทั้งซ่อมเคสชาร์จ AirPods และจำหน่ายเคสชาร์จ (ขึ้นอยู่กับสต็อกสินค้า) หากเคสชาร์จเสียหายเล็กน้อย การซ่อมอาจคุ้มค่ากว่า แต่ถ้าเสียหายมากหรือซ่อมไม่ได้ การซื้อเคสใหม่ก็เป็นอีกทางเลือกหนึ่ง ช่างของเรายินดีให้คำแนะนำครับ"}}]}</script>
+<?php
+$page_head_extra = ob_get_clean();
+include_once '../includes/header.php';
+?>
 
 <main>
   <section class="hero-airpods">

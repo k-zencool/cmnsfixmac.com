@@ -3,112 +3,35 @@ require_once '../includes/db.php';
 $page_title = "ซ่อม Apple Watch เชียงใหม่ ทุกซีรีส์ โดยช่างผู้เชี่ยวชาญ | cmnsfixmac";
 $page_description = "ร้านซ่อม Apple Watch เชียงใหม่ รับซ่อมทุกรุ่น Series 1-9, Ultra จอแตก แบตเสื่อม น้ำเข้า ไม่ชาร์จ โดยช่างเฉพาะทาง มีประกันงานซ่อม";
 $page_keywords = "ซ่อม Apple Watch เชียงใหม่, ร้านซ่อม Apple Watch เชียงใหม่, Apple Watch เปิดไม่ติด เชียงใหม่, เปลี่ยนจอ Apple Watch เชียงใหม่, เปลี่ยนแบต Apple Watch เชียงใหม่, Apple Watch ชาร์จไม่เข้า เชียงใหม่, ซ่อมแอปเปิ้ลวอชเชียงใหม่";
+
+$page_css = [
+    '/assets/css/services/apple-watch-style.css',
+    'https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css',
+];
+ob_start();
 ?>
-
-<!DOCTYPE html>
-<html lang="th">
-
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><?= $page_title ?></title>
-    <meta name="description" content="<?= $page_description ?>">
-    <meta name="keywords" content="<?= $page_keywords ?>">
-    <meta name="robots" content="index, follow">
-    <link rel="canonical" href="https://cmnsfixmac.com/services/apple-watch.php">
-
-    <meta property="og:title" content="<?= $page_title ?>">
-    <meta property="og:description" content="<?= $page_description ?>">
-    <meta property="og:type" content="website">
-    <meta property="og:image" content="https://cmnsfixmac.com/assets/img/applewatch-repair-og.jpg">
-    <meta property="og:url" content="https://cmnsfixmac.com/services/apple-watch.php">
-    <meta property="og:site_name" content="cmnsfixmac ซ่อม Apple Watch เชียงใหม่">
-
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="<?= $page_title ?>">
-    <meta name="twitter:description" content="<?= $page_description ?>">
-    <meta name="twitter:image" content="https://cmnsfixmac.com/assets/img/applewatch-repair-og.jpg">
-
-    <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
-    <link rel="stylesheet" href="../assets/css/footer-style.css">
-    <link rel="stylesheet" href="assets/css/apple-watch-style.css">
-    <link href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" rel="stylesheet">
-    <script src="assets/js/script.js" defer></script>
-
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "LocalBusiness",
-      "name": "cmnsfixmac - ซ่อม Apple Watch เชียงใหม่",
-      "image": "https://cmnsfixmac.com/assets/img/applewatch-repair-og.jpg",
-      "description": "ร้านซ่อม Apple Watch ในจังหวัดเชียงใหม่ ให้บริการซ่อม Apple Watch ทุกซีรีส์ ทุกอาการเสีย เช่น หน้าจอแตก แบตเตอรี่เสื่อม เครื่องเปิดไม่ติด เครื่องโดนน้ำ ไม่ชาร์จ โดยช่างผู้เชี่ยวชาญ พร้อมรับประกันงานซ่อม",
-      "url": "https://cmnsfixmac.com/services/apple-watch.php",
-      "address": {
-        "@type": "PostalAddress",
-        "streetAddress": "482 หมู่ 8 ถ.เชียงใหม่-หางดง ต.แม่เหียะ อ.เมือง",
-        "addressLocality": "เชียงใหม่",
-        "addressRegion": "เชียงใหม่",
-        "postalCode": "50100",
-        "addressCountry": "TH"
-      },
-      "geo": {
-        "@type": "GeoCoordinates",
-        "latitude": "18.756630",
-        "longitude": "98.962879"
-      },
-      "openingHours": "Mo-Sa 09:00-19:00",
-      "telephone": "084-151-1684",
-      "priceRange": "฿฿",
-      "department": [
-        {
-            "@type": "ElectronicsStore",
-            "name": "ซ่อม Apple Watch เชียงใหม่",
-            "serviceArea": {
-                "@type": "City",
-                "name": "เชียงใหม่"
-            }
-        }
-      ]
-    }
-    </script>
-
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      "mainEntity": [
-        {
-          "@type": "Question",
-          "name": "ซ่อม Apple Watch ที่เชียงใหม่ ราคาแพงไหม?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "ราคาซ่อม Apple Watch ที่ร้าน cmnsfixmac เชียงใหม่ ขึ้นอยู่กับรุ่น (Series) และอาการเสียครับ เช่น การเปลี่ยนจอ หรือเปลี่ยนแบตเตอรี่ สามารถสอบถามราคาประเมินเบื้องต้นกับทางร้านได้ฟรีก่อนตัดสินใจซ่อมครับ เรามีราคาที่เป็นธรรมและสมเหตุสมผล"
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "Apple Watch ตกน้ำ ซ่อมที่เชียงใหม่ได้ไหม?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "ได้ครับ ที่ cmnsfixmac เชียงใหม่ เรารับซ่อม Apple Watch ที่มีอาการน้ำเข้า ทั้งการล้างเครื่อง ตรวจเช็คแผงวงจร และเปลี่ยนอะไหล่ที่เสียหาย อย่างไรก็ตาม โอกาสในการซ่อมสำเร็จขึ้นอยู่กับความเสียหายภายในเครื่อง แนะนำให้นำเครื่องมาให้ช่างประเมินโดยเร็ที่สุดครับ"
-          }
-        },
-        {
-            "@type": "Question",
-            "name": "เปลี่ยนแบต Apple Watch ที่ร้าน cmnsfixmac เชียงใหม่ ใช้เวลานานเท่าไหร่?",
-            "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "การเปลี่ยนแบตเตอรี่ Apple Watch ที่ร้าน cmnsfixmac ในเชียงใหม่ โดยทั่วไปใช้เวลาไม่นาน หากมีอะไหล่ตรงรุ่นสามารถรอรับได้ภายใน 1-2 ชั่วโมง หรือตามคิวงานครับ เพื่อความสะดวกรวดเร็ว ลูกค้าสามารถนัดหมายล่วงหน้าได้ครับ"
-            }
-        }
-      ]
-    }
-    </script>
-</head>
-
-<body>
-  <?php include_once '../includes/header.php'; ?>
+<meta name="description" content="<?= $page_description ?>">
+<meta name="keywords" content="<?= $page_keywords ?>">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://cmnsfixmac.com/services/apple-watch.php">
+<link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png">
+<meta property="og:title" content="<?= $page_title ?>">
+<meta property="og:description" content="<?= $page_description ?>">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://cmnsfixmac.com/assets/img/applewatch-repair-og.jpg">
+<meta property="og:url" content="https://cmnsfixmac.com/services/apple-watch.php">
+<meta property="og:site_name" content="cmnsfixmac ซ่อม Apple Watch เชียงใหม่">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="<?= $page_title ?>">
+<meta name="twitter:description" content="<?= $page_description ?>">
+<meta name="twitter:image" content="https://cmnsfixmac.com/assets/img/applewatch-repair-og.jpg">
+<script src="/services/assets/js/script.js" defer></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"LocalBusiness","name":"cmnsfixmac - ซ่อม Apple Watch เชียงใหม่","image":"https://cmnsfixmac.com/assets/img/applewatch-repair-og.jpg","description":"ร้านซ่อม Apple Watch ในจังหวัดเชียงใหม่ ให้บริการซ่อม Apple Watch ทุกซีรีส์ ทุกอาการเสีย เช่น หน้าจอแตก แบตเตอรี่เสื่อม เครื่องเปิดไม่ติด เครื่องโดนน้ำ ไม่ชาร์จ โดยช่างผู้เชี่ยวชาญ พร้อมรับประกันงานซ่อม","url":"https://cmnsfixmac.com/services/apple-watch.php","address":{"@type":"PostalAddress","streetAddress":"482 หมู่ 8 ถ.เชียงใหม่-หางดง ต.แม่เหียะ อ.เมือง","addressLocality":"เชียงใหม่","addressRegion":"เชียงใหม่","postalCode":"50100","addressCountry":"TH"},"geo":{"@type":"GeoCoordinates","latitude":"18.756630","longitude":"98.962879"},"openingHours":"Mo-Sa 09:00-19:00","telephone":"084-151-1684","priceRange":"฿฿","department":[{"@type":"ElectronicsStore","name":"ซ่อม Apple Watch เชียงใหม่","serviceArea":{"@type":"City","name":"เชียงใหม่"}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"ซ่อม Apple Watch ที่เชียงใหม่ ราคาแพงไหม?","acceptedAnswer":{"@type":"Answer","text":"ราคาซ่อม Apple Watch ที่ร้าน cmnsfixmac เชียงใหม่ ขึ้นอยู่กับรุ่น (Series) และอาการเสียครับ เช่น การเปลี่ยนจอ หรือเปลี่ยนแบตเตอรี่ สามารถสอบถามราคาประเมินเบื้องต้นกับทางร้านได้ฟรีก่อนตัดสินใจซ่อมครับ เรามีราคาที่เป็นธรรมและสมเหตุสมผล"}},{"@type":"Question","name":"Apple Watch ตกน้ำ ซ่อมที่เชียงใหม่ได้ไหม?","acceptedAnswer":{"@type":"Answer","text":"ได้ครับ ที่ cmnsfixmac เชียงใหม่ เรารับซ่อม Apple Watch ที่มีอาการน้ำเข้า ทั้งการล้างเครื่อง ตรวจเช็คแผงวงจร และเปลี่ยนอะไหล่ที่เสียหาย อย่างไรก็ตาม โอกาสในการซ่อมสำเร็จขึ้นอยู่กับความเสียหายภายในเครื่อง แนะนำให้นำเครื่องมาให้ช่างประเมินโดยเร็ที่สุดครับ"}},{"@type":"Question","name":"เปลี่ยนแบต Apple Watch ที่ร้าน cmnsfixmac เชียงใหม่ ใช้เวลานานเท่าไหร่?","acceptedAnswer":{"@type":"Answer","text":"การเปลี่ยนแบตเตอรี่ Apple Watch ที่ร้าน cmnsfixmac ในเชียงใหม่ โดยทั่วไปใช้เวลาไม่นาน หากมีอะไหล่ตรงรุ่นสามารถรอรับได้ภายใน 1-2 ชั่วโมง หรือตามคิวงานครับ เพื่อความสะดวกรวดเร็ว ลูกค้าสามารถนัดหมายล่วงหน้าได้ครับ"}}]}</script>
+<?php
+$page_head_extra = ob_get_clean();
+include_once '../includes/header.php';
+?>
 
   <main>
     <section class="hero-applewatch">

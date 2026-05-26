@@ -3,111 +3,35 @@ require_once '../includes/db.php';
 $page_title = "ลงโปรแกรม Mac เชียงใหม่, macOS, Office, Adobe | cmnsfixmac";
 $page_description = "ร้านลงโปรแกรม Mac เชียงใหม่ บริการลง macOS, Microsoft Office, Adobe, AutoCAD, ล้างเครื่อง แก้ไวรัส MacBook, iMac โดยช่างผู้เชี่ยวชาญ";
 $page_keywords = "ลงโปรแกรม Mac เชียงใหม่, ลง macOS เชียงใหม่, ลง Office Mac เชียงใหม่, ลง Adobe Mac เชียงใหม่, ล้างเครื่อง Mac เชียงใหม่, แก้เครื่องช้า Mac เชียงใหม่, โปรแกรม MacBook เชียงใหม่";
+
+$page_css = [
+    '/assets/css/services/software-style.css',
+    'https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css',
+];
+ob_start();
 ?>
-
-<!DOCTYPE html>
-<html lang="th">
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title><?= $page_title ?></title>
-    <meta name="description" content="<?= $page_description ?>">
-    <meta name="keywords" content="<?= $page_keywords ?>">
-    <meta name="robots" content="index, follow">
-    <link rel="canonical" href="https://cmnsfixmac.com/services/software.php">
-
-    <meta property="og:title" content="<?= $page_title ?>">
-    <meta property="og:description" content="<?= $page_description ?>">
-    <meta property="og:type" content="website">
-    <meta property="og:image" content="https://cmnsfixmac.com/assets/img/software-og.jpg">
-    <meta property="og:url" content="https://cmnsfixmac.com/services/software.php">
-    <meta property="og:site_name" content="cmnsfixmac ลงโปรแกรม Mac เชียงใหม่">
-
-    <meta name="twitter:card" content="summary_large_image">
-    <meta name="twitter:title" content="<?= $page_title ?>">
-    <meta name="twitter:description" content="<?= $page_description ?>">
-    <meta name="twitter:image" content="https://cmnsfixmac.com/assets/img/software-og.jpg">
-
-    <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet">
-    <link rel="stylesheet" href="../assets/css/footer-style.css">
-    <link rel="stylesheet" href="assets/css/software-style.css">
-    <link href="https://cdn.jsdelivr.net/npm/aos@2.3.4/dist/aos.css" rel="stylesheet">
-    <script src="assets/js/script.js" defer></script>
-
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "LocalBusiness",
-      "name": "cmnsfixmac - ลงโปรแกรม Mac เชียงใหม่",
-      "image": "https://cmnsfixmac.com/assets/img/software-og.jpg",
-      "description": "ร้านลงโปรแกรม Mac และ macOS ในจังหวัดเชียงใหม่ บริการติดตั้ง Microsoft Office, โปรแกรม Adobe, AutoCAD, ล้างเครื่อง, แก้ไขปัญหาไวรัส สำหรับ MacBook และ iMac ทุกรุ่น โดยช่างผู้ชำนาญ",
-      "url": "https://cmnsfixmac.com/services/software.php",
-      "address": {
-        "@type": "PostalAddress",
-        "streetAddress": "482 หมู่ 8 ถ.เชียงใหม่-หางดง ต.แม่เหียะ อ.เมือง",
-        "addressLocality": "เชียงใหม่",
-        "addressRegion": "เชียงใหม่",
-        "postalCode": "50100",
-        "addressCountry": "TH"
-      },
-      "geo": {
-        "@type": "GeoCoordinates",
-        "latitude": "18.756630",
-        "longitude": "98.962879"
-      },
-      "openingHours": "Mo-Sa 09:00-19:00",
-      "telephone": "084-151-1684",
-      "priceRange": "฿฿",
-      "department": [
-        {
-            "@type": "ComputerStore",
-            "name": "บริการลงโปรแกรม Mac เชียงใหม่",
-            "serviceArea": {
-                "@type": "City",
-                "name": "เชียงใหม่"
-            }
-        }
-      ]
-    }
-    </script>
-
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      "mainEntity": [
-        {
-          "@type": "Question",
-          "name": "ลงโปรแกรม Mac ที่เชียงใหม่ ราคาเท่าไหร่?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "ค่าบริการลงโปรแกรม Mac ที่ร้าน cmnsfixmac เชียงใหม่ ขึ้นอยู่กับประเภทของโปรแกรมและความซับซ้อน เช่น การลง macOS ใหม่ หรือโปรแกรมชุด Office, Adobe โดยทั่วไปเริ่มต้นที่หลักร้อยถึงหลักพันบาท สามารถสอบถามราคาประเมินฟรีก่อนได้ครับ"
-          }
-        },
-        {
-          "@type": "Question",
-          "name": "ใช้เวลาลงโปรแกรม Mac ที่เชียงใหม่นานไหม?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "ที่ cmnsfixmac เชียงใหม่ การลง macOS หรือโปรแกรมทั่วไปมักใช้เวลาประมาณ 1-3 ชั่วโมง หากมีการสำรองข้อมูลหรือแก้ไขปัญหาอื่นๆ ร่วมด้วย อาจใช้เวลานานขึ้น ช่างจะประเมินและแจ้งให้ทราบก่อนดำเนินการครับ"
-          }
-        },
-        {
-            "@type": "Question",
-            "name": "ร้าน cmnsfixmac เชียงใหม่ รับลงโปรแกรมอะไรบ้างสำหรับ Mac?",
-            "acceptedAnswer": {
-                "@type": "Answer",
-                "text": "ร้าน cmnsfixmac ในเชียงใหม่ รับลงระบบปฏิบัติการ macOS ทุกเวอร์ชัน, โปรแกรม Microsoft Office (Word, Excel, PowerPoint), โปรแกรมชุด Adobe Creative Cloud (Photoshop, Illustrator, Premiere Pro), AutoCAD, โปรแกรมออกแบบต่างๆ รวมถึงการล้างเครื่องและกำจัดไวรัสบน Mac ครับ"
-            }
-        }
-      ]
-    }
-    </script>
-</head>
-
-<body>
-<?php include_once '../includes/header.php'; ?>
+<meta name="description" content="<?= $page_description ?>">
+<meta name="keywords" content="<?= $page_keywords ?>">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://cmnsfixmac.com/services/software.php">
+<link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png">
+<meta property="og:title" content="<?= $page_title ?>">
+<meta property="og:description" content="<?= $page_description ?>">
+<meta property="og:type" content="website">
+<meta property="og:image" content="https://cmnsfixmac.com/assets/img/software-og.jpg">
+<meta property="og:url" content="https://cmnsfixmac.com/services/software.php">
+<meta property="og:site_name" content="cmnsfixmac ลงโปรแกรม Mac เชียงใหม่">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="<?= $page_title ?>">
+<meta name="twitter:description" content="<?= $page_description ?>">
+<meta name="twitter:image" content="https://cmnsfixmac.com/assets/img/software-og.jpg">
+<script src="/services/assets/js/script.js" defer></script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"LocalBusiness","name":"cmnsfixmac - ลงโปรแกรม Mac เชียงใหม่","image":"https://cmnsfixmac.com/assets/img/software-og.jpg","description":"ร้านลงโปรแกรม Mac และ macOS ในจังหวัดเชียงใหม่ บริการติดตั้ง Microsoft Office, โปรแกรม Adobe, AutoCAD, ล้างเครื่อง, แก้ไขปัญหาไวรัส สำหรับ MacBook และ iMac ทุกรุ่น โดยช่างผู้ชำนาญ","url":"https://cmnsfixmac.com/services/software.php","address":{"@type":"PostalAddress","streetAddress":"482 หมู่ 8 ถ.เชียงใหม่-หางดง ต.แม่เหียะ อ.เมือง","addressLocality":"เชียงใหม่","addressRegion":"เชียงใหม่","postalCode":"50100","addressCountry":"TH"},"geo":{"@type":"GeoCoordinates","latitude":"18.756630","longitude":"98.962879"},"openingHours":"Mo-Sa 09:00-19:00","telephone":"084-151-1684","priceRange":"฿฿","department":[{"@type":"ComputerStore","name":"บริการลงโปรแกรม Mac เชียงใหม่","serviceArea":{"@type":"City","name":"เชียงใหม่"}}]}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"ลงโปรแกรม Mac ที่เชียงใหม่ ราคาเท่าไหร่?","acceptedAnswer":{"@type":"Answer","text":"ค่าบริการลงโปรแกรม Mac ที่ร้าน cmnsfixmac เชียงใหม่ ขึ้นอยู่กับประเภทของโปรแกรมและความซับซ้อน เช่น การลง macOS ใหม่ หรือโปรแกรมชุด Office, Adobe โดยทั่วไปเริ่มต้นที่หลักร้อยถึงหลักพันบาท สามารถสอบถามราคาประเมินฟรีก่อนได้ครับ"}},{"@type":"Question","name":"ใช้เวลาลงโปรแกรม Mac ที่เชียงใหม่นานไหม?","acceptedAnswer":{"@type":"Answer","text":"ที่ cmnsfixmac เชียงใหม่ การลง macOS หรือโปรแกรมทั่วไปมักใช้เวลาประมาณ 1-3 ชั่วโมง หากมีการสำรองข้อมูลหรือแก้ไขปัญหาอื่นๆ ร่วมด้วย อาจใช้เวลานานขึ้น ช่างจะประเมินและแจ้งให้ทราบก่อนดำเนินการครับ"}},{"@type":"Question","name":"ร้าน cmnsfixmac เชียงใหม่ รับลงโปรแกรมอะไรบ้างสำหรับ Mac?","acceptedAnswer":{"@type":"Answer","text":"ร้าน cmnsfixmac ในเชียงใหม่ รับลงระบบปฏิบัติการ macOS ทุกเวอร์ชัน, โปรแกรม Microsoft Office (Word, Excel, PowerPoint), โปรแกรมชุด Adobe Creative Cloud (Photoshop, Illustrator, Premiere Pro), AutoCAD, โปรแกรมออกแบบต่างๆ รวมถึงการล้างเครื่องและกำจัดไวรัสบน Mac ครับ"}}]}</script>
+<?php
+$page_head_extra = ob_get_clean();
+include_once '../includes/header.php';
+?>
 
 <main>
   <section class="hero-software">
