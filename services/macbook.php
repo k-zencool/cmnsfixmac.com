@@ -73,6 +73,24 @@ $repairs = $pdo->query(
      ORDER BY created_at DESC LIMIT 8"
 )->fetchAll();
 
+/* Pricing: grouped by category */
+$pricing_raw = $pdo->query(
+    "SELECT sp.device_name, sp.price, sp.price_note, sp.warranty_days,
+            pc.id AS cat_id, pc.name AS cat_name, pc.sort_order
+     FROM service_pricing sp
+     JOIN pricing_categories pc ON sp.category_id = pc.id
+     WHERE sp.device_type = 'MacBook'
+       AND sp.is_active  = 1
+       AND sp.show_on_web = 1
+     ORDER BY pc.sort_order, sp.price"
+)->fetchAll();
+
+$pricing_groups = [];
+foreach ($pricing_raw as $row) {
+    $pricing_groups[$row['cat_id']]['name'] = $row['cat_name'];
+    $pricing_groups[$row['cat_id']]['items'][] = $row;
+}
+
 include_once '../includes/header.php';
 ?>
 
@@ -202,65 +220,42 @@ include_once '../includes/header.php';
       <h2>ราคาซ่อม MacBook โปร่งใส ไม่มีบวกเพิ่ม</h2>
       <p class="sv-desc">ราคาโดยประมาณ ขึ้นอยู่กับรุ่นและสภาพเครื่อง <strong>ประเมินฟรีทุกครั้งก่อนเริ่มงาน</strong></p>
     </div>
+    <?php if ($pricing_groups): ?>
     <div class="sv-tab-row" data-aos="fade-up">
-      <button class="sv-tab-btn active" data-tab="tp-screen">เปลี่ยนจอ</button>
-      <button class="sv-tab-btn"        data-tab="tp-battery">เปลี่ยนแบต</button>
-      <button class="sv-tab-btn"        data-tab="tp-board">ซ่อมบอร์ด / น้ำ</button>
-      <button class="sv-tab-btn"        data-tab="tp-upgrade">อัปเกรด / OS</button>
+      <?php $first = true; foreach ($pricing_groups as $cat_id => $grp): ?>
+      <button class="sv-tab-btn<?= $first ? ' active' : '' ?>"
+              data-tab="tp-<?= $cat_id ?>">
+        <?= htmlspecialchars($grp['name'], ENT_QUOTES, 'UTF-8') ?>
+      </button>
+      <?php $first = false; endforeach; ?>
     </div>
 
-    <div class="sv-tab-pane active" id="tp-screen" data-aos="fade-up">
+    <?php $first = true; foreach ($pricing_groups as $cat_id => $grp): ?>
+    <div class="sv-tab-pane<?= $first ? ' active' : '' ?>" id="tp-<?= $cat_id ?>" data-aos="fade-up">
       <table class="sv-table">
-        <thead><tr><th>รุ่น MacBook</th><th>ราคาโดยประมาณ</th><th>รับประกัน</th></tr></thead>
+        <thead>
+          <tr><th>รุ่น / บริการ</th><th>ราคาโดยประมาณ</th><th>รับประกัน</th></tr>
+        </thead>
         <tbody>
-          <tr><td>MacBook Air 13" Intel (2017–2020)</td><td>5,900 – 7,900 บาท</td><td>90 วัน</td></tr>
-          <tr><td>MacBook Air M1 / M2 13"</td><td>7,900 – 12,900 บาท</td><td>90 วัน</td></tr>
-          <tr><td>MacBook Air M2 / M3 15"</td><td>9,900 – 15,900 บาท</td><td>90 วัน</td></tr>
-          <tr><td>MacBook Pro 13" Intel (2015–2020)</td><td>6,900 – 9,900 บาท</td><td>90 วัน</td></tr>
-          <tr><td>MacBook Pro 14" / 16" (M1–M4)</td><td>9,900 – 19,900 บาท</td><td>90 วัน</td></tr>
-          <tr><td>MacBook Pro 15" / 16" Intel (2015–2019)</td><td>8,900 – 13,900 บาท</td><td>90 วัน</td></tr>
+          <?php foreach ($grp['items'] as $item): ?>
+          <tr>
+            <td><?= htmlspecialchars($item['device_name'], ENT_QUOTES, 'UTF-8') ?></td>
+            <td><?= $item['price_note']
+                  ? htmlspecialchars($item['price_note'], ENT_QUOTES, 'UTF-8')
+                  : '฿' . number_format($item['price']) . ' บาท' ?></td>
+            <td><?= $item['warranty_days'] ? $item['warranty_days'] . ' วัน' : '—' ?></td>
+          </tr>
+          <?php endforeach; ?>
         </tbody>
       </table>
     </div>
+    <?php $first = false; endforeach; ?>
 
-    <div class="sv-tab-pane" id="tp-battery" data-aos="fade-up">
-      <table class="sv-table">
-        <thead><tr><th>รุ่น MacBook</th><th>ราคาโดยประมาณ</th><th>รับประกัน</th></tr></thead>
-        <tbody>
-          <tr><td>MacBook Air 11" / 13" Intel</td><td>2,900 – 3,900 บาท</td><td>90 วัน</td></tr>
-          <tr><td>MacBook Air M1 / M2 / M3</td><td>3,500 – 4,500 บาท</td><td>90 วัน</td></tr>
-          <tr><td>MacBook Pro 13" Intel (2015–2020)</td><td>3,200 – 4,500 บาท</td><td>90 วัน</td></tr>
-          <tr><td>MacBook Pro 14" / 16" (M1–M4)</td><td>3,900 – 5,900 บาท</td><td>90 วัน</td></tr>
-          <tr><td>MacBook Pro 15" / 16" Intel</td><td>3,500 – 5,500 บาท</td><td>90 วัน</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="sv-tab-pane" id="tp-board" data-aos="fade-up">
-      <table class="sv-table">
-        <thead><tr><th>บริการ</th><th>ราคาโดยประมาณ</th><th>หมายเหตุ</th></tr></thead>
-        <tbody>
-          <tr><td>ล้างเครื่องโดนน้ำ (ทำความสะอาดบอร์ด)</td><td>1,500 – 2,500 บาท</td><td>ขึ้นกับสภาพ</td></tr>
-          <tr><td>ซ่อม Logic Board ระดับชิป</td><td>3,500 – 12,000 บาท</td><td>ประเมินหน้างาน</td></tr>
-          <tr><td>MacBook เปิดไม่ติด (วินิจฉัย + ซ่อม)</td><td>2,500 – 8,000 บาท</td><td>ประเมินหน้างาน</td></tr>
-          <tr><td>เปลี่ยนพอร์ต MagSafe / USB-C</td><td>2,500 – 4,500 บาท</td><td>90 วัน</td></tr>
-          <tr><td>เปลี่ยนคีย์บอร์ด MacBook Pro</td><td>3,500 – 6,900 บาท</td><td>90 วัน</td></tr>
-        </tbody>
-      </table>
-    </div>
-
-    <div class="sv-tab-pane" id="tp-upgrade" data-aos="fade-up">
-      <table class="sv-table">
-        <thead><tr><th>บริการ</th><th>ราคาโดยประมาณ</th><th>หมายเหตุ</th></tr></thead>
-        <tbody>
-          <tr><td>เปลี่ยน SSD (Intel รุ่นที่ถอดได้)</td><td>2,500 – 5,900 บาท</td><td>รวมอะไหล่</td></tr>
-          <tr><td>เพิ่ม RAM (Intel รุ่นที่ถอดได้)</td><td>2,000 – 4,500 บาท</td><td>รวมอะไหล่</td></tr>
-          <tr><td>ลง macOS ใหม่</td><td>500 – 1,200 บาท</td><td>—</td></tr>
-          <tr><td>ลงโปรแกรม + ตั้งค่า (Office, Adobe ฯลฯ)</td><td>500 – 1,500 บาท</td><td>—</td></tr>
-          <tr><td>ย้ายข้อมูล Mac → Mac ใหม่</td><td>800 – 1,500 บาท</td><td>—</td></tr>
-        </tbody>
-      </table>
-    </div>
+    <?php else: ?>
+    <p style="text-align:center;color:var(--text-secondary);padding:40px 0;">
+      ยังไม่มีข้อมูลราคา — <a href="tel:0841511684">โทรสอบถามได้เลย</a>
+    </p>
+    <?php endif; ?>
 
     <p class="sv-price-note" data-aos="fade-up">
       <span class="material-symbols-rounded">info</span>
