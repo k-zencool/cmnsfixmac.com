@@ -1,9 +1,9 @@
 /* === LAYOUT หลัก & TYPOGRAPHY === */
 body {
-  font-family: 'Prompt', sans-serif;
+  font-family: var(--font);
   margin: 0;
-  background-color: #fff; 
-  color: #333;
+  background-color: var(--bg-surface); 
+  color: var(--text-primary);
   line-height: 1.7;
 }
 
@@ -23,7 +23,7 @@ main.article-detail.container {
 .article-detail .date,
 .article-detail .views {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin-bottom: 20px;
 }
 
@@ -76,7 +76,7 @@ main.article-detail.container {
   padding: 16px 20px;
   font-size: 15px;
   color: #374151;
-  background: #f9fafb;
+  background: var(--bg-page);
 }
 
 .article-video {
@@ -101,7 +101,7 @@ main.article-detail.container {
 .breadcrumb-bar {
   font-size: 14px;
   margin: 20px 0;
-  color: #4b5563;
+  color: var(--text-secondary);
 }
 
 .article-nav {
@@ -248,12 +248,12 @@ main.article-detail.container {
 .related-item {
   display: flex; /* ใช้ Flexbox เพื่อจัดเรียงแนวตั้ง */
   flex-direction: column;
-  background-color: #ffffff;
+  background-color: var(--bg-surface)fff;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   padding: 0; /* ไม่มี padding เพื่อให้รูปภาพชิดขอบ */
   text-decoration: none;
-  color: #333;
+  color: var(--text-primary);
   transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
   overflow: hidden; /* สำคัญมาก! ทำให้ขอบรูปมนตามการ์ด */
 }
@@ -293,7 +293,7 @@ main.article-detail.container {
 .related-item .related-item-content p {
   font-size: 14px;
   line-height: 1.6;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin-bottom: 0;
   flex-grow: 1; /* ทำให้ยืดเต็มเพื่อดันให้หัวข้ออยู่บนสุดเสมอ */
 }
@@ -335,12 +335,12 @@ main.article-detail.container {
 .popular-item {
   display: flex; /* ใช้ Flexbox เพื่อจัดเรียงแนวตั้ง */
   flex-direction: column;
-  background-color: #ffffff;
+  background-color: var(--bg-surface)fff;
   border: 1px solid #e5e7eb;
   border-radius: 12px;
   padding: 0; /* ไม่มี padding เพื่อให้รูปภาพชิดขอบ */
   text-decoration: none;
-  color: #333;
+  color: var(--text-primary);
   transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
   overflow: hidden; /* สำคัญมาก! ทำให้ขอบรูปมนตามการ์ด */
 }
@@ -380,7 +380,7 @@ main.article-detail.container {
 .popular-item .popular-item-content p {
   font-size: 14px;
   line-height: 1.6;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin-bottom: 0;
   flex-grow: 1; /* ทำให้ยืดเต็มเพื่อดันให้หัวข้ออยู่บนสุดเสมอ */
 }
@@ -405,7 +405,7 @@ main.article-detail.container {
 .related-item .popular-item-content p {
   font-size: 14px;
   line-height: 1.6;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin-bottom: 0;
   flex-grow: 1; /* ทำให้ยืดเต็มเพื่อดันให้หัวข้ออยู่บนสุดเสมอ */
 }
@@ -429,7 +429,7 @@ main.article-detail.container {
   position: relative; /* สำคัญมาก สำหรับการจัดวาง ::before */
   display: inline-block;
   padding: 10px 0;
-  color: #6b7280; /* สีเทาเริ่มต้น */
+  color: var(--text-secondary); /* สีเทาเริ่มต้น */
   text-decoration: none;
   font-size: 1.1rem;
   font-weight: 500;

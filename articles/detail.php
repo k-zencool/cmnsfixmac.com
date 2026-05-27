@@ -100,51 +100,38 @@ $jsonLd = [
 ];
 
 $switch_to_lang_url = "/en/articles/detail.php?id=" . $id;
+
+$page_title = e($article['title']) . ' | CMNS FixMac';
+$page_css   = ['/assets/css/article-detail-style.css'];
+ob_start();
 ?>
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title><?= e($article['title']) ?> | CMNS FixMac</title>
-  <meta name="description" content="<?= e($description) ?>">
-  <link rel="canonical" href="<?= $canonical ?>">
-
-  <link rel="alternate" hreflang="th"      href="<?= $base ?>/article/<?= e($article['slug'] ?? '') ?>">
-  <link rel="alternate" hreflang="en"      href="<?= $base ?>/en/article/<?= e($article['slug_en'] ?? ($article['slug'] ?? '')) ?>">
-  <link rel="alternate" hreflang="x-default" href="<?= $base ?>/en/article/<?= e($article['slug_en'] ?? ($article['slug'] ?? '')) ?>">
-
-  <!-- Open Graph -->
-  <meta property="og:type"        content="article">
-  <meta property="og:title"       content="<?= e($article['title']) ?> | CMNS FixMac">
-  <meta property="og:description" content="<?= e($description) ?>">
-  <meta property="og:url"         content="<?= $canonical ?>">
-  <meta property="og:image"       content="<?= $ogImg ?>">
-  <meta property="og:image:alt"   content="<?= e($article['title']) ?>">
-  <meta property="og:site_name"   content="CMNS FixMac">
-  <meta property="article:published_time" content="<?= $datePublished ?>">
-  <?php if ($ogImgW): ?><meta property="og:image:width"  content="<?= (int)$ogImgW ?>"><?php endif; ?>
-  <?php if ($ogImgH): ?><meta property="og:image:height" content="<?= (int)$ogImgH ?>"><?php endif; ?>
-
-  <!-- Twitter -->
-  <meta name="twitter:card"        content="summary_large_image">
-  <meta name="twitter:title"       content="<?= e($article['title']) ?>">
-  <meta name="twitter:description" content="<?= e($description) ?>">
-  <meta name="twitter:image"       content="<?= $ogImg ?>">
-
-  <!-- JSON-LD -->
-  <script type="application/ld+json"><?= json_encode($jsonLd, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>
-
-  <link rel="stylesheet" href="/assets/css/navbar-style.css">
-  <link rel="stylesheet" href="/assets/css/article-detail-style.css">
-  <link rel="stylesheet" href="/assets/css/footer-style.css">
-  <link rel="shortcut icon" href="/assets/img/favicon1.png">
-
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
-  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-3WXK9GWN7C');</script>
-</head>
-<body>
-  <?php include '../includes/header.php'; ?>
+<meta name="description" content="<?= e($description) ?>">
+<link rel="canonical" href="<?= $canonical ?>">
+<link rel="shortcut icon" href="/assets/img/favicon1.png">
+<link rel="alternate" hreflang="th" href="<?= $base ?>/article/<?= e($article['slug'] ?? '') ?>">
+<link rel="alternate" hreflang="en" href="<?= $base ?>/en/article/<?= e($article['slug_en'] ?? ($article['slug'] ?? '')) ?>">
+<link rel="alternate" hreflang="x-default" href="<?= $base ?>/en/article/<?= e($article['slug_en'] ?? ($article['slug'] ?? '')) ?>">
+<meta property="og:type" content="article">
+<meta property="og:title" content="<?= e($article['title']) ?> | CMNS FixMac">
+<meta property="og:description" content="<?= e($description) ?>">
+<meta property="og:url" content="<?= $canonical ?>">
+<meta property="og:image" content="<?= $ogImg ?>">
+<meta property="og:image:alt" content="<?= e($article['title']) ?>">
+<meta property="og:site_name" content="CMNS FixMac">
+<meta property="article:published_time" content="<?= $datePublished ?>">
+<?php if ($ogImgW): ?><meta property="og:image:width" content="<?= (int)$ogImgW ?>"><?php endif; ?>
+<?php if ($ogImgH): ?><meta property="og:image:height" content="<?= (int)$ogImgH ?>"><?php endif; ?>
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="<?= e($article['title']) ?>">
+<meta name="twitter:description" content="<?= e($description) ?>">
+<meta name="twitter:image" content="<?= $ogImg ?>">
+<script type="application/ld+json"><?= json_encode($jsonLd, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-3WXK9GWN7C');</script>
+<?php
+$page_head_extra = ob_get_clean();
+include '../includes/header.php';
+?>
 
   <main class="article-detail container">
     <!-- Breadcrumb -->

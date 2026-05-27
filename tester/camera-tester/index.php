@@ -15,11 +15,13 @@
 
   gtag('config', 'G-3WXK9GWN7C');
 </script>
+  <script src="/assets/js/theme.js"></script>
+  <link rel="stylesheet" href="/assets/css/design-tokens.css?v=1">
   <link rel="stylesheet" href="assets/css/style.css" />
 </head>
 <body>
 
-<?php include_once '../../includes/header.php'; ?>
+<?php $page_has_own_head = true; include_once '../../includes/header.php'; ?>
 
 
   <div class="container">

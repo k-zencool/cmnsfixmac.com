@@ -50,43 +50,35 @@ if (!empty($image_filename) && strpos($image_filename, '/') !== false) {
     $ogImagePath = 'https://cmnsfixmac.com' . e($image_filename);
 }
 // ถ้าไม่มี... ก็ใช้ placeholder
+
+$page_title = e($data['title']) . ' - รายละเอียดงานซ่อม';
+$page_css   = [
+    '/assets/css/style.css',
+    '/assets/css/works-detail-style.css',
+];
+ob_start();
+$currentItemId = $data['id'] ?? 0;
+$pageName      = 'work-detail.php';
+if ($currentItemId > 0) {
+    $th_url = "https://cmnsfixmac.com/{$pageName}?id={$currentItemId}";
+    $en_url = "https://cmnsfixmac.com/en/{$pageName}?id={$currentItemId}";
+    echo '<link rel="alternate" hreflang="th" href="' . htmlspecialchars($th_url) . '">' . "\n";
+    echo '<link rel="alternate" hreflang="en" href="' . htmlspecialchars($en_url) . '">' . "\n";
+    echo '<link rel="alternate" hreflang="x-default" href="' . htmlspecialchars($en_url) . '">' . "\n";
+}
 ?>
-<!DOCTYPE html>
-<html lang="th">
-
-<head>
-  <meta charset="UTF-8">
-  <title><?= e($data['title']) ?> - รายละเอียดงานซ่อม</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="/assets/css/style.css"> <link rel="stylesheet" href="/assets/css/works-detail-style.css"> <link rel="stylesheet" href="/assets/css/footer-style.css"> <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png" />
-  
-  <?php
-  // --- Hreflang Tags for Work Detail Page (Corrected Placement) ---
-  $currentItemId = $data['id'] ?? 0;
-  $pageName = 'work-detail.php'; // Correct page name
-
-  if ($currentItemId > 0) {
-    $th_url = "https://cmnsfixmac.com/" . $pageName . "?id=" . $currentItemId;
-    $en_url = "https://cmnsfixmac.com/en/" . $pageName . "?id=" . $currentItemId;
-
-    echo '<link rel="alternate" hreflang="th" href="' . htmlspecialchars($th_url) . '" />' . "\n";
-    echo '    <link rel="alternate" hreflang="en" href="' . htmlspecialchars($en_url) . '" />' . "\n";
-    echo '    <link rel="alternate" hreflang="x-default" href="' . htmlspecialchars($en_url) . '" />' . "\n";
-  }
-  ?>
-
-  <meta property="og:title" content="<?= e($data['title']) ?> - CMNS Mac Repair">
-  <meta property="og:description" content="<?= e(mb_substr(strip_tags($data['fix_detail']), 0, 100)) ?>...">
-  <meta property="og:image" content="<?= e($ogImagePath) ?>">
-  <meta property="og:url" content="https://cmnsfixmac.com/works/detail.php?id=<?= $id ?>">
-  <meta name="twitter:card" content="summary_large_image">
-  <meta name="description" content="<?= e(mb_substr(strip_tags($data['fix_detail']), 0, 160)) ?>">
-  <meta name="keywords" content="<?= e($data['title']) ?>, ซ่อม <?= e($data['model']) ?>, <?= e($data['category']) ?>">
-
-  </head>
-
-<body>
-  <?php include_once '../includes/header.php'; ?>
+<link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png">
+<meta property="og:title" content="<?= e($data['title']) ?> - CMNS Mac Repair">
+<meta property="og:description" content="<?= e(mb_substr(strip_tags($data['fix_detail']), 0, 100)) ?>...">
+<meta property="og:image" content="<?= e($ogImagePath) ?>">
+<meta property="og:url" content="https://cmnsfixmac.com/works/detail.php?id=<?= $id ?>">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="description" content="<?= e(mb_substr(strip_tags($data['fix_detail']), 0, 160)) ?>">
+<meta name="keywords" content="<?= e($data['title']) ?>, ซ่อม <?= e($data['model']) ?>, <?= e($data['category']) ?>">
+<?php
+$page_head_extra = ob_get_clean();
+include_once '../includes/header.php';
+?>
   <div class="container article-detail">
     <h1><?= e($data['title']) ?> model <?= e($data['model']) ?></h1>
     <nav class="breadcrumb-bar">

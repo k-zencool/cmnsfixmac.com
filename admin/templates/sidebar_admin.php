@@ -78,12 +78,12 @@ if (session_status() === PHP_SESSION_NONE) {
             <span class="link-text">จัดการราคาซ่อม</span>
         </a>
 
-        <a href="/admin/warranty/" title="รับประกัน">
+        <a href="/admin/warranty/" title="ใบรับประกัน">
             <span class="material-symbols-rounded">verified_user</span>
-            <span class="link-text">รับประกัน</span>
+            <span class="link-text">ใบรับประกัน</span>
         </a>
 
-<div class="has-sub">
+        <div class="has-sub">
             <div class="sub-head" onclick="toggleSubmenu(this)">
                 <div class="sub-link">
                     <span class="material-symbols-rounded">inventory_2</span>

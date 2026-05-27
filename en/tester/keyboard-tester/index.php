@@ -1,7 +1,8 @@
 <?php
     // We can place header include here for cleaner HTML structure
     // CORRECTED PATH: From /tester/keyboard-tester/, we need to go up two levels to the root.
-    include_once __DIR__ . '/../../../includes/header_en.php'; 
+    $page_has_own_head = true;
+    include_once __DIR__ . '/../../../includes/header_en.php';
 ?>
 <!DOCTYPE html>
 <html lang="en">

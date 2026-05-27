@@ -29,7 +29,7 @@
 
 <body>
   <div class="header-toggle">
-<?php include_once '../../../includes/header_en.php'; ?>
+<?php $page_has_own_head = true; include_once '../../../includes/header_en.php'; ?>
   </div>
   <main class="main-container">
 

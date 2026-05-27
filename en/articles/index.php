@@ -94,6 +94,8 @@ $categories_en = [
   <link rel="stylesheet" href="/assets/css/navbar-style.css">
   <link rel="stylesheet" href="/assets/css/articles-style.css">
   <link rel="stylesheet" href="/assets/css/footer-style.css">
+  <script src="/assets/js/theme.js"></script>
+  <link rel="stylesheet" href="/assets/css/design-tokens.css?v=1">
   <link rel="stylesheet" href="/assets/css/style.css">
   <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png" />
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet" />

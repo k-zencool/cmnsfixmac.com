@@ -1,7 +1,8 @@
 <?php
     // Include the standard THAI header
     // The path from /tester/keyboard-tester/ is up two levels to the root
-    include_once __DIR__ . '/../../includes/header.php'; 
+    $page_has_own_head = true;
+    include_once __DIR__ . '/../../includes/header.php';
 ?>
 <!DOCTYPE html>
 <html lang="th">

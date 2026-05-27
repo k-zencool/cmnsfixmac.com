@@ -1,259 +1,410 @@
 <?php
-/********************************************************************
- * admin/pricing/index.php
- * รายการราคาค่าซ่อม (Enterprise Edition)
- ********************************************************************/
-
 session_start();
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_login();
 
-$pageTitle = "จัดการราคาค่าซ่อม (Service Pricing)";
+$pageTitle = "ราคาค่าซ่อม";
 
-// --- 1. จัดการ Action (ลบข้อมูล) ---
-$msg = "";
-$msgType = "";
+$type_filter = $_GET['type'] ?? '';
+$search      = trim($_GET['q'] ?? '');
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] == 'delete') {
-    try {
-        $del_id = $_POST['del_id'];
-        $stmt = $pdo->prepare("DELETE FROM service_pricing WHERE id = ?");
-        $stmt->execute([$del_id]);
-        
-        $msg = "ลบรายการเรียบร้อยแล้ว";
-        $msgType = "success";
-    } catch (Exception $e) {
-        $msg = "เกิดข้อผิดพลาด: " . $e->getMessage();
-        $msgType = "error";
-    }
-}
-
-// --- 2. ระบบค้นหา & กรอง ---
-$search = isset($_GET['q']) ? trim($_GET['q']) : '';
-$type_filter = isset($_GET['type']) ? trim($_GET['type']) : '';
-
-$where = ["1=1"];
+$where  = ['1=1'];
 $params = [];
 
-if ($search) {
-    // ค้นหาครอบจักรวาล: รหัส, รุ่น, อาการ
-    $where[] = "(service_code LIKE ? OR device_series LIKE ? OR device_model LIKE ? OR service_name LIKE ?)";
-    $params[] = "%$search%";
-    $params[] = "%$search%";
-    $params[] = "%$search%";
-    $params[] = "%$search%";
-}
-
 if ($type_filter) {
-    $where[] = "device_type = ?";
+    $where[]  = 'sp.device_type = ?';
     $params[] = $type_filter;
 }
+if ($search) {
+    $where[]  = '(sp.device_name LIKE ? OR pc.name LIKE ? OR sp.price_note LIKE ?)';
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+}
 
-// --- 3. ดึงข้อมูล ---
-// เรียงลำดับ: Type -> Series -> Model -> Service Name
-$sql = "SELECT * FROM service_pricing 
-        WHERE " . implode(" AND ", $where) . " 
-        ORDER BY device_type, device_series, device_model ASC";
+$order_expr = "FIELD(sp.device_type,'iPhone','iPad','MacBook','iMac','AirPods','Apple Watch','Software','Other')";
+$sql = "SELECT sp.*, pc.name AS category_name, pc.sort_order AS cat_order
+        FROM service_pricing sp
+        LEFT JOIN pricing_categories pc ON sp.category_id = pc.id
+        WHERE " . implode(' AND ', $where) . "
+        ORDER BY $order_expr, sp.device_name, pc.sort_order";
 
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// ดึง Type ทั้งหมดมาทำตัวเลือกกรอง
-$types = $pdo->query("SELECT DISTINCT device_type FROM service_pricing ORDER BY device_type")->fetchAll(PDO::FETCH_COLUMN);
+// Stats
+$stats = $pdo->query("SELECT
+    COUNT(*) AS total,
+    SUM(show_on_web = 1) AS on_web,
+    SUM(is_active = 0) AS inactive,
+    SUM(updated_at < DATE_SUB(NOW(), INTERVAL 90 DAY)) AS outdated
+    FROM service_pricing")->fetch(PDO::FETCH_ASSOC);
+
+// Tab counts
+$tab_rows   = $pdo->query("SELECT device_type, COUNT(*) AS cnt FROM service_pricing GROUP BY device_type")->fetchAll(PDO::FETCH_ASSOC);
+$tab_counts = array_column($tab_rows, 'cnt', 'device_type');
+$device_order = ['iPhone','iPad','MacBook','iMac','AirPods','Apple Watch','Software','Other'];
 
 include __DIR__ . '/../templates/header_admin.php';
-
 ?>
 
+<link rel="stylesheet" href="<?= $assets_base ?>css/inventory-dashboard.css?v=3">
+
 <style>
-    /* Status Colors */
-    .outdated-row { background-color: #fff1f2 !important; } /* แดงอ่อนเมื่อเก่า */
-    .outdated-row:hover { background-color: #ffe4e6 !important; }
+/* ── Stats ── */
+.prc-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+.prc-stat  { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; display: flex; align-items: center; gap: 14px; }
+.prc-stat-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.prc-stat-icon .material-symbols-rounded { font-size: 22px; }
+.prc-stat-val { font-size: 1.6rem; font-weight: 800; color: var(--text-main); line-height: 1; }
+.prc-stat-lbl { font-size: 0.78rem; color: var(--text-muted); margin-top: 3px; }
 
-    /* Badges & Icons */
-    .sn-badge { font-family: monospace; font-size: 0.8rem; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; color: #475569; border: 1px solid #e2e8f0; display: inline-flex; align-items: center; gap: 4px; }
-    
-    .type-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: #94a3b8; margin-bottom: 2px; }
-    .series-name { font-weight: 600; color: #1e293b; font-size: 0.95rem; }
-    .model-code { font-size: 0.8rem; color: #64748b; background: #e2e8f0; padding: 1px 5px; border-radius: 4px; margin-left: 5px; }
-    
-    .price-tag { font-weight: 700; color: #059669; font-size: 1rem; }
-    
-    /* Toggle Status Icons */
-    .status-icon { display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; margin: 0 auto; }
-    .st-on { color: #2563eb; background: #eff6ff; }
-    .st-off { color: #cbd5e1; background: #f8fafc; }
-    .st-active { color: #166534; background: #dcfce7; }
-    .st-inactive { color: #991b1b; background: #fee2e2; }
+/* ── Tabs ── */
+.prc-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
+.prc-tab { padding: 7px 16px; border-radius: 20px; border: 1.5px solid var(--border); background: var(--bg-surface); cursor: pointer; font-size: 0.85rem; font-weight: 600; color: var(--text-muted); text-decoration: none; transition: 0.15s; display: inline-flex; align-items: center; gap: 6px; }
+.prc-tab:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-light); }
+.prc-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+.prc-tab .cnt { background: rgba(0,0,0,0.12); border-radius: 10px; padding: 0 7px; font-size: 0.75rem; }
+.prc-tab.active .cnt { background: rgba(255,255,255,0.25); }
 
-    /* Action Buttons */
-    .btn-icon { border: none; background: none; cursor: pointer; padding: 5px; transition: 0.2s; border-radius: 4px; }
-    .btn-icon:hover { background: #f1f5f9; }
-    .btn-edit { color: #f59e0b; }
-    .btn-del { color: #ef4444; }
+/* ── Search bar ── */
+.prc-search { display: flex; gap: 10px; margin-bottom: 20px; }
+.prc-search-wrap { flex: 1; position: relative; }
+.prc-search-wrap .material-symbols-rounded { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text-muted); font-size: 20px; pointer-events: none; }
+.prc-search-input { width: 100%; padding: 10px 12px 10px 40px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 0.95rem; background: var(--bg-surface); color: var(--text-main); }
+.prc-search-input:focus { outline: none; border-color: var(--primary); }
 
-    /* Search Bar */
-    .filter-bar { display: flex; gap: 10px; background: white; padding: 15px; border-radius: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.05); margin-bottom: 20px; flex-wrap: wrap; }
-    .search-input { flex-grow: 1; padding: 10px 15px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.95rem; }
-    .select-input { padding: 10px; border: 1px solid #cbd5e1; border-radius: 8px; min-width: 150px; }
-    .btn-search { background: #334155; color: white; border: none; padding: 0 20px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+/* ── Table ── */
+.prc-table-wrap { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.prc-table { width: 100%; border-collapse: collapse; }
+.prc-table th { padding: 12px 16px; font-size: 0.78rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); background: var(--bg-surface-alt); border-bottom: 1px solid var(--border); text-align: left; }
+.prc-table th.r { text-align: right; }
+.prc-table th.c { text-align: center; }
+.prc-table td { padding: 13px 16px; border-bottom: 1px solid var(--border); color: var(--text-main); vertical-align: middle; }
+.prc-table tr:last-child td { border-bottom: none; }
+.prc-table tbody tr:hover { background: var(--bg-surface-alt); }
+.prc-table .r { text-align: right; }
+.prc-table .c { text-align: center; }
+
+/* Group header row */
+.prc-group-row td { background: var(--bg-surface-alt) !important; font-size: 0.77rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text-muted); padding: 7px 16px; }
+
+/* Outdated row */
+.prc-outdated { background: rgba(239,68,68,0.04) !important; }
+.prc-outdated:hover { background: rgba(239,68,68,0.08) !important; }
+
+/* ── Cell styles ── */
+.prc-device-name { font-weight: 600; color: var(--text-main); font-size: 0.95rem; }
+.prc-device-type { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+.prc-cat-badge { display: inline-flex; align-items: center; gap: 4px; background: var(--bg-surface-alt); color: var(--text-muted); font-size: 0.8rem; padding: 3px 10px; border-radius: 6px; border: 1px solid var(--border); }
+.prc-price { font-weight: 700; color: #059669; font-size: 1rem; }
+.prc-price-note { font-size: 0.75rem; color: var(--text-muted); margin-top: 2px; }
+.prc-outdated-badge { font-size: 0.7rem; color: #ef4444; display: flex; align-items: center; justify-content: flex-end; gap: 2px; }
+.prc-warranty { font-size: 0.85rem; color: var(--text-muted); }
+
+/* ── Toggle buttons ── */
+.tog { width: 32px; height: 32px; border-radius: 8px; border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; transition: 0.15s; }
+.tog .material-symbols-rounded { font-size: 17px; }
+.tog-web-1 { background: #dbeafe; color: #2563eb; } .tog-web-1:hover { background: #bfdbfe; }
+.tog-web-0 { background: var(--bg-surface-alt); color: var(--text-muted); } .tog-web-0:hover { background: var(--border); }
+.tog-act-1 { background: #dcfce7; color: #16a34a; } .tog-act-1:hover { background: #bbf7d0; }
+.tog-act-0 { background: #fee2e2; color: #ef4444; } .tog-act-0:hover { background: #fecaca; }
+
+/* ── Action buttons ── */
+.act-btn { display: inline-flex; align-items: center; padding: 5px 6px; border-radius: 6px; border: none; background: none; cursor: pointer; transition: 0.15s; }
+.act-edit { color: #f59e0b; } .act-edit:hover { background: rgba(245,158,11,0.1); }
+.act-del  { color: #ef4444; } .act-del:hover  { background: rgba(239,68,68,0.1); }
+
+/* ── Empty state ── */
+.prc-empty { text-align: center; padding: 60px 20px; color: var(--text-muted); }
+.prc-empty .material-symbols-rounded { font-size: 52px; opacity: 0.35; display: block; margin-bottom: 10px; }
+
+/* ── Pricing modal ── */
+#modal-pricing { display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,.55); align-items:center; justify-content:center; }
+#modal-pricing.open { display:flex; }
+#pricing-modal-inner { background:var(--bg-surface,#fff); width:min(96vw,680px); height:90vh; border-radius:16px; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 24px 80px rgba(0,0,0,.4); }
+
+@media (max-width: 900px) {
+    .prc-stats { grid-template-columns: repeat(2, 1fr); }
+}
 </style>
 
-<main class="main" id="main-content">
-    
-    <div class="topbar">
-        <div style="display: flex; align-items: center; gap: 10px;">
-            <span class="material-symbols-rounded" style="font-size: 28px; color: #3b82f6;">price_check</span>
-            <span style="font-size: 1.2rem; font-weight: 700;">จัดการราคาค่าซ่อม</span>
+<div class="cmns-wrapper">
+
+    <!-- Header -->
+    <div class="cmns-header-bar">
+        <div>
+            <h1 class="cmns-page-title" style="color:var(--primary);">
+                <span class="material-symbols-rounded" style="font-size:30px;">price_check</span>
+                ราคาค่าซ่อม
+            </h1>
+            <p style="color:var(--text-muted);margin-top:4px;font-size:13px;">จัดการตารางราคามาตรฐาน</p>
         </div>
-        
-        <a href="form.php" class="btn-primary" style="text-decoration: none; padding: 10px 20px; border-radius: 8px; display: flex; align-items: center; gap: 8px; font-weight: 600;">
-            <span class="material-symbols-rounded">add</span> เพิ่มราคาใหม่
-        </a>
+        <div class="cmns-action-buttons">
+            <a href="categories.php" class="cmns-btn cmns-btn-secondary" style="font-size:14px;">
+                <span class="material-symbols-rounded" style="font-size:16px;">category</span> หมวดบริการ
+            </a>
+            <button type="button" onclick="openPricingModal('form.php?modal=1')" class="cmns-btn cmns-btn-primary">
+                <span class="material-symbols-rounded" style="font-size:16px;">add</span> เพิ่มราคา
+            </button>
+        </div>
     </div>
 
-    <?php if ($msg): ?>
-        <div style="padding: 12px 20px; margin-bottom: 20px; border-radius: 8px; display: flex; align-items: center; gap: 10px; 
-            background: <?= $msgType == 'success' ? '#dcfce7' : '#fee2e2' ?>; 
-            color: <?= $msgType == 'success' ? '#166534' : '#991b1b' ?>;">
-            <span class="material-symbols-rounded"><?= $msgType == 'success' ? 'check_circle' : 'error' ?></span>
-            <?= $msg ?>
+    <!-- Stats -->
+    <div class="prc-stats">
+        <div class="prc-stat">
+            <div class="prc-stat-icon" style="background:#eff6ff;">
+                <span class="material-symbols-rounded" style="color:#3b82f6;">format_list_bulleted</span>
+            </div>
+            <div>
+                <div class="prc-stat-val"><?= number_format($stats['total'] ?? 0) ?></div>
+                <div class="prc-stat-lbl">รายการทั้งหมด</div>
+            </div>
         </div>
-    <?php endif; ?>
+        <div class="prc-stat">
+            <div class="prc-stat-icon" style="background:#f0fdf4;">
+                <span class="material-symbols-rounded" style="color:#16a34a;">public</span>
+            </div>
+            <div>
+                <div class="prc-stat-val"><?= number_format($stats['on_web'] ?? 0) ?></div>
+                <div class="prc-stat-lbl">แสดงบนเว็บ</div>
+            </div>
+        </div>
+        <div class="prc-stat">
+            <div class="prc-stat-icon" style="background:#fff7ed;">
+                <span class="material-symbols-rounded" style="color:#ea580c;">visibility_off</span>
+            </div>
+            <div>
+                <div class="prc-stat-val"><?= number_format($stats['inactive'] ?? 0) ?></div>
+                <div class="prc-stat-lbl">ปิดการใช้งาน</div>
+            </div>
+        </div>
+        <div class="prc-stat">
+            <div class="prc-stat-icon" style="background:#fff1f2;">
+                <span class="material-symbols-rounded" style="color:#e11d48;">schedule</span>
+            </div>
+            <div>
+                <div class="prc-stat-val"><?= number_format($stats['outdated'] ?? 0) ?></div>
+                <div class="prc-stat-lbl">ไม่อัปเดต &gt;90 วัน</div>
+            </div>
+        </div>
+    </div>
 
-    <form method="GET" class="filter-bar">
-        <select name="type" class="select-input" onchange="this.form.submit()">
-            <option value="">-- ทุกประเภท --</option>
-            <?php foreach ($types as $t): ?>
-                <option value="<?= $t ?>" <?= $type_filter == $t ? 'selected' : '' ?>><?= $t ?></option>
-            <?php endforeach; ?>
-        </select>
-        
-        <input type="text" name="q" class="search-input" value="<?= htmlspecialchars($search) ?>" placeholder="ค้นหา รหัสสินค้า, ชื่อรุ่น, หรืออาการเสีย...">
-        
-        <button type="submit" class="btn-search">
-            <span class="material-symbols-rounded">search</span> ค้นหา
+    <!-- Device tabs -->
+    <div class="prc-tabs">
+        <a href="?<?= http_build_query(['q' => $search]) ?>" class="prc-tab <?= !$type_filter ? 'active' : '' ?>">
+            ทั้งหมด <span class="cnt"><?= array_sum($tab_counts) ?></span>
+        </a>
+        <?php foreach ($device_order as $dt):
+            if (!isset($tab_counts[$dt])) continue; ?>
+        <a href="?<?= http_build_query(['type' => $dt, 'q' => $search]) ?>" class="prc-tab <?= $type_filter === $dt ? 'active' : '' ?>">
+            <?= htmlspecialchars($dt) ?> <span class="cnt"><?= $tab_counts[$dt] ?></span>
+        </a>
+        <?php endforeach; ?>
+    </div>
+
+    <!-- Search -->
+    <form method="GET" class="prc-search">
+        <?php if ($type_filter): ?>
+        <input type="hidden" name="type" value="<?= htmlspecialchars($type_filter) ?>">
+        <?php endif; ?>
+        <div class="prc-search-wrap">
+            <span class="material-symbols-rounded">search</span>
+            <input type="text" name="q" class="prc-search-input" value="<?= htmlspecialchars($search) ?>" placeholder="ค้นหา ชื่อรุ่น, หมวดบริการ, หมายเหตุ...">
+        </div>
+        <button type="submit" class="cmns-btn cmns-btn-primary" style="font-size:14px;">
+            <span class="material-symbols-rounded" style="font-size:16px;">search</span> ค้นหา
         </button>
-        
-        <?php if($search || $type_filter): ?>
-            <a href="index.php" style="display: flex; align-items: center; color: #ef4444; text-decoration: none; padding: 0 10px;">ล้างค่า</a>
+        <?php if ($search || $type_filter): ?>
+        <a href="index.php" class="cmns-btn cmns-btn-secondary" style="font-size:14px;color:#ef4444;border-color:#ef4444;">
+            <span class="material-symbols-rounded" style="font-size:16px;">close</span> ล้าง
+        </a>
         <?php endif; ?>
     </form>
 
-    <div class="table-container">
-        <table class="data-table">
+    <!-- Table -->
+    <div class="prc-table-wrap">
+        <table class="prc-table">
             <thead>
                 <tr>
-                    <th width="12%">รหัส (SN)</th>
-                    <th width="30%">รุ่นอุปกรณ์ (Series / Model)</th>
-                    <th width="25%">รายการซ่อม</th>
-                    <th width="10%" class="text-right">ราคา</th>
-                    <th width="8%" class="text-center">Web</th>
-                    <th width="8%" class="text-center">Store</th>
-                    <th width="7%" class="text-center">จัดการ</th>
+                    <th style="width:28%">รุ่นอุปกรณ์</th>
+                    <th style="width:20%">หมวดบริการ</th>
+                    <th class="r" style="width:14%">ราคา (฿)</th>
+                    <th class="c" style="width:10%">ประกัน</th>
+                    <th class="c" style="width:9%">เว็บ</th>
+                    <th class="c" style="width:9%">ร้าน</th>
+                    <th class="c" style="width:10%">จัดการ</th>
                 </tr>
             </thead>
             <tbody>
-                <?php if (empty($items)): ?>
-                    <tr>
-                        <td colspan="7" class="text-center" style="padding: 50px; color: #94a3b8;">
-                            <span class="material-symbols-rounded" style="font-size: 48px; opacity: 0.5;">search_off</span>
-                            <br>ไม่พบข้อมูลราคา
-                        </td>
-                    </tr>
-                <?php else: ?>
-                    <?php foreach ($items as $item): 
-                        // Logic เช็ควันหมดอายุ (90 วัน)
-                        $last_update = strtotime($item['updated_at']);
-                        $is_outdated = ($last_update < strtotime('-90 days'));
-                    ?>
-                    <tr class="<?= $is_outdated ? 'outdated-row' : '' ?>">
-                        
-                        <td>
-                            <?php if(!empty($item['service_code'])): ?>
-                                <span class="sn-badge">
-                                    <span class="material-symbols-rounded" style="font-size:12px;">qr_code_2</span>
-                                    <?= htmlspecialchars($item['service_code']) ?>
-                                </span>
-                            <?php else: ?>
-                                <span style="color:#cbd5e1;">-</span>
-                            <?php endif; ?>
-                        </td>
-
-                        <td>
-                            <div class="type-label"><?= htmlspecialchars($item['device_type']) ?></div>
-                            <div style="display: flex; align-items: center;">
-                                <span class="series-name"><?= htmlspecialchars($item['device_series']) ?></span>
-                                <?php if(!empty($item['device_model'])): ?>
-                                    <span class="model-code"><?= htmlspecialchars($item['device_model']) ?></span>
-                                <?php endif; ?>
+            <?php if (empty($items)): ?>
+                <tr>
+                    <td colspan="7">
+                        <div class="prc-empty">
+                            <span class="material-symbols-rounded">price_check</span>
+                            ยังไม่มีรายการราคา<?= ($search || $type_filter) ? ' ที่ตรงเงื่อนไข' : '' ?>
+                            <?php if (!$search && !$type_filter): ?>
+                            <div style="margin-top:12px;">
+                                <button type="button" onclick="openPricingModal('form.php?modal=1')" class="cmns-btn cmns-btn-primary" style="font-size:14px;">
+                                    <span class="material-symbols-rounded" style="font-size:16px;">add</span> เพิ่มรายการแรก
+                                </button>
                             </div>
-                        </td>
-
-                        <td>
-                            <div style="display: flex; align-items: center; gap: 5px;">
-                                <span class="material-symbols-rounded" style="font-size: 16px; color: #64748b;">build_circle</span>
-                                <?= htmlspecialchars($item['service_name']) ?>
-                            </div>
-                        </td>
-
-                        <td class="text-right">
-                            <div class="price-tag"><?= number_format($item['price']) ?></div>
-                            <?php if($is_outdated): ?>
-                                <div style="font-size: 0.7rem; color: #ef4444; display: flex; align-items: center; justify-content: flex-end; gap: 2px;">
-                                    <span class="material-symbols-rounded" style="font-size: 12px;">warning</span> ไม่อัปเดต
-                                </div>
                             <?php endif; ?>
-                        </td>
-
-                        <td class="text-center">
-                            <?php if($item['show_on_web']): ?>
-                                <div class="status-icon st-on" title="แสดงบนเว็บไซต์">
-                                    <span class="material-symbols-rounded" style="font-size: 18px;">public</span>
-                                </div>
-                            <?php else: ?>
-                                <div class="status-icon st-off" title="ซ่อนจากเว็บ">
-                                    <span class="material-symbols-rounded" style="font-size: 18px;">visibility_off</span>
-                                </div>
-                            <?php endif; ?>
-                        </td>
-
-                        <td class="text-center">
-                            <?php if($item['is_active']): ?>
-                                <div class="status-icon st-active" title="ใช้งานปกติ">
-                                    <span class="material-symbols-rounded" style="font-size: 18px;">check</span>
-                                </div>
-                            <?php else: ?>
-                                <div class="status-icon st-inactive" title="ปิดการใช้งาน">
-                                    <span class="material-symbols-rounded" style="font-size: 18px;">close</span>
-                                </div>
-                            <?php endif; ?>
-                        </td>
-
-                        <td class="text-center">
-                            <div style="display: flex; justify-content: center; gap: 4px;">
-                                <a href="form.php?id=<?= $item['id'] ?>" class="btn-icon btn-edit" title="แก้ไข">
-                                    <span class="material-symbols-rounded">edit_square</span>
-                                </a>
-                                
-                                <form method="POST" onsubmit="return confirm('⚠️ ยืนยันการลบ?\n<?= $item['device_series'] ?> - <?= $item['service_name'] ?>');" style="display:inline;">
-                                    <input type="hidden" name="action" value="delete">
-                                    <input type="hidden" name="del_id" value="<?= $item['id'] ?>">
-                                    <button type="submit" class="btn-icon btn-del" title="ลบ">
-                                        <span class="material-symbols-rounded">delete</span>
-                                    </button>
-                                </form>
-                            </div>
-                        </td>
-
-                    </tr>
-                    <?php endforeach; ?>
-                <?php endif; ?>
+                        </div>
+                    </td>
+                </tr>
+            <?php else:
+                $last_type = null;
+                foreach ($items as $item):
+                    $outdated = strtotime($item['updated_at']) < strtotime('-90 days');
+                    if (!$type_filter && $item['device_type'] !== $last_type):
+                        $last_type = $item['device_type'];
+            ?>
+                <tr class="prc-group-row">
+                    <td colspan="7">
+                        <span class="material-symbols-rounded" style="font-size:14px;vertical-align:-3px;margin-right:5px;">devices</span>
+                        <?= htmlspecialchars($item['device_type']) ?>
+                        <span style="font-weight:400;opacity:0.7;margin-left:5px;">(<?= $tab_counts[$item['device_type']] ?? 0 ?> รายการ)</span>
+                    </td>
+                </tr>
+            <?php endif; ?>
+                <tr class="<?= $outdated ? 'prc-outdated' : '' ?>" id="row-<?= $item['id'] ?>">
+                    <td>
+                        <div class="prc-device-name"><?= htmlspecialchars($item['device_name']) ?></div>
+                        <?php if ($type_filter): ?>
+                        <div class="prc-device-type"><?= htmlspecialchars($item['device_type']) ?></div>
+                        <?php endif; ?>
+                    </td>
+                    <td>
+                        <span class="prc-cat-badge">
+                            <span class="material-symbols-rounded" style="font-size:13px;">build_circle</span>
+                            <?= htmlspecialchars($item['category_name'] ?? '—') ?>
+                        </span>
+                    </td>
+                    <td class="r">
+                        <div class="prc-price"><?= number_format($item['price']) ?></div>
+                        <?php if ($item['price_note']): ?>
+                        <div class="prc-price-note"><?= htmlspecialchars($item['price_note']) ?></div>
+                        <?php endif; ?>
+                        <?php if ($outdated): ?>
+                        <div class="prc-outdated-badge">
+                            <span class="material-symbols-rounded" style="font-size:12px;">warning</span> ล้าสมัย
+                        </div>
+                        <?php endif; ?>
+                    </td>
+                    <td class="c"><span class="prc-warranty"><?= $item['warranty_days'] ?> วัน</span></td>
+                    <td class="c">
+                        <button class="tog tog-web-<?= $item['show_on_web'] ?>"
+                            title="<?= $item['show_on_web'] ? 'แสดงบนเว็บ' : 'ซ่อนจากเว็บ' ?>"
+                            onclick="toggleField(this, <?= $item['id'] ?>, 'show_on_web')">
+                            <span class="material-symbols-rounded"><?= $item['show_on_web'] ? 'public' : 'visibility_off' ?></span>
+                        </button>
+                    </td>
+                    <td class="c">
+                        <button class="tog tog-act-<?= $item['is_active'] ?>"
+                            title="<?= $item['is_active'] ? 'เปิดใช้งาน' : 'ปิดการใช้งาน' ?>"
+                            onclick="toggleField(this, <?= $item['id'] ?>, 'is_active')">
+                            <span class="material-symbols-rounded"><?= $item['is_active'] ? 'check_circle' : 'cancel' ?></span>
+                        </button>
+                    </td>
+                    <td class="c">
+                        <div style="display:inline-flex;gap:2px;">
+                            <button class="act-btn act-edit" title="แก้ไข"
+                                onclick="openPricingModal('form.php?id=<?= $item['id'] ?>&modal=1')">
+                                <span class="material-symbols-rounded" style="font-size:19px;">edit_square</span>
+                            </button>
+                            <button class="act-btn act-del" title="ลบ"
+                                onclick="deleteRow(<?= $item['id'] ?>, '<?= htmlspecialchars($item['device_name'] . ' — ' . $item['category_name'], ENT_QUOTES) ?>')">
+                                <span class="material-symbols-rounded" style="font-size:19px;">delete</span>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            <?php endforeach; endif; ?>
             </tbody>
         </table>
     </div>
-</main>
+
+</div>
+
+<!-- Pricing Modal -->
+<div id="modal-pricing">
+    <div id="pricing-modal-inner">
+        <iframe id="pricing-iframe" src="" style="flex:1;border:none;width:100%;display:block;"></iframe>
+    </div>
+</div>
 
 <?php include __DIR__ . '/../templates/footer_admin.php'; ?>
+
+<script>
+function openPricingModal(url) {
+    document.getElementById('pricing-iframe').src = url;
+    const m = document.getElementById('modal-pricing');
+    m.classList.add('open');
+    document.body.style.overflow = 'hidden';
+}
+function closePricingModal() {
+    document.getElementById('modal-pricing').classList.remove('open');
+    document.body.style.overflow = '';
+    setTimeout(() => { document.getElementById('pricing-iframe').src = ''; }, 200);
+}
+document.getElementById('modal-pricing').addEventListener('click', e => {
+    if (e.target === document.getElementById('modal-pricing')) closePricingModal();
+});
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && document.getElementById('modal-pricing').classList.contains('open')) closePricingModal();
+});
+window.addEventListener('message', e => {
+    if (e.data === 'pricing-saved') {
+        closePricingModal();
+        Swal.fire({ toast:true, position:'top-end', icon:'success', title:'บันทึกเรียบร้อยแล้ว', showConfirmButton:false, timer:2500, timerProgressBar:true });
+        setTimeout(() => location.reload(), 400);
+    }
+    if (e.data === 'pricing-close') closePricingModal();
+});
+
+async function toggleField(btn, id, field) {
+    btn.disabled = true;
+    btn.style.opacity = '0.4';
+    try {
+        const fd = new FormData();
+        fd.append('action', 'toggle');
+        fd.append('id', id);
+        fd.append('field', field);
+        const res  = await fetch('ajax.php', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!data.ok) throw new Error();
+        const v    = data.value;
+        const icon = btn.querySelector('.material-symbols-rounded');
+        if (field === 'show_on_web') {
+            btn.className = `tog tog-web-${v}`;
+            icon.textContent = v ? 'public' : 'visibility_off';
+            btn.title = v ? 'แสดงบนเว็บ' : 'ซ่อนจากเว็บ';
+        } else {
+            btn.className = `tog tog-act-${v}`;
+            icon.textContent = v ? 'check_circle' : 'cancel';
+            btn.title = v ? 'เปิดใช้งาน' : 'ปิดการใช้งาน';
+        }
+    } catch { alert('เกิดข้อผิดพลาด'); }
+    finally { btn.disabled = false; btn.style.opacity = '1'; }
+}
+
+async function deleteRow(id, label) {
+    if (!confirm(`ลบรายการ "${label}" ?\n\nไม่สามารถกู้คืนได้`)) return;
+    try {
+        const fd = new FormData();
+        fd.append('action', 'delete');
+        fd.append('id', id);
+        const res  = await fetch('ajax.php', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.ok) {
+            const row = document.getElementById('row-' + id);
+            row.style.transition = 'opacity 0.3s';
+            row.style.opacity = '0';
+            setTimeout(() => row.remove(), 300);
+        }
+    } catch { alert('เกิดข้อผิดพลาด'); }
+}
+</script>

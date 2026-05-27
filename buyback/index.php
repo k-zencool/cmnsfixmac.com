@@ -1,91 +1,21 @@
-<!DOCTYPE html>
-<html lang="th">
-
-<head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description"
-        content="รับซื้อ MacBook, iPhone, iPad, iMac ทุกรุ่น ทุกสภาพ ในเชียงใหม่! ให้ราคายุติธรรม ตรวจสอบเครื่องฟรี นัดรับถึงที่ ติดต่อประเมินราคาผ่าน LINE ง่ายๆ" />
-    <title>CMNS Mac: รับซื้อ MacBook, iPhone, iPad, iMac ทุกสภาพ เชียงใหม่ | ให้ราคายุติธรรม</title>
-
-    <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/buyback/" />
-    <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/buyback/" />
-    <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/buyback/" />
-
-    <link rel="stylesheet" href="/assets/css/buyback-style.css">
-    <link rel="stylesheet" href="/assets/css/footer-style.css">
-    <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png" />
-
-    
-
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.3/dist/css/splide.min.css">
-    <link rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" />
-
-    <!-- Google tag (gtag.js) -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
-    <script>
-        window.dataLayer = window.dataLayer || [];
-
-        function gtag() {
-            dataLayer.push(arguments);
-        }
-        gtag('js', new Date());
-
-        gtag('config', 'G-3WXK9GWN7C');
-    </script>
-
-    <script type="application/ld+json">
-        {
-            "@context": "https://schema.org",
-            "@type": "FAQPage",
-            "mainEntity": [{
-                    "@type": "Question",
-                    "name": "เครื่องเสียหนักมาก เปิดไม่ติดเลย รับซื้อจริงเหรอ?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "จริงครับ! เรารับซื้อทุกสภาพตามที่แจ้งไปเลยครับ แม้จะเปิดไม่ติด เราก็ตีราคาเป็นค่าอะไหล่ให้ได้ครับ ลองส่งมาประเมินดูก่อนได้ ไม่เสียหาย"
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "รับซื้อเครื่องติด iCloud หรือติดล็อคอื่นๆ ไหม?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "รับพิจารณาครับ แต่ราคาจะขึ้นอยู่กับรุ่น สภาพ และประเภทการติดล็อค รบกวนแจ้งรายละเอียดให้ครบถ้วนตอนส่งประเมินนะครับ"
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "อยู่ต่างจังหวัด ส่งเครื่องไปขายได้ไหม?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "ได้ครับ หากไม่สะดวกมาที่เชียงใหม่ สามารถแพ็คเครื่องส่งมาอย่างปลอดภัยได้ หลังจากเราได้รับและตรวจสอบเครื่องเรียบร้อย ตกลงราคากันได้ ก็โอนเงินให้ทันทีครับ (แนะนำให้สอบถามขั้นตอนการส่งอย่างละเอียดกับเราก่อนนะครับ)"
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "ใช้เวลานานไหมกว่าจะรู้ราคา และได้เงิน?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "การประเมินราคาเบื้องต้นผ่าน LINE รวดเร็วมากครับ ส่วนใหญ่ภายในไม่กี่ชั่วโมง (ในเวลาทำการ) หากตกลงขายและนัดเจอหรือส่งเครื่องมาถึงเราแล้ว การตรวจสอบและจ่ายเงินก็รวดเร็วเช่นกันครับ"
-                    }
-                },
-                {
-                    "@type": "Question",
-                    "name": "ต้องเตรียมอะไรบ้างตอนขายเครื่อง?",
-                    "acceptedAnswer": {
-                        "@type": "Answer",
-                        "text": "ตัวเครื่องเป็นหลักครับ หากมีอุปกรณ์เสริมแท้ครบกล่อง (สายชาร์จ, อะแดปเตอร์, กล่อง) ก็จะช่วยให้ได้ราคาดีขึ้นครับ และสำคัญมากคือ อย่าลืม Sign out ออกจาก Apple ID และ iCloud ของคุณก่อนนะครับ"
-                    }
-                }
-            ]
-        }
-    </script>
-</head>
-
-<body>
-    <?php include_once '../includes/header.php'; ?>
+<?php
+$page_title      = 'CMNS Mac: รับซื้อ MacBook, iPhone, iPad, iMac ทุกสภาพ เชียงใหม่ | ให้ราคายุติธรรม';
+$page_css        = [
+    '/assets/css/buyback-style.css',
+    'https://cdn.jsdelivr.net/npm/@splidejs/splide@4.1.3/dist/css/splide.min.css',
+];
+$page_head_extra = <<<'HTML'
+<meta name="description" content="รับซื้อ MacBook, iPhone, iPad, iMac ทุกรุ่น ทุกสภาพ ในเชียงใหม่! ให้ราคายุติธรรม ตรวจสอบเครื่องฟรี นัดรับถึงที่ ติดต่อประเมินราคาผ่าน LINE ง่ายๆ">
+<link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/buyback/">
+<link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/buyback/">
+<link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/buyback/">
+<link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-3WXK9GWN7C');</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"เครื่องเสียหนักมาก เปิดไม่ติดเลย รับซื้อจริงเหรอ?","acceptedAnswer":{"@type":"Answer","text":"จริงครับ! เรารับซื้อทุกสภาพตามที่แจ้งไปเลยครับ แม้จะเปิดไม่ติด เราก็ตีราคาเป็นค่าอะไหล่ให้ได้ครับ ลองส่งมาประเมินดูก่อนได้ ไม่เสียหาย"}},{"@type":"Question","name":"รับซื้อเครื่องติด iCloud หรือติดล็อคอื่นๆ ไหม?","acceptedAnswer":{"@type":"Answer","text":"รับพิจารณาครับ แต่ราคาจะขึ้นอยู่กับรุ่น สภาพ และประเภทการติดล็อค รบกวนแจ้งรายละเอียดให้ครบถ้วนตอนส่งประเมินนะครับ"}},{"@type":"Question","name":"อยู่ต่างจังหวัด ส่งเครื่องไปขายได้ไหม?","acceptedAnswer":{"@type":"Answer","text":"ได้ครับ หากไม่สะดวกมาที่เชียงใหม่ สามารถแพ็คเครื่องส่งมาอย่างปลอดภัยได้ หลังจากเราได้รับและตรวจสอบเครื่องเรียบร้อย ตกลงราคากันได้ ก็โอนเงินให้ทันทีครับ"}},{"@type":"Question","name":"ใช้เวลานานไหมกว่าจะรู้ราคา และได้เงิน?","acceptedAnswer":{"@type":"Answer","text":"การประเมินราคาเบื้องต้นผ่าน LINE รวดเร็วมากครับ ส่วนใหญ่ภายในไม่กี่ชั่วโมง (ในเวลาทำการ) หากตกลงขายและนัดเจอหรือส่งเครื่องมาถึงเราแล้ว การตรวจสอบและจ่ายเงินก็รวดเร็วเช่นกันครับ"}},{"@type":"Question","name":"ต้องเตรียมอะไรบ้างตอนขายเครื่อง?","acceptedAnswer":{"@type":"Answer","text":"ตัวเครื่องเป็นหลักครับ หากมีอุปกรณ์เสริมแท้ครบกล่อง ก็จะช่วยให้ได้ราคาดีขึ้นครับ และสำคัญมากคือ อย่าลืม Sign out ออกจาก Apple ID และ iCloud ของคุณก่อนนะครับ"}}]}</script>
+HTML;
+include_once '../includes/header.php';
+?>
 
     <header class="hero-buyback" id="top">
         <div class="container">

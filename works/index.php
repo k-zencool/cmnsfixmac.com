@@ -19,43 +19,22 @@ $category = filter_input(INPUT_GET, 'category', FILTER_SANITIZE_SPECIAL_CHARS);
 $sort = filter_input(INPUT_GET, 'sort', FILTER_SANITIZE_SPECIAL_CHARS);
 $page = filter_input(INPUT_GET, 'page', FILTER_VALIDATE_INT);
 if (!$page || $page < 1) $page = 1;
+
+$page_title      = 'ผลงานทั้งหมด - CMNS Mac Repair';
+$page_css        = [
+    '/assets/css/style.css',
+    '/assets/css/works-style.css',
+];
+$page_head_extra = <<<'HTML'
+<link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/works/">
+<link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/works/">
+<link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/works/">
+<link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-3WXK9GWN7C');</script>
+HTML;
+include_once '../includes/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="th">
-
-<head>
-  <meta charset="UTF-8">
-  <title>ผลงานทั้งหมด - CMNS Mac Repair</title>
-
-  <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/works/" />
-  <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/works/" />
-  <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/works/" />
-  
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="/assets/css/style.css">
-  <link rel="stylesheet" href="/assets/css/works-style.css">
-  <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png" />
-  <link rel="stylesheet" href="/assets/css/footer-style.css">
-
-  
-
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-
-    function gtag() {
-      dataLayer.push(arguments);
-    }
-    gtag('js', new Date());
-
-    gtag('config', 'G-3WXK9GWN7C');
-  </script>
-
-</head>
-
-<body>
-
-  <?php include_once '../includes/header.php'; ?>
 
   <div class="page-container">
 

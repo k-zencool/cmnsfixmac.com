@@ -1,371 +1,308 @@
 <?php
-// warranty.php — เช็คประกันด้วย เลขประกัน / Serial เท่านั้น (ตัดเลขงานซ่อมออก)
-include '../includes/db.php';
+date_default_timezone_set('Asia/Bangkok');
+require_once '../includes/db.php';
 
-// Helpers
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
-function nb($s){ return $s === '' || $s === null ? '-' : h($s); }
+function mask_phone($p){
+    $p = preg_replace('/\D/', '', $p ?? '');
+    if (strlen($p) >= 8) return substr($p,0,3) . '-XXXX-' . substr($p,-3);
+    return $p ? str_repeat('X', strlen($p)) : '-';
+}
 
-// รูป Hero
-$HERO_IMG = 'assets/img/hero.webp';
+$pdo->exec("UPDATE warranties SET status='expired' WHERE status='active' AND end_date < CURDATE()");
 
-$q = isset($_GET['q']) ? trim($_GET['q']) : '';
-$results = [];
-$msgErr  = '';
+$q      = trim($_GET['q'] ?? '');
+$war    = null;
+$claims = [];
+$errMsg = '';
 
 if ($q !== '') {
-  // 1) หาแบบตรงตัว (ค้นหาแค่ warranty_no หรือ sn)
-  $st = $pdo->prepare("
-    SELECT id, warranty_no, repair_no, customer_name, device_model, sn,
-           base_date, warranty_until, warranty_status,
-           DATEDIFF(warranty_until,CURDATE()) AS days_left
-    FROM warranty_jobs
-    WHERE warranty_no = :q OR sn = :q 
-    ORDER BY id DESC
-  ");
-  $st->execute([':q'=>$q]);
-  $results = $st->fetchAll(PDO::FETCH_ASSOC);
-
-  // 2) ไม่เจอค่อย LIKE (ค้นหาแค่ warranty_no หรือ sn)
-  if (!$results){
-    $st = $pdo->prepare("
-      SELECT id, warranty_no, repair_no, customer_name, device_model, sn,
-             base_date, warranty_until, warranty_status,
-             DATEDIFF(warranty_until,CURDATE()) AS days_left
-      FROM warranty_jobs
-      WHERE warranty_no LIKE :s OR sn LIKE :s
-      ORDER BY id DESC
-      LIMIT 50
-    ");
-    $st->execute([':s'=>"%{$q}%"]);
-    $results = $st->fetchAll(PDO::FETCH_ASSOC);
-  }
-
-  if (!$results) $msgErr = 'ไม่พบข้อมูลประกัน (ค้นหาได้เฉพาะเลขประกัน หรือ Serial Number เท่านั้น)';
+    $st = $pdo->prepare("SELECT * FROM warranties WHERE warranty_no = :q OR serial_no = :q ORDER BY id DESC LIMIT 1");
+    $st->execute([':q' => $q]);
+    $war = $st->fetch(PDO::FETCH_ASSOC);
+    if (!$war) {
+        $st2 = $pdo->prepare("SELECT * FROM warranties WHERE warranty_no LIKE :s OR serial_no LIKE :s ORDER BY id DESC LIMIT 1");
+        $st2->execute([':s' => "%$q%"]);
+        $war = $st2->fetch(PDO::FETCH_ASSOC);
+    }
+    if ($war) {
+        $cs = $pdo->prepare("SELECT claim_no, claim_date, issue_desc, resolution, status FROM warranty_claims WHERE warranty_id = ? AND status IN ('resolved','rejected') ORDER BY claim_date DESC");
+        $cs->execute([$war['id']]);
+        $claims = $cs->fetchAll(PDO::FETCH_ASSOC);
+    } else {
+        $errMsg = 'ไม่พบข้อมูลประกัน';
+    }
 }
 
-$result = (count($results) === 1) ? $results[0] : null;
+$days_left = $war ? (int)ceil((strtotime($war['end_date']) - time()) / 86400) : 0;
+$page_title = 'ตรวจสอบประกัน — CMNS Fix Mac';
+$switch_to_lang_url = '/en/warranty/' . ($q ? '?q=' . urlencode($q) : '');
+
+if ($war) {
+    $total_d   = $war['warranty_days'];
+    $used_d    = max(0, min((int)ceil((time() - strtotime($war['start_date'])) / 86400), $total_d));
+    $pct       = $total_d > 0 ? round(($used_d / $total_d) * 100) : 100;
+    $is_active = $war['status'] === 'active' && $days_left > 0;
+    $is_voided = $war['status'] === 'voided';
+    if ($is_active) {
+        $theme    = ['grad'=>'linear-gradient(135deg,#065f46 0%,#059669 100%)','icon'=>'verified','label'=>'ประกันยังไม่หมดอายุ'];
+        $days_cls = $days_left > 30 ? 'ok' : 'warn';
+    } elseif ($is_voided) {
+        $theme    = ['grad'=>'linear-gradient(135deg,#7f1d1d 0%,#dc2626 100%)','icon'=>'block','label'=>'ประกันถูกยกเลิก'];
+        $days_cls = 'over';
+    } else {
+        $theme    = ['grad'=>'linear-gradient(135deg,#374151 0%,#6b7280 100%)','icon'=>'schedule','label'=>'ประกันหมดอายุแล้ว'];
+        $days_cls = 'over';
+    }
+}
+
+$page_css = [];
+$page_head_extra = <<<'STYLE'
+<style>
+/* ── Page ── */
+.wp-page  { min-height:78vh; padding:100px 20px 80px; }
+.wp-inner { max-width:660px; margin:0 auto; }
+
+/* ── Hero ── */
+.wp-hero { text-align:center; margin-bottom:36px; }
+.wp-hero-icon { width:72px; height:72px; border-radius:20px; background:linear-gradient(135deg,#1e40af,#2563eb); display:flex; align-items:center; justify-content:center; margin:0 auto 18px; box-shadow:0 8px 24px rgba(37,99,235,.35); }
+.wp-hero-icon .material-symbols-rounded { font-size:36px; color:#fff; }
+.wp-hero h1 { font-size:1.9rem; font-weight:900; margin:0 0 8px; letter-spacing:-.5px; color:var(--text-primary); }
+.wp-hero p  { color:var(--text-secondary); font-size:0.95rem; margin:0; }
+
+/* ── Search ── */
+.wp-search-card { background:var(--bg-surface); border:1.5px solid var(--border); border-radius:20px; padding:24px; box-shadow:0 4px 20px rgba(0,0,0,.07); margin-bottom:28px; }
+.wp-search-row  { display:flex; gap:10px; }
+.wp-search-wrap { flex:1; position:relative; }
+.wp-search-wrap .material-symbols-rounded { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--text-tertiary); font-size:22px; pointer-events:none; }
+.wp-search-input { width:100%; padding:14px 14px 14px 46px; border:2px solid #e5e7eb; border-radius:12px; font-size:0.97rem; outline:none; transition:.2s; background:var(--bg-surface-alt); color:var(--text-primary); font-family:inherit; }
+.wp-search-input:focus { border-color:#2563eb; background:var(--bg-surface); box-shadow:0 0 0 4px rgba(37,99,235,.1); }
+.wp-search-btn { padding:0 22px; background:#2563eb; color:#fff; border:none; border-radius:12px; font-size:0.95rem; font-weight:700; cursor:pointer; transition:.15s; white-space:nowrap; display:flex; align-items:center; gap:6px; }
+.wp-search-btn:hover { background:#1d4ed8; transform:translateY(-1px); }
+.wp-hint { text-align:center; font-size:0.8rem; color:var(--text-tertiary); margin-top:12px; }
+
+/* ── Error ── */
+.wp-err { background:#fef2f2; border:1px solid #fecaca; border-radius:12px; padding:14px 18px; color:#dc2626; font-size:0.9rem; margin-bottom:20px; display:flex; align-items:center; gap:10px; }
+
+/* ── Empty ── */
+.wp-empty { text-align:center; padding:32px 0; color:var(--text-tertiary); }
+.wp-empty .material-symbols-rounded { font-size:56px; opacity:.3; display:block; margin-bottom:10px; }
+
+/* ── Result ── */
+.wp-result { border-radius:20px; overflow:hidden; box-shadow:0 8px 32px rgba(0,0,0,.12); margin-bottom:20px; }
+.wp-result-header { padding:28px; color:#fff; position:relative; overflow:hidden; }
+.wp-result-header::before { content:''; position:absolute; right:-30px; top:-30px; width:180px; height:180px; border-radius:50%; background:rgba(255,255,255,.07); }
+.wp-result-header::after  { content:''; position:absolute; right:40px; bottom:-50px; width:120px; height:120px; border-radius:50%; background:rgba(255,255,255,.05); }
+.wp-rh-top    { display:flex; align-items:center; gap:14px; margin-bottom:20px; position:relative; z-index:1; }
+.wp-rh-icon   { width:52px; height:52px; border-radius:14px; background:rgba(255,255,255,.2); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.wp-rh-icon .material-symbols-rounded { font-size:28px; }
+.wp-rh-no     { font-size:0.82rem; font-family:monospace; opacity:.8; letter-spacing:.5px; }
+.wp-rh-device { font-size:1.25rem; font-weight:800; line-height:1.2; }
+.wp-rh-label  { font-size:0.85rem; opacity:.8; margin-top:2px; }
+.wp-days-strip { display:flex; align-items:center; gap:20px; position:relative; z-index:1; background:rgba(0,0,0,.15); border-radius:14px; padding:16px 20px; }
+.wp-days-big   { font-size:3rem; font-weight:900; line-height:1; }
+.wp-days-unit  { font-size:0.9rem; opacity:.8; }
+.wp-days-info  { flex:1; }
+.wp-days-bar-bg { background:rgba(255,255,255,.2); border-radius:20px; height:6px; margin:8px 0 4px; overflow:hidden; }
+.wp-days-bar    { height:100%; border-radius:20px; background:rgba(255,255,255,.9); }
+.wp-days-dates  { display:flex; justify-content:space-between; font-size:0.75rem; opacity:.75; }
+
+/* ── Body ── */
+.wp-result-body { background:var(--bg-surface); padding:24px 28px; }
+.wp-section-title { font-size:0.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.6px; color:var(--text-tertiary); margin-bottom:12px; display:flex; align-items:center; gap:6px; }
+.wp-info-grid { display:grid; grid-template-columns:1fr 1fr; gap:0; margin-bottom:20px; }
+.wp-info-row  { padding:10px 0; border-bottom:1px solid var(--border); display:flex; flex-direction:column; gap:2px; }
+.wp-info-row:nth-child(odd)  { padding-right:20px; }
+.wp-info-row:nth-child(even) { padding-left:20px; border-left:1px solid var(--border); }
+.wp-info-row.full { grid-column:1/-1; padding-right:0; padding-left:0; border-left:none; }
+.wp-info-label { font-size:0.72rem; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--text-tertiary); }
+.wp-info-val   { font-size:0.93rem; font-weight:600; color:var(--text-primary); }
+
+/* ── Claims ── */
+.wp-claim { background:var(--bg-surface-alt); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:8px; }
+.wp-claim-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:6px; gap:8px; flex-wrap:wrap; }
+.wp-claim-no   { font-size:0.78rem; font-family:monospace; font-weight:700; color:var(--text-secondary); }
+.wp-claim-date { font-size:0.78rem; color:var(--text-tertiary); }
+.wp-claim-badge { font-size:0.72rem; font-weight:700; padding:2px 8px; border-radius:20px; }
+.wp-claim-badge.resolved { background:#d1fae5; color:#065f46; }
+.wp-claim-badge.rejected { background:#fee2e2; color:#991b1b; }
+.wp-claim-issue { font-size:0.84rem; color:var(--text-primary); }
+.wp-claim-resolution { margin-top:8px; padding:8px 12px; background:var(--bg-surface); border-left:3px solid #10b981; border-radius:4px; font-size:0.82rem; color:var(--text-primary); }
+
+/* ── CTA ── */
+.wp-cta { display:flex; gap:10px; margin-top:20px; flex-wrap:wrap; }
+.wp-cta-btn { flex:1; min-width:140px; padding:13px 16px; border-radius:12px; border:none; font-size:0.9rem; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:8px; text-decoration:none; transition:.15s; }
+.wp-cta-primary  { background:#059669; color:#fff; }
+.wp-cta-primary:hover { background:#047857; transform:translateY(-1px); }
+.wp-cta-secondary { background:#f3f4f6; color:var(--text-primary); border:1px solid var(--border); }
+.wp-cta-secondary:hover { background:#e5e7eb; }
+
+/* ── Store badge ── */
+.wp-store-badge { display:flex; align-items:center; gap:12px; padding:14px 18px; background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; margin-top:16px; }
+.wp-store-logo  { width:40px; height:40px; border-radius:10px; background:linear-gradient(135deg,#1e3a5f,#2563eb); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.wp-store-logo .material-symbols-outlined { font-size:20px; color:#fff; }
+.wp-store-logo .material-symbols-rounded { font-size:20px; color:#fff; }
+.wp-store-name  { font-weight:800; font-size:0.9rem; color:var(--text-primary); }
+.wp-store-sub   { font-size:0.78rem; color:var(--text-secondary); }
+.wp-void-box    { background:#fef2f2; border:1px solid #fecaca; border-radius:12px; padding:14px 18px; margin-top:16px; display:flex; gap:10px; align-items:flex-start; }
+
+@media(max-width:520px){
+    .wp-info-grid { grid-template-columns:1fr; }
+    .wp-info-row:nth-child(even) { padding-left:0; border-left:none; }
+    .wp-info-row:nth-child(odd)  { padding-right:0; }
+    .wp-days-big { font-size:2.2rem; }
+    .wp-search-btn span:last-child { display:none; }
+}
+</style>
+STYLE;
+include '../includes/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>ตรวจสอบประกันงานซ่อม | CMNS FixMac</title>
-  <meta name="description" content="กรอกเลขประกัน (WJ-xxxx) หรือ Serial Number เพื่อดูรายละเอียดประกันงานซ่อมจาก CMNS FixMac">
-  <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/warranty/" />
-  <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/warranty/" />
-  <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/warranty/" />
+<section class="wp-page">
+<div class="wp-inner">
 
-  <link rel="stylesheet" href="/assets/css/style.css">
-  <link rel="stylesheet" href="/assets/css/floating-buttons.css">
-  <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet" />
-  <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png" />
-  <link rel="stylesheet" href="/assets/css/footer-style.css">
+    <div class="wp-hero">
+        <div class="wp-hero-icon">
+            <span class="material-symbols-rounded">verified_user</span>
+        </div>
+        <h1>ตรวจสอบประกัน</h1>
+        <p>ค้นหาด้วยเลขใบประกัน (W-YYYY-XXXX) หรือ Serial Number ของเครื่อง</p>
+    </div>
 
-  <style>
-  :root{
-    --ink:#0D1A3E; --muted:#6b7280; --line:#e5e7eb;
-    --bg:#f5f5f7; --blue:#000; --card:#fff;
-    --shadow:0 1px 2px rgba(0,0,0,.06);
-  }
-  *{box-sizing:border-box}
-  html,body{height:100%}
-  body{
-    margin:0; background:#fff; color:var(--ink);
-    font:16px/1.55 -apple-system,BlinkMacSystemFont,"SF Pro Text","Helvetica Neue","Segoe UI",Arial,sans-serif;
-    -webkit-font-smoothing:antialiased;
-  }
-  .container{max-width:1100px;margin:0 auto;padding:0 16px}
+    <div class="wp-search-card">
+        <form method="get">
+            <div class="wp-search-row">
+                <div class="wp-search-wrap">
+                    <span class="material-symbols-rounded">search</span>
+                    <input type="text" name="q" class="wp-search-input"
+                           placeholder="W-2026-0001  หรือ  C02XG0JJMD6T"
+                           value="<?= h($q) ?>" autofocus autocomplete="off">
+                </div>
+                <button type="submit" class="wp-search-btn">
+                    <span class="material-symbols-rounded">search</span>
+                    <span>ค้นหา</span>
+                </button>
+            </div>
+        </form>
+        <div class="wp-hint">ค้นหาด้วยเลขประกัน หรือ Serial Number เท่านั้น</div>
+    </div>
 
-  /* ====== HERO (ภาพเต็มจอ) ====== */
-  .hero{
-    min-height:68vh; display:grid; place-items:center; text-align:center; color:#fff;
-    margin-left:calc(50% - 50vw); margin-right:calc(50% - 50vw);
-    background:center/cover no-repeat fixed;
-    position:relative;
-  }
-  .hero::before{
-    content:""; position:absolute; inset:0;
-    background:linear-gradient(180deg, rgba(0,0,0,.45), rgba(0,0,0,.35));
-  }
-  .hero .hero-content{position:relative; width:min(1000px,92vw); padding:26px 12px}
-  .hero h1{margin:8px 0 10px; font-size:clamp(28px,5.6vw,56px); letter-spacing:-.02em; font-weight:800}
-  .hero p{margin:0; color:#e9eaee; font-size:clamp(16px,2.2vw,22px);}
-
-  /* ช่องค้นหา + ปุ่ม (ปุ่มอยู่ด้านล่าง) */
-  .search-wrap{display:flex;flex-direction:column;gap:10px;align-items:center;margin-top:18px}
-  .search-input{
-    height:58px; width:min(900px,92vw); padding:0 16px; font-size:18px;
-    border:1px solid rgba(255,255,255,.6); border-radius:14px; outline:none;
-    color:#fff; background:rgba(255,255,255,.16); backdrop-filter:blur(6px);
-  }
-  .search-input::placeholder{color:#f3f3f3}
-  .btn{
-    display:inline-flex; align-items:center; justify-content:center; gap:8px;
-    height:58px; padding:0 24px; border-radius:14px; border:none;
-    background:#000; color:#fff; font-weight:800; cursor:pointer;
-  }
-  .btn:hover{filter:brightness(.95)}
-
-  /* ====== Cards & Tables ====== */
-  .section{padding:40px 0}
-  .card{background:var(--card); border-radius:16px; box-shadow:var(--shadow); border:1px solid var(--line); overflow:hidden}
-  .card-head{display:flex; gap:10px; justify-content:flex-end; align-items:center; padding:12px 14px; background:#fff; border-bottom:1px solid var(--line)}
-  .btn-outline{background:#fff; color:#111; border:1px solid var(--line); border-radius:10px; padding:10px 14px; cursor:pointer}
-  .table{width:100%; border-collapse:collapse; background:#fff}
-  .table th,.table td{padding:14px 16px; border-bottom:1px solid #eee; text-align:left; vertical-align:middle}
-  .table th{width:260px; background:#fbfbfd}
-  .table tr:hover td{background:#fafafa}
-  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
-  .muted{color:var(--muted)}
-  .nowrap{white-space:nowrap}
-  a.row-link{color:inherit; text-decoration:none}
-
-  /* ====== หลายผลลัพธ์ (รายการ) ====== */
-  .list-table{width:100%;border-collapse:collapse; background:#fff}
-  .list-table th,.list-table td{padding:12px 14px;border-bottom:1px solid #eee}
-  .list-table th{background:#fbfbfd;text-align:left}
-
-  /* ====== ใบพิมพ์ (A4 ขาวสะอาด) ====== */
-  .print-sheet{display:none}
-  .print-header{display:flex;flex-direction:column;align-items:center;margin-bottom:10px;text-align:center}
-  .print-header img{width:120px;height:auto;margin-bottom:8px}
-  .print-header h1{margin:0 0 6px; font-size:20pt; font-weight:800}
-  .print-meta{font-size:10pt; color:#333}
-  .print-table{width:100%; border-collapse:collapse; font-size:11pt; margin-top:14px}
-  .print-table th,.print-table td{border:1px solid #000; padding:8px 10px; text-align:left; vertical-align:top}
-  .print-table th{width:34%; background:#f6f6f6}
-  .sign-row{display:flex; gap:40px; margin-top:22px}
-  .sign-col{flex:1}
-  .sign-line{border-bottom:1px solid #000; height:28px; margin-bottom:4px}
-  .sign-label{font-size:10pt; color:#333}
-  .terms{margin-top:18px; font-size:10pt; line-height:1.5; color:#333}
-
-  /* ====== Responsive ====== */
-  @media (max-width:768px){
-    .table th{width:40%}
-    .card-head{flex-wrap:wrap}
-  }
-
-  /* ====== Print ====== */
-@media print{
-  @page{ size:A4; margin:14mm }
-  header, .hero, .no-print, .alert, .card, .list-table, .card-head, 
-  .section .card, .section .list-table, .container > *:not(.print-sheet) { display: none !important; }
-  .print-sheet{ display:block !important; }
-  body{ background:#fff; color:#000; font:12pt/1.5 "Sarabun", system-ui, sans-serif; }
-  .container{max-width:100%; padding:0}
-  .section{padding:0}
-  table, tr, td, th{ page-break-inside:avoid }
-}
-  </style>
-
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){ dataLayer.push(arguments) }
-    gtag('js', new Date());
-    gtag('config', 'G-3WXK9GWN7C');
-  </script>
-</head>
-<body>
-
-<?php include_once '../includes/header.php'; ?>
-
-<section class="hero" style="background-image:url('<?= h($HERO_IMG) ?>')">
-  <div class="hero-content" data-aos="fade-up">
-    <h1>ตรวจสอบประกันงานซ่อม</h1>
-    <p>กรอก <b>เลขประกัน (WJ-xxxx)</b> หรือ <b>Serial Number</b> เท่านั้น</p>
-
-    <form action="#result" method="get" class="search-wrap">
-      <input type="text" name="q" class="search-input" placeholder="เช่น WJ-2025-0001 หรือ Serial Number" value="<?= h($q) ?>" required>
-      <button class="btn" type="submit"><span class="material-symbols-rounded">search</span>ตรวจสอบ</button>
-    </form>
-
-    <?php if ($msgErr): ?>
-      <div class="alert" style="margin-top:12px;background:#fde8e8;color:#a40000;padding:10px 14px;border-radius:10px">
-        <?= h($msgErr) ?>
-      </div>
+    <?php if ($errMsg): ?>
+    <div class="wp-err">
+        <span class="material-symbols-rounded" style="flex-shrink:0;">error_outline</span>
+        <div><strong>ไม่พบข้อมูล</strong><br><span style="font-size:.85rem;">ตรวจสอบเลขประกันหรือ Serial อีกครั้ง หากยังไม่พบกรุณาติดต่อร้านโดยตรง</span></div>
+    </div>
     <?php endif; ?>
-  </div>
+
+    <?php if (!$q): ?>
+    <div class="wp-empty">
+        <span class="material-symbols-rounded">manage_search</span>
+        กรอกเลขประกันหรือ Serial Number ด้านบนเพื่อตรวจสอบ
+    </div>
+    <?php endif; ?>
+
+    <?php if ($war): ?>
+    <div class="wp-result">
+        <div class="wp-result-header" style="background:<?= $theme['grad'] ?>;">
+            <div class="wp-rh-top">
+                <div class="wp-rh-icon"><span class="material-symbols-rounded"><?= $theme['icon'] ?></span></div>
+                <div>
+                    <div class="wp-rh-no"><?= h($war['warranty_no']) ?></div>
+                    <div class="wp-rh-device"><?= h($war['device_model']) ?></div>
+                    <div class="wp-rh-label"><?= $theme['label'] ?></div>
+                </div>
+            </div>
+            <div class="wp-days-strip">
+                <?php if ($is_active): ?>
+                    <div><div class="wp-days-big"><?= $days_left ?></div><div class="wp-days-unit">วัน</div></div>
+                    <div class="wp-days-info">
+                        <div style="font-size:.82rem;opacity:.8;">ประกันเหลืออีก</div>
+                        <div class="wp-days-bar-bg"><div class="wp-days-bar" style="width:<?= 100-$pct ?>%;"></div></div>
+                        <div class="wp-days-dates"><span>เริ่ม <?= date('d/m/Y',strtotime($war['start_date'])) ?></span><span>หมด <?= date('d/m/Y',strtotime($war['end_date'])) ?></span></div>
+                    </div>
+                <?php elseif ($is_voided): ?>
+                    <div><div class="wp-days-big" style="font-size:1.8rem;">ยกเลิก</div></div>
+                    <div class="wp-days-info">
+                        <div style="font-size:.82rem;opacity:.8;">ใบประกันถูกยกเลิก</div>
+                        <div style="font-size:.78rem;opacity:.7;margin-top:4px;"><?= date('d/m/Y',strtotime($war['start_date'])) ?> — <?= date('d/m/Y',strtotime($war['end_date'])) ?></div>
+                    </div>
+                <?php else: ?>
+                    <div><div class="wp-days-big" style="font-size:1.8rem;">หมดอายุ</div></div>
+                    <div class="wp-days-info">
+                        <div style="font-size:.82rem;opacity:.8;">หมดอายุเมื่อ <?= date('d/m/Y',strtotime($war['end_date'])) ?></div>
+                        <div class="wp-days-bar-bg" style="margin-top:8px;"><div class="wp-days-bar" style="width:100%;opacity:.4;"></div></div>
+                        <div class="wp-days-dates"><span>เริ่ม <?= date('d/m/Y',strtotime($war['start_date'])) ?></span><span>หมด <?= date('d/m/Y',strtotime($war['end_date'])) ?></span></div>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <div class="wp-result-body">
+            <div class="wp-section-title"><span class="material-symbols-rounded" style="font-size:15px;">info</span>รายละเอียด</div>
+            <div class="wp-info-grid">
+                <div class="wp-info-row"><span class="wp-info-label">ชื่อลูกค้า</span><span class="wp-info-val"><?= h($war['customer_name']) ?></span></div>
+                <?php if ($war['customer_phone']): ?>
+                <div class="wp-info-row"><span class="wp-info-label">เบอร์ติดต่อ</span><span class="wp-info-val"><?= h(mask_phone($war['customer_phone'])) ?></span></div>
+                <?php endif; ?>
+                <?php if ($war['serial_no']): ?>
+                <div class="wp-info-row"><span class="wp-info-label">Serial Number</span><span class="wp-info-val" style="font-family:monospace;"><?= h($war['serial_no']) ?></span></div>
+                <?php endif; ?>
+                <div class="wp-info-row"><span class="wp-info-label">ระยะประกัน</span><span class="wp-info-val"><?= $war['warranty_days'] ?> วัน</span></div>
+                <?php if ($war['repair_summary']): ?>
+                <div class="wp-info-row full"><span class="wp-info-label">งานที่ซ่อม</span><span class="wp-info-val" style="white-space:pre-line;"><?= h($war['repair_summary']) ?></span></div>
+                <?php endif; ?>
+            </div>
+
+            <?php if ($is_voided && $war['void_reason']): ?>
+            <div class="wp-void-box">
+                <span class="material-symbols-rounded" style="color:#dc2626;flex-shrink:0;">block</span>
+                <div><div style="font-weight:700;font-size:.88rem;color:#991b1b;margin-bottom:2px;">เหตุผลยกเลิก</div><div style="font-size:.85rem;color:var(--text-primary);"><?= h($war['void_reason']) ?></div></div>
+            </div>
+            <?php endif; ?>
+
+            <?php if (!empty($claims)): ?>
+            <div style="margin-top:20px;padding-top:20px;border-top:1px solid #f3f4f6;">
+                <div class="wp-section-title"><span class="material-symbols-rounded" style="font-size:15px;">history</span>ประวัติการเคลม (<?= count($claims) ?>)</div>
+                <?php foreach ($claims as $c): ?>
+                <div class="wp-claim">
+                    <div class="wp-claim-header">
+                        <span class="wp-claim-no"><?= h($c['claim_no']) ?></span>
+                        <span class="wp-claim-date"><?= date('d/m/Y',strtotime($c['claim_date'])) ?></span>
+                        <span class="wp-claim-badge <?= $c['status'] ?>"><?= $c['status']==='resolved'?'แก้ไขแล้ว':'ปฏิเสธ' ?></span>
+                    </div>
+                    <?php if ($c['issue_desc']): ?><div class="wp-claim-issue"><?= h($c['issue_desc']) ?></div><?php endif; ?>
+                    <?php if ($c['resolution'] && $c['status']==='resolved'): ?>
+                    <div class="wp-claim-resolution"><strong>ผล:</strong> <?= h($c['resolution']) ?></div>
+                    <?php endif; ?>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
+
+            <?php if ($is_active): ?>
+            <div class="wp-cta">
+                <a href="https://line.me/R/ti/p/@cmns" class="wp-cta-btn wp-cta-primary" target="_blank" rel="noopener">
+                    <span class="material-symbols-rounded">chat</span> แจ้งเคลมผ่าน LINE
+                </a>
+                <a href="tel:0841511684" class="wp-cta-btn wp-cta-secondary">
+                    <span class="material-symbols-rounded">call</span> โทรหาร้าน
+                </a>
+            </div>
+            <?php endif; ?>
+
+            <div class="wp-store-badge">
+                <div class="wp-store-logo"><span class="material-symbols-rounded">storefront</span></div>
+                <div><div class="wp-store-name">CMNS Fix Mac</div><div class="wp-store-sub">ศูนย์ซ่อม Mac & iPhone — cmnsfixmac.com</div></div>
+                <a href="/" style="margin-left:auto;font-size:.82rem;color:#2563eb;text-decoration:none;white-space:nowrap;">เว็บไซต์ร้าน →</a>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+</div>
 </section>
 
-<div class="section" id="result">
-  <div class="container">
-  <?php if ($result): ?>
-    <?php
-      $d  = (int)($result['days_left'] ?? 0);
-      $st = (string)($result['warranty_status'] ?? '');
-      $label = $st==='in_warranty' ? 'อยู่ในประกัน' : ($st==='expired' ? 'หมดประกัน' : ($st==='void' ? 'โมฆะ' : $st));
-      $note  = $st==='in_warranty' ? "เหลืออีก {$d} วัน" : ($st==='expired' ? "หมดไป ".abs($d)." วัน" : '');
-    ?>
-    <div class="card" data-aos="fade-up">
-      <div class="card-head no-print">
-        <button class="btn-outline" type="button" onclick="copyWarranty('<?= h($result['warranty_no']) ?>')">
-          <span class="material-symbols-rounded" style="vertical-align:middle">content_copy</span> คัดลอกเลขประกัน
-        </button>
-        <button class="btn-outline" type="button" onclick="window.print()">
-          <span class="material-symbols-rounded" style="vertical-align:middle">print</span> พิมพ์ใบรับประกัน
-        </button>
-      </div>
-      <table class="table">
-        <tbody>
-          <tr><th>เลขประกัน</th><td class="mono"><strong><?= nb($result['warranty_no']) ?></strong></td></tr>
-          <tr><th>เลขงานซ่อม</th><td class="mono"><?= nb($result['repair_no']) ?></td></tr>
-          <tr><th>ชื่อลูกค้า</th><td><?= nb($result['customer_name']) ?></td></tr>
-          <tr><th>อุปกรณ์</th><td><?= nb($result['device_model']) ?></td></tr>
-          <tr><th>Serial</th><td class="mono"><?= nb($result['sn']) ?></td></tr>
-          <tr><th>วันที่เริ่มประกัน</th><td class="mono"><?= nb($result['base_date']) ?></td></tr>
-          <tr><th>วันหมดประกัน</th><td class="mono"><strong><?= nb($result['warranty_until']) ?></strong></td></tr>
-          <tr>
-            <th>สถานะประกัน</th>
-            <td>
-              <span><?= h($label) ?></span>
-              <?php if ($note): ?><small class="muted" style="margin-left:6px"><?= h($note) ?></small><?php endif; ?>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div> 
-    
-    <div class="card no-print" data-aos="fade-up" style="margin-top:24px;" data-aos-delay="100">
-      <div style="padding: 18px 20px 20px 20px;">
-        <strong style="font-size: 1.1rem; font-weight: 700; display: block; margin-bottom: 12px;">เงื่อนไขการรับประกัน</strong>
-        <div class="terms-display" style="font-size: 15px; line-height: 1.65; color: var(--ink);">
-          <ol style="margin: 0 0 0 18px; padding: 0; list-style-position: outside;">
-            <li>ประกันครอบคลุมเฉพาะอาการที่ระบุในใบงานซ่อม และอะไหล่ที่ทางร้านเปลี่ยนให้เท่านั้น</li>
-            <li>ไม่ครอบคลุมความเสียหายจากของเหลว/ตกหล่น/งัดแงะ/ใช้งานผิดวิธี หรือการซ่อมจากที่อื่น</li>
-            <li>ซีล/สติ๊กเกอร์รับประกันต้องอยู่ครบ หากถูกแกะ/ฉีกขาด ถือว่าสิ้นสุดการรับประกันทันที</li>
-            <li>กรณีใช้สิทธิ์ประกัน กรุณาแจ้ง <strong>เลขประกัน (WJ-xxxx)</strong> หรือ <strong>Serial Number</strong> ทุกครั้ง</li>
-            <li>ข้อกำหนดเพิ่มเติมเป็นไปตามประกาศล่าสุดของ CMNS FixMac</li>
-          </ol>
-        </div>
-      </div>
-    </div>
+<?php include '../includes/footer.php'; ?>
 
-    <section class="print-sheet">
-      <div class="print-header">
-        <img src="assets/img/apple-logo.png" alt="CMNS FixMac">
-        <h1>ผลการตรวจสอบ</h1>
-        <div class="print-meta">ใบรับประกัน / ผลการตรวจสอบประกัน</div>
-        <div class="print-meta" style="margin-top:4px">
-          CMNS FixMac — 482 หมู่ 8 หลังกาดวรุณ ถ.เชียงใหม่–หางดง ต.แม่เหียะ อ.เมือง เชียงใหม่ 50100 · โทร 084-151-1684 · cmnsfixmac.com
-        </div>
-      </div>
-
-      <table class="print-table">
-        <tr><th>เลขประกัน</th><td><?= nb($result['warranty_no']) ?></td></tr>
-        <tr><th>เลขงานซ่อม</th><td><?= nb($result['repair_no']) ?></td></tr>
-        <tr><th>ชื่อลูกค้า</th><td><?= nb($result['customer_name']) ?></td></tr>
-        <tr><th>อุปกรณ์</th><td><?= nb($result['device_model']) ?></td></tr>
-        <tr><th>Serial</th><td><?= nb($result['sn']) ?></td></tr>
-        <tr><th>วันที่เริ่มประกัน</th><td><?= nb($result['base_date']) ?></td></tr>
-        <tr><th>วันหมดประกัน</th><td><?= nb($result['warranty_until']) ?></td></tr>
-        <tr><th>สถานะประกัน</th><td><?= h($label) ?><?= $note ? ' — '.h($note) : '' ?></td></tr>
-      </table>
-
-      <div class="terms">
-        <strong>เงื่อนไขการรับประกัน</strong>
-        <ol style="margin:6px 0 0 18px">
-          <li>ประกันครอบคลุมเฉพาะอาการที่ระบุในใบงานซ่อม และอะไหล่ที่ทางร้านเปลี่ยนให้เท่านั้น</li>
-          <li>ไม่ครอบคลุมความเสียหายจากของเหลว/ตกหล่น/งัดแงะ/ใช้งานผิดวิธี หรือการซ่อมจากที่อื่น</li>
-          <li>ซีล/สติ๊กเกอร์รับประกันต้องอยู่ครบ หากถูกแกะ/ฉีกขาด ถือว่าสิ้นสุดการรับประกันทันที</li>
-          <li>กรณีใช้สิทธิ์ประกัน กรุณาแจ้ง <strong>เลขประกัน (WJ-xxxx)</strong> หรือ <strong>Serial Number</strong> ทุกครั้ง</li>
-          <li>ข้อกำหนดเพิ่มเติมเป็นไปตามประกาศล่าสุดของ CMNS FixMac</li>
-        </ol>
-      </div>
-
-      <div class="sign-row" style="margin-top:24px">
-        <div class="sign-col">
-          <div class="sign-line"></div>
-          <div class="sign-label">ลงชื่อผู้รับเอกสาร</div>
-        </div>
-        <div class="sign-col">
-          <div class="sign-line"></div>
-          <div class="sign-label">ลงชื่อเจ้าหน้าที่</div>
-        </div>
-      </div>
-    </section>
-
-  <?php elseif ($q !== '' && count($results) > 1): ?>
-    <div class="card" data-aos="fade-up">
-      <div class="card-head no-print" style="justify-content:flex-start">
-        <div class="muted" style="padding-left:2px">พบหลายรายการ — เลือกเครื่องที่ต้องการ</div>
-      </div>
-      <div style="overflow:auto">
-        <table class="list-table">
-          <thead>
-            <tr>
-              <th>เลขประกัน</th>
-              <th>เลขงานซ่อม</th>
-              <th>อุปกรณ์</th>
-              <th>Serial</th>
-              <th>เริ่ม</th>
-              <th>หมดประกัน</th>
-              <th>สถานะ</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php foreach($results as $r): ?>
-              <?php
-                $d=(int)($r['days_left']??0);
-                $st=(string)($r['warranty_status']??'');
-                $label=$st==='in_warranty'?'อยู่ในประกัน':($st==='expired'?'หมดประกัน':($st==='void'?'โมฆะ':$st));
-                $link='?q='.urlencode($r['warranty_no']).'#result';
-              ?>
-              <tr>
-                <td class="mono nowrap"><a class="row-link" href="<?= h($link) ?>"><strong><?= nb($r['warranty_no']) ?></strong></a></td>
-                <td class="mono nowrap"><?= nb($r['repair_no']) ?></td>
-                <td><?= nb($r['device_model']) ?></td>
-                <td class="mono"><?= nb($r['sn']) ?></td>
-                <td class="mono nowrap"><?= nb($r['base_date']) ?></td>
-                <td class="mono nowrap"><strong><?= nb($r['warranty_until']) ?></strong></td>
-                <td class="nowrap"><?= h($label) ?></td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
-      </div>
-    </div>
-  <?php endif; ?>
-  </div>
-</div>
-
-<div class="no-print">
-  <?php include_once '../includes/floating-buttons.php'; ?>
-  <script src="assets/js/floating-buttons.js"></script>
-</div>
-
-<div class="no-print">
-  <?php include_once '../includes/footer.php'; ?>
-</div>
-
-<script src="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.js"></script>
-<script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
-<script>AOS.init();</script>
-<script src="assets/js/main.js"></script>
-<script src="assets/js/swiper-init.js"></script>
-<script src="assets/js/aos-init.js"></script>
-<script src="assets/js/script.js"></script>
-<script src="assets/js/lazy-youtube.js"></script>
-<script src="assets/js/preload-images.js"></script>
-
-<script>
-  function copyWarranty(text){
-    navigator.clipboard.writeText(text).then(()=>alert('คัดลอกเลขประกันแล้ว: '+text));
-  }
-
-  // ถ้ามีผลลัพธ์ ให้เลื่อนลงไปยัง #result
-  <?php if ($q !== '' && ($result || count($results) > 1)): ?>
-  window.addEventListener('load', () => {
-    const el = document.getElementById('result');
-    if (el) el.scrollIntoView({behavior:'smooth', block:'start'});
-  });
-  <?php endif; ?>
-</script>
 </body>
 </html>

@@ -228,21 +228,6 @@
     padding-left: 42px !important;
 }
 
-/* ── Warranty button (amber theme matching cmns-btn-primary animations) ── */
-.cmns-btn-warranty {
-    background: rgba(245,158,11,.12);
-    color: #b45309;
-    border: 1px solid rgba(245,158,11,.4) !important;
-}
-.cmns-btn-warranty:hover {
-    background: #f59e0b;
-    color: #fff;
-    border-color: #f59e0b !important;
-    filter: brightness(1.05);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(245,158,11,.35);
-}
-[data-theme="dark"] .cmns-btn-warranty { background: rgba(245,158,11,.1); color: #fbbf24; }
 
 /* ── History: Date Group Row ── */
 .hist-date-row td {

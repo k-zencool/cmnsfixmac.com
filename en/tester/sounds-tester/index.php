@@ -1,5 +1,6 @@
 <?php
   // Include English header
+  $page_has_own_head = true;
   include_once __DIR__ . '/../../../includes/header_en.php';
 
   // ---- Scan folder en/tester/sounds-tester/sounds ----

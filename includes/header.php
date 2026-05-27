@@ -1,97 +1,135 @@
+<?php if (empty($page_has_own_head)): ?>
 <!DOCTYPE html>
 <html lang="th">
 
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CMNS Mac Repair</title>
+  <title><?= isset($page_title) ? htmlspecialchars($page_title) : 'CMNS Fix Mac — ซ่อม Mac & iPhone เชียงใหม่' ?></title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="/assets/css/navbar-style.css?v=3">
-  <link rel="stylesheet" href="/assets/css/style.css">
-  <link rel="stylesheet" href="https://unpkg.com/aos@2.3.4/dist/aos.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded&display=block" rel="stylesheet" />
+  <script src="/assets/js/theme.js"></script>
+  <link rel="stylesheet" href="/assets/css/design-tokens.css?v=1">
+  <link rel="stylesheet" href="/assets/css/navbar-style.css?v=6">
+  <link rel="stylesheet" href="/assets/css/footer-style.css?v=2">
+  <link rel="stylesheet" href="/assets/css/micro.css?v=1">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded&display=block" rel="stylesheet">
+  <?php foreach ($page_css ?? [] as $css): ?>
+  <link rel="stylesheet" href="<?= htmlspecialchars($css) ?>">
+  <?php endforeach; ?>
+  <?php echo $page_head_extra ?? ''; ?>
 </head>
 
 <body>
+<?php endif; ?>
+
   <header class="navbar navbar-top">
     <div class="nav-container">
+
       <div class="nav-logo">
-        <a href="/">
-          <img src="/assets/img/Logo1.png" alt="CMNS FixMac Logo">
-        </a>
+        <a href="/"><img src="/assets/img/Logo1.png" alt="CMNS FixMac Logo"></a>
       </div>
+
+      <!-- Desktop nav -->
       <div class="menu-desktop-only">
-
         <nav class="menu">
-            <a href="/" class="highlight-home">
-              <span class="material-symbols-rounded">home</span> หน้าแรก
-            </a>
 
-            <a href="/works/">
-              <span class="material-symbols-rounded">construction</span> ผลงาน
-            </a>
+          <a href="/" class="highlight-home">
+            <span class="material-symbols-rounded">home</span> หน้าแรก
+          </a>
 
-            <a href="/shop">
-              <span class="material-symbols-rounded">storefront</span> ร้านค้า
+          <!-- Services mega-dropdown -->
+          <div class="menu-dropdown">
+            <a href="#services" class="test-device-btn" onclick="return false;">
+              <span class="material-symbols-rounded">build</span> บริการ
+              <span class="material-symbols-rounded arrow">expand_more</span>
             </a>
-
-            <a href="/articles/">
-              <span class="material-symbols-rounded">description</span> บทความ
-            </a>
-
-            <a href="/buyback/">
-              <span class="material-symbols-rounded">laptop_mac</span> รับซื้อเครื่อง
-            </a>
-
-            <a href="/warranty/">
-              <span class="material-symbols-rounded">verified</span> ตรวจสอบประกัน
-            </a>
-
-            <div class="menu-dropdown">
-              <a href="#" class="test-device-btn" role="button" onclick="return false;"> <span
-                  class="material-symbols-rounded">smart_toy</span>ทดสอบอุปกรณ์
-                <span class="material-symbols-rounded arrow">expand_more</span>
+            <div class="dropdown-menu dropdown-menu-services">
+              <a href="/services/macbook.php">
+                <img src="/assets/img/icons/icon-macbook.png" class="dropdown-icon-img" alt="MacBook">
+                <div><strong>ซ่อม MacBook</strong><span>เปลี่ยนจอ บอร์ด แบต</span></div>
               </a>
-
-              <div class="dropdown-menu">
-                <a href="/tester/monitor-tester/"><span class="material-symbols-rounded">monitor</span>ทดสอบหน้าจอ</a>
-                <a href="/tester/keyboard-tester/"><span class="material-symbols-rounded">keyboard</span>ทดสอบคีย์บอร์ด</a>
-                <a href="/tester/microphone-tester/"><span class="material-symbols-rounded">mic</span>ทดสอบไมโครโฟน</a>
-                <a href="/tester/camera-tester/"><span class="material-symbols-rounded">photo_camera</span>ทดสอบกล้อง</a>
-                <a href="/tester/sounds-tester"><span class="material-symbols-rounded">volume_up</span>ทดสอบเสียงลำโพง</a>
-              </div>
-            </div>
-
-            <div class="nav-call-container">
-              <a href="#" class="nav-call" role="button" onclick="copyPhone(); return false;"> <span
-                  class="material-symbols-rounded icon-phone">call</span> โทรเลย
+              <a href="/services/imac.php">
+                <img src="/assets/img/icons/icon-imac.png" class="dropdown-icon-img" alt="iMac">
+                <div><strong>ซ่อม iMac</strong><span>อัปเกรด SSD, RAM</span></div>
               </a>
-              <span class="phone-hover" id="phone-number">084-151-1684</span>
+              <a href="/services/iphone.php">
+                <img src="/assets/img/icons/icon-iphone.png" class="dropdown-icon-img" alt="iPhone">
+                <div><strong>ซ่อม iPhone / iPad</strong><span>เปลี่ยนจอ แบต กล้อง</span></div>
+              </a>
+              <a href="/services/apple-watch.php">
+                <img src="/assets/img/icons/icon-applewatch.png" class="dropdown-icon-img" alt="Apple Watch">
+                <div><strong>ซ่อม Apple Watch</strong><span>เปลี่ยนจอ แบต</span></div>
+              </a>
+              <a href="/services/airpods.php">
+                <img src="/assets/img/icons/icon-airpods.png" class="dropdown-icon-img" alt="AirPods">
+                <div><strong>ซ่อม AirPods</strong><span>แบต ไมค์ ชาร์จ</span></div>
+              </a>
+              <a href="/services/software.php">
+                <img src="/assets/img/icons/icon-os.png" class="dropdown-icon-img" alt="Software">
+                <div><strong>Software & OS</strong><span>ลง macOS โปรแกรม</span></div>
+              </a>
             </div>
+          </div>
 
-            <?php
-            // [GEMINI FIXED] Logic เปลี่ยนภาษา (ใช้ Relative Path เพื่อรองรับ Localhost)
-            if (isset($switch_to_lang_url) && !empty($switch_to_lang_url)) {
-                // ถ้าหน้านั้นส่ง URL มา (เช่น article-detail) ให้ใช้ตามนั้น
-                $en_version_url = $switch_to_lang_url;
-            } else {
-                // ถ้าปกติ ให้เติม /en ข้างหน้า path ปัจจุบัน
-                $en_version_url = '/en' . $_SERVER['REQUEST_URI'];
-                $en_version_url = str_replace('/index.php', '/', $en_version_url);
-            }
-            ?>
-            <a href="<?= htmlspecialchars($en_version_url) ?>" class="language-switch-btn" title="Switch to English">
-              <span class="material-symbols-rounded">language</span> EN
+          <a href="/works/">
+            <span class="material-symbols-rounded">construction</span> ผลงาน
+          </a>
+          <a href="/shop">
+            <span class="material-symbols-rounded">storefront</span> ร้านค้า
+          </a>
+          <a href="/articles/">
+            <span class="material-symbols-rounded">description</span> บทความ
+          </a>
+          <a href="/buyback/">
+            <span class="material-symbols-rounded">laptop_mac</span> รับซื้อ
+          </a>
+          <a href="/warranty/">
+            <span class="material-symbols-rounded">verified</span> ประกัน
+          </a>
+
+          <!-- Device testers dropdown -->
+          <div class="menu-dropdown">
+            <a href="#" class="test-device-btn" onclick="return false;">
+              <span class="material-symbols-rounded">smart_toy</span> ทดสอบ
+              <span class="material-symbols-rounded arrow">expand_more</span>
             </a>
-          </nav>
+            <div class="dropdown-menu">
+              <a href="/tester/monitor-tester/"><span class="material-symbols-rounded">monitor</span>หน้าจอ</a>
+              <a href="/tester/keyboard-tester/"><span class="material-symbols-rounded">keyboard</span>คีย์บอร์ด</a>
+              <a href="/tester/microphone-tester/"><span class="material-symbols-rounded">mic</span>ไมโครโฟน</a>
+              <a href="/tester/camera-tester/"><span class="material-symbols-rounded">photo_camera</span>กล้อง</a>
+              <a href="/tester/sounds-tester/"><span class="material-symbols-rounded">volume_up</span>ลำโพง</a>
+              <a href="/tester/touchscreen-tester/"><span class="material-symbols-rounded">touch_app</span>ทัชสกรีน</a>
+            </div>
+          </div>
 
+          <?php
+          if (isset($switch_to_lang_url) && !empty($switch_to_lang_url)) {
+              $en_version_url = $switch_to_lang_url;
+          } else {
+              $en_version_url = '/en' . $_SERVER['REQUEST_URI'];
+              $en_version_url = str_replace('/index.php', '/', $en_version_url);
+          }
+          ?>
+          <a href="<?= htmlspecialchars($en_version_url) ?>" class="language-switch-btn" title="Switch to English">
+            <span class="material-symbols-rounded">language</span> EN
+          </a>
+
+          <button class="theme-toggle" onclick="toggleTheme()" aria-label="เปลี่ยนธีม">
+            <span class="material-symbols-rounded theme-toggle-icon">dark_mode</span>
+          </button>
+
+          <a href="tel:0841511684" class="nav-call-cta">
+            <span class="material-symbols-rounded">call</span> โทรปรึกษาฟรี
+          </a>
+
+        </nav>
       </div>
 
+      <!-- Mobile controls -->
       <div class="mobile-controls">
         <?php
-        // Logic มือถือ เหมือนข้างบน
         if (isset($switch_to_lang_url) && !empty($switch_to_lang_url)) {
             $en_version_url_mobile = $switch_to_lang_url;
         } else {
@@ -99,27 +137,29 @@
             $en_version_url_mobile = str_replace('/index.php', '/', $en_version_url_mobile);
         }
         ?>
-        <a href="<?= htmlspecialchars($en_version_url_mobile) ?>" class="language-switch-btn"
-          title="Switch to English">
+        <a href="<?= htmlspecialchars($en_version_url_mobile) ?>" class="language-switch-btn" title="Switch to English">
           <span class="material-symbols-rounded">language</span> EN
         </a>
-
+        <button class="theme-toggle" onclick="toggleTheme()" aria-label="เปลี่ยนธีม">
+          <span class="material-symbols-rounded theme-toggle-icon">dark_mode</span>
+        </button>
         <div id="hamburger" class="hamburger" onclick="toggleSidebar()">
-          <span></span>
-          <span></span>
-          <span></span>
+          <span></span><span></span><span></span>
         </div>
       </div>
+
     </div>
   </header>
 
+  <!-- Sidebar -->
   <div id="sidebar" class="sidebar">
     <div class="sidebar-header">
-      <a href="/">
-        <img src="/assets/img/Logo1.png" alt="CMNS FixMac Logo" style="height: 36px; margin-bottom: 16px;">
-      </a>
-      <span class="close-btn" onclick="toggleSidebar()">✕</span>
+      <a href="/"><img src="/assets/img/Logo1.png" alt="CMNS FixMac Logo"></a>
+      <button class="sidebar-close" onclick="toggleSidebar()" aria-label="ปิดเมนู">
+        <span class="material-symbols-rounded">close</span>
+      </button>
     </div>
+
     <nav class="sidebar-menu">
       <a href="/" class="highlight-home">
         <span class="material-symbols-rounded">home</span> หน้าแรก
@@ -128,17 +168,35 @@
       <a href="/shop"><span class="material-symbols-rounded">storefront</span> ร้านค้า</a>
       <a href="/articles/"><span class="material-symbols-rounded">description</span> บทความ</a>
       <a href="/buyback/"><span class="material-symbols-rounded">laptop_mac</span> รับซื้อเครื่อง</a>
-
-      <a href="/warranty/">
-        <span class="material-symbols-rounded">verified</span> ตรวจสอบประกัน
-      </a>
-
-      <a href="tel:0841511684"><span class="material-symbols-rounded">call</span> โทรเลย</a>
+      <a href="/warranty/"><span class="material-symbols-rounded">verified</span> ตรวจสอบประกัน</a>
     </nav>
 
+    <div class="sidebar-divider"></div>
+
+    <!-- Services sub-menu -->
     <div class="sidebar-dropdown">
       <button class="dropdown-toggle" onclick="toggleSidebarDropdown(this)">
-        <span class="material-symbols-rounded">smart_toy</span> ทดสอบอุปกรณ์
+        <span style="display:flex;align-items:center;gap:8px">
+          <span class="material-symbols-rounded">build</span> บริการซ่อม
+        </span>
+        <span class="material-symbols-rounded dropdown-icon">expand_more</span>
+      </button>
+      <div class="dropdown-submenu">
+        <a href="/services/macbook.php"><span class="material-symbols-rounded">laptop_mac</span> MacBook</a>
+        <a href="/services/imac.php"><span class="material-symbols-rounded">desktop_mac</span> iMac</a>
+        <a href="/services/iphone.php"><span class="material-symbols-rounded">smartphone</span> iPhone / iPad</a>
+        <a href="/services/apple-watch.php"><span class="material-symbols-rounded">watch</span> Apple Watch</a>
+        <a href="/services/airpods.php"><span class="material-symbols-rounded">headphones</span> AirPods</a>
+        <a href="/services/software.php"><span class="material-symbols-rounded">terminal</span> Software & OS</a>
+      </div>
+    </div>
+
+    <!-- Tester sub-menu -->
+    <div class="sidebar-dropdown">
+      <button class="dropdown-toggle" onclick="toggleSidebarDropdown(this)">
+        <span style="display:flex;align-items:center;gap:8px">
+          <span class="material-symbols-rounded">smart_toy</span> ทดสอบอุปกรณ์
+        </span>
         <span class="material-symbols-rounded dropdown-icon">expand_more</span>
       </button>
       <div class="dropdown-submenu">
@@ -147,12 +205,50 @@
         <a href="/tester/microphone-tester/"><span class="material-symbols-rounded">mic</span> ไมค์</a>
         <a href="/tester/camera-tester/"><span class="material-symbols-rounded">photo_camera</span> กล้อง</a>
         <a href="/tester/sounds-tester/"><span class="material-symbols-rounded">volume_up</span> ลำโพง</a>
-        <a href="/tester/touchscreen-tester/"><span class="material-symbols-rounded">touch_app</span> ตรวจทัชสกรีน</a>
+        <a href="/tester/touchscreen-tester/"><span class="material-symbols-rounded">touch_app</span> ทัชสกรีน</a>
+      </div>
+    </div>
+
+    <div class="sidebar-divider"></div>
+
+    <a href="tel:0841511684" class="sidebar-call-cta">
+      <span class="material-symbols-rounded">call</span> โทรปรึกษาฟรี 084-151-1684
+    </a>
+
+    <div class="sidebar-footer">
+      <a href="<?= htmlspecialchars($en_version_url ?? '/en/') ?>" class="language-switch-btn">
+        <span class="material-symbols-rounded">language</span> EN
+      </a>
+      <div class="sidebar-theme-row">
+        <span class="sidebar-theme-label">โหมดมืด</span>
+        <button class="theme-toggle" onclick="toggleTheme()" aria-label="เปลี่ยนธีม">
+          <span class="material-symbols-rounded theme-toggle-icon">dark_mode</span>
+        </button>
       </div>
     </div>
   </div>
 
   <div id="sidebar-overlay" class="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+  <!-- Page loader -->
+  <div id="page-loader">
+    <div class="loader-logo"><img src="/assets/img/Logo1.png" alt="CMNS FixMac"></div>
+    <div class="loader-ring"></div>
+  </div>
+
+  <!-- Scroll progress bar -->
+  <div id="scroll-progress"></div>
+
+  <!-- Custom cursor (desktop only) -->
+  <div id="cursor-dot"></div>
+  <div id="cursor-ring"></div>
+
+  <!-- Back to top -->
+  <button id="back-to-top" aria-label="กลับด้านบน">
+    <span class="material-symbols-rounded">keyboard_arrow_up</span>
+  </button>
+
+  <script src="/assets/js/micro.js" defer></script>
 
   <script>
     function toggleSidebar() {
@@ -161,40 +257,22 @@
       document.getElementById("hamburger").classList.toggle("open");
     }
 
-    function copyPhone() {
-      const phone = document.getElementById('phone-number').innerText;
-      navigator.clipboard.writeText(phone).then(() => {
-        alert("คัดลอกเบอร์โทรแล้ว: " + phone);
-      }).catch(() => {
-        alert("ไม่สามารถคัดลอกเบอร์ได้");
-      });
-    }
-
     let _navScrolled = false;
     function handleNavbarScroll() {
       const navbar = document.querySelector('.navbar');
       const shouldScroll = window.scrollY > 30;
       if (shouldScroll === _navScrolled) return;
       _navScrolled = shouldScroll;
-      if (shouldScroll) {
-        navbar.classList.remove('navbar-top');
-        navbar.classList.add('scrolled');
-      } else {
-        navbar.classList.add('navbar-top');
-        navbar.classList.remove('scrolled');
-      }
+      navbar.classList.toggle('scrolled', shouldScroll);
+      navbar.classList.toggle('navbar-top', !shouldScroll);
     }
-
     window.addEventListener('scroll', handleNavbarScroll, { passive: true });
     window.addEventListener('DOMContentLoaded', handleNavbarScroll);
-  </script>
 
-  <script>
     function toggleSidebarDropdown(button) {
       const dropdown = button.closest('.sidebar-dropdown');
+      const allDropdowns = document.querySelectorAll('.sidebar-dropdown');
+      allDropdowns.forEach(d => { if (d !== dropdown) d.classList.remove('open'); });
       dropdown.classList.toggle('open');
     }
   </script>
-
-</body>
-</html>

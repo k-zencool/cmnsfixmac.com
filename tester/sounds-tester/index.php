@@ -1,5 +1,6 @@
 <?php
 // Include Thai header
+$page_has_own_head = true;
 include_once __DIR__ . '/../../includes/header.php';
 
 // ---- สแกนโฟลเดอร์ /tester/sounds-tester/sounds ----

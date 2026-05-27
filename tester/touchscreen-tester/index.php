@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <title>Touchscreen Tester</title>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <script src="/assets/js/theme.js"></script>
+  <link rel="stylesheet" href="/assets/css/design-tokens.css?v=1">
   <link rel="stylesheet" href="assets/css/style.css" />
     <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png" />
   <!-- Google tag (gtag.js) -->
@@ -19,7 +21,7 @@
 </head>
 <body>
   <div class="header-toggle">
-    <?php include_once '../../includes/header.php'; ?>
+    <?php $page_has_own_head = true; include_once '../../includes/header.php'; ?>
   </div>
 
   <h1>ทดสอบหน้าจอสัมผัส</h1>

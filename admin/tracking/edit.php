@@ -20,6 +20,11 @@ $stmt->execute([$id]);
 $job = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$job) die("ไม่พบข้อมูลงานซ่อม (Job Not Found)");
 
+// ดึงใบประกันที่ผูกกับงานนี้
+$wStmt = $pdo->prepare("SELECT id, warranty_no, end_date, status FROM warranties WHERE tracking_id = ? ORDER BY id DESC");
+$wStmt->execute([$id]);
+$linkedWarranties = $wStmt->fetchAll(PDO::FETCH_ASSOC);
+
 $deviceList = ['iPhone','iPad','MacBook','iMac','Notebook','PC','Mac mini','Mac Studio','Mac Pro','Apple Watch','AirPods','Apple TV','Other'];
 $accsList   = ['ตัวเครื่อง','Adapter','สายชาร์จ','กระเป๋า','Soft Case','กล่อง','Mouse','Keyboard'];
 $stateList  = ['ปกติ/สวย','รอยขีดข่วน','รอยบุบ/ตก','น็อตหาย','เคยแกะซ่อม','แบตบวม','โดนน้ำ','เครื่องประกอบไม่สมบูรณ์'];
@@ -175,6 +180,7 @@ require_once __DIR__ . '/../templates/header_admin.php';
 ?>
 
 <link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time() ?>">
+<link rel="stylesheet" href="../templates/assets/css/modal.css?v=1">
 <link rel="stylesheet" href="assets/css/create-style.css?v=<?= time() ?>">
 <link rel="stylesheet" href="assets/css/tracking-index.css?v=<?= time() ?>">
 
@@ -427,19 +433,39 @@ require_once __DIR__ . '/../templates/header_admin.php';
         </div><!-- .form-body -->
 
         <!-- ── Footer Actions ── -->
-        <div class="footer-actions" style="justify-content:flex-end; gap:10px;">
+        <div class="footer-actions" style="justify-content:space-between; gap:10px; flex-wrap:wrap;">
+
+            <!-- ใบประกันที่ผูกกับงานนี้ -->
+            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <?php foreach ($linkedWarranties as $lw):
+                    $wCls = $lw['status'] === 'active' ? 'color:#059669;background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.3);'
+                          : ($lw['status'] === 'voided' ? 'color:#dc2626;background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.2);'
+                          : 'color:var(--text-muted);background:var(--bg-surface-alt);border-color:var(--border);');
+                    $wIcon = $lw['status'] === 'active' ? 'verified' : ($lw['status'] === 'voided' ? 'block' : 'schedule');
+                ?>
+                <a href="../warranty/view.php?id=<?= $lw['id'] ?>" target="_blank"
+                   class="cmns-btn" style="<?= $wCls ?> border:1px solid; font-size:0.82rem; padding:6px 12px;">
+                    <span class="material-symbols-rounded" style="font-size:15px;"><?= $wIcon ?></span>
+                    <?= h($lw['warranty_no']) ?>
+                    <span style="opacity:.65; font-size:0.75rem;">(หมด <?= date('d/m/y', strtotime($lw['end_date'])) ?>)</span>
+                </a>
+                <?php endforeach; ?>
+            </div>
+
+            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
             <a href="index.php" class="cmns-btn cmns-btn-secondary">
                 <span class="material-symbols-rounded">close</span> ยกเลิก
             </a>
-            <a href="../warranty/job_form.php?job_id=<?= $id ?>" target="_blank"
-               class="cmns-btn cmns-btn-warranty">
-                <span class="material-symbols-rounded">verified_user</span> เพิ่มประกัน
-            </a>
+            <button type="button" onclick="openWarrantyModal()"
+               class="cmns-btn" style="background:rgba(245,158,11,.12);color:#b45309;border:1px solid rgba(245,158,11,.4);">
+                <span class="material-symbols-rounded">verified_user</span> ออกใบประกัน
+            </button>
             <button type="submit" id="btnSaveFooter" class="cmns-btn cmns-btn-primary"
                     disabled style="opacity:.45; cursor:not-allowed;">
                 <span class="material-symbols-rounded">save</span> บันทึกการแก้ไข
             </button>
-        </div>
+            </div><!-- right actions -->
+        </div><!-- footer-actions -->
 
     </div><!-- .form-wrapper -->
 </form>
@@ -531,6 +557,232 @@ window.addEventListener('load', function() {
         setFormState(true);
     }
 });
+</script>
+
+<!-- ══════════════════════════════════════════════
+     WARRANTY MODAL
+════════════════════════════════════════════════ -->
+<div id="modal-warranty" class="cmns-modal">
+    <div class="modal-content" style="max-width:600px; padding:30px;">
+
+        <!-- Header -->
+        <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:18px; margin-bottom:22px;">
+            <h3 style="margin:0; display:flex; align-items:center; gap:10px; font-weight:800; font-size:1.15rem;">
+                <span class="material-symbols-rounded" style="color:#b45309; font-size:26px;">verified_user</span>
+                ออกใบรับประกัน
+            </h3>
+            <button class="modal-close-btn" onclick="closeWarrantyModal()">
+                <span class="material-symbols-rounded">close</span>
+            </button>
+        </div>
+
+        <!-- Success state (hidden until after submit) -->
+        <div id="war-modal-success" style="display:none; text-align:center; padding:20px 0;">
+            <span class="material-symbols-rounded" style="font-size:56px; color:#059669;">verified</span>
+            <h4 id="war-modal-no" style="font-size:1.4rem; font-weight:900; font-family:monospace; color:var(--primary); margin:10px 0 6px;"></h4>
+            <p style="color:var(--text-muted); margin-bottom:22px;">ออกใบประกันเรียบร้อยแล้ว</p>
+            <div style="display:flex; gap:10px; justify-content:center; flex-wrap:wrap;">
+                <a id="war-btn-view" href="#" class="cmns-btn cmns-btn-primary">
+                    <span class="material-symbols-rounded">visibility</span> ดูใบประกัน
+                </a>
+                <a id="war-btn-print" href="#" target="_blank" class="cmns-btn cmns-btn-secondary">
+                    <span class="material-symbols-rounded">print</span> พิมพ์
+                </a>
+                <button onclick="closeWarrantyModal()" class="cmns-btn cmns-btn-secondary">ปิด</button>
+            </div>
+        </div>
+
+        <!-- Form state -->
+        <div id="war-modal-form">
+            <div id="war-modal-err" style="display:none; background:#fef2f2; border:1px solid #fecaca; border-radius:8px; padding:10px 14px; color:#dc2626; font-size:0.88rem; margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+                <span class="material-symbols-rounded" style="font-size:18px;">error</span>
+                <span id="war-modal-err-txt"></span>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px;">
+                <div>
+                    <label class="cmns-label">ชื่อลูกค้า <span style="color:#ef4444;">*</span></label>
+                    <input type="text" id="wm-cname" class="cmns-input" required>
+                </div>
+                <div>
+                    <label class="cmns-label">เบอร์โทร</label>
+                    <input type="text" id="wm-cphone" class="cmns-input">
+                </div>
+                <div>
+                    <label class="cmns-label">รุ่นเครื่อง <span style="color:#ef4444;">*</span></label>
+                    <input type="text" id="wm-device" class="cmns-input" required>
+                </div>
+                <div>
+                    <label class="cmns-label">Serial Number</label>
+                    <input type="text" id="wm-serial" class="cmns-input">
+                </div>
+                <div style="grid-column:1/-1;">
+                    <label class="cmns-label">สรุปงานที่ซ่อม</label>
+                    <textarea id="wm-summary" class="cmns-input" rows="2" placeholder="เช่น เปลี่ยนแบตเตอรี่ / ซ่อมจอ..."></textarea>
+                </div>
+            </div>
+
+            <!-- Warranty days -->
+            <div style="margin-top:18px;">
+                <label class="cmns-label" style="margin-bottom:10px; display:block;">ระยะเวลารับประกัน</label>
+                <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px;">
+                    <?php foreach ([30=>'1 เดือน',60=>'2 เดือน',90=>'3 เดือน',180=>'6 เดือน',365=>'1 ปี'] as $d=>$lbl): ?>
+                    <div>
+                        <input type="radio" name="wm_days" id="wmd_<?= $d ?>" value="<?= $d ?>" <?= $d===90?'checked':'' ?>
+                               style="display:none;" onchange="wmRecalc()">
+                        <label for="wmd_<?= $d ?>" class="wm-days-lbl">
+                            <?= $d ?><span style="display:block;font-size:0.7rem;font-weight:400;opacity:.7;"><?= $lbl ?></span>
+                        </label>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+
+            <!-- Dates -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:16px;">
+                <div>
+                    <label class="cmns-label">วันที่เริ่มประกัน</label>
+                    <input type="date" id="wm-start" class="cmns-input" value="<?= date('Y-m-d') ?>" onchange="wmRecalc()">
+                </div>
+                <div>
+                    <label class="cmns-label">วันหมดประกัน</label>
+                    <input type="text" id="wm-end-disp" class="cmns-input" readonly style="background:var(--bg-surface-alt); color:var(--text-muted);">
+                </div>
+            </div>
+
+            <!-- Submit -->
+            <div style="display:flex; gap:10px; justify-content:flex-end; margin-top:22px; border-top:1px solid var(--border); padding-top:18px;">
+                <button type="button" onclick="closeWarrantyModal()" class="cmns-btn cmns-btn-secondary">ยกเลิก</button>
+                <button type="button" onclick="submitWarranty()" id="wm-submit-btn" class="cmns-btn" style="background:rgba(245,158,11,.15);color:#b45309;border:1px solid rgba(245,158,11,.4);">
+                    <span class="material-symbols-rounded">verified_user</span> ออกใบประกัน
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.cmns-label { font-size:11px; font-weight:800; color:var(--text-muted); margin-bottom:6px; display:block; text-transform:uppercase; letter-spacing:.5px; }
+.cmns-input { width:100%; background:var(--bg-surface-alt); border:1px solid var(--border); color:var(--text-main); padding:11px 13px; border-radius:10px; font-size:13px; outline:none; transition:all .2s; font-family:inherit; }
+.cmns-input:focus { border-color:var(--primary); box-shadow:0 0 0 3px rgba(37,99,235,.1); background:var(--bg-surface); }
+textarea.cmns-input { resize:vertical; min-height:72px; }
+.wm-days-lbl {
+    display: block;
+    padding: 9px 6px;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    text-align: center;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-weight: 700;
+    transition: .15s;
+}
+input[name="wm_days"]:checked + .wm-days-lbl {
+    border-color: #f59e0b;
+    background: rgba(245,158,11,.1);
+    color: #b45309;
+}
+.wm-days-lbl:hover { border-color: #f59e0b; }
+</style>
+
+<script>
+// ── Pre-fill data from current job ──
+const wmJobData = {
+    tracking_id:    <?= (int)$id ?>,
+    customer_name:  <?= json_encode($job['customer_name'] ?? '') ?>,
+    customer_phone: <?= json_encode($job['customer_phone'] ?? '') ?>,
+    device_model:   <?= json_encode(trim(($job['device_type'] ?? '') . ' ' . ($job['device_model'] ?? ''))) ?>,
+    serial_no:      <?= json_encode($job['serial_number'] ?? '') ?>,
+};
+
+function openWarrantyModal() {
+    document.getElementById('wm-cname').value  = wmJobData.customer_name;
+    document.getElementById('wm-cphone').value = wmJobData.customer_phone;
+    document.getElementById('wm-device').value = wmJobData.device_model;
+    document.getElementById('wm-serial').value = wmJobData.serial_no;
+    document.getElementById('wm-summary').value = '';
+    document.getElementById('war-modal-form').style.display = '';
+    document.getElementById('war-modal-success').style.display = 'none';
+    document.getElementById('war-modal-err').style.display = 'none';
+    wmRecalc();
+    document.getElementById('modal-warranty').classList.add('show');
+}
+
+function closeWarrantyModal() {
+    document.getElementById('modal-warranty').classList.remove('show');
+}
+
+function wmRecalc() {
+    const start = document.getElementById('wm-start').value;
+    const days  = parseInt(document.querySelector('input[name="wm_days"]:checked')?.value || 90);
+    if (!start) return;
+    const d = new Date(start);
+    d.setDate(d.getDate() + days);
+    document.getElementById('wm-end-disp').value = d.toLocaleDateString('th-TH', {day:'2-digit',month:'2-digit',year:'numeric'});
+}
+
+async function submitWarranty() {
+    const btn = document.getElementById('wm-submit-btn');
+    const errBox = document.getElementById('war-modal-err');
+    errBox.style.display = 'none';
+
+    const cname  = document.getElementById('wm-cname').value.trim();
+    const device = document.getElementById('wm-device').value.trim();
+    if (!cname || !device) {
+        document.getElementById('war-modal-err-txt').textContent = 'กรุณากรอกชื่อลูกค้าและรุ่นเครื่อง';
+        errBox.style.display = 'flex';
+        return;
+    }
+
+    btn.disabled = true;
+    btn.innerHTML = '<span class="material-symbols-rounded" style="animation:spin 1s linear infinite;">sync</span> กำลังออกใบ...';
+
+    const body = new URLSearchParams({
+        action:         'create_warranty',
+        tracking_id:    wmJobData.tracking_id,
+        customer_name:  cname,
+        customer_phone: document.getElementById('wm-cphone').value.trim(),
+        device_model:   device,
+        serial_no:      document.getElementById('wm-serial').value.trim(),
+        repair_summary: document.getElementById('wm-summary').value.trim(),
+        warranty_days:  document.querySelector('input[name="wm_days"]:checked')?.value || 90,
+        start_date:     document.getElementById('wm-start').value,
+    });
+
+    try {
+        const res  = await fetch('/admin/warranty/ajax.php', {method:'POST', body});
+        const data = await res.json();
+        if (data.ok) {
+            document.getElementById('war-modal-form').style.display = 'none';
+            document.getElementById('war-modal-no').textContent = data.warranty_no;
+            document.getElementById('war-btn-view').href  = data.view_url;
+            document.getElementById('war-btn-print').href = data.print_url;
+            document.getElementById('war-modal-success').style.display = '';
+        } else {
+            document.getElementById('war-modal-err-txt').textContent = data.msg || 'เกิดข้อผิดพลาด';
+            errBox.style.display = 'flex';
+            btn.disabled = false;
+            btn.innerHTML = '<span class="material-symbols-rounded">verified_user</span> ออกใบประกัน';
+        }
+    } catch(e) {
+        document.getElementById('war-modal-err-txt').textContent = 'ไม่สามารถเชื่อมต่อได้';
+        errBox.style.display = 'flex';
+        btn.disabled = false;
+        btn.innerHTML = '<span class="material-symbols-rounded">verified_user</span> ออกใบประกัน';
+    }
+}
+
+// Close on backdrop click
+document.getElementById('modal-warranty').addEventListener('click', function(e) {
+    if (e.target === this) closeWarrantyModal();
+});
+
+// Spin animation for loading state
+const spinStyle = document.createElement('style');
+spinStyle.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
+document.head.appendChild(spinStyle);
+
+wmRecalc();
 </script>
 
 <?php include __DIR__ . '/../templates/footer_admin.php'; ?>

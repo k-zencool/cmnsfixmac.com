@@ -1,0 +1,186 @@
+/* ==========================================================
+   CMNS FIX MAC — Design Tokens (Phase 2)
+   Apple Human Interface Guidelines-inspired design system.
+   Import this FIRST in every public page via header.php.
+   ========================================================== */
+
+/* ── Light Mode (default) ── */
+:root {
+  /* Brand */
+  --accent:        #fc7404;
+  --accent-dark:   #e06500;
+  --accent-light:  rgba(252, 116, 4, 0.12);
+  --accent-shadow: rgba(252, 116, 4, 0.30);
+
+  /* LINE brand (footer) */
+  --line-green: #00c300;
+
+  /* Surfaces */
+  --bg-page:        #f5f5f7;
+  --bg-surface:     #ffffff;
+  --bg-surface-alt: #f5f5f7;
+  --bg-elevated:    #ffffff;
+  --bg-glass:       rgba(255, 255, 255, 0.82);
+
+  /* Text */
+  --text-primary:   #1d1d1f;
+  --text-secondary: #6e6e73;
+  --text-tertiary:  #86868b;
+  --text-inverse:   #ffffff;
+
+  /* Borders */
+  --border:         rgba(0, 0, 0, 0.08);
+  --border-strong:  rgba(0, 0, 0, 0.14);
+
+  /* Shadows */
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.04);
+  --shadow-xl: 0 16px 48px rgba(0,0,0,0.12), 0 4px 12px rgba(0,0,0,0.06);
+
+  /* Typography */
+  --font: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Inter", system-ui, sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", system-ui, sans-serif;
+
+  /* Type scale */
+  --text-xs:   0.75rem;
+  --text-sm:   0.875rem;
+  --text-base: 1rem;
+  --text-lg:   1.125rem;
+  --text-xl:   1.25rem;
+  --text-2xl:  1.5rem;
+  --text-3xl:  2rem;
+  --text-4xl:  3rem;
+  --text-5xl:  4rem;
+  --text-6xl:  5rem;
+
+  /* Spacing (4px grid) */
+  --sp-1:  0.25rem;
+  --sp-2:  0.5rem;
+  --sp-3:  0.75rem;
+  --sp-4:  1rem;
+  --sp-5:  1.25rem;
+  --sp-6:  1.5rem;
+  --sp-8:  2rem;
+  --sp-10: 2.5rem;
+  --sp-12: 3rem;
+  --sp-16: 4rem;
+  --sp-20: 5rem;
+  --sp-24: 6rem;
+
+  /* Border radius */
+  --r-sm:   8px;
+  --r-md:   12px;
+  --r-lg:   16px;
+  --r-xl:   20px;
+  --r-2xl:  28px;
+  --r-full: 9999px;
+
+  /* Motion */
+  --ease:        cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-spring: cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  --dur-fast:    150ms;
+  --dur-base:    250ms;
+  --dur-slow:    400ms;
+
+  /* Navbar */
+  --nav-h:          72px;
+  --nav-bg:         rgba(255, 255, 255, 0.82);
+  --nav-bg-scroll:  rgba(255, 255, 255, 0.94);
+  --nav-blur:       blur(20px) saturate(180%);
+  --nav-text:       #1d1d1f;
+
+  /* Layout */
+  --max-w:        1200px;
+  --max-w-narrow: 800px;
+}
+
+/* ── Dark Mode: system preference ── */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-page:        #000000;
+    --bg-surface:     #1d1d1f;
+    --bg-surface-alt: #111111;
+    --bg-elevated:    #2a2a2c;
+    --bg-glass:       rgba(0, 0, 0, 0.72);
+    --text-primary:   #f5f5f7;
+    --text-secondary: #a1a1a6;
+    --text-tertiary:  #6e6e73;
+    --border:        rgba(255, 255, 255, 0.08);
+    --border-strong: rgba(255, 255, 255, 0.14);
+    --shadow-xs: 0 1px 2px rgba(0,0,0,0.4);
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.3);
+    --shadow-md: 0 4px 16px rgba(0,0,0,0.6), 0 1px 4px rgba(0,0,0,0.3);
+    --shadow-lg: 0 8px 32px rgba(0,0,0,0.7), 0 2px 8px rgba(0,0,0,0.4);
+    --shadow-xl: 0 16px 48px rgba(0,0,0,0.8), 0 4px 12px rgba(0,0,0,0.4);
+    --accent-light: rgba(252, 116, 4, 0.18);
+    --nav-bg:        rgba(0, 0, 0, 0.72);
+    --nav-bg-scroll: rgba(0, 0, 0, 0.90);
+    --nav-text:      #f5f5f7;
+  }
+}
+
+/* ── Dark Mode: manual toggle via JS (data-theme="dark" on <html>) ── */
+[data-theme="dark"] {
+  --bg-page:        #000000;
+  --bg-surface:     #1d1d1f;
+  --bg-surface-alt: #111111;
+  --bg-elevated:    #2a2a2c;
+  --bg-glass:       rgba(0, 0, 0, 0.72);
+
+  --text-primary:   #f5f5f7;
+  --text-secondary: #a1a1a6;
+  --text-tertiary:  #6e6e73;
+
+  --border:        rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.4);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-md: 0 4px 16px rgba(0,0,0,0.6), 0 1px 4px rgba(0,0,0,0.3);
+  --shadow-lg: 0 8px 32px rgba(0,0,0,0.7), 0 2px 8px rgba(0,0,0,0.4);
+  --shadow-xl: 0 16px 48px rgba(0,0,0,0.8), 0 4px 12px rgba(0,0,0,0.4);
+
+  --accent-light: rgba(252, 116, 4, 0.18);
+
+  --nav-bg:        rgba(0, 0, 0, 0.72);
+  --nav-bg-scroll: rgba(0, 0, 0, 0.90);
+  --nav-text:      #f5f5f7;
+}
+
+/* ── Global base ── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html {
+  color-scheme: light dark;
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: var(--text-base);
+  line-height: 1.6;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background var(--dur-slow) var(--ease), color var(--dur-slow) var(--ease);
+}
+
+/* Reset default link style — each component handles its own */
+a { color: inherit; text-decoration: none; }
+img { max-width: 100%; display: block; }
+button { cursor: pointer; border: none; background: none; font: inherit; }
+
+/* Page offset for fixed navbar */
+main, .page-body { padding-top: var(--nav-h); }
+
+/* ── Utility: smooth dark-mode transition on surfaces ── */
+.surface-transition {
+  transition:
+    background var(--dur-slow) var(--ease),
+    color      var(--dur-slow) var(--ease),
+    border     var(--dur-slow) var(--ease);
+}

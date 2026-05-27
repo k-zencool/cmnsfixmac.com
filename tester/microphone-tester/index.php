@@ -24,7 +24,7 @@
 </head>
 <body>
   <div class="header-toggle">
-    <?php include_once '../../includes/header.php'; ?>
+    <?php $page_has_own_head = true; include_once '../../includes/header.php'; ?>
   </div>
   <main class="main-container">
     

@@ -64,39 +64,22 @@ function getArticleLink($row) {
     // ถ้าไม่มีให้ใช้ id แบบเดิม
     return '/articles/detail.php?id=' . e($row['id']);
 }
+
+$page_title      = 'บทความ | FixMac';
+$page_css        = [
+    '/assets/css/style.css',
+    '/assets/css/articles-style.css',
+];
+$page_head_extra = <<<'HTML'
+<link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/articles/">
+<link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/articles/">
+<link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/articles/">
+<link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png">
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
+<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-3WXK9GWN7C');</script>
+HTML;
+include '../includes/header.php';
 ?>
-
-<!DOCTYPE html>
-<html lang="th">
-
-<head>
-  <meta charset="UTF-8">
-  <title>บทความ | FixMac</title>
-
-  <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/articles/" />
-  <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/articles/" />
-  <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/articles/" />
-
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <link rel="stylesheet" href="/assets/css/style.css">
-  <link rel="stylesheet" href="/assets/css/articles-style.css">
-  <link rel="stylesheet" href="/assets/css/footer-style.css">
-  <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png" />
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded" rel="stylesheet" />
-
-
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag() { dataLayer.push(arguments); }
-    gtag('js', new Date());
-    gtag('config', 'G-3WXK9GWN7C');
-  </script>
-
-</head>
-
-<body>
-  <?php include '../includes/header.php'; ?>
 
   <section class="article-hero">
     <div class="container">

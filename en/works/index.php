@@ -32,6 +32,8 @@ $title_for_display_alias = "title_display"; // Alias for easier use in template
   <meta name="description" content="View our portfolio of successful Apple device repairs in Chiang Mai. CMNS Mac Repair showcases MacBook, iMac, iPhone, and iPad repair work.">
   <meta name="keywords" content="MacBook repair portfolio, iPhone repair examples, Apple service Chiang Mai, CMNS FixMac work">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="/assets/js/theme.js"></script>
+  <link rel="stylesheet" href="/assets/css/design-tokens.css?v=1">
   <link rel="stylesheet" href="/assets/css/style.css">
   <link rel="stylesheet" href="/assets/css/works-style.css">
   <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png" />

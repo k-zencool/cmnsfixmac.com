@@ -1,8 +1,8 @@
 body {
-  font-family: 'Prompt', sans-serif;
+  font-family: var(--font);
   margin: 0;
-  background: #f9fafb;
-  color: #333;
+  background: var(--bg-page);
+  color: var(--text-primary);
   line-height: 1.7;
 }
 
@@ -21,14 +21,14 @@ body {
 .article-detail .date,
 .article-detail .views {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--text-secondary);
   margin-bottom: 4px;
 }
 
 .breadcrumb-bar {
   font-size: 14px;
   margin: 20px 0;
-  color: #4b5563;
+  color: var(--text-secondary);
 }
 
 .breadcrumb-home {
@@ -92,7 +92,7 @@ body {
   font-size: 16px;
   color: #374151;
   line-height: 1.7;
-  background: #f9fafb;
+  background: var(--bg-page);
 }
 
 .article-video {

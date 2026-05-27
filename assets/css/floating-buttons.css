@@ -1,149 +1,128 @@
-.floating-contact {
-    position: fixed;
-    bottom: 100px;
-    right: 20px;
-    z-index: 999;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 10px;
-    opacity: 0;
-    transform: translateY(30px);
-    pointer-events: none;
-    transition: opacity 0.5s ease, transform 0.5s ease;
-  }
-  
-  .floating-contact.show {
-    opacity: 1;
-    transform: translateY(0);
-    pointer-events: auto;
-  }
-  
-  .main-btn {
-    width: 56px;
-    height: 56px;
-    background: #000;
-    border-radius: 50%;
-    border: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-    transition: transform 0.3s ease;
-  }
-  .main-btn:hover {
-    transform: scale(1.1);
-  }
-  
-  .sub-buttons {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 10px;
-    opacity: 0;
-    transform: translateY(10px);
-    pointer-events: none;
-    transition: opacity 0.3s ease, transform 0.3s ease;
-  }
-  
-  .floating-contact:hover .sub-buttons {
-    opacity: 1;
-    transform: translateY(0);
-    pointer-events: auto;
-  }
-  
-  .circle-btn {
-    width: 56px;
-    height: 56px;
-    background: #fff;
-    border-radius: 50%;
-    border: none;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
-    transition: transform 0.35s ease, background-color 0.35s ease;
-    text-decoration: none;
-  }
-  .circle-btn:hover {
-    background: #f4f4f4;
-    transform: scale(1.12);
-  }
-  
-  .icon-svg {
-    width: 28px;
-    height: 28px;
-    transition: transform 0.3s ease;
-  }
-  .circle-btn:hover .icon-svg {
-    transform: scale(1.15);
-  }
-  .main-btn .icon-svg {
-    filter: brightness(0) invert(1);
-  }
-  
-  .main-btn-wrapper {
+/* ==========================================================
+   CMNS — Floating Action Button (FAB)
+   ========================================================== */
+
+.fab-wrap {
+  position: fixed;
+  bottom: 28px;
+  right: 20px;
+  z-index: 500;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(12px);
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+.fab-wrap.show {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+/* ── Sub items ── */
+.fab-items {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.fab-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  position: relative;
-}
-
-/* กล่องแชทสีส้ม */
-.contact-bubble {
-  position: relative;
-  background-color: #FF6B00; /* สีส้มเด่น */
+  gap: 10px;
+  padding: 9px 16px 9px 10px;
+  border-radius: var(--r-full);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
   color: #fff;
-  padding: 8px 16px;
-  border-radius: 20px;
-  font-size: 15px;
-  font-weight: 500;
   white-space: nowrap;
-  display: inline-block;
-  box-shadow: 0 4px 10px rgba(255, 107, 0, 0.3);
-  transition: background 0.3s ease;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+  opacity: 0;
+  transform: translateX(20px);
+  pointer-events: none;
+  transition:
+    opacity 220ms ease,
+    transform 280ms var(--ease-spring),
+    box-shadow 180ms ease;
 }
-
-.contact-bubble:hover {
-  background-color: #e85e00;
+.fab-wrap.open .fab-item {
+  opacity: 1;
+  transform: translateX(0);
+  pointer-events: auto;
 }
+/* stagger: item closest to main button (nth-child 3 = call) appears first */
+.fab-wrap.open .fab-item:nth-child(3) { transition-delay: 0ms; }
+.fab-wrap.open .fab-item:nth-child(2) { transition-delay: 40ms; }
+.fab-wrap.open .fab-item:nth-child(1) { transition-delay: 80ms; }
 
-/* หัวลูกศรชี้ */
-.contact-bubble .bubble-arrow {
-  position: absolute;
-  top: 50%;
-  right: -8px;
-  width: 0;
-  height: 0;
-  border-top: 6px solid transparent;
-  border-bottom: 6px solid transparent;
-  border-left: 8px solid #FF6B00;
-  transform: translateY(-50%);
-}
-
-/* ปุ่มกลม */
-.main-btn {
-  width: 56px;
-  height: 56px;
+.fab-item-icon {
+  width: 32px; height: 32px;
   border-radius: 50%;
-  background-color: #FF6B00;
-  border: none;
-  cursor: pointer;
-  box-shadow: 0 4px 12px rgba(255, 107, 0, 0.3);
+  background: rgba(255,255,255,0.18);
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: transform 0.3s ease, background-color 0.3s ease;
+  flex-shrink: 0;
+}
+.fab-item-icon .material-symbols-rounded { font-size: 18px; color: #fff; }
+.fab-item-icon img { width: 20px; height: 20px; object-fit: contain; filter: brightness(0) invert(1); }
+
+.fab-call {
+  background: linear-gradient(135deg, #fc7404, #e06500);
+}
+.fab-call:hover { box-shadow: 0 6px 22px rgba(252,116,4,0.55); transform: translateX(-3px); }
+
+.fab-line {
+  background: linear-gradient(135deg, #06c755, #009e40);
+}
+.fab-line:hover { box-shadow: 0 6px 22px rgba(6,199,85,0.45); transform: translateX(-3px); }
+
+.fab-fb {
+  background: linear-gradient(135deg, #1877f2, #0a5dc2);
+}
+.fab-fb:hover { box-shadow: 0 6px 22px rgba(24,119,242,0.45); transform: translateX(-3px); }
+
+/* ── Main FAB button ── */
+.fab-main {
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), #e06500);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow:
+    0 4px 20px rgba(252,116,4,0.50),
+    0 1px 4px rgba(0,0,0,0.12);
+  transition: transform 280ms var(--ease-spring), box-shadow 200ms ease;
+  position: relative;
+  flex-shrink: 0;
+}
+.fab-main:hover {
+  box-shadow: 0 8px 30px rgba(252,116,4,0.60), 0 2px 8px rgba(0,0,0,0.12);
+  transform: scale(1.08);
 }
 
-.main-btn:hover {
-  transform: rotate(90deg);
-  background-color: #e85e00;
+.fab-main .material-symbols-rounded {
+  font-size: 24px;
+  color: #fff;
+  position: absolute;
+  transition: opacity 200ms ease, transform 250ms var(--ease-spring);
 }
+.fab-icon-default { opacity: 1;  transform: scale(1) rotate(0deg); }
+.fab-icon-close   { opacity: 0;  transform: scale(0.5) rotate(-90deg); }
 
-.icon-svg {
-  width: 24px;
-  height: 24px;
-  filter: brightness(1000%); /* ให้ไอคอนขาวเด่นบนปุ่ม */
+.fab-wrap.open .fab-main { transform: scale(1.08); }
+.fab-wrap.open .fab-icon-default { opacity: 0;  transform: scale(0.5) rotate(90deg); }
+.fab-wrap.open .fab-icon-close   { opacity: 1;  transform: scale(1)   rotate(0deg); }
+
+@media (max-width: 768px) {
+  .fab-wrap { bottom: 20px; right: 16px; }
+  .fab-item-label { font-size: 13px; }
 }

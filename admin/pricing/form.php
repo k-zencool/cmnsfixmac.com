@@ -1,256 +1,317 @@
 <?php
-/********************************************************************
- * admin/pricing/form.php
- * ฟอร์มเพิ่ม/แก้ไขราคา (Enterprise Edition)
- ********************************************************************/
-
 session_start();
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_login();
 
-$id = isset($_GET['id']) ? $_GET['id'] : '';
+$id      = intval($_GET['id'] ?? 0);
+$isModal = !empty($_GET['modal']);
+$pageTitle = $id ? 'แก้ไขราคา' : 'เพิ่มราคาใหม่';
 
-// --- ค่าเริ่มต้น (Default Values) ---
 $data = [
-    'service_code' => '', 
-    'device_type' => '', 
-    'device_series' => '', 
-    'device_model' => '', 
-    'service_name' => '', 
-    'price' => '', 
-    'warranty_days' => 90, 
-    'is_active' => 1,
-    'show_on_web' => 0
+    'device_type'  => 'iPhone',
+    'device_name'  => '',
+    'category_id'  => '',
+    'price'        => '',
+    'price_note'   => '',
+    'warranty_days'=> 90,
+    'is_active'    => 1,
+    'show_on_web'  => 1,
 ];
 
-// --- 1. บันทึกข้อมูล (Save) ---
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $service_code = trim($_POST['service_code']);
-    $device_type = trim($_POST['device_type']);
-    $device_series = trim($_POST['device_series']);
-    $device_model = trim($_POST['device_model']);
-    $service_name = trim($_POST['service_name']);
-    $price = floatval($_POST['price']);
-    $warranty = intval($_POST['warranty_days']);
-    $is_active = isset($_POST['is_active']) ? intval($_POST['is_active']) : 0;
-    $show_on_web = isset($_POST['show_on_web']) ? intval($_POST['show_on_web']) : 0;
+$errors = [];
 
-    if ($id) { // Update
-        $sql = "UPDATE service_pricing SET service_code=?, device_type=?, device_series=?, device_model=?, service_name=?, price=?, warranty_days=?, is_active=?, show_on_web=?, updated_at=NOW() WHERE id=?";
-        $pdo->prepare($sql)->execute([$service_code, $device_type, $device_series, $device_model, $service_name, $price, $warranty, $is_active, $show_on_web, $id]);
-    } else { // Insert
-        $sql = "INSERT INTO service_pricing (service_code, device_type, device_series, device_model, service_name, price, warranty_days, is_active, show_on_web) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
-        $pdo->prepare($sql)->execute([$service_code, $device_type, $device_series, $device_model, $service_name, $price, $warranty, $is_active, $show_on_web]);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $data['device_type']   = trim($_POST['device_type'] ?? '');
+    $data['device_name']   = trim($_POST['device_name'] ?? '');
+    $data['category_id']   = intval($_POST['category_id'] ?? 0);
+    $data['price']         = intval($_POST['price'] ?? 0);
+    $data['price_note']    = trim($_POST['price_note'] ?? '');
+    $data['warranty_days'] = intval($_POST['warranty_days'] ?? 90);
+    $data['is_active']     = isset($_POST['is_active'])   ? 1 : 0;
+    $data['show_on_web']   = isset($_POST['show_on_web']) ? 1 : 0;
+
+    if (!$data['device_type'])  $errors[] = 'กรุณาเลือกประเภทอุปกรณ์';
+    if (!$data['device_name'])  $errors[] = 'กรุณากรอกชื่อรุ่น';
+    if (!$data['category_id'])  $errors[] = 'กรุณาเลือกหมวดบริการ';
+    if ($data['price'] < 0)     $errors[] = 'ราคาต้องไม่ติดลบ';
+
+    if (empty($errors)) {
+        $cols = ['device_type','device_name','category_id','price','price_note','warranty_days','is_active','show_on_web'];
+        $vals = array_map(fn($c) => $data[$c], $cols);
+        if ($id) {
+            $set = implode(', ', array_map(fn($c) => "`$c` = ?", $cols));
+            $pdo->prepare("UPDATE service_pricing SET $set, updated_at = NOW() WHERE id = ?")->execute([...$vals, $id]);
+        } else {
+            $ph  = implode(', ', array_fill(0, count($cols), '?'));
+            $col = implode(', ', array_map(fn($c) => "`$c`", $cols));
+            $pdo->prepare("INSERT INTO service_pricing ($col) VALUES ($ph)")->execute($vals);
+        }
+        if ($isModal) {
+            echo "<!DOCTYPE html><html><head><meta charset='UTF-8'></head><body><script>window.parent.postMessage('pricing-saved','*');</script></body></html>";
+            exit;
+        }
+        header("Location: index.php?type=" . urlencode($data['device_type']));
+        exit;
     }
-    header("Location: index.php");
-    exit();
 }
 
-// --- 2. ดึงข้อมูลมาแก้ไข (Edit Mode) ---
-if ($id) {
+if ($id && $_SERVER['REQUEST_METHOD'] !== 'POST') {
     $stmt = $pdo->prepare("SELECT * FROM service_pricing WHERE id = ?");
     $stmt->execute([$id]);
-    $res = $stmt->fetch(PDO::FETCH_ASSOC);
-    if($res) $data = $res;
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($row) $data = $row;
 }
 
-// --- 3. ดึงงานล่าสุด (Smart Suggestion) ---
-// ✅ แก้ไข: ใช้ estimated_cost แทน price ตามตาราง tracking จริง
-$recent_jobs = $pdo->query("
-    SELECT * FROM tracking 
-    WHERE status = 'DV' AND estimated_cost > 0 
-    ORDER BY updated_at DESC LIMIT 10
-")->fetchAll(PDO::FETCH_ASSOC);
+$categories   = $pdo->query("SELECT * FROM pricing_categories ORDER BY sort_order, id")->fetchAll(PDO::FETCH_ASSOC);
+$device_types = ['iPhone','iPad','MacBook','iMac','AirPods','Apple Watch','Software','Other'];
 
-include __DIR__ . '/../templates/header_admin.php'; 
+$suggestions = [
+    'iPhone'      => ['iPhone 16 Pro Max','iPhone 16 Pro','iPhone 16 Plus','iPhone 16','iPhone 15 Pro Max','iPhone 15 Pro','iPhone 15 Plus','iPhone 15','iPhone 14 Pro Max','iPhone 14 Pro','iPhone 14 Plus','iPhone 14','iPhone 13 Pro Max','iPhone 13 Pro','iPhone 13','iPhone 12 Pro Max','iPhone 12 Pro','iPhone 12','iPhone 11 Pro Max','iPhone 11 Pro','iPhone 11','iPhone XS Max','iPhone XS','iPhone XR','iPhone X','iPhone SE (3rd gen)','iPhone SE (2nd gen)'],
+    'iPad'        => ['iPad Pro M4 11"','iPad Pro M4 13"','iPad Pro M2 11"','iPad Pro M2 12.9"','iPad Air M2 11"','iPad Air M2 13"','iPad Air M1','iPad mini 7','iPad mini 6','iPad 10th gen','iPad 9th gen'],
+    'MacBook'     => ['MacBook Air M3 13"','MacBook Air M3 15"','MacBook Air M2 13"','MacBook Air M2 15"','MacBook Air M1','MacBook Pro M3 Pro 14"','MacBook Pro M3 Pro 16"','MacBook Pro M3 Max 14"','MacBook Pro M3 Max 16"','MacBook Pro M2 Pro 14"','MacBook Pro M2 Pro 16"','MacBook Pro M1 Pro 14"','MacBook Pro M1 Pro 16"','MacBook Pro Intel 13"','MacBook Pro Intel 15"','MacBook Pro Intel 16"'],
+    'iMac'        => ['iMac 24" M3','iMac 24" M1','iMac 27" 2020','iMac 21.5" 2019'],
+    'AirPods'     => ['AirPods Pro 2nd gen','AirPods Pro 1st gen','AirPods 4th gen','AirPods 3rd gen','AirPods Max'],
+    'Apple Watch' => ['Apple Watch Series 10','Apple Watch Series 9','Apple Watch Series 8','Apple Watch Ultra 2','Apple Watch SE 2nd gen'],
+    'Software'    => ['macOS Reinstall','iOS Restore','Data Recovery','Virus Removal','Data Transfer'],
+    'Other'       => [],
+];
 ?>
+<?php if ($isModal): ?>
+<!DOCTYPE html><html lang="th">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<script>document.documentElement.setAttribute('data-theme',localStorage.getItem('admin_theme')||'dark');</script>
+<link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
+<link rel="stylesheet" href="/admin/templates/assets/css/admin.css?v=3">
+<link rel="stylesheet" href="/admin/templates/assets/css/inventory-dashboard.css?v=3">
+<?php else: ?>
+<?php include __DIR__ . '/../templates/header_admin.php'; ?>
+<link rel="stylesheet" href="<?= $assets_base ?>css/inventory-dashboard.css?v=3">
+<?php endif; ?>
 
 <style>
-    /* Layout */
-    .layout-grid { display: grid; grid-template-columns: 2fr 1.3fr; gap: 25px; }
-    .card { background: #fff; padding: 25px; border-radius: 16px; border: 1px solid #f1f5f9; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02); }
-    
-    /* Inputs */
-    .form-group { margin-bottom: 20px; position: relative; }
-    .form-label { display: flex; align-items: center; gap: 6px; font-weight: 600; margin-bottom: 8px; color: #334155; font-size: 0.9rem; }
-    .form-label .material-symbols-rounded { font-size: 18px; color: #64748b; }
-    .form-control { width: 100%; padding: 12px 12px 12px 40px; border: 1px solid #cbd5e1; border-radius: 10px; transition: 0.2s; font-size: 1rem; }
-    .form-control:focus { border-color: #3b82f6; outline: none; box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1); }
-    
-    /* Input Icons */
-    .input-icon { position: absolute; left: 12px; top: 42px; color: #94a3b8; font-size: 20px; pointer-events: none; }
-    
-    /* Buttons */
-    .btn-submit { background: #2563eb; color: #fff; padding: 14px; border: none; border-radius: 10px; width: 100%; cursor: pointer; font-size: 1rem; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.2s; }
-    .btn-submit:hover { background: #1d4ed8; transform: translateY(-1px); }
+html,body{margin:0;padding:0;}
+.modal-mode{height:100vh;overflow:hidden;display:flex;flex-direction:column;background:var(--bg-surface);}
+#ifrm-header{display:flex;align-items:center;justify-content:space-between;padding:14px 22px;border-bottom:1px solid var(--border);background:var(--bg-surface);flex-shrink:0;}
+#ifrm-header h2{margin:0;font-size:15px;font-weight:700;color:var(--text-main);display:flex;align-items:center;gap:8px;}
+#ifrm-header h2 .material-symbols-rounded{font-size:18px;color:var(--primary);}
+#ifrm-body{flex:1;overflow-y:auto;padding:20px 24px;}
+.frm-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 16px; padding: 30px 32px; max-width: 660px; }
+.frm-section { margin-bottom: 28px; }
+.frm-section-title { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: var(--text-muted); margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.frm-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.frm-lbl { display: flex; align-items: center; gap: 5px; font-size: 0.87rem; font-weight: 600; color: var(--text-main); margin-bottom: 7px; }
+.frm-lbl .material-symbols-rounded { font-size: 16px; color: var(--text-muted); }
+.frm-ctrl { width: 100%; padding: 10px 14px; border: 1.5px solid var(--border); border-radius: 9px; font-size: 0.95rem; background: var(--bg-surface); color: var(--text-main); transition: 0.15s; box-sizing: border-box; }
+.frm-ctrl:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+.frm-ctrl.err { border-color: #ef4444; }
 
-    /* Smart List Items */
-    .job-item { padding: 15px; border: 1px solid #e2e8f0; border-radius: 12px; margin-bottom: 10px; cursor: pointer; transition: 0.2s; background: #fff; position: relative; }
-    .job-item:hover { border-color: #3b82f6; background: #eff6ff; transform: translateX(-2px); }
-    .job-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-    .job-id { font-size: 0.8rem; font-weight: 700; color: #64748b; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; }
-    .job-price { font-weight: 700; color: #059669; font-size: 0.95rem; }
-    .job-model { font-weight: 600; color: #1e293b; font-size: 0.9rem; display: flex; align-items: center; gap: 5px; }
-    .job-problem { font-size: 0.85rem; color: #64748b; margin-top: 4px; display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
-    .btn-add-mini { position: absolute; right: 10px; bottom: 10px; background: #dbeafe; color: #2563eb; border: none; border-radius: 50%; width: 28px; height: 28px; display: flex; align-items: center; justify-content: center; opacity: 0; transition: 0.2s; }
-    .job-item:hover .btn-add-mini { opacity: 1; }
+.chk-group { display: flex; gap: 24px; }
+.chk-item { display: flex; align-items: center; gap: 8px; }
+.chk-item input[type="checkbox"] { width: 17px; height: 17px; accent-color: var(--primary); cursor: pointer; }
+.chk-item label { font-size: 0.9rem; font-weight: 600; color: var(--text-main); cursor: pointer; display: flex; align-items: center; gap: 5px; }
 
-    /* Section Header */
-    .section-head { display: flex; align-items: center; gap: 8px; margin-bottom: 20px; color: #1e293b; font-size: 1.1rem; font-weight: 700; border-bottom: 2px solid #f1f5f9; padding-bottom: 12px; }
+.err-list { background: rgba(239,68,68,0.08); color: #dc2626; padding: 12px 18px; border-radius: 9px; margin-bottom: 20px; border: 1px solid rgba(239,68,68,0.2); }
+.err-list li { font-size: 0.9rem; margin: 4px 0; }
+
+.frm-actions { display: flex; gap: 12px; padding-top: 4px; }
 </style>
 
-<main class="main">
-    <div class="topbar">
-        <span style="display: flex; align-items: center; gap: 10px;">
-            <span class="material-symbols-rounded" style="color:#3b82f6;">price_check</span>
-            <?= $id ? 'แก้ไขราคา' : 'เพิ่มราคาใหม่' ?>
-        </span>
-        <a href="index.php" style="color: #64748b; text-decoration: none; display: flex; align-items: center; gap: 5px;">
-            <span class="material-symbols-rounded">arrow_back</span> กลับ
+<?php if ($isModal): ?>
+<body class="modal-mode">
+<div id="ifrm-header">
+    <h2>
+        <span class="material-symbols-rounded"><?= $id ? 'edit_square' : 'add_circle' ?></span>
+        <?= $id ? 'แก้ไขราคา' : 'เพิ่มราคาใหม่' ?>
+    </h2>
+    <button type="button" onclick="window.parent.postMessage('pricing-close','*')"
+        style="background:var(--bg-surface-alt);border:1px solid var(--border);width:34px;height:34px;border-radius:9px;cursor:pointer;color:var(--text-muted);display:flex;align-items:center;justify-content:center;transition:.2s;padding:0;"
+        onmouseover="this.style.background='#ef4444';this.style.color='#fff'"
+        onmouseout="this.style.background='var(--bg-surface-alt)';this.style.color='var(--text-muted)'">
+        <span class="material-symbols-rounded" style="font-size:18px;">close</span>
+    </button>
+</div>
+<div id="ifrm-body">
+<?php else: ?>
+<div class="cmns-wrapper">
+    <div class="cmns-header-bar">
+        <div>
+            <h1 class="cmns-page-title" style="color:var(--primary);">
+                <span class="material-symbols-rounded" style="font-size:28px;"><?= $id ? 'edit_square' : 'add_circle' ?></span>
+                <?= $id ? 'แก้ไขราคา' : 'เพิ่มราคาใหม่' ?>
+            </h1>
+        </div>
+        <a href="index.php" class="cmns-btn cmns-btn-secondary" style="font-size:14px;">
+            <span class="material-symbols-rounded" style="font-size:16px;">arrow_back</span> กลับ
         </a>
     </div>
+<?php endif; ?>
 
-    <div class="layout-grid">
-        
-        <div class="card">
-            <h3 class="section-head"><span class="material-symbols-rounded">edit_note</span> ข้อมูลราคามาตรฐาน</h3>
-            <form method="POST">
-                
-                <div class="form-group">
-                    <label class="form-label">รหัสบริการ (Service Code / SN)</label>
-                    <span class="material-symbols-rounded input-icon">qr_code_2</span>
-                    <input type="text" name="service_code" id="inpCode" class="form-control" placeholder="เช่น FIX-IP13-LCD (ไม่บังคับ)" value="<?= htmlspecialchars($data['service_code']) ?>">
-                </div>
+    <?php if ($errors): ?>
+    <ul class="err-list" style="max-width:660px;list-style:none;margin:0 0 20px;padding:12px 18px;">
+        <?php foreach ($errors as $e): ?>
+        <li><span class="material-symbols-rounded" style="font-size:14px;vertical-align:-2px;">error</span> <?= htmlspecialchars($e) ?></li>
+        <?php endforeach; ?>
+    </ul>
+    <?php endif; ?>
 
-                <div class="form-group">
-                    <label class="form-label">ประเภทอุปกรณ์ (Type)</label>
-                    <span class="material-symbols-rounded input-icon">devices</span>
-                    <input type="text" name="device_type" id="inpType" class="form-control" placeholder="เช่น iPhone" value="<?= htmlspecialchars($data['device_type']) ?>" list="typeList" required>
-                    <datalist id="typeList"><option value="iPhone"><option value="iPad"><option value="MacBook"></datalist>
-                </div>
+    <div class="frm-card" style="<?= $isModal ? 'max-width:100%;border:none;border-radius:0;padding:0;' : '' ?>">
+        <form method="POST" id="pricing-form">
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <div class="form-group">
-                        <label class="form-label">ชื่อรุ่น (Series)</label>
-                        <span class="material-symbols-rounded input-icon">smartphone</span>
-                        <input type="text" name="device_series" id="inpSeries" class="form-control" placeholder="เช่น 13 Pro" value="<?= htmlspecialchars($data['device_series']) ?>" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">โมเดล (Axxxx)</label>
-                        <span class="material-symbols-rounded input-icon">tag</span>
-                        <input type="text" name="device_model" id="inpModel" class="form-control" placeholder="เช่น A2638" value="<?= htmlspecialchars($data['device_model']) ?>">
-                    </div>
-                </div>
-
-                <div class="form-group">
-                    <label class="form-label">รายการซ่อม (Service)</label>
-                    <span class="material-symbols-rounded input-icon">build_circle</span>
-                    <input type="text" name="service_name" id="inpService" class="form-control" placeholder="เช่น เปลี่ยนจอแท้" value="<?= htmlspecialchars($data['service_name']) ?>" required>
-                </div>
-
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <div class="form-group">
-                        <label class="form-label">ราคา (บาท)</label>
-                        <span class="material-symbols-rounded input-icon">payments</span>
-                        <input type="number" name="price" id="inpPrice" class="form-control" placeholder="0.00" value="<?= htmlspecialchars($data['price']) ?>" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">ประกัน (วัน)</label>
-                        <span class="material-symbols-rounded input-icon">verified_user</span>
-                        <input type="number" name="warranty_days" class="form-control" value="<?= htmlspecialchars($data['warranty_days']) ?>">
-                    </div>
-                </div>
-
-                <div style="background: #f8fafc; padding: 15px; border-radius: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <!-- Device info -->
+            <div class="frm-section">
+                <div class="frm-section-title">ข้อมูลอุปกรณ์</div>
+                <div class="frm-row2">
                     <div>
-                        <label class="form-label"><span class="material-symbols-rounded">store</span> สถานะหน้าร้าน</label>
-                        <select name="is_active" class="form-control" style="padding-left: 12px;">
-                            <option value="1" <?= $data['is_active'] == 1 ? 'selected' : '' ?>>เปิดใช้งาน</option>
-                            <option value="0" <?= $data['is_active'] == 0 ? 'selected' : '' ?>>ปิดใช้งาน</option>
+                        <label class="frm-lbl">
+                            <span class="material-symbols-rounded">devices</span>
+                            ประเภทอุปกรณ์ *
+                        </label>
+                        <select name="device_type" id="inp-type" class="frm-ctrl" onchange="updateSuggestions(this.value)" required>
+                            <?php foreach ($device_types as $dt): ?>
+                            <option value="<?= $dt ?>" <?= $data['device_type'] === $dt ? 'selected' : '' ?>><?= $dt ?></option>
+                            <?php endforeach; ?>
                         </select>
                     </div>
                     <div>
-                        <label class="form-label"><span class="material-symbols-rounded">public</span> หน้าเว็บไซต์</label>
-                        <select name="show_on_web" class="form-control" style="padding-left: 12px;">
-                            <option value="1" <?= $data['show_on_web'] == 1 ? 'selected' : '' ?>>โชว์ราคา</option>
-                            <option value="0" <?= $data['show_on_web'] == 0 ? 'selected' : '' ?>>ซ่อนราคา</option>
-                        </select>
+                        <label class="frm-lbl">
+                            <span class="material-symbols-rounded">smartphone</span>
+                            ชื่อรุ่น *
+                        </label>
+                        <input type="text" name="device_name" id="inp-name"
+                            class="frm-ctrl <?= in_array('กรุณากรอกชื่อรุ่น', $errors) ? 'err' : '' ?>"
+                            placeholder="เช่น iPhone 16 Pro"
+                            value="<?= htmlspecialchars($data['device_name']) ?>"
+                            list="device-suggestions" autocomplete="off" required>
+                        <datalist id="device-suggestions"></datalist>
                     </div>
                 </div>
-
-                <button type="submit" class="btn-submit" style="margin-top: 20px;">
-                    <span class="material-symbols-rounded">save</span> บันทึกข้อมูล
-                </button>
-            </form>
-        </div>
-
-        <div class="card" style="background: #f8fafc; border: none;">
-            <h3 class="section-head" style="font-size: 1rem; color:#475569;">
-                <span class="material-symbols-rounded">history</span> งานที่เพิ่งส่งมอบ (DV)
-            </h3>
-            
-            <p style="font-size: 0.85rem; color: #64748b; margin-bottom: 15px;">คลิกที่รายการเพื่อดึงราคามาใช้ได้ทันที</p>
-
-            <div style="max-height: 600px; overflow-y: auto; padding-right: 5px;">
-                <?php if (empty($recent_jobs)): ?>
-                    <div style="text-align: center; color: #94a3b8; padding: 30px;">
-                        <span class="material-symbols-rounded" style="font-size: 40px; opacity: 0.5;">inbox</span>
-                        <br>ยังไม่มีงานที่เสร็จและมีราคา
-                    </div>
-                <?php endif; ?>
-
-                <?php foreach ($recent_jobs as $job): 
-                    $clean_problem = htmlspecialchars(strip_tags($job['problem_details']));
-                    $clean_model = htmlspecialchars($job['device_model']); // เช่น iPhone 13 Pro
-                    $clean_type = htmlspecialchars($job['device_type']);
-                    
-                    // ✅ แก้ไข: ใช้ estimated_cost ตรงนี้ด้วย
-                    $j_price = $job['estimated_cost'];
-                ?>
-                <div class="job-item" onclick="importData('<?= $clean_type ?>', '<?= $clean_model ?>', '<?= $clean_problem ?>', '<?= $j_price ?>')">
-                    <div class="job-header">
-                        <span class="job-id"><?= $job['ticket_number'] ?></span>
-                        <span class="job-price">฿<?= number_format($j_price) ?></span>
-                    </div>
-                    <div class="job-model">
-                        <span class="material-symbols-rounded" style="font-size: 16px; color:#64748b;">smartphone</span>
-                        <?= $job['device_model'] ?>
-                    </div>
-                    <div class="job-problem">
-                        <span class="material-symbols-rounded" style="font-size: 14px; vertical-align: middle;">build</span>
-                        <?= $clean_problem ?>
-                    </div>
-                    <button class="btn-add-mini"><span class="material-symbols-rounded">add</span></button>
-                </div>
-                <?php endforeach; ?>
             </div>
-        </div>
 
+            <!-- Service & Price -->
+            <div class="frm-section">
+                <div class="frm-section-title">บริการและราคา</div>
+
+                <div style="margin-bottom:16px;">
+                    <label class="frm-lbl">
+                        <span class="material-symbols-rounded">build_circle</span>
+                        หมวดบริการ *
+                    </label>
+                    <select name="category_id" class="frm-ctrl <?= in_array('กรุณาเลือกหมวดบริการ', $errors) ? 'err' : '' ?>" required>
+                        <option value="">— เลือกหมวดบริการ —</option>
+                        <?php foreach ($categories as $cat): ?>
+                        <option value="<?= $cat['id'] ?>" <?= (int)$data['category_id'] === $cat['id'] ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($cat['name']) ?>
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <?php if (empty($categories)): ?>
+                    <p style="font-size:0.82rem;color:#ef4444;margin:6px 0 0;">
+                        ยังไม่มีหมวดบริการ —
+                        <a href="categories.php" style="color:var(--primary);">สร้างหมวดก่อน</a>
+                    </p>
+                    <?php endif; ?>
+                </div>
+
+                <div class="frm-row2" style="margin-bottom:16px;">
+                    <div>
+                        <label class="frm-lbl">
+                            <span class="material-symbols-rounded">payments</span>
+                            ราคา (บาท) *
+                        </label>
+                        <input type="number" name="price" class="frm-ctrl" placeholder="0" min="0" value="<?= htmlspecialchars($data['price']) ?>" required>
+                    </div>
+                    <div>
+                        <label class="frm-lbl">
+                            <span class="material-symbols-rounded">verified_user</span>
+                            ประกัน (วัน)
+                        </label>
+                        <input type="number" name="warranty_days" class="frm-ctrl" min="0" value="<?= htmlspecialchars($data['warranty_days']) ?>">
+                    </div>
+                </div>
+
+                <div>
+                    <label class="frm-lbl">
+                        <span class="material-symbols-rounded">sticky_note_2</span>
+                        หมายเหตุ
+                    </label>
+                    <input type="text" name="price_note" class="frm-ctrl"
+                        placeholder="เช่น ราคาไม่รวมอะไหล่, ขึ้นอยู่กับความเสียหาย"
+                        value="<?= htmlspecialchars($data['price_note'] ?? '') ?>">
+                </div>
+            </div>
+
+            <!-- Visibility -->
+            <div class="frm-section">
+                <div class="frm-section-title">การแสดงผล</div>
+                <div class="chk-group">
+                    <div class="chk-item">
+                        <input type="checkbox" name="show_on_web" id="chk-web" <?= $data['show_on_web'] ? 'checked' : '' ?>>
+                        <label for="chk-web">
+                            <span class="material-symbols-rounded" style="font-size:16px;color:#2563eb;">public</span>
+                            แสดงบนเว็บไซต์
+                        </label>
+                    </div>
+                    <div class="chk-item">
+                        <input type="checkbox" name="is_active" id="chk-active" <?= $data['is_active'] ? 'checked' : '' ?>>
+                        <label for="chk-active">
+                            <span class="material-symbols-rounded" style="font-size:16px;color:#16a34a;">check_circle</span>
+                            เปิดใช้งาน
+                        </label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="frm-actions">
+                <button type="submit" class="cmns-btn cmns-btn-primary">
+                    <span class="material-symbols-rounded" style="font-size:16px;">save</span>
+                    <?= $id ? 'บันทึกการแก้ไข' : 'เพิ่มรายการ' ?>
+                </button>
+                <?php if (!$isModal): ?>
+                <a href="index.php" class="cmns-btn cmns-btn-secondary">
+                    <span class="material-symbols-rounded" style="font-size:16px;">close</span> ยกเลิก
+                </a>
+                <?php endif; ?>
+            </div>
+
+        </form>
     </div>
-</main>
 
+<?php if ($isModal): ?>
+</div><!-- #ifrm-body -->
+</body></html>
+<?php else: ?>
+</div><!-- .cmns-wrapper -->
 <?php include __DIR__ . '/../templates/footer_admin.php'; ?>
+<?php endif; ?>
 
 <script>
-    function importData(type, series, service, price) {
-        // เอฟเฟกต์เล็กน้อยให้รู้ว่ากดแล้ว
-        document.body.style.cursor = 'wait';
-        
-        // เติมข้อมูล
-        document.getElementById('inpType').value = type;
-        document.getElementById('inpSeries').value = series;
-        document.getElementById('inpService').value = service;
-        document.getElementById('inpPrice').value = price;
-        
-        // Reset Model & Code เพราะต้องกรอกใหม่ให้ตรงกับมาตรฐาน
-        document.getElementById('inpModel').value = ''; 
-        document.getElementById('inpCode').value = ''; 
+const suggestions = <?= json_encode($suggestions, JSON_UNESCAPED_UNICODE) ?>;
+const editName = <?= json_encode($id ? $data['device_name'] : '') ?>;
 
-        setTimeout(() => {
-            document.body.style.cursor = 'default';
-            // Focus ที่ช่อง Service Code เผื่ออยากตั้งรหัสเลย
-            document.getElementById('inpCode').focus();
-        }, 200);
+function updateSuggestions(type) {
+    const dl = document.getElementById('device-suggestions');
+    dl.innerHTML = '';
+    (suggestions[type] || []).forEach(name => {
+        const opt = document.createElement('option');
+        opt.value = name;
+        dl.appendChild(opt);
+    });
+    if (!editName) {
+        document.getElementById('inp-name').value = '';
+        document.getElementById('inp-name').focus();
     }
+}
+
+// Init
+updateSuggestions(document.getElementById('inp-type').value);
+if (editName) document.getElementById('inp-name').value = editName;
+
+<?php if ($isModal): ?>
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') window.parent.postMessage('pricing-close', '*');
+});
+<?php endif; ?>
 </script>

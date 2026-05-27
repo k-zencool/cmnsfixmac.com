@@ -1,19 +1,26 @@
-function copyPhone() {
-  navigator.clipboard.writeText("0841511684");
-  alert("คัดลอกเบอร์โทรแล้ว!");
-}
+const fabWrap = document.getElementById('fabWrap');
+const fabMain = document.getElementById('fabMain');
 
-window.addEventListener("scroll", () => {
-  const contactBtn = document.getElementById("floatingContact");
-  const footer = document.querySelector("footer");
-  const windowHeight = window.innerHeight;
-  const footerTop = footer.getBoundingClientRect().top;
+// Show after scroll > 100px, hide near footer
+window.addEventListener('scroll', () => {
+  if (!fabWrap) return;
+  const footer = document.querySelector('footer');
+  const footerTop = footer ? footer.getBoundingClientRect().top : Infinity;
+  const show = window.scrollY > 100 && footerTop > window.innerHeight - 80;
+  fabWrap.classList.toggle('show', show);
+}, { passive: true });
 
-  // แสดงเมื่อ scroll ลง > 100px
-  if (window.scrollY > 100 && footerTop > windowHeight - 120) {
-    contactBtn.classList.add("show");
-  } else {
-    contactBtn.classList.remove("show");
-  }
+// Toggle open/close
+fabMain?.addEventListener('click', (e) => {
+  e.stopPropagation();
+  const isOpen = fabWrap.classList.toggle('open');
+  fabMain.setAttribute('aria-expanded', isOpen);
 });
 
+// Close on outside click
+document.addEventListener('click', (e) => {
+  if (fabWrap && !fabWrap.contains(e.target)) {
+    fabWrap.classList.remove('open');
+    fabMain?.setAttribute('aria-expanded', 'false');
+  }
+});
