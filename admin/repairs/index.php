@@ -70,6 +70,17 @@ include __DIR__ . '/../templates/header_admin.php';
 .t-btn:hover{transform:translateY(-1px);box-shadow:0 3px 8px rgba(0,0,0,.1);}
 .t-edit:hover{color:var(--primary);background:rgba(37,99,235,.07);border-color:var(--primary);}
 .t-del:hover{color:#ef4444;background:rgba(239,68,68,.07);border-color:#ef4444;}
+
+/* thumbnail shimmer + fade-in */
+.thumb-wrap{width:56px;height:56px;border-radius:10px;background:var(--bg-surface-alt);border:1px solid var(--border);flex-shrink:0;position:relative;overflow:hidden;}
+.thumb-wrap::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.18) 50%,transparent 100%);background-size:200% 100%;animation:shimmer 1.4s infinite;pointer-events:none;}
+[data-theme="dark"] .thumb-wrap::after{background:linear-gradient(90deg,transparent 0%,rgba(255,255,255,.07) 50%,transparent 100%);background-size:200% 100%;}
+@keyframes shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+.thumb-wrap.loaded::after{display:none;}
+.thumb-wrap img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:10px;opacity:0;transition:opacity .3s ease;}
+.thumb-wrap.loaded img{opacity:1;}
+.thumb-wrap .thumb-icon{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text-muted);transition:opacity .2s;}
+.thumb-wrap.loaded .thumb-icon{opacity:0;pointer-events:none;}
 </style>
 <link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= time() ?>">
 <link rel="stylesheet" href="../templates/assets/css/modal.css?v=<?= time() ?>">
@@ -198,13 +209,13 @@ include __DIR__ . '/../templates/header_admin.php';
                 ?>
                 <tr id="repair-row-<?= $r['id'] ?>">
                     <td>
-                        <div style="width:56px;height:56px;border-radius:10px;background:var(--bg-surface-alt);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;flex-shrink:0;position:relative;overflow:hidden;">
+                        <div class="thumb-wrap">
                             <?php if ($img): ?>
-                                <img src="<?= h($img) ?>" alt="" loading="lazy"
-                                     style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover;border-radius:10px;"
-                                     onerror="this.remove()">
+                                <img src="<?= h($img) ?>" alt="" loading="lazy" decoding="async"
+                                     onload="this.closest('.thumb-wrap').classList.add('loaded')"
+                                     onerror="this.remove();this.closest('.thumb-wrap').classList.add('loaded')">
                             <?php endif; ?>
-                            <span class="material-symbols-rounded" style="color:var(--text-muted);font-size:20px;">hide_image</span>
+                            <span class="thumb-icon material-symbols-rounded" style="font-size:20px;">hide_image</span>
                         </div>
                     </td>
                     <td>
