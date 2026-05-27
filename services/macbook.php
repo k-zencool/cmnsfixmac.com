@@ -308,15 +308,21 @@ include_once '../includes/header.php';
     </div>
     <div class="sv-gallery-grid">
       <?php foreach ($repairs as $i => $r):
-          $img = !empty($r['image']) ? '/uploads/' . htmlspecialchars($r['image'], ENT_QUOTES, 'UTF-8') : '/assets/img/placeholder.png';
+          $raw = $r['image'] ?? '';
+          if (!$raw) $img = '';
+          elseif ($raw[0] === '/' || str_starts_with($raw, 'http')) $img = $raw;
+          else $img = '/' . $raw;
       ?>
       <a href="/works/detail.php?id=<?= (int)$r['id'] ?>"
          class="sv-gcard" data-aos="fade-up" data-aos-delay="<?= ($i % 4) * 70 ?>">
         <div class="sv-gcard-img">
-          <img src="<?= $img ?>" alt="<?= htmlspecialchars($r['title'], ENT_QUOTES, 'UTF-8') ?>"
+          <?php if ($img): ?>
+          <img src="<?= htmlspecialchars($img, ENT_QUOTES, 'UTF-8') ?>"
+               alt="<?= htmlspecialchars($r['title'], ENT_QUOTES, 'UTF-8') ?>"
                loading="lazy" decoding="async"
                onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-          <div class="sv-gcard-fallback" style="display:none">
+          <?php endif; ?>
+          <div class="sv-gcard-fallback" style="display:<?= $img ? 'none' : 'flex' ?>">
             <span class="material-symbols-rounded">laptop_mac</span>
           </div>
         </div>
