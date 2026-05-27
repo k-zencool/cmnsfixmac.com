@@ -10,8 +10,8 @@ RUN apt-get update && apt-get install -y \
 # ติดตั้ง extensions ที่จำเป็นสำหรับการเชื่อมต่อ MySQL
 RUN docker-php-ext-install pdo pdo_mysql mysqli && docker-php-ext-enable pdo_mysql
 
-# เปิด mod_rewrite และตั้ง AllowOverride All เพื่อให้ .htaccess ทำงานได้
-RUN a2enmod rewrite
+# เปิด modules ที่จำเป็น และตั้ง AllowOverride All เพื่อให้ .htaccess ทำงานได้
+RUN a2enmod rewrite headers expires
 RUN sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
 
 # ติดตั้ง Git, Unzip และ Composer (เครื่องมือจัดการ library ของ PHP)

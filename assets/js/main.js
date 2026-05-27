@@ -9,12 +9,19 @@ document.addEventListener('DOMContentLoaded', function () {
     const atmosphereSwiper = new Swiper(".atmosphereSwiper", {
       loop: true,
       autoplay: {
-        delay: 2500,
+        delay: 4000,
         disableOnInteraction: false,
+        pauseOnMouseEnter: true,
       },
       pagination: {
         el: ".swiper-pagination",
         clickable: true,
+      },
+      on: {
+        slideChange: function () {
+          const el = document.querySelector('.atm-current');
+          if (el) el.textContent = this.realIndex + 1;
+        },
       },
     });
   }
@@ -56,17 +63,6 @@ document.addEventListener('DOMContentLoaded', function () {
         el: ".swiper-pagination",
         clickable: true,
       },
-    });
-  }
-
-  // --- Team Toggle Button ---
-  const teamToggleButton = document.getElementById('toggle-team-btn');
-  const teamMoreSection = document.getElementById('team-more');
-
-  if (teamToggleButton && teamMoreSection) { // เช็คว่ามีทั้งปุ่มและ section ก่อน
-    teamToggleButton.addEventListener('click', () => {
-      teamMoreSection.classList.toggle('active'); // Use one class, e.g., 'active'
-      teamToggleButton.textContent = teamMoreSection.classList.contains('active') ? 'ซ่อนทีมช่าง' : 'ดูทีมช่างทั้งหมด';
     });
   }
 

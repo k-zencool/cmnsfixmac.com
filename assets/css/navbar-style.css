@@ -312,7 +312,20 @@
 
 /* services dropdown */
 .dropdown-menu-services { min-width: 248px; }
-.dropdown-icon-img { width: 28px; height: 28px; object-fit: contain; flex-shrink: 0; }
+.dropdown-menu-services .svc-icon {
+  font-size: 22px;
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--r-sm);
+  background: var(--accent-light);
+  color: var(--accent);
+  flex-shrink: 0;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.dropdown-menu-services a:hover .svc-icon {
+  background: var(--accent);
+  color: #fff;
+}
 .dropdown-menu-services a div { display: flex; flex-direction: column; gap: 1px; }
 .dropdown-menu-services a div strong { font-size: 13.5px; font-weight: 600; color: inherit; }
 .dropdown-menu-services a div span  { font-size: 11.5px; color: var(--text-secondary); }

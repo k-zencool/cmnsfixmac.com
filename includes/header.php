@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <script src="/assets/js/theme.js"></script>
   <link rel="stylesheet" href="/assets/css/design-tokens.css?v=1">
-  <link rel="stylesheet" href="/assets/css/navbar-style.css?v=6">
+  <link rel="stylesheet" href="/assets/css/navbar-style.css?v=7">
   <link rel="stylesheet" href="/assets/css/footer-style.css?v=2">
   <link rel="stylesheet" href="/assets/css/micro.css?v=1">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded&display=block" rel="stylesheet">
@@ -46,27 +46,27 @@
             </a>
             <div class="dropdown-menu dropdown-menu-services">
               <a href="/services/macbook.php">
-                <img src="/assets/img/icons/icon-macbook.png" class="dropdown-icon-img" alt="MacBook">
+                <span class="material-symbols-rounded svc-icon">laptop_mac</span>
                 <div><strong>ซ่อม MacBook</strong><span>เปลี่ยนจอ บอร์ด แบต</span></div>
               </a>
               <a href="/services/imac.php">
-                <img src="/assets/img/icons/icon-imac.png" class="dropdown-icon-img" alt="iMac">
+                <span class="material-symbols-rounded svc-icon">desktop_mac</span>
                 <div><strong>ซ่อม iMac</strong><span>อัปเกรด SSD, RAM</span></div>
               </a>
               <a href="/services/iphone.php">
-                <img src="/assets/img/icons/icon-iphone.png" class="dropdown-icon-img" alt="iPhone">
+                <span class="material-symbols-rounded svc-icon">phone_iphone</span>
                 <div><strong>ซ่อม iPhone / iPad</strong><span>เปลี่ยนจอ แบต กล้อง</span></div>
               </a>
               <a href="/services/apple-watch.php">
-                <img src="/assets/img/icons/icon-applewatch.png" class="dropdown-icon-img" alt="Apple Watch">
+                <span class="material-symbols-rounded svc-icon">watch</span>
                 <div><strong>ซ่อม Apple Watch</strong><span>เปลี่ยนจอ แบต</span></div>
               </a>
               <a href="/services/airpods.php">
-                <img src="/assets/img/icons/icon-airpods.png" class="dropdown-icon-img" alt="AirPods">
+                <span class="material-symbols-rounded svc-icon">headphones</span>
                 <div><strong>ซ่อม AirPods</strong><span>แบต ไมค์ ชาร์จ</span></div>
               </a>
               <a href="/services/software.php">
-                <img src="/assets/img/icons/icon-os.png" class="dropdown-icon-img" alt="Software">
+                <span class="material-symbols-rounded svc-icon">terminal</span>
                 <div><strong>Software & OS</strong><span>ลง macOS โปรแกรม</span></div>
               </a>
             </div>

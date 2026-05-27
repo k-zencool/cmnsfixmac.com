@@ -3,7 +3,7 @@ include 'includes/db.php';
 
 $page_title = 'ซ่อม MacBook เชียงใหม่ | ร้านซ่อม Apple โดยช่างผู้เชี่ยวชาญ - CMNS FixMac';
 $page_css   = [
-    '/assets/css/style.css?v=11',
+    '/assets/css/style.css?v=23',
     '/assets/css/floating-buttons.css?v=2',
     'https://unpkg.com/aos@2.3.4/dist/aos.css',
     'https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css',
@@ -326,6 +326,14 @@ include_once 'includes/header.php';
       <h2>ผลงานล่าสุด</h2>
       <p class="section-desc">ตัวอย่างงานซ่อมจริงจากทีมช่างของเรา</p>
 
+      <div class="work-meta-bar">
+        <span><span class="material-symbols-rounded">check_circle</span> งานซ่อมสำเร็จ 1,200+ ชิ้น</span>
+        <span class="work-meta-dot"></span>
+        <span><span class="material-symbols-rounded">schedule</span> ส่งงานภายใน 24 ชม.</span>
+        <span class="work-meta-dot"></span>
+        <span><span class="material-symbols-rounded">star</span> คะแนน 4.9 / 5</span>
+      </div>
+
       <div class="work-grid">
         <?php
         $stmt = $pdo->query("SELECT * FROM repairs WHERE status = 'published' ORDER BY created_at DESC LIMIT 6");
@@ -341,7 +349,9 @@ include_once 'includes/header.php';
           }
           $title   = htmlspecialchars($row['title']);
           $model   = htmlspecialchars($row['model'] ?? '');
-          $cls     = $wi === 0 ? 'work-card work-card--featured' : 'work-card';
+          $is_feat = $wi === 0;
+          $cls     = $is_feat ? 'work-card work-card--featured' : 'work-card';
+
           echo '<div class="' . $cls . '">';
           echo '<div class="work-card-img-wrap">';
           if ($img_src) {
@@ -351,16 +361,32 @@ include_once 'includes/header.php';
           echo '<div class="work-card-placeholder" style="display:' . ($img_src ? 'none' : 'flex') . '">
                   <span class="material-symbols-rounded">build_circle</span>
                 </div>';
+          echo '<span class="work-badge-done"><span class="material-symbols-rounded">check_circle</span> ซ่อมแล้ว</span>';
+          if ($is_feat) {
+            echo '<div class="work-card-overlay">';
+            echo '<h3>' . $title . '</h3>';
+            if ($model) echo '<span class="work-chip">' . $model . '</span>';
+            echo '</div>';
+          }
           echo '</div>';
-          echo '<h3>' . $title . '</h3>';
-          echo '<p>' . ($model ?: '—') . '</p>';
+          if (!$is_feat) {
+            echo '<div class="work-card-info">';
+            echo '<h3>' . $title . '</h3>';
+            if ($model) echo '<span class="work-chip">' . $model . '</span>';
+            echo '</div>';
+          }
           echo '</div>';
           $wi++;
         }
         ?>
       </div>
 
-      <a href="/works/" class="btn btn-outline" style="margin-top:40px">ดูผลงานทั้งหมด</a>
+      <div class="work-cta">
+        <a href="/works/" class="work-cta-link">
+          ดูผลงานทั้งหมด
+          <span class="material-symbols-rounded">arrow_forward</span>
+        </a>
+      </div>
     </div>
   </section>
 
@@ -375,6 +401,7 @@ include_once 'includes/header.php';
       <p class="section-desc">มากกว่าแค่การซ่อม — คือความมั่นใจที่คุณได้คืนกลับมา</p>
 
       <div class="reasons-list">
+
         <div class="reason-h">
           <div class="reason-h-meta">
             <span class="reason-num">01</span>
@@ -383,8 +410,13 @@ include_once 'includes/header.php';
             </div>
           </div>
           <div class="reason-h-content">
-            <h3>วิเคราะห์อาการฟรี</h3>
-            <p>ทางร้านยินดีให้บริการสอบถามปัญหาและอาการเสีย เพื่อวิเคราะห์ค่าใช้จ่ายในการซ่อมให้ฟรี ไม่มีค่าตรวจ</p>
+            <h3>วิเคราะห์อาการและประเมินราคาฟรี — ไม่มีค่าตรวจ</h3>
+            <p>CMNS FixMac ให้บริการตรวจวิเคราะห์อาการเสียของ MacBook, iPhone, iPad, iMac และ Apple ทุกรุ่นฟรี ไม่มีค่าตรวจ ไม่มีค่าใช้จ่ายแอบแฝง ทีมช่างจะแจ้งสาเหตุและราคาค่าซ่อมก่อนดำเนินการทุกครั้ง ลูกค้าอนุมัติก่อนถึงจะเริ่มงาน</p>
+            <div class="reason-chips">
+              <span>ฟรีค่าตรวจ</span>
+              <span>แจ้งราคาก่อนซ่อม</span>
+              <span>ไม่มีค่าใช้จ่ายแอบแฝง</span>
+            </div>
           </div>
         </div>
 
@@ -396,8 +428,13 @@ include_once 'includes/header.php';
             </div>
           </div>
           <div class="reason-h-content">
-            <h3>ใช้อะไหล่คุณภาพสูง</h3>
-            <p>ใช้เครื่องมือที่ได้มาตรฐาน ทันสมัย อะไหล่แท้คุณภาพสูง มีพร้อมบริการ รับประกันอะไหล่ทุกชิ้น</p>
+            <h3>อะไหล่คุณภาพสูง รับประกันงานซ่อมทุกชิ้น</h3>
+            <p>ใช้อะไหล่แท้และอะไหล่คุณภาพเทียบเท่า OEM สำหรับการซ่อม MacBook Air, MacBook Pro, iMac, iPhone และ iPad ทุกรุ่น พร้อมรับประกันอะไหล่และฝีมือการซ่อม ครอบคลุมตั้งแต่การเปลี่ยนจอ เปลี่ยนแบต ซ่อมบอร์ด ไปจนถึงอัปเกรด SSD และ RAM</p>
+            <div class="reason-chips">
+              <span>อะไหล่แท้ / OEM</span>
+              <span>รับประกันทุกงาน</span>
+              <span>เครื่องมือมาตรฐาน</span>
+            </div>
           </div>
         </div>
 
@@ -409,10 +446,34 @@ include_once 'includes/header.php';
             </div>
           </div>
           <div class="reason-h-content">
-            <h3>ทีมช่างเชี่ยวชาญ</h3>
-            <p>ทีมช่างของเรามีความเชี่ยวชาญเรื่องการซ่อม Mac ทั้งฮาร์ดแวร์และซอฟต์แวร์ มั่นใจได้ในความเป็นมืออาชีพ</p>
+            <h3>ทีมช่างเชี่ยวชาญ Apple เชียงใหม่ ประสบการณ์กว่า 10 ปี</h3>
+            <p>ทีมช่างของ CMNS FixMac มีความเชี่ยวชาญด้านการซ่อม Apple โดยเฉพาะ ครอบคลุม MacBook ทุกรุ่นทั้ง Intel และ Apple Silicon (M1 M2 M3 M4), iPhone ทุกซีรีส์, iPad, iMac, Apple Watch และ AirPods ทั้งงานซ่อมฮาร์ดแวร์ระดับบอร์ด (Board-level repair) และแก้ไขปัญหาซอฟต์แวร์ทุกประเภท</p>
+            <div class="reason-chips">
+              <span>Apple Silicon M1–M4</span>
+              <span>Board-level repair</span>
+              <span>ประสบการณ์ 10+ ปี</span>
+            </div>
           </div>
         </div>
+
+        <div class="reason-h">
+          <div class="reason-h-meta">
+            <span class="reason-num">04</span>
+            <div class="reason-icon-wrap">
+              <span class="material-symbols-rounded reason-icon">location_on</span>
+            </div>
+          </div>
+          <div class="reason-h-content">
+            <h3>ร้านซ่อม Apple ใจกลางเชียงใหม่ รับ-ส่งได้ทั่วประเทศ</h3>
+            <p>ร้าน CMNS FixMac ตั้งอยู่ใจกลางเชียงใหม่ เดินทางง่าย มีที่จอดรถ สะดวกสำหรับลูกค้าในเชียงใหม่และจังหวัดใกล้เคียง นอกจากนี้ยังรองรับการส่งซ่อมทางไปรษณีย์ทั่วประเทศ พร้อมติดตามสถานะซ่อมออนไลน์และแจ้งเตือนผ่าน LINE OA ได้ตลอด 24 ชั่วโมง</p>
+            <div class="reason-chips">
+              <span>ใจกลางเชียงใหม่</span>
+              <span>ส่งซ่อมทั่วประเทศ</span>
+              <span>ติดตามสถานะออนไลน์</span>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   </section>
@@ -461,23 +522,24 @@ include_once 'includes/header.php';
        STORE ATMOSPHERE
   ════════════════════════════════════════════════ -->
   <section class="section-atmosphere" data-aos="fade-up">
-    <div class="section-inner">
+    <div class="section-inner atm-header">
       <span class="section-label">Our Store</span>
       <h2>บรรยากาศร้านของเรา</h2>
       <p class="section-desc">ร้านซ่อมมาตรฐาน พร้อมอุปกรณ์และเครื่องมือที่ทันสมัย</p>
-      <div class="swiper atmosphereSwiper">
-        <div class="swiper-wrapper">
-          <div class="swiper-slide"><img src="/assets/img/store1.webp" loading="lazy" alt="หน้าร้านซ่อม MacBook เชียงใหม่ CMNS FixMac"></div>
-          <div class="swiper-slide"><img src="/assets/img/store2.webp" loading="lazy" alt="เคาน์เตอร์ต้อนรับร้าน CMNS FixMac เชียงใหม่"></div>
-          <div class="swiper-slide"><img src="/assets/img/store3.webp" loading="lazy" alt="บรรยากาศภายในร้านซ่อม MacBook เชียงใหม่"></div>
-          <div class="swiper-slide"><img src="/assets/img/store4.webp" loading="lazy" alt="ซ่อม MacBook เชียงใหม่ CMNS"></div>
-          <div class="swiper-slide"><img src="/assets/img/store5.webp" loading="lazy" alt="อุปกรณ์ซ่อม Apple มาตรฐานในร้าน CMNS FixMac"></div>
-          <div class="swiper-slide"><img src="/assets/img/store6.webp" loading="lazy" alt="ซ่อม iPhone iPad MacBook ที่ร้าน CMNS Fixmac"></div>
-          <div class="swiper-slide"><img src="/assets/img/store7.webp" loading="lazy" alt="ลูกค้ามาใช้บริการร้านซ่อม MacBook เชียงใหม่"></div>
-          <div class="swiper-slide"><img src="/assets/img/store8.webp" loading="lazy" alt="บรรยากาศร้านซ่อม Apple เชียงใหม่ FixMac"></div>
-        </div>
-        <div class="swiper-pagination"></div>
+    </div>
+    <div class="swiper atmosphereSwiper">
+      <div class="swiper-wrapper">
+        <div class="swiper-slide"><img src="/assets/img/store1.webp" loading="lazy" alt="หน้าร้านซ่อม MacBook เชียงใหม่ CMNS FixMac"></div>
+        <div class="swiper-slide"><img src="/assets/img/store2.webp" loading="lazy" alt="เคาน์เตอร์ต้อนรับร้าน CMNS FixMac เชียงใหม่"></div>
+        <div class="swiper-slide"><img src="/assets/img/store3.webp" loading="lazy" alt="บรรยากาศภายในร้านซ่อม MacBook เชียงใหม่"></div>
+        <div class="swiper-slide"><img src="/assets/img/store4.webp" loading="lazy" alt="ซ่อม MacBook เชียงใหม่ CMNS"></div>
+        <div class="swiper-slide"><img src="/assets/img/store5.webp" loading="lazy" alt="อุปกรณ์ซ่อม Apple มาตรฐานในร้าน CMNS FixMac"></div>
+        <div class="swiper-slide"><img src="/assets/img/store6.webp" loading="lazy" alt="ซ่อม iPhone iPad MacBook ที่ร้าน CMNS Fixmac"></div>
+        <div class="swiper-slide"><img src="/assets/img/store7.webp" loading="lazy" alt="ลูกค้ามาใช้บริการร้านซ่อม MacBook เชียงใหม่"></div>
+        <div class="swiper-slide"><img src="/assets/img/store8.webp" loading="lazy" alt="บรรยากาศร้านซ่อม Apple เชียงใหม่ FixMac"></div>
       </div>
+      <div class="swiper-pagination"></div>
+      <div class="atm-counter"><span class="atm-current">1</span> / 8</div>
     </div>
   </section>
 
@@ -502,149 +564,109 @@ include_once 'includes/header.php';
     <div class="section-inner">
       <span class="section-label">Our Team</span>
       <h2>ทีมช่างของเรา</h2>
-      <p class="section-desc">ช่างผู้เชี่ยวชาญ มีประสบการณ์จริงกับ Apple</p>
+      <p class="section-desc">ช่างผู้เชี่ยวชาญ Apple โดยตรง ประสบการณ์จริงกว่า 10 ปี</p>
 
-      <div class="team-grid tighter">
-        <div class="team-member">
-          <img src="/assets/img/tech1.webp" alt="ช่างแจ็ค ผู้เชี่ยวชาญซ่อม MacBook เชียงใหม่ CMNS FixMac">
-          <h3>ช่างแจ็ค</h3>
-          <p>ผู้เชี่ยวชาญ Mac, MacBook มากกว่า 10 ปี</p>
-        </div>
-      </div>
+      <div class="team-cards">
 
-      <div class="team-more" id="team-more">
-        <div class="team-grid">
-          <div class="team-member">
-            <div class="img-hover-wrap">
-              <img src="/assets/img/tech2.webp" loading="lazy" alt="ช่างทัก ผู้เชี่ยวชาญระบบ macOS ที่เชียงใหม่" class="default-img">
-              <img src="/assets/img/tech2-hover.webp" loading="lazy" alt="ช่างทัก กำลังซ่อม Apple" class="hover-img">
+        <div class="team-card">
+          <div class="team-card-photo">
+            <img src="/assets/img/tech1.webp" alt="ช่างแจ็ค หัวหน้าช่างซ่อม MacBook เชียงใหม่ CMNS FixMac">
+            <span class="team-exp-badge">18+ ปี</span>
+          </div>
+          <div class="team-card-info">
+            <h3>ช่างแจ็ค</h3>
+            <p class="team-role">หัวหน้าช่าง — ผู้เชี่ยวชาญ Mac & Hardware</p>
+            <p class="team-bio">เชี่ยวชาญซ่อม MacBook ทุกรุ่นทั้ง Intel และ Apple Silicon (M1–M4) งาน Board-level repair บัดกรีบอร์ด เปลี่ยนจอ เปลี่ยนแบต และอัปเกรด SSD, RAM สำหรับ MacBook Air, MacBook Pro และ iMac</p>
+            <div class="team-skills">
+              <span>MacBook Air / Pro</span>
+              <span>Apple Silicon M1–M4</span>
+              <span>Board-level Repair</span>
+              <span>iMac</span>
             </div>
-            <h3>ช่างทัก</h3>
-            <p>ผู้เชี่ยวชาญระบบ OS และซอฟต์แวร์</p>
-          </div>
-          <div class="team-member">
-            <img src="/assets/img/tech3.webp" loading="lazy" alt="ช่างแบงค์ นักศึกษาฝึกงาน CMNS FixMac">
-            <h3>แบงค์</h3>
-            <p>นักศึกษาฝึกงาน</p>
-          </div>
-          <div class="team-member">
-            <img src="/assets/img/tech4.webp" loading="lazy" alt="ช่างไมค์ ฝึกงานซ่อม Apple เชียงใหม่">
-            <h3>ไมค์</h3>
-            <p>นักศึกษาฝึกงาน</p>
-          </div>
-          <div class="team-member">
-            <img src="/assets/img/tech5.webp" loading="lazy" alt="นัฐ ฝึกงาน Developer CMNS FixMac">
-            <h3>นัฐ</h3>
-            <p>นักศึกษาฝึกงาน (Developer)</p>
           </div>
         </div>
-      </div>
 
-      <button class="btn show-more-team" id="toggle-team-btn">ดูทีมช่างทั้งหมด</button>
+        <div class="team-card">
+          <div class="team-card-photo img-hover-wrap">
+            <img src="/assets/img/tech2.webp" loading="lazy" alt="ช่างทัก ผู้เชี่ยวชาญ macOS และ iOS เชียงใหม่" class="default-img">
+            <img src="/assets/img/tech2-hover.webp" loading="lazy" alt="ช่างทัก กำลังซ่อม Apple ที่ร้าน CMNS FixMac" class="hover-img">
+            <span class="team-exp-badge">10+ ปี</span>
+          </div>
+          <div class="team-card-info">
+            <h3>ช่างทัก</h3>
+            <p class="team-role">ผู้เชี่ยวชาญ Software, iOS & Mobile</p>
+            <p class="team-bio">เชี่ยวชาญระบบ macOS และ iOS ครบวงจร ซ่อม iPhone ทุกซีรีส์ iPad, Apple Watch แก้ไขปัญหาซอฟต์แวร์ทุกประเภท</p>
+            <div class="team-skills">
+              <span>iPhone / iPad</span>
+              <span>Apple Watch</span>
+              <span>macOS / iOS</span>
+              <span>Software Repair</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
   </section>
 
 
   <!-- ═══════════════════════════════════════════════
-       CONTACT FORM
+       CONTACT
   ════════════════════════════════════════════════ -->
   <section class="section-contact" id="contact" data-aos="fade-up">
     <div class="section-inner">
       <span class="section-label">ติดต่อเรา</span>
-      <h2>ปรึกษาอาการเครื่อง ฟรี</h2>
-      <p class="section-desc">กรอกข้อมูลด้านล่าง ทีมงานจะติดต่อกลับหาคุณโดยเร็วที่สุด</p>
+      <h2>พร้อมช่วยทุกปัญหา Apple</h2>
+      <p class="section-desc">ปรึกษาฟรี ไม่มีค่าใช้จ่าย — ทักมาได้เลย</p>
 
-      <div class="contact-wrap">
-        <div class="contact-form-card">
-          <form class="contact-form" id="contact-form" onsubmit="handleContactSubmit(event)">
-            <div class="form-row-two">
-              <div class="form-group">
-                <label for="cf-name">ชื่อ-สกุล</label>
-                <input type="text" id="cf-name" name="name" placeholder="กรอกชื่อของคุณ" required>
-              </div>
-              <div class="form-group">
-                <label for="cf-contact">เบอร์โทร / LINE ID</label>
-                <input type="text" id="cf-contact" name="contact" placeholder="ช่องทางติดต่อกลับ" required>
-              </div>
-            </div>
-            <div class="form-group">
-              <label for="cf-device">อุปกรณ์ที่ต้องการซ่อม</label>
-              <select id="cf-device" name="device" required>
-                <option value="">— เลือกอุปกรณ์ —</option>
-                <option>MacBook</option>
-                <option>iMac</option>
-                <option>iPhone</option>
-                <option>iPad</option>
-                <option>Apple Watch</option>
-                <option>AirPods</option>
-                <option>อื่นๆ</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="cf-issue">อาการที่พบ</label>
-              <textarea id="cf-issue" name="issue" rows="4" placeholder="อธิบายอาการที่พบ เช่น เครื่องดับ จอแตก ชาร์จไม่เข้า..." required></textarea>
-            </div>
-            <button type="submit" class="btn btn-accent btn-full">
-              <span class="material-symbols-rounded">send</span> ส่งข้อมูลให้ทีมงาน
-            </button>
-          </form>
-          <div class="contact-success" id="contact-success">
-            <span class="material-symbols-rounded">check_circle</span>
-            <h3>ส่งข้อมูลเรียบร้อยแล้ว!</h3>
-            <p>ทีมงานจะติดต่อกลับหาคุณโดยเร็วที่สุด<br>หรือโทรหาเราได้เลยที่ 084-151-1684</p>
-            <a href="tel:0841511684" class="btn btn-accent" style="margin-top:8px">
-              <span class="material-symbols-rounded">call</span> โทรเลย
-            </a>
-          </div>
+      <div class="contact-channels">
+
+        <div class="contact-col">
+          <p class="contact-col-label">โทรศัพท์</p>
+          <a href="tel:0841511684" class="contact-phone-hero">084-151-1684</a>
+          <p class="contact-col-sub">โทรได้เลย จ–ส 09:00–18:00</p>
         </div>
 
-        <div class="contact-info-side">
-          <a href="tel:0841511684" class="contact-info-card">
-            <div class="contact-info-icon">
-              <span class="material-symbols-rounded">call</span>
-            </div>
-            <div>
-              <strong>โทรศัพท์</strong>
-              <span>084-151-1684</span>
-            </div>
-          </a>
-          <a href="https://page.line.me/cmns" target="_blank" rel="noopener" class="contact-info-card">
-            <div class="contact-info-icon line-icon">
-              <span class="material-symbols-rounded">chat</span>
-            </div>
-            <div>
+        <div class="contact-col-divider"></div>
+
+        <div class="contact-col">
+          <p class="contact-col-label">แชท / โซเชียล</p>
+          <a href="https://page.line.me/cmns" target="_blank" rel="noopener" class="contact-social-row">
+            <span class="contact-social-icon line-ic">
+              <span class="material-symbols-rounded">chat_bubble</span>
+            </span>
+            <span class="contact-social-info">
               <strong>LINE OA</strong>
               <span>@cmns</span>
-            </div>
+            </span>
+            <span class="material-symbols-rounded contact-arrow">arrow_forward</span>
           </a>
-          <a href="https://www.facebook.com/CmnsShop" target="_blank" rel="noopener" class="contact-info-card">
-            <div class="contact-info-icon fb-icon">
+          <a href="https://www.facebook.com/CmnsShop" target="_blank" rel="noopener" class="contact-social-row">
+            <span class="contact-social-icon fb-ic">
               <span class="material-symbols-rounded">thumb_up</span>
-            </div>
-            <div>
+            </span>
+            <span class="contact-social-info">
               <strong>Facebook</strong>
               <span>CmnsShop</span>
-            </div>
+            </span>
+            <span class="material-symbols-rounded contact-arrow">arrow_forward</span>
           </a>
-          <div class="contact-info-card" style="cursor:default">
-            <div class="contact-info-icon loc-icon">
-              <span class="material-symbols-rounded">location_on</span>
-            </div>
-            <div>
-              <strong>ที่ตั้งร้าน</strong>
-              <span>482 หมู่ 8 หลังกาดวรุณ เชียงใหม่</span>
-            </div>
-          </div>
-          <div class="contact-info-card" style="cursor:default">
-            <div class="contact-info-icon" style="background:var(--bg-surface-alt)">
-              <span class="material-symbols-rounded" style="color:var(--text-secondary)">schedule</span>
-            </div>
-            <div>
-              <strong>เวลาทำการ</strong>
-              <span>จ–ส 09:00–18:00 น.</span>
-            </div>
-          </div>
         </div>
+
+        <div class="contact-col-divider"></div>
+
+        <div class="contact-col">
+          <p class="contact-col-label">ที่ตั้งร้าน</p>
+          <p class="contact-address">482 หมู่ 8 หลังกาดวรุณ<br>ถ.เชียงใหม่-หางดง เชียงใหม่</p>
+          <div class="contact-hours">
+            <span class="material-symbols-rounded">schedule</span>
+            จันทร์–เสาร์ 09:00–18:00 น.
+          </div>
+          <a href="https://maps.google.com/maps?q=18.75005733629581,98.96466192390933" target="_blank" rel="noopener" class="contact-map-link">
+            <span class="material-symbols-rounded">near_me</span> นำทางมาร้าน
+          </a>
+        </div>
+
       </div>
     </div>
   </section>
