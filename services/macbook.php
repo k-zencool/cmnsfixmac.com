@@ -137,7 +137,7 @@ include_once '../includes/header.php';
         </div>
         <div class="sv-float-badge sv-fbadge-2">
           <span class="material-symbols-rounded">workspace_premium</span>
-          <div><strong>ประกันสูงสุด 1 ปี</strong><span>ทุกงานซ่อม</span></div>
+          <div><strong>ประกันสูงสุด 1 ปี</strong><span>1 เดือน – 1 ปี แล้วแต่งาน</span></div>
         </div>
       </div>
     </div>
@@ -199,7 +199,7 @@ include_once '../includes/header.php';
         ['1,200+', 'งานซ่อม MacBook',    'build'],
         ['10+',    'ปีประสบการณ์',        'engineering'],
         ['4.9★',   'Google Reviews',      'star'],
-        ['ประกันสูงสุด 1 ปี', 'รับประกันทุกงาน', 'workspace_premium'],
+        ['ประกันสูงสุด 1 ปี', '1 เดือน–1 ปี แล้วแต่งาน', 'workspace_premium'],
     ] as $i => [$num, $label, $icon]): ?>
     <div class="sv-stat" data-aos="fade-up" data-aos-delay="<?= $i * 80 ?>">
       <span class="material-symbols-rounded"><?= $icon ?></span>
