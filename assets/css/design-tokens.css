@@ -184,3 +184,17 @@ main, .page-body { padding-top: var(--nav-h); }
     color      var(--dur-slow) var(--ease),
     border     var(--dur-slow) var(--ease);
 }
+
+/* ── Global theme-switch transition ──────────────────────
+   Fires only during the 450ms window set by theme.js.
+   Overrides transition-property only so transform/opacity
+   animations from hover/AOS are unaffected after the switch.
+───────────────────────────────────────────────────────── */
+[data-theme-switching],
+[data-theme-switching] *,
+[data-theme-switching] *::before,
+[data-theme-switching] *::after {
+  transition-property: background-color, background, color, border-color, box-shadow, fill, stroke !important;
+  transition-duration: 400ms !important;
+  transition-timing-function: ease !important;
+}

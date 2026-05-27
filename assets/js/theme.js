@@ -6,11 +6,15 @@
   document.documentElement.setAttribute('data-theme', theme);
 
   function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme-switching', '');
     document.documentElement.setAttribute('data-theme', t);
     localStorage.setItem('cmns_theme', t);
     document.querySelectorAll('.theme-toggle-icon').forEach(function (el) {
       el.textContent = t === 'dark' ? 'light_mode' : 'dark_mode';
     });
+    setTimeout(function () {
+      document.documentElement.removeAttribute('data-theme-switching');
+    }, 450);
   }
 
   window.toggleTheme = function () {
