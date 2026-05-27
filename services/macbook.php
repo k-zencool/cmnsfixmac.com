@@ -313,7 +313,12 @@ include_once '../includes/header.php';
       <a href="/works/detail.php?id=<?= (int)$r['id'] ?>"
          class="sv-gcard" data-aos="fade-up" data-aos-delay="<?= ($i % 4) * 70 ?>">
         <div class="sv-gcard-img">
-          <img src="<?= $img ?>" alt="<?= htmlspecialchars($r['title'], ENT_QUOTES, 'UTF-8') ?>" loading="lazy" decoding="async">
+          <img src="<?= $img ?>" alt="<?= htmlspecialchars($r['title'], ENT_QUOTES, 'UTF-8') ?>"
+               loading="lazy" decoding="async"
+               onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+          <div class="sv-gcard-fallback" style="display:none">
+            <span class="material-symbols-rounded">laptop_mac</span>
+          </div>
         </div>
         <div class="sv-gcard-info">
           <h3><?= htmlspecialchars($r['title'], ENT_QUOTES, 'UTF-8') ?></h3>
@@ -323,7 +328,7 @@ include_once '../includes/header.php';
       <?php endforeach; ?>
     </div>
     <div class="sv-view-all" data-aos="fade-up">
-      <a href="/works/?category=MacBook" class="btn btn-outline">
+      <a href="/works/?category=MacBook" class="sv-more-link">
         ดูผลงานทั้งหมด <span class="material-symbols-rounded">arrow_forward</span>
       </a>
     </div>
