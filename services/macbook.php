@@ -4,7 +4,7 @@ require_once '../includes/db.php';
 $page_title       = 'ซ่อม MacBook เชียงใหม่ ทุกรุ่น ทุกอาการ | CMNS FixMac';
 $page_description = 'ซ่อม MacBook Air / Pro ทุกรุ่น ทุกอาการ จอแตก แบตเสื่อม น้ำเข้า เปิดไม่ติด ช่างผู้เชี่ยวชาญเชียงใหม่ อะไหล่แท้ ประกัน 90 วัน ประเมินฟรี';
 $page_keywords    = 'ซ่อม MacBook เชียงใหม่, เปลี่ยนจอ MacBook, เปลี่ยนแบต MacBook, MacBook น้ำเข้า, ซ่อม MacBook Air, ซ่อม MacBook Pro, ราคาซ่อม MacBook';
-$page_css         = ['/assets/css/services/macbook-style.css?v=2', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
+$page_css         = ['/assets/css/services/macbook-style.css?v=3', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
 
 $faq_schema = [
     ['ซ่อม MacBook ที่ CMNS FixMac ราคาเท่าไหร่?',

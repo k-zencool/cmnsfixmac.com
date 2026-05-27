@@ -425,7 +425,7 @@
   text-transform: uppercase;
 }
 .sv-table td { color: var(--text-secondary); background: var(--bg-surface); }
-.sv-table td:nth-child(2) { color: var(--accent); font-weight: 700; }
+.sv-table td:nth-child(2) { color: var(--text-primary); font-weight: 700; }
 .sv-table tr:last-child td { border-bottom: none; }
 .sv-table tr:hover td { background: var(--bg-surface-alt); }
 
