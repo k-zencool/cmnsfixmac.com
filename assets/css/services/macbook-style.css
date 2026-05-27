@@ -88,6 +88,32 @@
   transition: background-color 400ms ease;
 }
 
+/* Dot grid — vignette: edges dark, center fades */
+.sv-hero-dots {
+  position: absolute;
+  inset: 0;
+  background-image: radial-gradient(circle, rgba(0,0,0,.18) 1px, transparent 1px);
+  background-size: 26px 26px;
+  -webkit-mask-image: radial-gradient(ellipse 85% 85% at 50% 50%, transparent 25%, black 100%);
+  mask-image: radial-gradient(ellipse 85% 85% at 50% 50%, transparent 25%, black 100%);
+  pointer-events: none;
+  z-index: 0;
+  transition: opacity 400ms ease;
+}
+[data-theme="dark"] .sv-hero-dots {
+  background-image: radial-gradient(circle, rgba(255,255,255,.14) 1px, transparent 1px);
+}
+
+/* Particle canvas */
+#sv-particles {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
 .sv-hero-orb {
   position: absolute;
   border-radius: 50%;

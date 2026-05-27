@@ -82,6 +82,8 @@ include_once '../includes/header.php';
      HERO
 ════════════════════════════════════════════════ -->
 <section class="sv-hero">
+  <div class="sv-hero-dots" aria-hidden="true"></div>
+  <canvas id="sv-particles" aria-hidden="true"></canvas>
   <div class="sv-hero-orb sv-orb-1" aria-hidden="true"></div>
   <div class="sv-hero-orb sv-orb-2" aria-hidden="true"></div>
   <div class="sv-hero-inner">
@@ -413,6 +415,98 @@ document.querySelectorAll('.faq-q').forEach(btn => {
         if (!open) item.classList.add('open');
     });
 });
+
+/* ── Hero Particles ── */
+(function () {
+  const canvas = document.getElementById('sv-particles');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const hero = canvas.closest('.sv-hero');
+
+  const COUNT = 45;
+  let W, H, particles = [], raf;
+
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    W = hero.offsetWidth;
+    H = hero.offsetHeight;
+    canvas.width  = W * dpr;
+    canvas.height = H * dpr;
+    canvas.style.width  = W + 'px';
+    canvas.style.height = H + 'px';
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+
+  function isDark() {
+    return document.documentElement.getAttribute('data-theme') === 'dark';
+  }
+
+  function mkParticle(randomY) {
+    const maxLife = 220 + Math.random() * 180;
+    return {
+      x:       Math.random() * W,
+      y:       randomY ? Math.random() * H : H + 8,
+      r:       Math.random() * 1.6 + 0.4,
+      vy:      -(Math.random() * 0.35 + 0.12),
+      vx:      (Math.random() - 0.5) * 0.18,
+      life:    randomY ? Math.random() * maxLife : 0,
+      maxLife: maxLife,
+      isAccent: Math.random() > 0.55
+    };
+  }
+
+  function init() {
+    particles = Array.from({ length: COUNT }, () => mkParticle(true));
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    const dark = isDark();
+
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
+      p.x += p.vx;
+      p.y += p.vy;
+      p.life++;
+
+      if (p.life >= p.maxLife || p.y < -10) {
+        particles[i] = mkParticle(false);
+        continue;
+      }
+
+      const t = p.life / p.maxLife;
+      const alpha = t < 0.15 ? t / 0.15 : t > 0.75 ? (1 - t) / 0.25 : 1;
+
+      let opacity;
+      if (p.isAccent) {
+        opacity = alpha * (dark ? 0.55 : 0.35);
+        ctx.fillStyle = `rgba(252,116,4,${opacity})`;
+      } else {
+        opacity = alpha * (dark ? 0.22 : 0.12);
+        ctx.fillStyle = dark
+          ? `rgba(255,255,255,${opacity})`
+          : `rgba(80,80,80,${opacity})`;
+      }
+
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, 6.2832);
+      ctx.fill();
+    }
+
+    raf = requestAnimationFrame(draw);
+  }
+
+  resize();
+  init();
+  draw();
+
+  window.addEventListener('resize', function () {
+    cancelAnimationFrame(raf);
+    resize();
+    init();
+    draw();
+  }, { passive: true });
+})();
 </script>
 </body>
 </html>
