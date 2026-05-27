@@ -446,7 +446,7 @@ document.querySelectorAll('.faq-q').forEach(btn => {
     return {
       x:       Math.random() * W,
       y:       randomY ? Math.random() * H : H + 8,
-      r:       Math.random() * 1.6 + 0.4,
+      r:       Math.random() * 2.0 + 0.8,
       vy:      -(Math.random() * 0.35 + 0.12),
       vx:      (Math.random() - 0.5) * 0.18,
       life:    randomY ? Math.random() * maxLife : 0,
@@ -479,13 +479,13 @@ document.querySelectorAll('.faq-q').forEach(btn => {
 
       let opacity;
       if (p.isAccent) {
-        opacity = alpha * (dark ? 0.55 : 0.35);
+        opacity = alpha * (dark ? 0.60 : 0.65);
         ctx.fillStyle = `rgba(252,116,4,${opacity})`;
       } else {
-        opacity = alpha * (dark ? 0.22 : 0.12);
+        opacity = alpha * (dark ? 0.25 : 0.35);
         ctx.fillStyle = dark
           ? `rgba(255,255,255,${opacity})`
-          : `rgba(80,80,80,${opacity})`;
+          : `rgba(60,60,60,${opacity})`;
       }
 
       ctx.beginPath();

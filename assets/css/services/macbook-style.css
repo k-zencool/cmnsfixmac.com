@@ -92,10 +92,10 @@
 .sv-hero-dots {
   position: absolute;
   inset: 0;
-  background-image: radial-gradient(circle, rgba(0,0,0,.18) 1px, transparent 1px);
-  background-size: 26px 26px;
-  -webkit-mask-image: radial-gradient(ellipse 85% 85% at 50% 50%, transparent 25%, black 100%);
-  mask-image: radial-gradient(ellipse 85% 85% at 50% 50%, transparent 25%, black 100%);
+  background-image: radial-gradient(circle, rgba(0,0,0,.45) 1.5px, transparent 1.5px);
+  background-size: 24px 24px;
+  -webkit-mask-image: radial-gradient(ellipse 90% 90% at 50% 50%, transparent 20%, black 100%);
+  mask-image: radial-gradient(ellipse 90% 90% at 50% 50%, transparent 20%, black 100%);
   pointer-events: none;
   z-index: 0;
   transition: opacity 400ms ease;
