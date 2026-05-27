@@ -2,7 +2,7 @@
 require_once '../includes/db.php';
 
 $page_title       = 'ซ่อม MacBook เชียงใหม่ ทุกรุ่น ทุกอาการ | CMNS FixMac';
-$page_description = 'ซ่อม MacBook Air / Pro ทุกรุ่น ทุกอาการ จอแตก แบตเสื่อม น้ำเข้า เปิดไม่ติด ช่างผู้เชี่ยวชาญเชียงใหม่ อะไหล่แท้ ประกัน 90 วัน ประเมินฟรี';
+$page_description = 'ซ่อม MacBook Air / Pro ทุกรุ่น ทุกอาการ จอแตก แบตเสื่อม น้ำเข้า เปิดไม่ติด ช่างผู้เชี่ยวชาญเชียงใหม่ อะไหล่แท้ ประกันสูงสุด 1 ปี ประเมินฟรี';
 $page_keywords    = 'ซ่อม MacBook เชียงใหม่, เปลี่ยนจอ MacBook, เปลี่ยนแบต MacBook, MacBook น้ำเข้า, ซ่อม MacBook Air, ซ่อม MacBook Pro, ราคาซ่อม MacBook';
 $page_css         = ['/assets/css/services/macbook-style.css?v=3', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
 
@@ -12,7 +12,7 @@ $faq_schema = [
     ['ใช้เวลาซ่อม MacBook นานแค่ไหน?',
      'งานทั่วไปเช่น เปลี่ยนแบต เปลี่ยนจอ ใช้เวลา 1–3 วัน บางงานทำได้ภายในวันเดียว ขึ้นอยู่กับสต็อกอะไหล่'],
     ['MacBook ที่ซ่อมมีประกันไหม?',
-     'มีประกันทุกงานซ่อม 90 วัน ครอบคลุมทั้งอะไหล่และค่าแรง หากมีปัญหาในช่วงประกันนำมาเคลมได้ฟรี'],
+     'มีประกันทุกงานซ่อม ตั้งแต่ 1–12 เดือน ขึ้นอยู่กับประเภทงาน ครอบคลุมทั้งอะไหล่และค่าแรง หากมีปัญหาในช่วงประกันนำมาเคลมได้ฟรี'],
     ['MacBook M1 / M2 / M3 ซ่อมได้ไหม?',
      'ซ่อมได้ ทีมช่างมีประสบการณ์ซ่อม MacBook ชิป Apple Silicon ทุกรุ่น ทั้งเปลี่ยนจอ เปลี่ยนแบต และซ่อม Logic Board'],
     ['MacBook โดนน้ำ ยังกู้คืนได้ไหม?',
@@ -49,7 +49,7 @@ ob_start(); ?>
         ]],
         ['@type' => 'Service',
          'name'  => 'ซ่อม MacBook เชียงใหม่',
-         'description' => 'บริการซ่อม MacBook Air / Pro ทุกรุ่น ทุกอาการ โดยช่างผู้เชี่ยวชาญ อะไหล่แท้ ประกัน 90 วัน',
+         'description' => 'บริการซ่อม MacBook Air / Pro ทุกรุ่น ทุกอาการ โดยช่างผู้เชี่ยวชาญ อะไหล่แท้ ประกันสูงสุด 1 ปี',
          'provider' => ['@type' => 'LocalBusiness', 'name' => 'CMNS FixMac',
              'telephone' => '+66-84-151-1684', 'url' => 'https://cmnsfixmac.com',
              'address'   => ['@type' => 'PostalAddress', 'streetAddress' => '482 หมู่ 8 หลังกาดวรุณ',
@@ -112,7 +112,7 @@ include_once '../includes/header.php';
         CMNS FixMac · เชียงใหม่
       </span>
       <h1 class="sv-h1">ซ่อม MacBook<br><span class="sv-h1-accent">ทุกรุ่น ทุกอาการ</span></h1>
-      <p class="sv-hero-sub">อะไหล่แท้ ช่างผู้เชี่ยวชาญ ประกัน 90 วัน<br>ประเมินฟรีก่อนตัดสินใจทุกครั้ง</p>
+      <p class="sv-hero-sub">อะไหล่แท้ ช่างผู้เชี่ยวชาญ ประกันสูงสุด 1 ปี<br>ประเมินฟรีก่อนตัดสินใจทุกครั้ง</p>
       <div class="sv-hero-cta">
         <a href="tel:0841511684" class="btn btn-accent">
           <span class="material-symbols-rounded">call</span> โทรปรึกษาฟรี
@@ -137,7 +137,7 @@ include_once '../includes/header.php';
         </div>
         <div class="sv-float-badge sv-fbadge-2">
           <span class="material-symbols-rounded">workspace_premium</span>
-          <div><strong>ประกัน 90 วัน</strong><span>ทุกงานซ่อม</span></div>
+          <div><strong>ประกันสูงสุด 1 ปี</strong><span>ทุกงานซ่อม</span></div>
         </div>
       </div>
     </div>
@@ -199,7 +199,7 @@ include_once '../includes/header.php';
         ['1,200+', 'งานซ่อม MacBook',    'build'],
         ['10+',    'ปีประสบการณ์',        'engineering'],
         ['4.9★',   'Google Reviews',      'star'],
-        ['90 วัน', 'รับประกันทุกงาน',    'workspace_premium'],
+        ['ประกันสูงสุด 1 ปี', 'รับประกันทุกงาน', 'workspace_premium'],
     ] as $i => [$num, $label, $icon]): ?>
     <div class="sv-stat" data-aos="fade-up" data-aos-delay="<?= $i * 80 ?>">
       <span class="material-symbols-rounded"><?= $icon ?></span>
@@ -279,7 +279,7 @@ include_once '../includes/header.php';
           ['1', 'call',             'นำเครื่องมา หรือส่งได้เลย',       'เดินทางมาที่เชียงใหม่ หรือส่งผ่าน Kerry / Grab ได้เลย'],
           ['2', 'search',           'ตรวจสอบและประเมินราคาฟรี',         'ช่างตรวจสอบอาการและแจ้งราคาก่อนทุกครั้ง ไม่มีค่าใช้จ่าย'],
           ['3', 'build',            'เริ่มซ่อม พร้อมอัปเดตสถานะ',       'ซ่อมโดยช่างผู้เชี่ยวชาญ แจ้งสถานะผ่าน LINE ตลอด'],
-          ['4', 'workspace_premium','รับเครื่อง พร้อมรับประกัน 90 วัน', 'รับเครื่องพร้อมใบรับประกัน 90 วัน ครอบคลุมอะไหล่และค่าแรง'],
+          ['4', 'workspace_premium','รับเครื่อง พร้อมใบรับประกัน', 'รับเครื่องพร้อมใบรับประกัน 1 เดือน–1 ปี ขึ้นอยู่กับประเภทงาน ครอบคลุมอะไหล่และค่าแรง'],
       ] as $i => [$num, $icon, $title, $desc]): ?>
       <div class="sv-step" data-aos="fade-up" data-aos-delay="<?= $i * 100 ?>">
         <div class="sv-step-num"><?= $num ?></div>
@@ -370,7 +370,7 @@ include_once '../includes/header.php';
     <div class="sv-cta-inner" data-aos="fade-up">
       <span class="material-symbols-rounded sv-cta-icon">laptop_mac</span>
       <h2>MacBook มีปัญหา?<br>ให้เราดูแลให้</h2>
-      <p>ประเมินฟรี ไม่มีค่าใช้จ่าย · อะไหล่แท้ · ประกัน 90 วัน<br>ช่างผู้เชี่ยวชาญพร้อมรับเครื่องทุกวัน จ.–ส. 9:00–19:00</p>
+      <p>ประเมินฟรี ไม่มีค่าใช้จ่าย · อะไหล่แท้ · ประกันสูงสุด 1 ปี<br>ช่างผู้เชี่ยวชาญพร้อมรับเครื่องทุกวัน จ.–ส. 9:00–19:00</p>
       <div class="sv-cta-btns">
         <a href="tel:0841511684" class="btn btn-accent">
           <span class="material-symbols-rounded">call</span> 084-151-1684
