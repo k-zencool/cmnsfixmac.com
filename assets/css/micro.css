@@ -7,7 +7,7 @@
 #page-loader {
   position: fixed;
   inset: 0;
-  background: #050505;
+  background: var(--bg-page);
   z-index: 99999;
   display: flex;
   flex-direction: column;
@@ -15,6 +15,10 @@
   justify-content: center;
   gap: 28px;
   transition: opacity 500ms ease, visibility 500ms ease;
+}
+[data-theme="dark"] #page-loader { background: #050505; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) #page-loader { background: #050505; }
 }
 #page-loader.hidden {
   opacity: 0;

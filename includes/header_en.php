@@ -12,7 +12,7 @@
   <link rel="stylesheet" href="/assets/css/design-tokens.css?v=1">
   <link rel="stylesheet" href="/assets/css/navbar-style.css?v=7">
   <link rel="stylesheet" href="/assets/css/footer-style.css?v=2">
-  <link rel="stylesheet" href="/assets/css/micro.css?v=1">
+  <link rel="stylesheet" href="/assets/css/micro.css?v=2">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded&display=block" rel="stylesheet">
   <?php foreach ($page_css ?? [] as $css): ?>
   <link rel="stylesheet" href="<?= htmlspecialchars($css) ?>">
