@@ -1,0 +1,231 @@
+/* ==========================================================
+   CMNS FIX MAC — Tester Hub + shared tool chrome
+   HIG design-tokens based. Prefix: ts-
+   ========================================================== */
+
+.ts-main {
+  min-height: 100vh;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  font-family: var(--font);
+  padding-bottom: var(--sp-24);
+}
+
+/* ── Hero ── */
+.ts-hero {
+  position: relative;
+  overflow: hidden;
+  padding: calc(var(--nav-h) + var(--sp-16)) var(--sp-6) var(--sp-16);
+  text-align: center;
+}
+.ts-hero-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(60% 80% at 50% 0%, var(--accent-light), transparent 70%),
+    radial-gradient(40% 60% at 85% 20%, rgba(252,116,4,0.06), transparent 70%);
+  pointer-events: none;
+}
+.ts-hero-inner { position: relative; max-width: var(--max-w-narrow); margin: 0 auto; }
+
+.ts-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--r-full);
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  backdrop-filter: var(--nav-blur);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--sp-5);
+}
+.ts-eyebrow .material-symbols-rounded { font-size: 18px; color: var(--accent); }
+
+.ts-h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 6vw, var(--text-5xl));
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+  margin: 0 0 var(--sp-4);
+}
+.ts-h1-accent { color: var(--accent); }
+
+.ts-sub {
+  font-size: var(--text-lg);
+  color: var(--text-secondary);
+  max-width: 38ch;
+  margin: 0 auto;
+  line-height: 1.5;
+}
+
+/* ── Tool grid ── */
+.ts-grid-wrap { max-width: var(--max-w); margin: 0 auto; padding: 0 var(--sp-6); }
+.ts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--sp-5);
+  margin-top: var(--sp-4);
+}
+
+.ts-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-8) var(--sp-6);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-2xl);
+  box-shadow: var(--shadow-sm);
+  text-decoration: none;
+  color: inherit;
+  transition: transform var(--dur-base) var(--ease-spring),
+              box-shadow var(--dur-base) var(--ease),
+              border-color var(--dur-base) var(--ease);
+  overflow: hidden;
+}
+.ts-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, var(--accent-light), transparent 60%);
+  opacity: 0;
+  transition: opacity var(--dur-base) var(--ease);
+  pointer-events: none;
+}
+.ts-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--accent);
+}
+.ts-card:hover::after { opacity: 1; }
+
+.ts-card-icon {
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--r-lg);
+  background: var(--accent-light);
+  color: var(--accent);
+}
+.ts-card-icon .material-symbols-rounded { font-size: 30px; }
+
+.ts-card-title {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+.ts-card-desc {
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+  flex: 1;
+}
+.ts-card-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--accent);
+  margin-top: var(--sp-2);
+}
+.ts-card-cta .material-symbols-rounded {
+  font-size: 18px;
+  transition: transform var(--dur-base) var(--ease);
+}
+.ts-card:hover .ts-card-cta .material-symbols-rounded { transform: translateX(4px); }
+
+/* ── Tip strip ── */
+.ts-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  max-width: var(--max-w);
+  margin: var(--sp-12) auto 0;
+  padding: var(--sp-5) var(--sp-6);
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--r-xl);
+}
+.ts-tip .material-symbols-rounded { color: var(--accent); flex-shrink: 0; }
+.ts-tip p { margin: 0; font-size: var(--text-sm); color: var(--text-secondary); line-height: 1.55; }
+
+/* ==========================================================
+   Shared tool chrome — reuse in individual tester pages
+   ========================================================== */
+.ts-tool-welcome {
+  max-width: var(--max-w-narrow);
+  margin: 0 auto;
+  padding: calc(var(--nav-h) + var(--sp-12)) var(--sp-6) var(--sp-16);
+  text-align: center;
+}
+.ts-tool-welcome h1 {
+  font-family: var(--font-display);
+  font-size: clamp(1.75rem, 5vw, var(--text-4xl));
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  margin: 0 0 var(--sp-4);
+}
+.ts-tool-welcome p {
+  font-size: var(--text-lg);
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin: 0 auto var(--sp-3);
+  max-width: 46ch;
+}
+
+.ts-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-8);
+  border: none;
+  border-radius: var(--r-full);
+  background: var(--accent);
+  color: var(--text-inverse);
+  font-family: var(--font);
+  font-size: var(--text-base);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease),
+              transform var(--dur-fast) var(--ease),
+              box-shadow var(--dur-fast) var(--ease);
+  box-shadow: 0 4px 14px var(--accent-shadow);
+}
+.ts-btn:hover { background: var(--accent-dark); transform: translateY(-2px); box-shadow: 0 6px 20px var(--accent-shadow); }
+.ts-btn:active { transform: translateY(0); }
+
+.ts-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-5);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--r-full);
+  background: var(--bg-glass);
+  color: var(--text-primary);
+  font-family: var(--font);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  backdrop-filter: var(--nav-blur);
+  transition: border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.ts-btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+.ts-back-fab {
+  position: fixed;
+  top: calc(var(--nav-h) + var(--sp-3));
+  left: var(--sp-4);
+  z-index: 50;
+}
