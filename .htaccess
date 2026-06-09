@@ -104,14 +104,32 @@ Redirect 301 /en/work-detail.php    /en/works/
 Redirect 301 /en/warranty.php       /en/warranty/
 Redirect 301 /en/buyback.php        /en/buyback/
 
-# Services (เดิม root → /services/)
-Redirect 301 /macbook.php           /services/macbook.php
-Redirect 301 /iphone.php            /services/iphone.php
-Redirect 301 /ipad.php              /services/ipad.php
-Redirect 301 /imac.php              /services/imac.php
-Redirect 301 /airpods.php           /services/airpods.php
-Redirect 301 /apple-watch.php       /services/apple-watch.php
-Redirect 301 /software.php          /services/software.php
+# Services (root → /services/{device}/)
+Redirect 301 /macbook.php           /services/macbook/
+Redirect 301 /iphone.php            /services/iphone/
+Redirect 301 /ipad.php              /services/ipad/
+Redirect 301 /imac.php              /services/imac/
+Redirect 301 /airpods.php           /services/airpods/
+Redirect 301 /apple-watch.php       /services/apple-watch/
+Redirect 301 /software.php          /services/software/
+
+# Services (.php → directory)
+Redirect 301 /services/macbook.php      /services/macbook/
+Redirect 301 /services/imac.php         /services/imac/
+Redirect 301 /services/iphone.php       /services/iphone/
+Redirect 301 /services/ipad.php         /services/ipad/
+Redirect 301 /services/apple-watch.php  /services/apple-watch/
+Redirect 301 /services/airpods.php      /services/airpods/
+Redirect 301 /services/software.php     /services/software/
+
+# EN Services (.php → directory)
+Redirect 301 /en/services/macbook.php      /en/services/macbook/
+Redirect 301 /en/services/imac.php         /en/services/imac/
+Redirect 301 /en/services/iphone.php       /en/services/iphone/
+Redirect 301 /en/services/ipad.php         /en/services/ipad/
+Redirect 301 /en/services/apple-watch.php  /en/services/apple-watch/
+Redirect 301 /en/services/airpods.php      /en/services/airpods/
+Redirect 301 /en/services/software.php     /en/services/software/
 
 # Testers (เดิม /test/ → /tester/)
 Redirect 301 /test/mic.php          /tester/microphone-tester/
@@ -128,25 +146,25 @@ Redirect 301 /device-test/          /tester/
 # sitemap.xml
 RewriteRule ^sitemap\.xml$ sitemap.php [L]
 
-# /article/slug → articles/detail.php (TH)
+# /article/slug → articles/detail.php (TH) — [^/]+ to allow Thai/unicode slugs
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^article/([\w-]+)/?$ /articles/detail.php?slug=$1 [L,QSA]
+RewriteRule ^article/([^/]+)/?$ /articles/detail.php?slug=$1 [L,QSA]
 
 # /en/article/slug → en/articles/detail.php
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^en/article/([\w-]+)/?$ /en/articles/detail.php?slug=$1 [L,QSA]
+RewriteRule ^en/article/([^/]+)/?$ /en/articles/detail.php?slug=$1 [L,QSA]
 
 # /work/slug → works/detail.php (TH)
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^work/([\w-]+)/?$ /works/detail.php?slug=$1 [L,QSA]
+RewriteRule ^work/([^/]+)/?$ /works/detail.php?slug=$1 [L,QSA]
 
 # /en/work/slug → en/works/detail.php
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^en/work/([\w-]+)/?$ /en/works/detail.php?slug=$1 [L,QSA]
+RewriteRule ^en/work/([^/]+)/?$ /en/works/detail.php?slug=$1 [L,QSA]
 
 # /product/slug (ระบบเก่า) → /shop
 RewriteCond %{REQUEST_FILENAME} !-f
