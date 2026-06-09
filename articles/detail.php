@@ -1,278 +1,311 @@
 <?php
-include '../includes/db.php';
+require_once '../includes/db.php';
 
 function e(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }
+function ad_img(string $raw): string {
+    if (!$raw) return '/assets/img/placeholder.png';
+    if ($raw[0] === '/' || str_starts_with($raw, 'http')) return $raw;
+    return '/assets/img/placeholder.png';
+}
 
-$slug = trim(filter_input(INPUT_GET, 'slug', FILTER_DEFAULT) ?? '');
+$slug = trim((string)(filter_input(INPUT_GET, 'slug', FILTER_DEFAULT) ?? ''));
 $id   = (int)(filter_input(INPUT_GET, 'id', FILTER_VALIDATE_INT) ?? 0);
 
 if ($slug && !$id) {
-    $st = $pdo->prepare("SELECT id FROM articles WHERE slug = ? OR slug_en = ? LIMIT 1");
-    $st->execute([$slug, $slug]);
+    $st = $pdo->prepare("SELECT id FROM articles WHERE slug = ? LIMIT 1");
+    $st->execute([$slug]);
     $id = (int)($st->fetchColumn() ?: 0);
 }
-if (!$id) { header("Location: /articles/"); exit; }
+if (!$id) { header('Location: /articles/'); exit; }
 
-$pdo->prepare("UPDATE articles SET views = views + 1 WHERE id = ?")->execute([$id]);
-
-$stmt = $pdo->prepare("SELECT * FROM articles WHERE id = ?");
+$stmt = $pdo->prepare("SELECT * FROM articles WHERE id = ? AND status = 1");
 $stmt->execute([$id]);
-$article = $stmt->fetch(PDO::FETCH_ASSOC);
+$article = $stmt->fetch();
+if (!$article) { http_response_code(404); header('Location: /articles/'); exit; }
 
-if (!$article || !(int)$article['status']) { http_response_code(404); echo "<h1>ไม่พบบทความ</h1>"; exit; }
+// unique view: 1 IP per day
+$ip  = trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0')[0]);
+$log = $pdo->prepare("INSERT IGNORE INTO article_views (article_id, ip, viewed_date) VALUES (?, ?, ?)");
+$log->execute([$id, $ip, date('Y-m-d')]);
+if ($log->rowCount() > 0) {
+    $pdo->prepare("UPDATE articles SET views = views + 1 WHERE id = ?")->execute([$id]);
+    $article['views']++;
+}
 
-// Gallery — ordered by sort_order
 $imgs = $pdo->prepare("SELECT * FROM article_images WHERE article_id = ? ORDER BY sort_order ASC, id ASC");
 $imgs->execute([$id]);
-$images = $imgs->fetchAll(PDO::FETCH_ASSOC);
+$images = $imgs->fetchAll();
 
-$related = $pdo->prepare("SELECT id,title,slug,image,og_image_width,og_image_height FROM articles WHERE category=? AND id!=? AND status=1 ORDER BY created_at DESC LIMIT 4");
+$related = $pdo->prepare(
+    "SELECT id, title, slug, image, category, views, created_at FROM articles
+     WHERE category = ? AND id != ? AND status = 1 ORDER BY views DESC LIMIT 4"
+);
 $related->execute([$article['category'], $id]);
-$related = $related->fetchAll(PDO::FETCH_ASSOC);
+$related = $related->fetchAll();
 
-$popular = $pdo->prepare("SELECT id,title,slug,image FROM articles WHERE id!=? AND status=1 ORDER BY views DESC LIMIT 4");
-$popular->execute([$id]);
-$popular = $popular->fetchAll(PDO::FETCH_ASSOC);
+$prev = $pdo->prepare("SELECT id, slug, title FROM articles WHERE id < ? AND status = 1 ORDER BY id DESC LIMIT 1");
+$prev->execute([$id]);
+$prev = $prev->fetch();
 
-$prev = $pdo->prepare("SELECT id,slug,title FROM articles WHERE id<? AND status=1 ORDER BY id DESC LIMIT 1");
-$prev->execute([$id]); $prev = $prev->fetch(PDO::FETCH_ASSOC);
+$next = $pdo->prepare("SELECT id, slug, title FROM articles WHERE id > ? AND status = 1 ORDER BY id ASC LIMIT 1");
+$next->execute([$id]);
+$next = $next->fetch();
 
-$next = $pdo->prepare("SELECT id,slug,title FROM articles WHERE id>? AND status=1 ORDER BY id ASC LIMIT 1");
-$next->execute([$id]); $next = $next->fetch(PDO::FETCH_ASSOC);
+$catIcons = ['tip' => 'lightbulb', 'repair' => 'build_circle', 'update' => 'system_update'];
+$catLabels = ['tip' => 'เทคนิค', 'repair' => 'การซ่อม', 'update' => 'อัปเดต'];
+$catSlug  = strtolower($article['category'] ?? '');
+$catIcon  = $catIcons[$catSlug] ?? 'article';
+$catLabel = $catLabels[$catSlug] ?? $article['category'];
 
-$protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
-$host     = $_SERVER['HTTP_HOST'];
-$base     = "$protocol://$host";
-
-// Canonical: prefer slug URL
-$canonical = $article['slug'] ? "$base/article/" . e($article['slug']) : "$base/articles/detail.php?id=$id";
-
-// OG image
-$ogImg    = $article['image'] ? "$base" . e($article['image']) : "$base/assets/img/placeholder.png";
-$ogImgW   = $article['og_image_width']  ?? null;
-$ogImgH   = $article['og_image_height'] ?? null;
+$mainImg   = ad_img($article['image'] ?? '');
+$ogImg     = str_starts_with($mainImg, 'http') ? $mainImg : 'https://cmnsfixmac.com' . $mainImg;
+$dateISO   = date('c', strtotime($article['created_at']));
+$dateDisp  = date('d M Y', strtotime($article['created_at']));
+$canonical = $article['slug']
+    ? 'https://cmnsfixmac.com/article/' . $article['slug']
+    : 'https://cmnsfixmac.com/articles/detail.php?id=' . $id;
 
 $description = mb_substr(strip_tags($article['excerpt'] ?: $article['content'] ?? ''), 0, 160);
-$datePublished = $article['created_at'] ? date('c', strtotime($article['created_at'])) : '';
-$dateModified  = $article['updated_at'] ? date('c', strtotime($article['updated_at'])) : $datePublished;
 
-// JSON-LD image array: cover + gallery
-$jImages = [];
-if ($article['image']) {
-    $jImg = ['@type' => 'ImageObject', 'url' => "$base" . $article['image']];
-    if ($ogImgW) $jImg['width']  = (int)$ogImgW;
-    if ($ogImgH) $jImg['height'] = (int)$ogImgH;
-    $jImages[] = $jImg;
-}
-foreach ($images as $gi) {
-    $entry = ['@type' => 'ImageObject', 'url' => "$base" . $gi['image_path']];
-    if (!empty($gi['alt']))   $entry['name'] = $gi['alt'];
-    if (!empty($gi['width'])) $entry['width']  = (int)$gi['width'];
-    if (!empty($gi['height']))$entry['height'] = (int)$gi['height'];
-    $jImages[] = $entry;
-}
+$switch_to_lang_url = '/en/articles/detail.php?id=' . $id;
+$page_title         = e($article['title']) . ' | CMNS FixMac';
+$page_css           = ['/assets/css/article-detail-style.css?v=2'];
 
-$jsonLd = [
-    '@context'        => 'https://schema.org',
-    '@type'           => 'Article',
-    'headline'        => $article['title'],
-    'description'     => $description,
-    'image'           => $jImages ?: ["$base/assets/img/placeholder.png"],
-    'datePublished'   => $datePublished,
-    'dateModified'    => $dateModified ?: $datePublished,
-    'url'             => $canonical,
-    'inLanguage'      => 'th-TH',
-    'author'          => ['@type' => 'Organization', 'name' => 'CMNS FixMac', 'url' => $base],
-    'publisher'       => [
-        '@type'  => 'Organization',
-        'name'   => 'CMNS FixMac',
-        'url'    => $base,
-        'logo'   => ['@type' => 'ImageObject', 'url' => "$base/assets/img/favicon1.png"],
-    ],
-    'breadcrumb' => [
-        '@type'           => 'BreadcrumbList',
-        'itemListElement' => [
-            ['@type' => 'ListItem', 'position' => 1, 'name' => 'หน้าแรก',    'item' => $base . '/'],
-            ['@type' => 'ListItem', 'position' => 2, 'name' => 'บทความ',     'item' => $base . '/articles/'],
-            ['@type' => 'ListItem', 'position' => 3, 'name' => $article['title'], 'item' => $canonical],
-        ],
-    ],
-];
-
-$switch_to_lang_url = "/en/articles/detail.php?id=" . $id;
-
-$page_title = e($article['title']) . ' | CMNS FixMac';
-$page_css   = ['/assets/css/article-detail-style.css'];
-ob_start();
-?>
+ob_start(); ?>
 <meta name="description" content="<?= e($description) ?>">
-<link rel="canonical" href="<?= $canonical ?>">
+<meta name="robots"      content="index, follow">
+<link rel="canonical"    href="<?= e($canonical) ?>">
 <link rel="shortcut icon" href="/assets/img/favicon1.png">
-<link rel="alternate" hreflang="th" href="<?= $base ?>/article/<?= e($article['slug'] ?? '') ?>">
-<link rel="alternate" hreflang="en" href="<?= $base ?>/en/article/<?= e($article['slug_en'] ?? ($article['slug'] ?? '')) ?>">
-<link rel="alternate" hreflang="x-default" href="<?= $base ?>/en/article/<?= e($article['slug_en'] ?? ($article['slug'] ?? '')) ?>">
-<meta property="og:type" content="article">
-<meta property="og:title" content="<?= e($article['title']) ?> | CMNS FixMac">
+<link rel="alternate" hreflang="th"        href="<?= e($canonical) ?>">
+<link rel="alternate" hreflang="en"        href="<?= e('https://cmnsfixmac.com/en/articles/detail.php?id=' . $id) ?>">
+<link rel="alternate" hreflang="x-default" href="<?= e('https://cmnsfixmac.com/en/articles/detail.php?id=' . $id) ?>">
+<meta property="og:type"        content="article">
+<meta property="og:title"       content="<?= e($article['title']) ?> | CMNS FixMac">
 <meta property="og:description" content="<?= e($description) ?>">
-<meta property="og:url" content="<?= $canonical ?>">
-<meta property="og:image" content="<?= $ogImg ?>">
-<meta property="og:image:alt" content="<?= e($article['title']) ?>">
-<meta property="og:site_name" content="CMNS FixMac">
-<meta property="article:published_time" content="<?= $datePublished ?>">
-<?php if ($ogImgW): ?><meta property="og:image:width" content="<?= (int)$ogImgW ?>"><?php endif; ?>
-<?php if ($ogImgH): ?><meta property="og:image:height" content="<?= (int)$ogImgH ?>"><?php endif; ?>
-<meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="<?= e($article['title']) ?>">
+<meta property="og:url"         content="<?= e($canonical) ?>">
+<meta property="og:image"       content="<?= e($ogImg) ?>">
+<meta property="og:locale"      content="th_TH">
+<meta property="og:site_name"   content="CMNS FixMac">
+<meta property="article:published_time" content="<?= e($dateISO) ?>">
+<meta name="twitter:card"       content="summary_large_image">
+<meta name="twitter:title"      content="<?= e($article['title']) ?>">
 <meta name="twitter:description" content="<?= e($description) ?>">
-<meta name="twitter:image" content="<?= $ogImg ?>">
-<script type="application/ld+json"><?= json_encode($jsonLd, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
-<script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','G-3WXK9GWN7C');</script>
+<meta name="twitter:image"      content="<?= e($ogImg) ?>">
+<script type="application/ld+json"><?= json_encode([
+    '@context' => 'https://schema.org',
+    '@type'    => 'Article',
+    'headline' => $article['title'],
+    'description' => $description,
+    'image'    => $ogImg,
+    'datePublished' => $dateISO,
+    'dateModified'  => $article['updated_at'] ? date('c', strtotime($article['updated_at'])) : $dateISO,
+    'inLanguage'    => 'th-TH',
+    'url'      => $canonical,
+    'author'   => ['@type' => 'Organization', 'name' => 'CMNS FixMac', 'url' => 'https://cmnsfixmac.com'],
+    'publisher'=> ['@type' => 'Organization', 'name' => 'CMNS FixMac',
+                   'logo' => ['@type' => 'ImageObject', 'url' => 'https://cmnsfixmac.com/assets/img/Logo1.png']],
+    'breadcrumb' => ['@type' => 'BreadcrumbList', 'itemListElement' => [
+        ['@type' => 'ListItem', 'position' => 1, 'name' => 'หน้าแรก',   'item' => 'https://cmnsfixmac.com/'],
+        ['@type' => 'ListItem', 'position' => 2, 'name' => 'บทความ',    'item' => 'https://cmnsfixmac.com/articles/'],
+        ['@type' => 'ListItem', 'position' => 3, 'name' => $article['title'], 'item' => $canonical],
+    ]],
+], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>
 <?php
 $page_head_extra = ob_get_clean();
-include '../includes/header.php';
+include_once '../includes/header.php';
 ?>
 
-  <main class="article-detail container">
-    <!-- Breadcrumb -->
-    <div class="breadcrumb-bar">
-      <a href="/articles/" class="breadcrumb-home">บทความทั้งหมด</a>
-      <span class="breadcrumb-separator">›</span>
-      <span class="breadcrumb-current"><?= e($article['title']) ?></span>
+<main class="ad-page">
+
+  <div class="ad-breadcrumb-wrap">
+    <nav class="ad-breadcrumb" aria-label="breadcrumb">
+      <a href="/">หน้าแรก</a>
+      <span class="material-symbols-rounded">chevron_right</span>
+      <a href="/articles/">บทความ</a>
+      <?php if ($catLabel): ?>
+      <span class="material-symbols-rounded">chevron_right</span>
+      <a href="/articles/?cat=<?= e(urlencode($catSlug)) ?>"><?= e($catLabel) ?></a>
+      <?php endif; ?>
+      <span class="material-symbols-rounded">chevron_right</span>
+      <span class="ad-bc-current" aria-current="page"><?= e($article['title']) ?></span>
+    </nav>
+  </div>
+
+  <div class="ad-container">
+
+    <header class="ad-hero">
+      <div class="ad-hero-meta">
+        <?php if ($catLabel): ?>
+        <span class="ad-cat-badge" data-cat="<?= e($catSlug) ?>">
+          <span class="material-symbols-rounded"><?= e($catIcon) ?></span>
+          <?= e($catLabel) ?>
+        </span>
+        <?php endif; ?>
+        <time class="ad-date" datetime="<?= e($dateISO) ?>">
+          <span class="material-symbols-rounded">calendar_today</span>
+          <?= $dateDisp ?>
+        </time>
+        <span class="ad-views">
+          <span class="material-symbols-rounded">visibility</span>
+          <?= number_format((int)$article['views']) ?> เข้าชม
+        </span>
+      </div>
+      <h1 class="ad-title"><?= e($article['title']) ?></h1>
+    </header>
+
+    <?php if ($mainImg !== '/assets/img/placeholder.png'): ?>
+    <div class="ad-main-img-wrap">
+      <img
+        src="<?= e($mainImg) ?>"
+        alt="<?= e($article['title']) ?>"
+        class="ad-main-img"
+        fetchpriority="high"
+        loading="eager"
+        decoding="async"
+        onerror="this.src='/assets/img/placeholder.png'">
+    </div>
+    <?php endif; ?>
+
+    <div class="ad-content">
+      <?= $article['content'] ?>
     </div>
 
-    <h1><?= e($article['title']) ?></h1>
-    <p class="date">เผยแพร่เมื่อ <?= date('d F Y', strtotime($article['created_at'])) ?></p>
-    <p class="views">รับชม <?= number_format($article['views']) ?> ครั้ง</p>
-
-    <?php if (!empty($article['image'])): ?>
-      <img class="main-image"
-           src="<?= e($article['image']) ?>"
-           alt="<?= e($article['title']) ?>"
-           loading="eager"
-           <?php if ($ogImgW && $ogImgH): ?>width="<?= (int)$ogImgW ?>" height="<?= (int)$ogImgH ?>"<?php endif; ?>>
+    <?php if ($images): ?>
+    <section class="ad-gallery-section">
+      <div class="ad-gallery-label">
+        <span class="material-symbols-rounded">photo_library</span>
+        <h2>ภาพประกอบเพิ่มเติม</h2>
+      </div>
+      <div class="ad-gallery-grid">
+        <?php foreach ($images as $img):
+            $alt = $img['alt'] ?? $article['title'];
+        ?>
+        <figure class="ad-gallery-item">
+          <img src="<?= e($img['image_path']) ?>"
+               alt="<?= e($alt) ?>"
+               loading="lazy" decoding="async"
+               onerror="this.src='/assets/img/placeholder.png'">
+          <?php if (trim($img['caption'] ?? '')): ?>
+          <figcaption><?= trim($img['caption']) ?></figcaption>
+          <?php endif; ?>
+        </figure>
+        <?php endforeach; ?>
+      </div>
+    </section>
     <?php endif; ?>
 
-    <article class="article-content">
-      <?= $article['content'] ?>
-    </article>
-
-    <?php if ($images || !empty($article['youtube_url'])): ?>
-      <section class="article-gallery">
-        <?php if ($images): ?>
-        <h2>ภาพเพิ่มเติม</h2>
-        <div class="gallery-grid">
-          <?php foreach ($images as $img):
-            $alt = $img['alt'] ?: $article['title'];
-          ?>
-            <figure>
-              <img loading="lazy"
-                   src="<?= e($img['image_path']) ?>"
-                   alt="<?= e($alt) ?>"
-                   <?php if (!empty($img['width']) && !empty($img['height'])): ?>
-                   width="<?= (int)$img['width'] ?>" height="<?= (int)$img['height'] ?>"
-                   <?php endif; ?>>
-              <?php if (!empty($img['caption'])): ?>
-                <figcaption><?= e($img['caption']) ?></figcaption>
-              <?php endif; ?>
-            </figure>
-          <?php endforeach; ?>
-        </div>
-        <?php endif; ?>
-
-        <?php if (!empty($article['youtube_url'])): ?>
-        <h2>วิดีโอเพิ่มเติม</h2>
-        <div class="article-video">
-          <iframe src="https://www.youtube.com/embed/<?= e($article['youtube_url']) ?>"
-                  loading="lazy" allowfullscreen title="<?= e($article['title']) ?>"></iframe>
-        </div>
-        <?php endif; ?>
-      </section>
+    <?php if (!empty($article['youtube_url'])): ?>
+    <section class="ad-video-section">
+      <div class="ad-gallery-label">
+        <span class="material-symbols-rounded">play_circle</span>
+        <h2>วิดีโอประกอบ</h2>
+      </div>
+      <div class="ad-video-wrap">
+        <iframe src="https://www.youtube.com/embed/<?= e($article['youtube_url']) ?>"
+                loading="lazy" allowfullscreen title="<?= e($article['title']) ?>"></iframe>
+      </div>
+    </section>
     <?php endif; ?>
 
-    <div class="article-actions">
-      <button class="share-btn native" onclick="shareNative()">
-        <img src="/assets/img/icons/Share.png" alt="แชร์บทความ" loading="lazy"> แชร์บทความ
-      </button>
+    <div class="ad-share-row">
+      <span class="ad-share-label">
+        <span class="material-symbols-rounded">share</span> แชร์
+      </span>
       <a href="https://www.facebook.com/sharer/sharer.php?u=<?= urlencode($canonical) ?>"
-         target="_blank" rel="noopener noreferrer" class="share-btn facebook desktop-only">
-        <img src="/assets/img/icons/facebook.png" alt="แชร์ Facebook" loading="lazy"> แชร์ Facebook
+         target="_blank" rel="noopener" class="ad-share-btn ad-share-fb">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/></svg>
+        Facebook
       </a>
       <a href="https://social-plugins.line.me/lineit/share?url=<?= urlencode($canonical) ?>"
-         target="_blank" rel="noopener noreferrer" class="share-btn line desktop-only">
-        <img src="/assets/img/icons/Line.png" alt="แชร์ LINE" loading="lazy"> แชร์ LINE
+         target="_blank" rel="noopener" class="ad-share-btn ad-share-line">
+        <img src="/assets/img/line-icon.png" width="16" height="16" alt="LINE">
+        LINE
       </a>
-      <button class="share-btn copy" onclick="copyArticleLink()">
-        <img src="/assets/img/icons/Link.png" alt="คัดลอกลิงก์" loading="lazy"> คัดลอกลิงก์
+      <button id="ad-copy-btn" class="ad-share-btn ad-share-copy" type="button">
+        <span class="material-symbols-rounded">link</span>
+        <span>คัดลอกลิงก์</span>
       </button>
     </div>
 
     <?php if ($related): ?>
-      <section class="related-articles">
+    <section class="ad-related">
+      <div class="ad-section-label">
+        <span class="material-symbols-rounded">auto_awesome</span>
         <h2>บทความที่เกี่ยวข้อง</h2>
-        <div class="related-list">
-          <?php foreach ($related as $item):
-            $rImg = $item['image'] ?: '/assets/img/placeholder.png';
-            $rUrl = $item['slug'] ? '/article/' . e($item['slug']) : '/articles/detail.php?id=' . (int)$item['id'];
-          ?>
-            <a href="<?= $rUrl ?>" class="related-item">
-              <img src="<?= e($rImg) ?>" alt="<?= e($item['title']) ?>" loading="lazy"
-                   <?php if (!empty($item['og_image_width']) && !empty($item['og_image_height'])): ?>
-                   width="<?= (int)$item['og_image_width'] ?>" height="<?= (int)$item['og_image_height'] ?>"
-                   <?php endif; ?>>
-              <div class="related-item-content">
-                <h3><?= e($item['title']) ?></h3>
-              </div>
-            </a>
-          <?php endforeach; ?>
-        </div>
-      </section>
-    <?php endif; ?>
-
-    <?php if ($popular): ?>
-      <section class="popular-articles">
-        <h2>บทความยอดนิยม</h2>
-        <div class="popular-list">
-          <?php foreach ($popular as $pop):
-            $pImg = $pop['image'] ?: '/assets/img/placeholder.png';
-            $pUrl = $pop['slug'] ? '/article/' . e($pop['slug']) : '/articles/detail.php?id=' . (int)$pop['id'];
-          ?>
-            <a href="<?= $pUrl ?>" class="popular-item">
-              <img src="<?= e($pImg) ?>" alt="<?= e($pop['title']) ?>" loading="lazy">
-              <div class="popular-item-content"><h3><?= e($pop['title']) ?></h3></div>
-            </a>
-          <?php endforeach; ?>
-        </div>
-      </section>
+      </div>
+      <div class="ad-rel-grid">
+        <?php foreach ($related as $r):
+            $rImg = ad_img($r['image'] ?? '');
+            $rUrl = $r['slug'] ? '/article/' . $r['slug'] : '/articles/detail.php?id=' . (int)$r['id'];
+        ?>
+        <a href="<?= e($rUrl) ?>" class="ad-rel-card">
+          <div class="ad-rel-thumb">
+            <img src="<?= e($rImg) ?>"
+                 alt="<?= e($r['title']) ?>"
+                 loading="lazy" decoding="async"
+                 onerror="this.src='/assets/img/placeholder.png'">
+          </div>
+          <div class="ad-rel-body">
+            <h3><?= e($r['title']) ?></h3>
+            <span><?= date('d M Y', strtotime($r['created_at'])) ?></span>
+          </div>
+        </a>
+        <?php endforeach; ?>
+      </div>
+    </section>
     <?php endif; ?>
 
     <?php if ($prev || $next): ?>
-      <nav class="article-nav short">
-        <?php if ($prev): ?>
-          <a class="prev-article" href="<?= $prev['slug'] ? '/article/' . e($prev['slug']) : '/articles/detail.php?id=' . (int)$prev['id'] ?>">← ก่อนหน้า</a>
-        <?php endif; ?>
-        <?php if ($next): ?>
-          <a class="next-article" href="<?= $next['slug'] ? '/article/' . e($next['slug']) : '/articles/detail.php?id=' . (int)$next['id'] ?>">ถัดไป →</a>
-        <?php endif; ?>
-      </nav>
+    <nav class="ad-article-nav" aria-label="Prev/Next">
+      <?php if ($prev):
+          $prevUrl = $prev['slug'] ? '/article/' . $prev['slug'] : '/articles/detail.php?id=' . (int)$prev['id'];
+      ?>
+      <a href="<?= e($prevUrl) ?>" class="ad-nav-link">
+        <span class="material-symbols-rounded">chevron_left</span>
+        ก่อนหน้า
+      </a>
+      <?php else: ?>
+      <span></span>
+      <?php endif; ?>
+      <?php if ($next):
+          $nextUrl = $next['slug'] ? '/article/' . $next['slug'] : '/articles/detail.php?id=' . (int)$next['id'];
+      ?>
+      <a href="<?= e($nextUrl) ?>" class="ad-nav-link">
+        ถัดไป
+        <span class="material-symbols-rounded">chevron_right</span>
+      </a>
+      <?php endif; ?>
+    </nav>
     <?php endif; ?>
-  </main>
 
-  <?php include_once '../includes/footer.php'; ?>
+    <div class="ad-cta">
+      <span class="material-symbols-rounded ad-cta-icon">build_circle</span>
+      <div class="ad-cta-text">
+        <h3>เครื่อง Apple มีปัญหา?</h3>
+        <p>ประเมินฟรีก่อนซ่อมทุกครั้ง · อะไหล่แท้ · รับประกันสูงสุด 1 ปี</p>
+      </div>
+      <div class="ad-cta-btns">
+        <a href="tel:0841511684" class="ad-btn-accent">
+          <span class="material-symbols-rounded">call</span> 084-151-1684
+        </a>
+        <a href="https://line.me/R/ti/p/@cmns" target="_blank" rel="noopener" class="ad-btn-line">
+          <img src="/assets/img/line-icon.png" alt="LINE" width="16" height="16"> LINE: @cmns
+        </a>
+      </div>
+    </div>
 
-  <script>
-    function shareNative() {
-      if (navigator.share) {
-        navigator.share({ title: document.title, url: "<?= $canonical ?>" });
-      } else {
-        alert("อุปกรณ์ของคุณไม่รองรับการแชร์อัตโนมัติ");
-      }
-    }
-    function copyArticleLink() {
-      navigator.clipboard.writeText("<?= $canonical ?>")
-        .then(() => alert("คัดลอกลิงก์เรียบร้อยแล้ว!"))
-        .catch(() => alert("ไม่สามารถคัดลอกลิงก์ได้"));
-    }
-  </script>
+  </div><!-- /.ad-container -->
+</main>
+
+<?php include_once '../includes/footer.php'; ?>
+<script>
+document.getElementById('ad-copy-btn')?.addEventListener('click', function () {
+    navigator.clipboard.writeText(location.href).then(() => {
+        const label = this.querySelector('span:last-child');
+        label.textContent = 'คัดลอกแล้ว!';
+        setTimeout(() => { label.textContent = 'คัดลอกลิงก์'; }, 2000);
+    });
+});
+</script>
 </body>
 </html>
