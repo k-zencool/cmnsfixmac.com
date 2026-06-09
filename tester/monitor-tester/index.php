@@ -1,32 +1,21 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Monitor Tester</title>
-  <script src="/assets/js/theme.js"></script>
-  <link rel="stylesheet" href="/assets/css/design-tokens.css?v=1">
-  <link rel="stylesheet" href="assets/css/style.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
-  <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png" />
-  <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+<?php
+$page_title = 'ทดสอบหน้าจอ (Dead Pixel / สี) ออนไลน์ ฟรี | CMNS FixMac';
+$page_css   = ['/assets/css/tester-style.css?v=1', 'assets/css/style.css'];
 
-  gtag('config', 'G-3WXK9GWN7C');
-</script>
-</head>
-<body>
-  <div class="header-toggle">
-    <?php $page_has_own_head = true; include_once '../../includes/header.php'; ?>
-  </div>
+ob_start(); ?>
+<meta name="description" content="ทดสอบหน้าจอ Mac / iPhone / iPad หา Dead Pixel จุดสว่าง-ดับ และความสม่ำเสมอของสีแบบเต็มจอ ออนไลน์ฟรี">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://cmnsfixmac.com/tester/monitor-tester/">
+<link rel="shortcut icon" href="/assets/img/favicon1.png">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+<?php $page_head_extra = ob_get_clean();
+
+include_once '../../includes/header.php';
+?>
 
   <div class="monitor-tester">
     <div id="modeLabel">โหมด</div>
-    <button id="backButton" onclick="goBack()" data-i18n="back">← กลับหน้าแรก</button>
+    <a id="backButton" href="/tester/" data-i18n="back">← กลับหน้าทดสอบ</a>
 
     <main class="main-container">
       <button id="lang-toggle" class="lang-btn">
@@ -34,16 +23,15 @@
       </button>
 
       <div id="welcome">
-        <h1 data-i18n="title">ยินดีต้อนรับสู่เว็บไซต์ทดสอบหน้าจอ</h1>
-        <p data-i18n="desc1">เว็บไซต์นี้ใช้สำหรับทดสอบสี พื้นหลัง เส้น และการแสดงผลของหน้าจอ</p>
-        <p data-i18n="desc2">กดปุ่ม "เริ่มทดสอบ" เพื่อเข้าสู่โหมดเต็มจอและเริ่มใช้งาน</p>
-        <button onclick="startTest()" data-i18n="start">เริ่มทดสอบ</button>
+        <h1 data-i18n="title">ทดสอบการแสดงผลหน้าจอ</h1>
+        <p data-i18n="desc1">ใช้ตรวจสอบสี พื้นหลัง เส้น และจุดเสีย (Dead Pixel) ของหน้าจอ</p>
+        <p data-i18n="desc2">กด "เริ่มทดสอบ" เพื่อเข้าสู่โหมดเต็มจอ แล้วแตะ/คลิกเพื่อสลับสี</p>
+        <button class="ts-btn" onclick="startTest()" data-i18n="start">เริ่มทดสอบ</button>
       </div>
 
       <div id="tester" style="display: none;"></div>
       <script src="assets/js/script.js"></script>
     </main>
   </div>
-</body>
 
-</html>
+<?php include_once '../../includes/footer.php'; ?>

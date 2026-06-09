@@ -33,9 +33,11 @@
   max-width: 900px;
   margin: 5rem auto 2rem auto;
   padding: 2rem 1.5rem;
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.05);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  box-shadow: var(--shadow-md);
   text-align: center;
   display: flex;
   flex-direction: column;
@@ -47,20 +49,20 @@
 /* ข้อความ */
 .monitor-tester h1 {
   font-size: 1.8rem;
-  color: #fc7404;
+  color: var(--accent);
   margin-bottom: 0.5rem;
 }
 
 .monitor-tester p {
   font-size: 1rem;
-  color: #444;
+  color: var(--text-secondary);
   margin: 0 0 1rem 0;
   line-height: 1.6;
 }
 
 /* ปุ่มทั่วไป */
 .monitor-tester button {
-  background-color: #fc7404;
+  background-color: var(--accent);
   color: white;
   border: none;
   padding: 0.8rem 2rem;
@@ -117,7 +119,7 @@
 
 /* ปุ่มเปลี่ยนภาษา */
 .monitor-tester .lang-btn {
-  background-color: #fc7404;
+  background-color: var(--accent);
   color: white;
   border: none;
   padding: 0.6rem 1.2rem;

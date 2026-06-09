@@ -308,7 +308,7 @@ input:checked + .slider:before {
 }
 
 .key.active {
-  background-color: #fc7404;
+  background-color: var(--accent);
   color: #fff;
   box-shadow: 0 0 0 2px rgba(255, 145, 0, 0.4);
 }
@@ -328,7 +328,7 @@ input:checked + .slider:before {
 
 #key-log {
   font-weight: 600;
-  color: #fc7404;
+  color: var(--accent);
 }
 
 

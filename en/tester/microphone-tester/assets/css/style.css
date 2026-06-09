@@ -60,7 +60,7 @@ button:hover {
 }
 
 #start-btn {
-  background-color: #fc7404;
+  background-color: var(--accent);
   color: white;
   width: 100%;
   margin-bottom: 1rem;
@@ -75,14 +75,14 @@ button:hover {
 
 #record-controls button {
   background-color: white;
-  color: #fc7404;
-  border: 2px solid #fc7404;
+  color: var(--accent);
+  border: 2px solid var(--accent);
   width: 100%;
   margin: 0.3rem 0;
 }
 
 #record-controls button:hover {
-  background-color: #fc7404;
+  background-color: var(--accent);
   color: white;
 }
 

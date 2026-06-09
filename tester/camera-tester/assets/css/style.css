@@ -18,7 +18,7 @@ body {
 }
 
 h1 {
-  color: #fc7404;
+  color: var(--accent);
   margin-bottom: 1rem;
   font-size: 2rem;
 }
@@ -52,7 +52,7 @@ button {
   gap: 0.5rem;
   padding: 0.6rem 1rem;
   font-size: 1rem;
-  background-color: #fc7404;
+  background-color: var(--accent);
   color: white;
   border: none;
   border-radius: 10px;
@@ -61,7 +61,7 @@ button {
 }
 
 button:hover {
-  background-color: #e56100;
+  background-color: var(--accent-dark);
 }
 
 .material-icons {
@@ -73,7 +73,7 @@ video {
   max-width: 640px;
   margin-top: 1rem;
   border-radius: 12px;
-  border: 3px solid #fc7404;
+  border: 3px solid var(--accent);
   background: black;
   transform: scaleX(1);
   transition: transform 0.3s ease;
@@ -82,7 +82,7 @@ video {
 #snapshotPreview {
   margin-top: 1rem;
   max-width: 100%;
-  border: 2px solid #fc7404;
+  border: 2px solid var(--accent);
   border-radius: 12px;
   display: none;
 }
@@ -91,7 +91,7 @@ video {
   display: none;
   margin-top: 1rem;
   font-weight: bold;
-  color: #fc7404;
+  color: var(--accent);
   text-decoration: none;
 }
 
@@ -101,8 +101,8 @@ video {
 
 .lang-toggle button {
   background: none;
-  border: 1px solid #fc7404;
-  color: #fc7404;
+  border: 1px solid var(--accent);
+  color: var(--accent);
   padding: 0.4rem 1rem;
   border-radius: 8px;
   margin: 0 0.5rem;
@@ -126,8 +126,8 @@ video {
 .lang-btn {
   margin-top: 2rem;
   background: none;
-  border: 1px solid #fc7404;
-  color: #fc7404;
+  border: 1px solid var(--accent);
+  color: var(--accent);
   padding: 0.5rem 1rem;
   border-radius: 10px;
   font-weight: bold;

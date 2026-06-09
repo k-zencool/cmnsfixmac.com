@@ -1,9 +1,9 @@
 html, body {
   margin: 0;
   padding: 0;
-  font-family: 'Inter', sans-serif;
-  background-color: #fef9f4; /* พื้นหลังสีสว่างนวลตา */
-  color: #1d1d1f;
+  font-family: var(--font);
+  background-color: var(--bg-page);
+  color: var(--text-primary);
   height: 100%;
   overflow: hidden;
 }
@@ -17,7 +17,7 @@ h1 {
   font-size: 1.5rem;
   margin: 0;
   z-index: 10;
-  color: #fc7404;
+  color: var(--accent);
 }
 
 canvas {
@@ -35,7 +35,7 @@ canvas {
   bottom: 10px;
   width: 100%;
   text-align: center;
-  color: #888;
+  color: var(--text-tertiary);
   font-size: 0.9rem;
   z-index: 10;
 }
@@ -55,7 +55,7 @@ canvas {
 .ui button {
   padding: 10px 16px;
   font-size: 1rem;
-  background-color: #fc7404;
+  background-color: var(--accent);
   color: white;
   border: none;
   border-radius: 10px;
@@ -67,7 +67,7 @@ canvas {
 
 .ui button:hover {
   opacity: 1;
-  background-color: #f96b00;
+  background-color: var(--accent-dark);
 }
 
 #touchCountDisplay {
@@ -76,7 +76,7 @@ canvas {
   left: 10px;
   font-size: 0.95rem;
   color: white;
-  background: #fc7404;
+  background: var(--accent);
   padding: 6px 12px;
   border-radius: 10px;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);

@@ -47,7 +47,7 @@
 /* ข้อความ */
 .monitor-tester h1 {
   font-size: 1.8rem;
-  color: #fc7404;
+  color: var(--accent);
   margin-bottom: 0.5rem;
 }
 
@@ -60,7 +60,7 @@
 
 /* ปุ่มทั่วไป */
 .monitor-tester button {
-  background-color: #fc7404;
+  background-color: var(--accent);
   color: white;
   border: none;
   padding: 0.8rem 2rem;
@@ -117,7 +117,7 @@
 
 /* ปุ่มเปลี่ยนภาษา */
 .monitor-tester .lang-btn {
-  background-color: #fc7404;
+  background-color: var(--accent);
   color: white;
   border: none;
   padding: 0.6rem 1.2rem;
