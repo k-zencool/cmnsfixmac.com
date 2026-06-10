@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <script src="/assets/js/theme.js"></script>
   <link rel="stylesheet" href="/assets/css/design-tokens.css?v=1">
-  <link rel="stylesheet" href="/assets/css/navbar-style.css?v=7">
+  <link rel="stylesheet" href="/assets/css/navbar-style.css?v=9">
   <link rel="stylesheet" href="/assets/css/footer-style.css?v=2">
   <link rel="stylesheet" href="/assets/css/micro.css?v=2">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded&display=block" rel="stylesheet">
@@ -90,7 +90,7 @@
 
           <!-- Device testers dropdown -->
           <div class="menu-dropdown">
-            <a href="#" class="test-device-btn" onclick="return false;">
+            <a href="/en/tester/" class="test-device-btn">
               <span class="material-symbols-rounded">smart_toy</span> Test Device
               <span class="material-symbols-rounded arrow">expand_more</span>
             </a>
@@ -204,6 +204,7 @@
         <span class="material-symbols-rounded dropdown-icon">expand_more</span>
       </button>
       <div class="dropdown-submenu">
+        <a href="/en/tester/"><span class="material-symbols-rounded">apps</span> View all</a>
         <a href="/en/tester/monitor-tester/"><span class="material-symbols-rounded">monitor</span> Screen</a>
         <a href="/en/tester/keyboard-tester/"><span class="material-symbols-rounded">keyboard</span> Keyboard</a>
         <a href="/en/tester/microphone-tester/"><span class="material-symbols-rounded">mic</span> Mic</a>

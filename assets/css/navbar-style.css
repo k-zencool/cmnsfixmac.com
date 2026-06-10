@@ -83,7 +83,7 @@
 [data-theme="dark"] .navbar.scrolled .nav-logo img {
   filter:
     drop-shadow(0 0 10px rgba(252, 116, 4, 0.65))
-    drop-shadow(0 0 3px rgba(0, 0, 0, 0.90));
+    drop-shadow(0 0 3px rgba(255, 255, 255, 0.90));
 }
 
 /* ── Desktop nav wrapper ── */
@@ -259,6 +259,34 @@
   box-shadow: 0 4px 20px rgba(252, 116, 4, 0.35);
 }
 .nav-call-cta .material-symbols-rounded { font-size: 16px; }
+
+/* ──────────────────────────────────────────────────────────
+   Light mode @ top (not scrolled): page heroes are light,
+   so flip the white-on-dark-hero chrome to dark text.
+   ────────────────────────────────────────────────────────── */
+[data-theme="light"] .navbar:not(.scrolled) .menu > a,
+[data-theme="light"] .navbar:not(.scrolled) .menu-dropdown > a,
+[data-theme="light"] .navbar:not(.scrolled) .menu .test-device-btn {
+  color: var(--text-primary);
+}
+[data-theme="light"] .navbar:not(.scrolled) .menu > a:hover,
+[data-theme="light"] .navbar:not(.scrolled) .menu-dropdown > a:hover,
+[data-theme="light"] .navbar:not(.scrolled) .menu .test-device-btn:hover {
+  background: rgba(252, 116, 4, 0.12);
+  color: var(--accent);
+}
+[data-theme="light"] .navbar:not(.scrolled) .language-switch-btn { color: var(--text-secondary); }
+[data-theme="light"] .navbar:not(.scrolled) .nav-call-cta {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+[data-theme="light"] .navbar:not(.scrolled) .hamburger { color: var(--text-primary); }
+[data-theme="light"] .navbar:not(.scrolled) .theme-toggle {
+  background: var(--bg-surface-alt);
+  border-color: var(--border-strong);
+}
+/* logo: no orange glow needed over a light hero */
+[data-theme="light"] .navbar:not(.scrolled) .nav-logo img { filter: none; }
 
 /* ── Dropdown ── */
 .menu-dropdown { position: relative; }
