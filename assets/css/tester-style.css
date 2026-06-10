@@ -4,6 +4,8 @@
    ========================================================== */
 
 .ts-main {
+  position: relative;
+  isolation: isolate;
   min-height: 100vh;
   background: var(--bg-page);
   color: var(--text-primary);
@@ -11,9 +13,79 @@
   padding-bottom: var(--sp-24);
 }
 
+/* ── Faint grid backdrop ── */
+.ts-main::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-image:
+    linear-gradient(to right, var(--border) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border) 1px, transparent 1px);
+  background-size: 56px 56px;
+  opacity: 0.6;
+  pointer-events: none;
+  -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 25%, #000 45%, transparent 92%);
+          mask-image: radial-gradient(ellipse 90% 70% at 50% 25%, #000 45%, transparent 92%);
+}
+
+/* ── Floating background orbs ── */
+.ts-orbs {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.ts-orb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(64px);
+  opacity: 0.30;
+  will-change: transform;
+}
+.ts-orb-1 {
+  width: 360px; height: 360px; left: -70px; top: 60px;
+  background: radial-gradient(circle, var(--accent), transparent 70%);
+  animation: ts-float-a 22s ease-in-out infinite;
+}
+.ts-orb-2 {
+  width: 280px; height: 280px; right: -50px; top: 30px;
+  background: radial-gradient(circle, rgba(252,116,4,0.55), transparent 70%);
+  animation: ts-float-b 27s ease-in-out infinite;
+}
+.ts-orb-3 {
+  width: 320px; height: 320px; left: 42%; bottom: -90px;
+  background: radial-gradient(circle, var(--accent), transparent 70%);
+  animation: ts-float-c 31s ease-in-out infinite;
+}
+.ts-orb-4 {
+  width: 190px; height: 190px; right: 26%; top: 48%;
+  background: radial-gradient(circle, rgba(252,116,4,0.45), transparent 70%);
+  animation: ts-float-a 19s ease-in-out infinite reverse;
+}
+
+@keyframes ts-float-a {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(42px, -34px) scale(1.12); }
+}
+@keyframes ts-float-b {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(-52px, 40px) scale(1.06); }
+}
+@keyframes ts-float-c {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%      { transform: translate(34px, 22px) scale(1.08); }
+  66%      { transform: translate(-30px, -14px) scale(0.94); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ts-orb { animation: none !important; }
+}
+
 /* ── Hero ── */
 .ts-hero {
   position: relative;
+  z-index: 1;
   overflow: hidden;
   padding: calc(var(--nav-h) + var(--sp-16)) var(--sp-6) var(--sp-16);
   text-align: center;
@@ -62,87 +134,122 @@
   line-height: 1.5;
 }
 
-/* ── Tool grid ── */
-.ts-grid-wrap { max-width: var(--max-w); margin: 0 auto; padding: 0 var(--sp-6); }
-.ts-grid {
+/* ── Tool bento ── */
+.ts-grid-wrap { position: relative; z-index: 1; max-width: var(--max-w); margin: 0 auto; padding: 0 var(--sp-6); }
+.ts-bento {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: var(--sp-5);
-  margin-top: var(--sp-4);
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-4);
+  margin-top: var(--sp-6);
 }
 
-.ts-card {
+.ts-tile {
   position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--sp-3);
-  padding: var(--sp-8) var(--sp-6);
+  min-height: 188px;
+  padding: var(--sp-6);
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--r-2xl);
   box-shadow: var(--shadow-sm);
   text-decoration: none;
   color: inherit;
+  overflow: hidden;
+  isolation: isolate;
   transition: transform var(--dur-base) var(--ease-spring),
               box-shadow var(--dur-base) var(--ease),
               border-color var(--dur-base) var(--ease);
-  overflow: hidden;
 }
-.ts-card::after {
+.ts-tile::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(135deg, var(--accent-light), transparent 60%);
+  z-index: -1;
+  background: radial-gradient(120% 120% at 100% 0%, var(--accent-light), transparent 55%);
   opacity: 0;
   transition: opacity var(--dur-base) var(--ease);
-  pointer-events: none;
 }
-.ts-card:hover {
-  transform: translateY(-6px);
+.ts-tile:hover {
+  transform: translateY(-4px);
   box-shadow: var(--shadow-lg);
   border-color: var(--accent);
 }
-.ts-card:hover::after { opacity: 1; }
+.ts-tile:hover::after { opacity: 1; }
 
-.ts-card-icon {
+.ts-tile-icon {
   display: grid;
   place-items: center;
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   border-radius: var(--r-lg);
   background: var(--accent-light);
   color: var(--accent);
+  flex-shrink: 0;
 }
-.ts-card-icon .material-symbols-rounded { font-size: 30px; }
+.ts-tile-icon .material-symbols-rounded { font-size: 28px; }
 
-.ts-card-title {
+.ts-tile-title {
   font-family: var(--font-display);
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   font-weight: 700;
   letter-spacing: -0.01em;
   margin: 0;
 }
-.ts-card-desc {
+.ts-tile-desc {
   font-size: var(--text-sm);
   color: var(--text-secondary);
   line-height: 1.5;
   margin: 0;
-  flex: 1;
 }
-.ts-card-cta {
+.ts-tile-cta {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-1);
   font-size: var(--text-sm);
   font-weight: 600;
   color: var(--accent);
-  margin-top: var(--sp-2);
+  margin-top: auto;
 }
-.ts-card-cta .material-symbols-rounded {
+.ts-tile-cta .material-symbols-rounded {
   font-size: 18px;
   transition: transform var(--dur-base) var(--ease);
 }
-.ts-card:hover .ts-card-cta .material-symbols-rounded { transform: translateX(4px); }
+.ts-tile:hover .ts-tile-cta .material-symbols-rounded { transform: translateX(4px); }
+
+/* Feature tiles — span 2 columns, icon beside text */
+.ts-tile.is-feature {
+  grid-column: span 2;
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto 1fr;
+  column-gap: var(--sp-5);
+  row-gap: var(--sp-3);
+  align-content: center;
+}
+.ts-tile.is-feature .ts-tile-icon {
+  grid-row: 1 / span 3;
+  align-self: start;
+  width: 64px;
+  height: 64px;
+}
+.ts-tile.is-feature .ts-tile-icon .material-symbols-rounded { font-size: 34px; }
+.ts-tile.is-feature .ts-tile-title { grid-column: 2; font-size: var(--text-2xl); align-self: end; }
+.ts-tile.is-feature .ts-tile-desc  { grid-column: 2; max-width: 44ch; }
+.ts-tile.is-feature .ts-tile-cta   { grid-column: 2; margin-top: var(--sp-1); align-self: start; }
+
+/* Responsive */
+@media (max-width: 900px) {
+  .ts-bento { grid-template-columns: repeat(2, 1fr); }
+  .ts-tile.is-feature { grid-column: span 2; }
+}
+@media (max-width: 560px) {
+  .ts-bento { grid-template-columns: 1fr; }
+  .ts-tile, .ts-tile.is-feature { grid-column: auto; }
+  .ts-tile.is-feature { display: flex; flex-direction: column; }
+  .ts-tile.is-feature .ts-tile-icon { grid-row: auto; }
+}
 
 /* ── Tip strip ── */
 .ts-tip {

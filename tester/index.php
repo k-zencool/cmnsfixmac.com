@@ -4,17 +4,18 @@ require_once '../includes/db.php';
 $page_title       = 'เครื่องมือทดสอบอุปกรณ์ Apple ออนไลน์ ฟรี | CMNS FixMac';
 $page_description = 'ทดสอบหน้าจอ คีย์บอร์ด ไมโครโฟน กล้อง ลำโพง และทัชสกรีนของ Mac / iPhone / iPad ออนไลน์ฟรี ไม่ต้องติดตั้งโปรแกรม เช็คก่อนซื้อ-ขายมือสอง';
 $page_keywords    = 'ทดสอบหน้าจอ, ทดสอบคีย์บอร์ด, ทดสอบกล้อง, ทดสอบไมโครโฟน, เช็คเครื่อง Mac มือสอง, dead pixel test';
-$page_css         = ['/assets/css/tester-style.css?v=1'];
+$page_css         = ['/assets/css/tester-style.css?v=4'];
 
 function e(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }
 
+// [slug, icon, title, desc, is_feature]
 $tools = [
-    ['monitor-tester',     'monitor',     'ทดสอบหน้าจอ',   'หา Dead Pixel จุดสว่าง/ดับ ทดสอบสีและความสม่ำเสมอแบบเต็มจอ'],
-    ['keyboard-tester',    'keyboard',    'ทดสอบคีย์บอร์ด', 'เช็คทุกปุ่มว่ากดติดครบ ตรวจปุ่มค้าง ปุ่มตาย ก่อนซื้อ-ขาย'],
-    ['microphone-tester',  'mic',         'ทดสอบไมโครโฟน',  'วัดระดับเสียงเข้าแบบเรียลไทม์ เช็คว่าไมค์รับเสียงปกติ'],
-    ['camera-tester',      'photo_camera','ทดสอบกล้อง',     'เปิดกล้องหน้า/หลัง ดูภาพสด เช็คโฟกัสและจุดเสียบนเซนเซอร์'],
-    ['sounds-tester',      'volume_up',   'ทดสอบลำโพง',     'เล่นเสียงทดสอบซ้าย-ขวา เช็คลำโพงแตก เสียงหาย หรือเบาผิดปกติ'],
-    ['touchscreen-tester', 'touch_app',   'ทดสอบทัชสกรีน',  'ลากนิ้วทั่วจอเช็คจุดสัมผัสที่ตอบสนองไม่ครบหรือกระตุก'],
+    ['monitor-tester',     'monitor',     'ทดสอบหน้าจอ',   'หา Dead Pixel จุดสว่าง/ดับ ทดสอบสีและความสม่ำเสมอแบบเต็มจอ',           true],
+    ['keyboard-tester',    'keyboard',    'ทดสอบคีย์บอร์ด', 'เช็คทุกปุ่มว่ากดติดครบ ตรวจปุ่มค้าง ปุ่มตาย ก่อนซื้อ-ขาย',          false],
+    ['microphone-tester',  'mic',         'ทดสอบไมโครโฟน',  'วัดระดับเสียงเข้าแบบเรียลไทม์ เช็คว่าไมค์รับเสียงปกติ',              false],
+    ['camera-tester',      'photo_camera','ทดสอบกล้อง',     'เปิดกล้องหน้า/หลัง ดูภาพสด เช็คโฟกัสและจุดเสียบนเซนเซอร์',           false],
+    ['sounds-tester',      'volume_up',   'ทดสอบลำโพง',     'เล่นเสียงทดสอบซ้าย-ขวา เช็คลำโพงแตก เสียงหาย หรือเบาผิดปกติ',        false],
+    ['touchscreen-tester', 'touch_app',   'ทดสอบทัชสกรีน',  'ลากนิ้วทั่วจอเช็คจุดสัมผัสที่ตอบสนองไม่ครบหรือกระตุก',              true],
 ];
 
 ob_start(); ?>
@@ -35,6 +36,14 @@ include_once '../includes/header.php';
 
 <main class="ts-main">
 
+  <!-- ── Floating orbs ── -->
+  <div class="ts-orbs" aria-hidden="true">
+    <span class="ts-orb ts-orb-1"></span>
+    <span class="ts-orb ts-orb-2"></span>
+    <span class="ts-orb ts-orb-3"></span>
+    <span class="ts-orb ts-orb-4"></span>
+  </div>
+
   <!-- ── Hero ── -->
   <section class="ts-hero">
     <div class="ts-hero-bg" aria-hidden="true"></div>
@@ -50,13 +59,13 @@ include_once '../includes/header.php';
 
   <!-- ── Tool grid ── -->
   <div class="ts-grid-wrap">
-    <div class="ts-grid">
-      <?php foreach ($tools as [$slug, $icon, $title, $desc]): ?>
-      <a class="ts-card" href="/tester/<?= e($slug) ?>/">
-        <span class="ts-card-icon"><span class="material-symbols-rounded"><?= e($icon) ?></span></span>
-        <h2 class="ts-card-title"><?= e($title) ?></h2>
-        <p class="ts-card-desc"><?= e($desc) ?></p>
-        <span class="ts-card-cta">เริ่มทดสอบ <span class="material-symbols-rounded">arrow_forward</span></span>
+    <div class="ts-bento">
+      <?php foreach ($tools as [$slug, $icon, $title, $desc, $feature]): ?>
+      <a class="ts-tile<?= $feature ? ' is-feature' : '' ?>" href="/tester/<?= e($slug) ?>/">
+        <span class="ts-tile-icon"><span class="material-symbols-rounded"><?= e($icon) ?></span></span>
+        <h2 class="ts-tile-title"><?= e($title) ?></h2>
+        <p class="ts-tile-desc"><?= e($desc) ?></p>
+        <span class="ts-tile-cta">เริ่มทดสอบ <span class="material-symbols-rounded">arrow_forward</span></span>
       </a>
       <?php endforeach; ?>
     </div>

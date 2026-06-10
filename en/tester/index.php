@@ -4,17 +4,18 @@ require_once '../../includes/db.php';
 $page_title       = 'Free Online Apple Device Testers | CMNS FixMac';
 $page_description = 'Test your Mac / iPhone / iPad screen, keyboard, microphone, camera, speakers and touchscreen online for free — no install. Check before buying or selling used.';
 $page_keywords    = 'screen test, keyboard test, camera test, microphone test, used Mac check, dead pixel test';
-$page_css         = ['/assets/css/tester-style.css?v=1'];
+$page_css         = ['/assets/css/tester-style.css?v=4'];
 
 function e(string $s): string { return htmlspecialchars($s, ENT_QUOTES, 'UTF-8'); }
 
+// [slug, icon, title, desc, is_feature]
 $tools = [
-    ['monitor-tester',     'monitor',     'Screen Test',      'Find dead/stuck pixels and check colour uniformity in fullscreen.'],
-    ['keyboard-tester',    'keyboard',    'Keyboard Test',    'Verify every key registers — spot stuck or dead keys before a deal.'],
-    ['microphone-tester',  'mic',         'Microphone Test',  'See your input level in real time and confirm the mic picks up sound.'],
-    ['camera-tester',      'photo_camera','Camera Test',      'Open front/rear camera, view the live feed, check focus and sensor spots.'],
-    ['sounds-tester',      'volume_up',   'Speaker Test',     'Play left/right test tones to catch blown, silent or weak speakers.'],
-    ['touchscreen-tester', 'touch_app',   'Touchscreen Test', 'Drag across the screen to find unresponsive or jittery touch zones.'],
+    ['monitor-tester',     'monitor',     'Screen Test',      'Find dead/stuck pixels and check colour uniformity in fullscreen.',          true],
+    ['keyboard-tester',    'keyboard',    'Keyboard Test',    'Verify every key registers — spot stuck or dead keys before a deal.',        false],
+    ['microphone-tester',  'mic',         'Microphone Test',  'See your input level in real time and confirm the mic picks up sound.',      false],
+    ['camera-tester',      'photo_camera','Camera Test',      'Open front/rear camera, view the live feed, check focus and sensor spots.',  false],
+    ['sounds-tester',      'volume_up',   'Speaker Test',     'Play left/right test tones to catch blown, silent or weak speakers.',        false],
+    ['touchscreen-tester', 'touch_app',   'Touchscreen Test', 'Drag across the screen to find unresponsive or jittery touch zones.',        true],
 ];
 
 ob_start(); ?>
@@ -35,6 +36,14 @@ include_once '../../includes/header_en.php';
 
 <main class="ts-main">
 
+  <!-- ── Floating orbs ── -->
+  <div class="ts-orbs" aria-hidden="true">
+    <span class="ts-orb ts-orb-1"></span>
+    <span class="ts-orb ts-orb-2"></span>
+    <span class="ts-orb ts-orb-3"></span>
+    <span class="ts-orb ts-orb-4"></span>
+  </div>
+
   <!-- ── Hero ── -->
   <section class="ts-hero">
     <div class="ts-hero-bg" aria-hidden="true"></div>
@@ -50,13 +59,13 @@ include_once '../../includes/header_en.php';
 
   <!-- ── Tool grid ── -->
   <div class="ts-grid-wrap">
-    <div class="ts-grid">
-      <?php foreach ($tools as [$slug, $icon, $title, $desc]): ?>
-      <a class="ts-card" href="/en/tester/<?= e($slug) ?>/">
-        <span class="ts-card-icon"><span class="material-symbols-rounded"><?= e($icon) ?></span></span>
-        <h2 class="ts-card-title"><?= e($title) ?></h2>
-        <p class="ts-card-desc"><?= e($desc) ?></p>
-        <span class="ts-card-cta">Start test <span class="material-symbols-rounded">arrow_forward</span></span>
+    <div class="ts-bento">
+      <?php foreach ($tools as [$slug, $icon, $title, $desc, $feature]): ?>
+      <a class="ts-tile<?= $feature ? ' is-feature' : '' ?>" href="/en/tester/<?= e($slug) ?>/">
+        <span class="ts-tile-icon"><span class="material-symbols-rounded"><?= e($icon) ?></span></span>
+        <h2 class="ts-tile-title"><?= e($title) ?></h2>
+        <p class="ts-tile-desc"><?= e($desc) ?></p>
+        <span class="ts-tile-cta">Start test <span class="material-symbols-rounded">arrow_forward</span></span>
       </a>
       <?php endforeach; ?>
     </div>

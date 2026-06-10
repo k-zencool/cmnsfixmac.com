@@ -4,7 +4,7 @@ include '../includes/db.php';
 $page_title        = 'MacBook Repair Chiang Mai | Apple Specialist — CMNS FixMac';
 $switch_to_lang_url = '/';
 $page_css = [
-  '/assets/css/style.css?v=23',
+  '/assets/css/style.css?v=24',
   '/assets/css/floating-buttons.css?v=2',
   'https://unpkg.com/aos@2.3.4/dist/aos.css',
   'https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css',
@@ -513,6 +513,14 @@ include_once '../includes/header_en.php';
         <a href="/en/tester/touchscreen-tester/" target="_blank" class="diagnose-card mobile-only">
           <div class="icon-wrap"><span class="material-symbols-rounded">touch_app</span></div>
           <span>Touchscreen Test</span>
+        </a>
+      </div>
+
+      <div class="diagnose-cta">
+        <a href="/en/tester/" class="btn btn-accent">
+          <span class="material-symbols-rounded">smart_toy</span>
+          See all testing tools
+          <span class="material-symbols-rounded">arrow_forward</span>
         </a>
       </div>
     </div>

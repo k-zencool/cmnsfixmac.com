@@ -1036,6 +1036,8 @@ h2 {
 
 .section-diagnose { background: var(--bg-surface-alt); }
 
+.diagnose-cta { margin-top: 28px; text-align: center; }
+
 .diagnose-grid {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
