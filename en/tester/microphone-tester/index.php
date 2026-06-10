@@ -1,36 +1,22 @@
-<!DOCTYPE html>
-<html lang="th">
+<?php
+$page_title = 'Microphone Tester Online Free | CMNS FixMac';
+$page_css   = ['assets/css/style.css'];
 
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ทดสอบไมโครโฟน</title>
-  <link rel="stylesheet" href="assets/css/style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
-  <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png" />
+ob_start(); ?>
+<meta name="description" content="Test the microphone of your Mac / iPhone / iPad. Real-time input level meter and recording playback to verify the mic works. Free online.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://cmnsfixmac.com/en/tester/microphone-tester/">
+<link rel="shortcut icon" href="/assets/img/favicon1.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+<script src="https://unpkg.com/wavesurfer.js"></script>
+<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
+<script type="module" src="assets/js/script.js" defer></script>
+<?php $page_head_extra = ob_get_clean();
 
-  <script src="https://unpkg.com/wavesurfer.js"></script>
-  <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
-  <script type="module" src="assets/js/script.js" defer></script>
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
+include_once '../../../includes/header_en.php';
+?>
 
-    function gtag() {
-      dataLayer.push(arguments);
-    }
-    gtag('js', new Date());
-
-    gtag('config', 'G-3WXK9GWN7C');
-  </script>
-</head>
-
-<body>
-  <div class="header-toggle">
-<?php $page_has_own_head = true; include_once '../../../includes/header_en.php'; ?>
-  </div>
   <main class="main-container">
 
     <button id="lang-toggle" class="lang-btn">
@@ -66,6 +52,3 @@
       <audio id="audio-playback" controls style="display:none; width:100%; margin-top: 1rem;"></audio>
     </div>
   </main>
-</body>
-
-</html>

@@ -1,7 +1,6 @@
 <?php
-// Include Thai header
-$page_has_own_head = true;
-include_once __DIR__ . '/../../includes/header.php';
+$page_title = 'ทดสอบเสียงลำโพง (ซ้าย-ขวา) ออนไลน์ ฟรี | CMNS FixMac';
+$page_css   = ['/tester/sounds-tester/assets/css/style.css'];
 
 // ---- สแกนโฟลเดอร์ /tester/sounds-tester/sounds ----
 $soundWebPath  = '/tester/sounds-tester/sounds';               // path ที่ browser จะเข้าถึงได้
@@ -33,42 +32,21 @@ if (!empty($files)) {
   $defaultUrl = $files[$randKey]['url'];
 }
 
+
+ob_start(); ?>
+<meta name="description" content="ทดสอบลำโพงซ้าย-ขวา เล่นสวีป 20–20kHz, white/pink noise และเปิดเพลงจากโฟลเดอร์ /sounds พร้อมสลับช่องเสียงได้ทันที มีคลื่นเสียง/สเปกตรัมแบบเรียลไทม์" />
+<meta name="robots" content="index, follow" />
+<link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/tester/sounds-tester/" />
+<link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/tester/sounds-tester/" />
+<link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/tester/sounds-tester/" />
+<link rel="canonical" href="https://cmnsfixmac.com/tester/sounds-tester/" />
+<link rel="shortcut icon" href="/assets/img/favicon1.png" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+<?php $page_head_extra = ob_get_clean();
+
+include_once __DIR__ . '/../../includes/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="th">
 
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ทดสอบเสียงลำโพง (ซ้าย-ขวา) | Speaker Tester</title>
-  <meta name="description" content="ทดสอบลำโพงซ้าย-ขวา เล่นสวีป 20–20kHz, white/pink noise และเปิดเพลงจากโฟลเดอร์ /sounds พร้อมสลับช่องเสียงได้ทันที มีคลื่นเสียง/สเปกตรัมแบบเรียลไทม์" />
-
-  <!-- i18n / canonical -->
-  <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/tester/sounds-tester/" />
-  <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/tester/sounds-tester/" />
-  <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/tester/sounds-tester/" />
-  <link rel="canonical" href="https://cmnsfixmac.com/tester/sounds-tester/" />
-
-  <link rel="shortcut icon" href="/assets/img/favicon1.png" />
-  <link rel="stylesheet" href="/assets/css/navbar-style.css">
-  <link rel="stylesheet" href="/assets/css/footer-style.css">
-  <link rel="stylesheet" href="/tester/sounds-tester/assets/css/style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
-
-  <!-- GA -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-
-    function gtag() {
-      dataLayer.push(arguments)
-    };
-    gtag('js', new Date());
-    gtag('config', 'G-3WXK9GWN7C');
-  </script>
-</head>
-
-<body>
   <main class="main-container" id="app">
     <header class="page-head">
       <h1 class="headline">ทดสอบเสียงลำโพง</h1>
@@ -631,6 +609,3 @@ if (!empty($files)) {
       }, 400);
     })();
   </script>
-</body>
-
-</html>

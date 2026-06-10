@@ -1,49 +1,26 @@
 <?php
-    // We can place header include here for cleaner HTML structure
-    // CORRECTED PATH: From /tester/keyboard-tester/, we need to go up two levels to the root.
-    $page_has_own_head = true;
-    include_once __DIR__ . '/../../../includes/header_en.php';
+$page_title = 'Online Keyboard Test | Thai-English Keyboard Tester for Mac';
+$page_css   = ['/tester/keyboard-tester/assets/css/style.css'];
+
+ob_start(); ?>
+<meta name="description" content="An online MacBook keyboard test tool. Supports all languages. Press any key for an instant visual test with a layout that matches your MacBook." />
+<meta name="keywords" content="keyboard test, macbook keyboard test, keyboard tester, key test, broken keyboard, check keys, thai, english, online keyboard test, mac" />
+<link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/tester/keyboard-tester/" />
+<link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/tester/keyboard-tester/" />
+<link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/tester/keyboard-tester/" />
+<meta property="og:title" content="Online MacBook Keyboard Test Tool" />
+<meta property="og:description" content="Supports Thai-English keyboards with instant visual feedback and a true-to-life MacBook layout. 100% free to use." />
+<meta property="og:image" content="https://cmnsfixmac.com/assets/img/keyboard-tester-thumbnail.jpg" />
+<meta property="og:url" content="https://cmnsfixmac.com/en/tester/keyboard-tester/" />
+<meta property="og:type" content="website" />
+<meta name="robots" content="index, follow" />
+<link rel="canonical" href="https://cmnsfixmac.com/en/tester/keyboard-tester/" />
+<link rel="shortcut icon" href="/assets/img/favicon1.png" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+<?php $page_head_extra = ob_get_clean();
+
+include_once '../../../includes/header_en.php';
 ?>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <title>Online Keyboard Test | Thai-English Keyboard Tester for Mac</title>
-  <meta name="description" content="An online MacBook keyboard test tool. Supports all languages. Press any key for an instant visual test with a layout that matches your MacBook." />
-  <meta name="keywords" content="keyboard test, macbook keyboard test, keyboard tester, key test, broken keyboard, check keys, thai, english, online keyboard test, mac" />
-
-  <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/tester/keyboard-tester/" />
-  <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/tester/keyboard-tester/" />
-  <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/tester/keyboard-tester/" />
-
-  <meta property="og:title" content="Online MacBook Keyboard Test Tool" />
-  <meta property="og:description" content="Supports Thai-English keyboards with instant visual feedback and a true-to-life MacBook layout. 100% free to use." />
-  <meta property="og:image" content="https://cmnsfixmac.com/assets/img/keyboard-tester-thumbnail.jpg" />
-  <meta property="og:url" content="https://cmnsfixmac.com/en/tester/keyboard-tester/" />
-  <meta property="og:type" content="website" />
-
-  <meta name="robots" content="index, follow" />
-  <link rel="canonical" href="https://cmnsfixmac.com/en/tester/keyboard-tester/" />
-  <link rel="shortcut icon" href="/assets/img/favicon1.png" />
-
-  <link rel="stylesheet" href="/assets/css/navbar-style.css">
-  <link rel="stylesheet" href="/assets/css/footer-style.css">
-  <link rel="stylesheet" href="/tester/keyboard-tester/assets/css/style.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
-  
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-3WXK9GWN7C');
-  </script>
-</head>
-
-<body>
-<?php // The header is already included at the top ?>
 
   <div class="container">
     <h1>Online Keyboard Tester</h1>
@@ -152,10 +129,7 @@
       </div>
     </section>
   </div>
-  
-  <?php // No footer include needed if the header already includes it or if the layout doesn't require a standard footer. ?>
-  <?php // If you have a footer_en.php, you can include it like this: ?>
-  <?php  include_once __DIR__ . '/../../../includes/footer_en.php'; ?>
+
   <script src="/en/tester/keyboard-tester/assets/js/script.js"></script>
-</body>
-</html>
+
+<?php include_once '../../../includes/footer_en.php'; ?>

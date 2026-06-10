@@ -1,30 +1,21 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Monitor Tester</title>
-  <link rel="stylesheet" href="assets/css/style.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
-  <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png" />
-  <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+<?php
+$page_title = 'Display / Monitor Tester (Dead Pixel & Color) Online Free | CMNS FixMac';
+$page_css   = ['/assets/css/tester-style.css?v=1', 'assets/css/style.css'];
 
-  gtag('config', 'G-3WXK9GWN7C');
-</script>
-</head>
-<body>
-  <div class="header-toggle">
-<?php $page_has_own_head = true; include_once '../../../includes/header_en.php'; ?>
-  </div>
+ob_start(); ?>
+<meta name="description" content="Test your Mac / iPhone / iPad display for dead pixels, bright/dark spots and color uniformity in fullscreen. Free online, no install.">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://cmnsfixmac.com/en/tester/monitor-tester/">
+<link rel="shortcut icon" href="/assets/img/favicon1.png">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+<?php $page_head_extra = ob_get_clean();
+
+include_once '../../../includes/header_en.php';
+?>
 
   <div class="monitor-tester">
     <div id="modeLabel">โหมด</div>
-    <button id="backButton" onclick="goBack()" data-i18n="back">← กลับหน้าแรก</button>
+    <a id="backButton" href="/en/tester/" data-i18n="back">← กลับหน้าแรก</a>
 
     <main class="main-container">
       <button id="lang-toggle" class="lang-btn">
@@ -42,6 +33,3 @@
       <script src="assets/js/script.js"></script>
     </main>
   </div>
-</body>
-
-</html>

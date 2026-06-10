@@ -1,50 +1,27 @@
 <?php
-    // Include the standard THAI header
-    // The path from /tester/keyboard-tester/ is up two levels to the root
-    $page_has_own_head = true;
-    include_once __DIR__ . '/../../includes/header.php';
+$page_title = 'ทดสอบคีย์บอร์ดออนไลน์ | Keyboard Tester ภาษาไทย-อังกฤษสำหรับ Mac';
+$page_css   = ['/tester/keyboard-tester/assets/css/style.css'];
+
+ob_start(); ?>
+<meta name="description" content="เครื่องมือทดสอบคีย์บอร์ด MacBook ออนไลน์ รองรับปุ่มทุกภาษา กดแล้วแสดงผลทันที พร้อมจัด Layout ตามจริงเหมือน MacBook ของคุณ ใช้งานฟรี" />
+<meta name="keywords" content="ทดสอบแป้นพิมพ์, ทดสอบคีย์บอร์ด, Keyboard Tester, ตรวจสอบปุ่ม, คีย์บอร์ดเสีย, คีย์บอร์ดรวน, MacBook, ภาษาไทย" />
+<link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/tester/keyboard-tester/" />
+<link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/tester/keyboard-tester/" />
+<link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/tester/keyboard-tester/" />
+<meta property="og:title" content="เครื่องมือทดสอบแป้นพิมพ์ MacBook ออนไลน์" />
+<meta property="og:description" content="รองรับภาษาไทย-อังกฤษ กดแล้วแสดงผลทันที จัดวางปุ่มตามจริงเหมือนบน MacBook ใช้งานฟรี 100%" />
+<meta property="og:image" content="https://cmnsfixmac.com/assets/img/keyboard-tester-thumbnail.jpg" />
+<meta property="og:url" content="https://cmnsfixmac.com/tester/keyboard-tester/" />
+<meta property="og:type" content="website" />
+<meta property="og:locale" content="th_TH" />
+<meta name="robots" content="index, follow" />
+<link rel="canonical" href="https://cmnsfixmac.com/tester/keyboard-tester/" />
+<link rel="shortcut icon" href="/assets/img/favicon1.png" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+<?php $page_head_extra = ob_get_clean();
+
+include_once '../../includes/header.php';
 ?>
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-
-  <title>ทดสอบคีย์บอร์ดออนไลน์ | Keyboard Tester ภาษาไทย-อังกฤษสำหรับ Mac</title>
-  <meta name="description" content="เครื่องมือทดสอบคีย์บอร์ด MacBook ออนไลน์ รองรับปุ่มทุกภาษา กดแล้วแสดงผลทันที พร้อมจัด Layout ตามจริงเหมือน MacBook ของคุณ ใช้งานฟรี" />
-  <meta name="keywords" content="ทดสอบแป้นพิมพ์, ทดสอบคีย์บอร์ด, Keyboard Tester, ตรวจสอบปุ่ม, คีย์บอร์ดเสีย, คีย์บอร์ดรวน, MacBook, ภาษาไทย" />
-
-  <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/tester/keyboard-tester/" />
-  <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/tester/keyboard-tester/" />
-  <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/tester/keyboard-tester/" />
-
-  <meta property="og:title" content="เครื่องมือทดสอบแป้นพิมพ์ MacBook ออนไลน์" />
-  <meta property="og:description" content="รองรับภาษาไทย-อังกฤษ กดแล้วแสดงผลทันที จัดวางปุ่มตามจริงเหมือนบน MacBook ใช้งานฟรี 100%" />
-  <meta property="og:image" content="https://cmnsfixmac.com/assets/img/keyboard-tester-thumbnail.jpg" />
-  <meta property="og:url" content="https://cmnsfixmac.com/tester/keyboard-tester/" />
-  <meta property="og:type" content="website" />
-  <meta property="og:locale" content="th_TH" />
-
-  <meta name="robots" content="index, follow" />
-  <link rel="canonical" href="https://cmnsfixmac.com/tester/keyboard-tester/" />
-  <link rel="shortcut icon" href="/assets/img/favicon1.png" />
-
-  <link rel="stylesheet" href="/assets/css/navbar-style.css">
-  <link rel="stylesheet" href="/assets/css/footer-style.css">
-  <link rel="stylesheet" href="/tester/keyboard-tester/assets/css/style.css" />
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
-  
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-    gtag('config', 'G-3WXK9GWN7C');
-  </script>
-</head>
-
-<body>
-<?php // The header is already included at the top ?>
 
   <div class="container">
     <h1>ทดสอบคีย์บอร์ดออนไลน์</h1> <div class="live-display">
@@ -151,10 +128,7 @@
       </div>
     </section>
   </div>
-  
-  <?php include_once __DIR__ . '/../../includes/footer.php'; // Include Thai footer ?>
 
   <script src="/tester/keyboard-tester/assets/js/script.js"></script>
 
-</body>
-</html>
+<?php include_once '../../includes/footer.php'; ?>

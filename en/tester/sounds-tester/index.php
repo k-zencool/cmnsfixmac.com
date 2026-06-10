@@ -1,57 +1,43 @@
 <?php
-  // Include English header
-  $page_has_own_head = true;
-  include_once __DIR__ . '/../../../includes/header_en.php';
+$page_title = 'Online Speaker Test (Left-Right) | Speaker Tester';
+$page_css   = ['/tester/sounds-tester/assets/css/style.css'];
 
-  // ---- Scan folder en/tester/sounds-tester/sounds ----
-  $soundWebPath  = '/tester/sounds-tester/sounds';    // web path accessible by browser
-  $soundDiskPath = __DIR__ . '/sounds';         // real disk path relative to /en/tester/sounds-tester/
-  $files = [];
-  if (is_dir($soundDiskPath)) {
-    $allowed = ['mp3','m4a','aac','wav','ogg','oga','flac'];
-    foreach (scandir($soundDiskPath) as $f) {
-      if ($f === '.' || $f === '..') continue;
-      $ext = strtolower(pathinfo($f, PATHINFO_EXTENSION));
-      if (in_array($ext, $allowed, true)) {
-        $files[] = [
-          'url'  => $soundWebPath . '/' . rawurlencode($f),
-          'name' => preg_replace('/\.[^.]+$/', '', $f)
-        ];
-      }
+// ---- Scan folder en/tester/sounds-tester/sounds ----
+$soundWebPath  = '/tester/sounds-tester/sounds';    // web path accessible by browser
+$soundDiskPath = __DIR__ . '/sounds';               // real disk path relative to /en/tester/sounds-tester/
+$files = [];
+if (is_dir($soundDiskPath)) {
+  $allowed = ['mp3','m4a','aac','wav','ogg','oga','flac'];
+  foreach (scandir($soundDiskPath) as $f) {
+    if ($f === '.' || $f === '..') continue;
+    $ext = strtolower(pathinfo($f, PATHINFO_EXTENSION));
+    if (in_array($ext, $allowed, true)) {
+      $files[] = [
+        'url'  => $soundWebPath . '/' . rawurlencode($f),
+        'name' => preg_replace('/\.[^.]+$/', '', $f)
+      ];
     }
   }
-  // natural sort by name (case-insensitive) — no arrow fn for older PHP
-  usort($files, function($a, $b) {
-    return strnatcasecmp($a['name'], $b['name']);
-  });
+}
+// natural sort by name (case-insensitive) — no arrow fn for older PHP
+usort($files, function($a, $b) {
+  return strnatcasecmp($a['name'], $b['name']);
+});
+
+ob_start(); ?>
+<meta name="description" content="Left-right speaker test with 20–20kHz sweep, white/pink noise, and music playback from the /sounds folder. Real-time waveform and spectrum visualizers included." />
+<link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/tester/sounds-tester/" />
+<link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/tester/sounds-tester/" />
+<link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/tester/sounds-tester/" />
+<link rel="canonical" href="https://cmnsfixmac.com/en/tester/sounds-tester/" />
+<meta name="robots" content="index, follow" />
+<link rel="shortcut icon" href="/assets/img/favicon1.png" />
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
+<?php $page_head_extra = ob_get_clean();
+
+include_once __DIR__ . '/../../../includes/header_en.php';
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Online Speaker Test (Left-Right) | Speaker Tester</title>
-  <meta name="description" content="Left-right speaker test with 20–20kHz sweep, white/pink noise, and music playback from the /sounds folder. Real-time waveform and spectrum visualizers included." />
-
-  <!-- i18n / canonical -->
-  <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/tester/sounds-tester/" />
-  <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/tester/sounds-tester/" />
-  <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/tester/sounds-tester/" />
-  <link rel="canonical" href="https://cmnsfixmac.com/en/tester/sounds-tester/" />
-
-  <link rel="shortcut icon" href="/assets/img/favicon1.png" />
-  <link rel="stylesheet" href="/assets/css/navbar-style.css">
-  <link rel="stylesheet" href="/assets/css/footer-style.css">
-  <link rel="stylesheet" href="/tester/sounds-tester/assets/css/style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
-
-
-  <!-- GA -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
-  <script>window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments)};gtag('js',new Date());gtag('config','G-3WXK9GWN7C');</script>
-</head>
-<body>
   <main class="main-container" id="app">
     <header class="page-head">
       <h1 class="headline">Speaker Test</h1>
@@ -432,5 +418,3 @@
     setTimeout(()=>{ try{ ensureCtx(); if(ctx.state==='suspended') resumeBtn.style.display='inline-flex'; }catch{} }, 400);
   })();
   </script>
-</body>
-</html>

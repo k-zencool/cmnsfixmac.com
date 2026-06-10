@@ -1,33 +1,24 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ทดสอบไมโครโฟน</title>
-  <link rel="stylesheet" href="assets/css/style.css">
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
-  <link rel="shortcut icon" href="https://cmnsfixmac.com/assets/img/favicon1.png" />
+<?php
+$page_title = 'ทดสอบไมโครโฟน (Microphone) ออนไลน์ ฟรี | CMNS FixMac';
+$page_css   = ['/assets/css/tester-style.css?v=1', 'assets/css/style.css'];
 
-  <script src="https://unpkg.com/wavesurfer.js"></script>
+ob_start(); ?>
+<meta name="description" content="ทดสอบไมโครโฟน Mac / iPhone / iPad วัดระดับเสียงเข้าแบบเรียลไทม์ พร้อมอัด-เล่นกลับเพื่อเช็คว่าไมค์รับเสียงปกติ ออนไลน์ฟรี">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://cmnsfixmac.com/tester/microphone-tester/">
+<link rel="shortcut icon" href="/assets/img/favicon1.png">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+<script src="https://unpkg.com/wavesurfer.js"></script>
 <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
-  <script type="module" src="assets/js/script.js" defer></script>
-  <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+<script type="module" src="assets/js/script.js" defer></script>
+<?php $page_head_extra = ob_get_clean();
 
-  gtag('config', 'G-3WXK9GWN7C');
-</script>
-</head>
-<body>
-  <div class="header-toggle">
-    <?php $page_has_own_head = true; include_once '../../includes/header.php'; ?>
-  </div>
+include_once '../../includes/header.php';
+?>
+
   <main class="main-container">
-    
+
     <button id="lang-toggle" class="lang-btn">
       <span class="material-symbols-outlined">translate</span> เปลี่ยนภาษา</button>
 
@@ -61,5 +52,3 @@
       <audio id="audio-playback" controls style="display:none; width:100%; margin-top: 1rem;"></audio>
     </div>
   </main>
-</body>
-</html>

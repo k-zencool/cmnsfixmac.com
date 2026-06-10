@@ -1,28 +1,17 @@
-<!DOCTYPE html>
-<html lang="th">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Camera Tester</title>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons" />
+<?php
+$page_title = 'ทดสอบกล้อง (Camera) ออนไลน์ ฟรี | CMNS FixMac';
+$page_css   = ['/assets/css/tester-style.css?v=1', 'assets/css/style.css'];
 
-    <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-3WXK9GWN7C"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+ob_start(); ?>
+<meta name="description" content="ทดสอบกล้องหน้า/หลังของ Mac / iPhone / iPad ดูภาพสดในเบราว์เซอร์ เช็คโฟกัสและจุดเสียบนเซนเซอร์ ออนไลน์ฟรี">
+<meta name="robots" content="index, follow">
+<link rel="canonical" href="https://cmnsfixmac.com/tester/camera-tester/">
+<link rel="shortcut icon" href="/assets/img/favicon1.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
+<?php $page_head_extra = ob_get_clean();
 
-  gtag('config', 'G-3WXK9GWN7C');
-</script>
-  <script src="/assets/js/theme.js"></script>
-  <link rel="stylesheet" href="/assets/css/design-tokens.css?v=1">
-  <link rel="stylesheet" href="assets/css/style.css" />
-</head>
-<body>
-
-<?php $page_has_own_head = true; include_once '../../includes/header.php'; ?>
-
+include_once '../../includes/header.php';
+?>
 
   <div class="container">
     <button id="lang-toggle" class="lang-btn">
@@ -43,13 +32,7 @@
     <a id="downloadLink" target="_blank">📥 ดาวน์โหลดภาพ</a>
     </div>
 
-
-
-
-
   </div>
   <div id="flashEffect"></div>
   <canvas id="snapshotCanvas" style="display: none;"></canvas>
   <script src="assets/js/script.js"></script>
-</body>
-</html>
