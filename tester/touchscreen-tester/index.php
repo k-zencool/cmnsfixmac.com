@@ -1,6 +1,6 @@
 <?php
 $page_title = 'ทดสอบทัชสกรีน (Touchscreen) ออนไลน์ ฟรี | CMNS FixMac';
-$page_css   = ['/assets/css/tester-style.css?v=5', 'assets/css/style.css?v=2'];
+$page_css   = ['/assets/css/tester-style.css?v=5', 'assets/css/style.css?v=3'];
 
 ob_start(); ?>
 <meta name="description" content="ทดสอบหน้าจอสัมผัส iPad / iPhone / Mac ลากนิ้วเช็คจุดสัมผัสที่ตอบสนองไม่ครบหรือกระตุก รองรับทั้งนิ้ว เมาส์ และปากกา ออนไลน์ฟรี">
@@ -13,6 +13,7 @@ include_once '../../includes/header.php';
 ?>
 
 <main class="ts-main">
+  <div id="ts-grid" class="ts-grid" aria-hidden="true"></div>
   <canvas id="ts-canvas" class="ts-canvas"></canvas>
 
   <div class="ts-hud">
@@ -32,6 +33,9 @@ include_once '../../includes/header.php';
     <button class="ts-btn" data-action="save">
       <span class="material-symbols-rounded">download</span> บันทึกภาพ
     </button>
+    <button class="ts-btn" data-action="fullscreen">
+      <span class="material-symbols-rounded">fullscreen</span> <span class="ts-fs-label">เต็มจอ</span>
+    </button>
     <a class="ts-btn" href="/tester/">
       <span class="material-symbols-rounded">arrow_back</span> กลับ
     </a>
@@ -40,5 +44,5 @@ include_once '../../includes/header.php';
   <p class="ts-hint">ลากนิ้วให้ทั่วหน้าจอเพื่อหาจุดที่สัมผัสไม่ติดหรือกระตุก — รองรับนิ้ว เมาส์ และปากกา</p>
 </main>
 
-<script src="assets/js/script.js?v=2" defer></script>
+<script src="assets/js/script.js?v=4" defer></script>
 <?php include_once '../../includes/footer.php'; ?>

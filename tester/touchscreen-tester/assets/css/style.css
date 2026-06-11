@@ -11,13 +11,30 @@
   overflow: hidden;
 }
 
+/* ── Grid overlay (its own layer, never mixes with strokes) ── */
+.ts-grid {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: none;
+  pointer-events: none;
+  opacity: 0.6;
+  background-image:
+    linear-gradient(to right, var(--border-strong) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--border-strong) 1px, transparent 1px);
+  background-size: calc(100% / 6) 100%, 100% calc(100% / 8);
+}
+.ts-grid.show { display: block; }
+
 /* ── Drawing surface ── */
 .ts-canvas {
   position: absolute;
   inset: 0;
+  z-index: 2;
   width: 100%;
   height: 100%;
   display: block;
+  background: transparent;    /* grid layer shows through */
   touch-action: none;        /* let us own every touch/drag */
   cursor: crosshair;
 }

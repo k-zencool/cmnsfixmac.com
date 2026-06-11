@@ -12,10 +12,14 @@
   const ctx = canvas.getContext("2d");
   const countEl = document.getElementById("ts-count");
   const gridBtn = document.querySelector('.ts-btn[data-action="grid"]');
+  const fsBtn = document.querySelector('.ts-btn[data-action="fullscreen"]');
+  const main = document.querySelector(".ts-main");
+  const FS_ENTER = "เต็มจอ";
+  const FS_EXIT = "ออกจากเต็มจอ";
 
-  const css = getComputedStyle(document.documentElement);
-  const accent = (css.getPropertyValue("--accent") || "#fc7404").trim();
-  const gridColor = (css.getPropertyValue("--border-strong") || "#d0d0d5").trim();
+  const accent = (getComputedStyle(document.documentElement)
+    .getPropertyValue("--accent") || "#fc7404").trim();
+  const gridEl = document.getElementById("ts-grid");   // grid lives on its own CSS layer
 
   const active = new Map();   // pointerId -> {x, y}
   let showGrid = false;
@@ -26,30 +30,12 @@
     canvas.width = Math.round(window.innerWidth * dpr);
     canvas.height = Math.round(window.innerHeight * dpr);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);   // draw in CSS pixels
-    if (showGrid) drawGrid();
-  }
-
-  function drawGrid(rows = 8, cols = 6) {
-    const w = window.innerWidth, h = window.innerHeight;
-    ctx.save();
-    ctx.strokeStyle = gridColor;
-    ctx.lineWidth = 1;
-    for (let r = 1; r < rows; r++) {
-      const y = (h / rows) * r;
-      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
-    }
-    for (let c = 1; c < cols; c++) {
-      const x = (w / cols) * c;
-      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
-    }
-    ctx.restore();
   }
 
   function clearCanvas() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     active.clear();
     updateCount();
-    if (showGrid) drawGrid();
   }
 
   function updateCount() {
@@ -104,6 +90,29 @@
   canvas.addEventListener("pointerup", release);
   canvas.addEventListener("pointercancel", release);
 
+  // ── fullscreen ──
+  function fsElement() { return document.fullscreenElement || document.webkitFullscreenElement; }
+  function toggleFullscreen() {
+    if (fsElement()) {
+      (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+    } else {
+      (main.requestFullscreen || main.webkitRequestFullscreen).call(main);
+    }
+  }
+  function onFsChange() {
+    const on = !!fsElement();
+    if (fsBtn) {
+      fsBtn.querySelector(".material-symbols-rounded").textContent = on ? "fullscreen_exit" : "fullscreen";
+      fsBtn.querySelector(".ts-fs-label").textContent = on ? FS_EXIT : FS_ENTER;
+      fsBtn.classList.toggle("is-active", on);
+    }
+    resize();   // viewport changed — repaint at the new size
+  }
+  // iOS Safari can't fullscreen non-video elements — hide the button if unsupported
+  if (fsBtn && !(main.requestFullscreen || main.webkitRequestFullscreen)) fsBtn.style.display = "none";
+  document.addEventListener("fullscreenchange", onFsChange);
+  document.addEventListener("webkitfullscreenchange", onFsChange);
+
   // ── toolbar ──
   document.querySelectorAll(".ts-btn[data-action]").forEach((b) => {
     b.addEventListener("click", () => {
@@ -113,9 +122,8 @@
           break;
         case "grid":
           showGrid = !showGrid;
+          gridEl.classList.toggle("show", showGrid);
           gridBtn.classList.toggle("is-active", showGrid);
-          if (showGrid) drawGrid();
-          else clearCanvas();
           break;
         case "save": {
           const link = document.createElement("a");
@@ -124,6 +132,9 @@
           link.click();
           break;
         }
+        case "fullscreen":
+          toggleFullscreen();
+          break;
       }
     });
   });

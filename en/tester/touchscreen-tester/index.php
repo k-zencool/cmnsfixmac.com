@@ -1,6 +1,6 @@
 <?php
 $page_title = 'Touchscreen Tester Online Free | CMNS FixMac';
-$page_css   = ['/assets/css/tester-style.css?v=5', '/tester/touchscreen-tester/assets/css/style.css?v=2'];
+$page_css   = ['/assets/css/tester-style.css?v=5', '/tester/touchscreen-tester/assets/css/style.css?v=3'];
 
 ob_start(); ?>
 <meta name="description" content="Test the touchscreen of your iPad / iPhone / Mac. Drag across the screen to find unresponsive or stuttering touch points. Works with touch, mouse and pen. Free online.">
@@ -13,6 +13,7 @@ include_once '../../../includes/header_en.php';
 ?>
 
 <main class="ts-main">
+  <div id="ts-grid" class="ts-grid" aria-hidden="true"></div>
   <canvas id="ts-canvas" class="ts-canvas"></canvas>
 
   <div class="ts-hud">
@@ -32,6 +33,9 @@ include_once '../../../includes/header_en.php';
     <button class="ts-btn" data-action="save">
       <span class="material-symbols-rounded">download</span> Save Image
     </button>
+    <button class="ts-btn" data-action="fullscreen">
+      <span class="material-symbols-rounded">fullscreen</span> <span class="ts-fs-label">Fullscreen</span>
+    </button>
     <a class="ts-btn" href="/en/tester/">
       <span class="material-symbols-rounded">arrow_back</span> Back
     </a>
@@ -40,5 +44,5 @@ include_once '../../../includes/header_en.php';
   <p class="ts-hint">Drag across the whole screen to find dead or stuttering touch points — works with touch, mouse and pen.</p>
 </main>
 
-<script src="assets/js/script.js?v=2" defer></script>
+<script src="assets/js/script.js?v=4" defer></script>
 <?php include_once '../../../includes/footer_en.php'; ?>
