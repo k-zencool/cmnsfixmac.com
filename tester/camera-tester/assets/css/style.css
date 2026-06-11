@@ -1,139 +1,251 @@
-body {
-  margin: 0;
-  padding: 0;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-  background-color: #fff;
-  color: #333;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+/* ==========================================================
+   Camera Tester — prefix cam- ; HIG design tokens
+   ========================================================== */
+
+.cam-main {
   min-height: 100vh;
-}
-
-.container {
-  text-align: center;
-  padding: 2rem;
-  max-width: 720px;
-  width: 100%;
-}
-
-h1 {
-  color: var(--accent);
-  margin-bottom: 1rem;
-  font-size: 2rem;
-}
-
-h2 {
-  font-size: 1rem;
-  color: #666;
-  margin: 0.5rem 0 1.5rem;
-}
-
-select {
-  padding: 0.6rem;
-  font-size: 1rem;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  width: 100%;
-  max-width: 400px;
-}
-
-.buttons {
+  background: var(--bg-page);
+  color: var(--text-primary);
+  font-family: var(--font);
+  padding: calc(var(--nav-h) + var(--sp-10)) var(--sp-5) var(--sp-20);
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  justify-content: center;
-  margin-top: 1.5rem;
-}
-
-button {
-  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.6rem 1rem;
-  font-size: 1rem;
-  background-color: var(--accent);
-  color: white;
-  border: none;
-  border-radius: 10px;
-  cursor: pointer;
-  transition: background-color 0.3s ease;
+  gap: var(--sp-6);
 }
 
-button:hover {
-  background-color: var(--accent-dark);
-}
-
-.material-icons {
-  font-size: 1.2rem;
-}
-
-video {
-  width: 100%;
-  max-width: 640px;
-  margin-top: 1rem;
-  border-radius: 12px;
-  border: 3px solid var(--accent);
-  background: black;
-  transform: scaleX(1);
-  transition: transform 0.3s ease;
-}
-
-#snapshotPreview {
-  margin-top: 1rem;
-  max-width: 100%;
-  border: 2px solid var(--accent);
-  border-radius: 12px;
-  display: none;
-}
-
-#downloadLink {
-  display: none;
-  margin-top: 1rem;
-  font-weight: bold;
-  color: var(--accent);
-  text-decoration: none;
-}
-
-.lang-toggle {
-  margin-top: 2rem;
-}
-
-.lang-toggle button {
-  background: none;
-  border: 1px solid var(--accent);
-  color: var(--accent);
-  padding: 0.4rem 1rem;
-  border-radius: 8px;
-  margin: 0 0.5rem;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-#flashEffect {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: white;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.3s ease;
-  z-index: 9999;
-}
-
-.lang-btn {
-  margin-top: 2rem;
-  background: none;
-  border: 1px solid var(--accent);
-  color: var(--accent);
-  padding: 0.5rem 1rem;
-  border-radius: 10px;
-  font-weight: bold;
-  cursor: pointer;
+/* ── Hero ── */
+.cam-hero { max-width: 600px; text-align: center; }
+.cam-eyebrow {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  font-size: 1rem;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--r-full);
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  backdrop-filter: var(--nav-blur);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--sp-4);
+}
+.cam-eyebrow .material-symbols-rounded { font-size: 18px; color: var(--accent); }
+.cam-hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 5vw, var(--text-4xl));
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0 0 var(--sp-3);
+  white-space: nowrap;
+}
+.cam-accent { color: var(--accent); }
+.cam-lead {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0 auto;
+  max-width: 52ch;
+}
+
+/* ── Card ── */
+.cam-card {
+  width: 100%;
+  max-width: 640px;
+  padding: var(--sp-6);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-2xl);
+  box-shadow: var(--shadow-md);
+}
+
+.cam-field-label {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--sp-2);
+}
+.cam-select {
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  font-family: var(--font);
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  margin-bottom: var(--sp-4);
+  cursor: pointer;
+}
+
+/* ── Video stage ── */
+.cam-stage {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--r-xl);
+  overflow: hidden;
+  background: #000;
+  border: 1px solid var(--border);
+  margin-bottom: var(--sp-4);
+}
+.cam-video {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(1);
+  transition: transform var(--dur-fast) var(--ease);
+}
+.cam-video.mirror { transform: scaleX(-1); }
+.cam-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  color: var(--text-tertiary, #8a8a8e);
+  font-size: var(--text-sm);
+  font-weight: 500;
+}
+.cam-placeholder .material-symbols-rounded { font-size: 48px; opacity: 0.7; }
+.cam-resolution {
+  position: absolute;
+  bottom: var(--sp-3);
+  right: var(--sp-3);
+  padding: 4px 10px;
+  border-radius: var(--r-full);
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Buttons ── */
+.cam-controls {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2);
+}
+.cam-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: var(--sp-3) var(--sp-5);
+  font-family: var(--font);
+  font-size: var(--text-base);
+  font-weight: 600;
+  border: none;
+  border-radius: var(--r-full);
+  cursor: pointer;
+  text-decoration: none;
+  transition: background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+.cam-btn .material-symbols-rounded { font-size: 20px; }
+.cam-btn-primary { grid-column: 1 / -1; background: var(--accent); color: var(--text-inverse); box-shadow: 0 4px 16px var(--accent-shadow); }
+.cam-btn-primary:hover { background: var(--accent-dark); transform: translateY(-2px); }
+.cam-btn-danger { grid-column: 1 / -1; background: #ff3b30; color: #fff; }
+.cam-btn-danger:hover { filter: brightness(0.94); transform: translateY(-2px); }
+.cam-btn-ghost {
+  background: var(--bg-glass);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
+}
+.cam-btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Snapshot result ── */
+.cam-shot {
+  margin-top: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+.cam-preview {
+  width: 100%;
+  border-radius: var(--r-xl);
+  border: 1px solid var(--border);
+  display: block;
+}
+
+/* ── Back link ── */
+.cam-back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color var(--dur-fast) var(--ease);
+}
+.cam-back:hover { color: var(--accent); }
+.cam-back .material-symbols-rounded { font-size: 18px; }
+
+/* ── Flash effect ── */
+.cam-flash {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 9999;
+  transition: opacity 0.12s ease;
+}
+.cam-flash.fire { opacity: 0.9; }
+
+/* ── Toast notifications ── */
+.cam-toast-wrap {
+  position: fixed;
+  top: calc(var(--nav-h) + 16px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(92vw, 420px);
+  pointer-events: none;
+}
+.cam-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: var(--r-lg);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1.4;
+  opacity: 0;
+  transform: translateY(-12px);
+  transition: opacity 0.25s var(--ease), transform 0.25s var(--ease-spring);
+}
+.cam-toast.show { opacity: 1; transform: translateY(0); }
+.cam-toast .material-symbols-rounded { font-size: 20px; flex-shrink: 0; }
+.cam-toast.warn  .material-symbols-rounded { color: #ff9f0a; }
+.cam-toast.error .material-symbols-rounded { color: #ff3b30; }
+.cam-toast.info  .material-symbols-rounded { color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .cam-toast { transition: opacity 0.2s linear; transform: none; }
+  .cam-toast.show { transform: none; }
+  .cam-video { transition: none; }
+}
+
+@media (max-width: 480px) {
+  .cam-hero h1 { white-space: normal; }
+  .cam-controls { grid-template-columns: 1fr; }
 }

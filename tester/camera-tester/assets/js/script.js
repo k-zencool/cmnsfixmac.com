@@ -1,187 +1,150 @@
-const video = document.getElementById("video");
-const select = document.getElementById("cameraSelect");
-const startBtn = document.getElementById("startBtn");
-const flipBtn = document.getElementById("flipBtn");
-const stopBtn = document.getElementById("stopBtn");
-const snapshotBtn = document.getElementById("snapshotBtn");
-const snapshotCanvas = document.getElementById("snapshotCanvas");
-const snapshotPreview = document.getElementById("snapshotPreview");
-const downloadLink = document.getElementById("downloadLink");
-const flashEffect = document.getElementById("flashEffect");
-const cameraInfo = document.getElementById("cameraInfo");
-const titleText = document.getElementById("titleText");
+/* ==========================================================
+   Camera Tester engine
+   - permission requested on "Start" (not on load)
+   - live preview, device switch, front/back flip, snapshot
+   ========================================================== */
+(function () {
+  "use strict";
 
-let currentStream = null;
-let useFrontCamera = true;
-let currentLang = "th";
+  const $ = (id) => document.getElementById(id);
+  const select   = $("cam-select");
+  const video    = $("cam-video");
+  const placeholder = $("cam-placeholder");
+  const resLabel = $("cam-resolution");
+  const startBtn = $("cam-start");
+  const stopBtn  = $("cam-stop");
+  const flipBtn  = $("cam-flip");
+  const snapBtn  = $("cam-snap");
+  const shotBox  = $("cam-shot");
+  const preview  = $("cam-preview");
+  const download = $("cam-download");
+  const flash    = $("cam-flash");
+  const canvas   = $("cam-canvas");
 
-const i18n = {
-  th: {
-    title: "ทดสอบกล้อง",
-    start: "เริ่ม",
-    flip: "สลับกล้อง",
-    stop: "หยุด",
-    snapshot: "บันทึกภาพ",
-    noCamera: "ยังไม่ได้เปิดกล้อง",
-    cameraStopped: "กล้องถูกปิดแล้ว",
-    noPermission: "⚠️ กรุณาอนุญาตให้เข้าถึงกล้อง",
-    snapshotDownload: "📥 ดาวน์โหลดภาพที่ถ่าย",
-    alertBeforeSnapshot: "กรุณาเปิดกล้องก่อนบันทึกภาพ"
-  },
-  en: {
-    title: "Camera Tester",
-    start: "Start",
-    flip: "Flip Camera",
-    stop: "Stop",
-    snapshot: "Snapshot",
-    noCamera: "Camera not started",
-    cameraStopped: "Camera stopped",
-    noPermission: "⚠️ Please allow camera access",
-    snapshotDownload: "📥 Download captured image",
-    alertBeforeSnapshot: "Please start the camera first"
+  let stream = null;
+  let useFront = true;   // mirror only matters for front-facing
+  let mirrored = false;
+
+  /* ── in-page toast (replaces native alert) ── */
+  function toast(msg, type) {
+    type = type || "warn";
+    let wrap = document.querySelector(".cam-toast-wrap");
+    if (!wrap) {
+      wrap = document.createElement("div");
+      wrap.className = "cam-toast-wrap";
+      document.body.appendChild(wrap);
+    }
+    const icon = type === "error" ? "error" : type === "info" ? "info" : "warning";
+    const el = document.createElement("div");
+    el.className = "cam-toast " + type;
+    el.setAttribute("role", "status");
+    el.innerHTML = '<span class="material-symbols-rounded">' + icon + "</span><span></span>";
+    el.lastChild.textContent = msg;
+    wrap.appendChild(el);
+    requestAnimationFrame(() => el.classList.add("show"));
+    setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 260); }, 3400);
   }
-};
 
-function updateText() {
-  titleText.textContent = i18n[currentLang].title;
-  document.querySelectorAll("[data-i18n]").forEach(el => {
-    const key = el.getAttribute("data-i18n");
-    el.textContent = i18n[currentLang][key];
-  });
-  if (!currentStream) {
-    cameraInfo.textContent = i18n[currentLang].noCamera;
+  /* ── device list (labels need permission, so fill after first start) ── */
+  async function refreshDevices() {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const cams = devices.filter((d) => d.kind === "videoinput");
+      if (!cams.length || !cams[0].label) return;        // no permission yet
+      const current = select.value;
+      const keep = select.querySelector('option[value=""]');
+      select.innerHTML = "";
+      if (keep) select.appendChild(keep);
+      cams.forEach((d, i) => {
+        const o = document.createElement("option");
+        o.value = d.deviceId;
+        o.text = d.label || ("กล้อง " + (i + 1));
+        select.appendChild(o);
+      });
+      if (current) select.value = current;
+    } catch (_) { /* ignore */ }
   }
-  if (downloadLink.style.display === "block") {
-    downloadLink.textContent = i18n[currentLang].snapshotDownload;
+
+  function setMirror(on) {
+    mirrored = on;
+    video.classList.toggle("mirror", on);
   }
-}
 
-function switchLang(lang) {
-  currentLang = lang;
-  updateText();
-}
+  async function start() {
+    if (stream) stream.getTracks().forEach((t) => t.stop());
 
-async function getCameras() {
-  const devices = await navigator.mediaDevices.enumerateDevices();
-  const videoDevices = devices.filter(device => device.kind === "videoinput");
+    const id = select.value;
+    const constraints = id
+      ? { video: { deviceId: { exact: id } } }
+      : { video: { facingMode: useFront ? "user" : "environment" } };
 
-  select.innerHTML = "";
-  videoDevices.forEach((device, index) => {
-    const option = document.createElement("option");
-    option.value = device.deviceId;
-    option.text = device.label || `Camera ${index + 1}`;
-    select.appendChild(option);
-  });
-}
+    try {
+      stream = await navigator.mediaDevices.getUserMedia(constraints);
+    } catch (e) {
+      toast("ไม่สามารถเข้าถึงกล้องได้ — กรุณาอนุญาตให้เบราว์เซอร์ใช้กล้อง", "error");
+      return;
+    }
 
-function updateVideoMirror() {
-  video.style.transform = useFrontCamera ? "scaleX(-1)" : "scaleX(1)";
-}
+    video.srcObject = stream;
+    setMirror(!id && useFront);
+    placeholder.style.display = "none";
 
-function stopCamera() {
-  if (currentStream) {
-    currentStream.getTracks().forEach(track => track.stop());
-    currentStream = null;
+    const track = stream.getVideoTracks()[0];
+    const s = track.getSettings();
+    if (s.width && s.height) {
+      resLabel.textContent = s.width + " × " + s.height;
+      resLabel.style.display = "block";
+    }
+
+    refreshDevices();
+    startBtn.style.display = "none";
+    stopBtn.style.display = "inline-flex";
+    flipBtn.style.display = "inline-flex";
+    snapBtn.style.display = "inline-flex";
+  }
+
+  function stop() {
+    if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
     video.srcObject = null;
-    cameraInfo.textContent = i18n[currentLang].cameraStopped;
-  }
-}
-
-async function startCamera(constraints, labelHint = "") {
-  stopCamera();
-
-  try {
-    currentStream = await navigator.mediaDevices.getUserMedia(constraints);
-    video.srcObject = currentStream;
-    updateVideoMirror();
-
-    const track = currentStream.getVideoTracks()[0];
-    const settings = track.getSettings();
-    cameraInfo.textContent = `${labelHint || track.label || "Camera"} (${settings.width}x${settings.height})`;
-  } catch (err) {
-    alert(i18n[currentLang].noPermission);
-    console.error(err);
-    cameraInfo.textContent = i18n[currentLang].noPermission;
-  }
-}
-
-startBtn.addEventListener("click", () => {
-  const deviceId = select.value;
-  if (deviceId) {
-    const constraints = {
-      video: { deviceId: { exact: deviceId } }
-    };
-    const label = select.options[select.selectedIndex].text;
-    startCamera(constraints, label);
-  } else {
-    const constraints = {
-      video: { facingMode: useFrontCamera ? "user" : "environment" }
-    };
-    startCamera(constraints, useFrontCamera ? "Front Camera" : "Back Camera");
-  }
-});
-
-flipBtn.addEventListener("click", () => {
-  useFrontCamera = !useFrontCamera;
-  const constraints = {
-    video: { facingMode: useFrontCamera ? "user" : "environment" }
-  };
-  startCamera(constraints, useFrontCamera ? "Front Camera" : "Back Camera");
-});
-
-stopBtn.addEventListener("click", stopCamera);
-
-snapshotBtn.addEventListener("click", () => {
-  if (!currentStream) {
-    alert(i18n[currentLang].alertBeforeSnapshot);
-    return;
+    placeholder.style.display = "flex";
+    resLabel.style.display = "none";
+    startBtn.style.display = "inline-flex";
+    stopBtn.style.display = "none";
+    flipBtn.style.display = "none";
+    snapBtn.style.display = "none";
   }
 
-  flashEffect.style.opacity = "1";
-  setTimeout(() => flashEffect.style.opacity = "0", 100);
-
-  const videoTrack = currentStream.getVideoTracks()[0];
-  const settings = videoTrack.getSettings();
-
-  snapshotCanvas.width = settings.width || video.videoWidth;
-  snapshotCanvas.height = settings.height || video.videoHeight;
-
-  const context = snapshotCanvas.getContext("2d");
-
-  if (useFrontCamera) {
-    context.translate(snapshotCanvas.width, 0);
-    context.scale(-1, 1);
+  function flip() {
+    useFront = !useFront;
+    select.value = "";        // facingMode flip ignores explicit deviceId
+    start();
   }
 
-  context.drawImage(video, 0, 0, snapshotCanvas.width, snapshotCanvas.height);
+  function snapshot() {
+    if (!stream) { toast("กด 'เริ่มทดสอบ' ก่อนเพื่อเปิดกล้อง", "warn"); return; }
 
-  const imageDataURL = snapshotCanvas.toDataURL("image/png");
+    flash.classList.add("fire");
+    setTimeout(() => flash.classList.remove("fire"), 120);
 
-  snapshotPreview.src = imageDataURL;
-  snapshotPreview.style.display = "block";
+    const w = video.videoWidth, h = video.videoHeight;
+    if (!w || !h) { toast("กล้องยังไม่พร้อม ลองใหม่อีกครั้ง", "warn"); return; }
+    canvas.width = w;
+    canvas.height = h;
+    const cx = canvas.getContext("2d");
+    if (mirrored) { cx.translate(w, 0); cx.scale(-1, 1); }
+    cx.drawImage(video, 0, 0, w, h);
 
-  downloadLink.href = imageDataURL;
-  downloadLink.download = "snapshot.png";
-  downloadLink.textContent = i18n[currentLang].snapshotDownload;
-  downloadLink.style.display = "block";
-});
-
-async function requestPermissionAndListCameras() {
-  try {
-    await navigator.mediaDevices.getUserMedia({ video: true });
-    await getCameras();
-  } catch (err) {
-    alert(i18n[currentLang].noPermission);
-    console.error(err);
+    const url = canvas.toDataURL("image/png");
+    preview.src = url;
+    download.href = url;
+    shotBox.style.display = "flex";
+    shotBox.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
-}
 
-requestPermissionAndListCameras();
-updateText(); // เริ่มต้นด้วยภาษาเริ่มต้น
-
-const langToggleBtn = document.getElementById("lang-toggle");
-
-langToggleBtn.addEventListener("click", () => {
-  currentLang = currentLang === "th" ? "en" : "th";
-  updateText();
-});
+  /* ── wiring ── */
+  startBtn.addEventListener("click", start);
+  stopBtn.addEventListener("click", stop);
+  flipBtn.addEventListener("click", flip);
+  snapBtn.addEventListener("click", snapshot);
+  select.addEventListener("change", () => { if (stream) start(); });
+})();
