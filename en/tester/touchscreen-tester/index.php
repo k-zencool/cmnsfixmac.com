@@ -1,28 +1,44 @@
 <?php
 $page_title = 'Touchscreen Tester Online Free | CMNS FixMac';
-$page_css   = ['/assets/css/tester-style.css?v=1', 'assets/css/style.css'];
+$page_css   = ['/assets/css/tester-style.css?v=5', '/tester/touchscreen-tester/assets/css/style.css?v=2'];
 
 ob_start(); ?>
-<meta name="description" content="Test the touchscreen of your iPad / iPhone / Mac. Drag across the screen to find unresponsive or stuttering touch points. Free online.">
+<meta name="description" content="Test the touchscreen of your iPad / iPhone / Mac. Drag across the screen to find unresponsive or stuttering touch points. Works with touch, mouse and pen. Free online.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://cmnsfixmac.com/en/tester/touchscreen-tester/">
 <link rel="shortcut icon" href="/assets/img/favicon1.png">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <?php $page_head_extra = ob_get_clean();
 
 include_once '../../../includes/header_en.php';
 ?>
 
-  <h1>ทดสอบหน้าจอสัมผัส</h1>
-  <div id="touchCountDisplay">สัมผัส: 0 จุด</div>
+<main class="ts-main">
+  <canvas id="ts-canvas" class="ts-canvas"></canvas>
 
-  <div class="ui">
-    <button onclick="clearCanvas()">ล้างหน้าจอ</button>
-    <button onclick="downloadImage()">บันทึกภาพ</button>
-    <button onclick="toggleGrid()">เปิด/ปิดตาราง</button>
+  <div class="ts-hud">
+    <span class="ts-title">
+      <span class="material-symbols-rounded">touch_app</span> Touchscreen Test
+    </span>
+    <span class="ts-count" id="ts-count">0 points</span>
   </div>
 
-  <canvas id="touchCanvas"></canvas>
-  <div class="footer">แตะหน้าจอเพื่อตรวจสอบการสัมผัสทุกจุด</div>
+  <div class="ts-toolbar">
+    <button class="ts-btn" data-action="clear">
+      <span class="material-symbols-rounded">ink_eraser</span> Clear
+    </button>
+    <button class="ts-btn" data-action="grid">
+      <span class="material-symbols-rounded">grid_on</span> Grid
+    </button>
+    <button class="ts-btn" data-action="save">
+      <span class="material-symbols-rounded">download</span> Save Image
+    </button>
+    <a class="ts-btn" href="/en/tester/">
+      <span class="material-symbols-rounded">arrow_back</span> Back
+    </a>
+  </div>
 
-  <script src="assets/js/script.js"></script>
+  <p class="ts-hint">Drag across the whole screen to find dead or stuttering touch points — works with touch, mouse and pen.</p>
+</main>
+
+<script src="assets/js/script.js?v=2" defer></script>
+<?php include_once '../../../includes/footer_en.php'; ?>
