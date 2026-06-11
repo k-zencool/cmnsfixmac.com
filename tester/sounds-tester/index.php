@@ -1,6 +1,6 @@
 <?php
 $page_title = 'ทดสอบเสียงลำโพง (ซ้าย-ขวา) ออนไลน์ ฟรี | CMNS FixMac';
-$page_css   = ['/tester/sounds-tester/assets/css/style.css'];
+$page_css   = ['/assets/css/tester-style.css?v=5', '/tester/sounds-tester/assets/css/style.css?v=2'];
 
 // ---- สแกนโฟลเดอร์ /tester/sounds-tester/sounds ----
 $soundWebPath  = '/tester/sounds-tester/sounds';               // path ที่ browser จะเข้าถึงได้
@@ -41,49 +41,54 @@ ob_start(); ?>
 <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/tester/sounds-tester/" />
 <link rel="canonical" href="https://cmnsfixmac.com/tester/sounds-tester/" />
 <link rel="shortcut icon" href="/assets/img/favicon1.png" />
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet" />
 <?php $page_head_extra = ob_get_clean();
 
 include_once __DIR__ . '/../../includes/header.php';
 ?>
 
-  <main class="main-container" id="app">
-    <header class="page-head">
-      <h1 class="headline">ทดสอบเสียงลำโพง</h1>
-      <p class="subhead">สลับซ้าย-ขวา ตรวจความถี่ และลองเล่นเพลงจาก <code>/sounds</code> ได้ทันที</p>
-    </header>
+  <main class="snd-main" id="app">
+    <section class="snd-hero">
+      <span class="snd-eyebrow">
+        <span class="material-symbols-rounded">spatial_audio</span> ทดสอบลำโพง
+      </span>
+      <h1>ทดสอบเสียง<span class="snd-accent">ลำโพง</span></h1>
+      <p class="snd-lead">
+        สลับซ้าย-ขวา ตรวจความถี่ด้วยสวีป 20–20kHz / white–pink noise
+        และลองเล่นเพลงจาก <code>/sounds</code> ได้ทันที พร้อมดูคลื่นเสียงและสเปกตรัมแบบเรียลไทม์
+      </p>
+    </section>
 
     <!-- Controls หลัก -->
-    <section class="card" aria-labelledby="intro-h">
+    <section class="snd-card" aria-labelledby="intro-h">
       <h2 id="intro-h">ควบคุมเสียงทดสอบ</h2>
-      <p class="muted">
-        คีย์ลัด: <span class="kbd">L</span> ซ้าย <span class="kbd">R</span> ขวา <span class="kbd">B</span> ทั้งคู่ <span class="kbd">S</span> หยุด
+      <p class="snd-muted">
+        คีย์ลัด: <span class="snd-kbd">L</span> ซ้าย <span class="snd-kbd">R</span> ขวา <span class="snd-kbd">B</span> ทั้งคู่ <span class="snd-kbd">S</span> หยุด
       </p>
-      <div class="controls" role="group">
-        <button class="btn" data-action="left"><span class="material-symbols-outlined">volume_down</span> ซ้าย</button>
-        <button class="btn" data-action="right"><span class="material-symbols-outlined">volume_up</span> ขวา</button>
-        <button class="btn primary" data-action="both"><span class="material-symbols-outlined">spatial_audio</span> ทั้งคู่</button>
-        <button class="btn warn" data-action="sweep"><span class="material-symbols-outlined">timeline</span> สวีป 20–20kHz</button>
-        <button class="btn" data-action="white"><span class="material-symbols-outlined">grain</span> White noise</button>
-        <button class="btn" data-action="pink"><span class="material-symbols-outlined">texture</span> Pink noise</button>
-        <button class="btn danger" data-action="stop"><span class="material-symbols-outlined">stop</span> หยุด</button>
+      <div class="snd-controls" role="group">
+        <button class="snd-btn" data-action="left"><span class="material-symbols-rounded">volume_down</span> ซ้าย</button>
+        <button class="snd-btn" data-action="right"><span class="material-symbols-rounded">volume_up</span> ขวา</button>
+        <button class="snd-btn snd-btn-primary" data-action="both"><span class="material-symbols-rounded">spatial_audio</span> ทั้งคู่</button>
+        <button class="snd-btn snd-btn-warn" data-action="sweep"><span class="material-symbols-rounded">timeline</span> สวีป 20–20kHz</button>
+        <button class="snd-btn" data-action="white"><span class="material-symbols-rounded">grain</span> White noise</button>
+        <button class="snd-btn" data-action="pink"><span class="material-symbols-rounded">texture</span> Pink noise</button>
+        <button class="snd-btn snd-btn-danger" data-action="stop"><span class="material-symbols-rounded">stop</span> หยุด</button>
       </div>
 
-      <div class="kv" style="margin-top:12px">
-        <label for="volume" class="muted">ระดับเสียงทั้งหมด</label>
-        <div class="row">
-          <input type="range" id="volume" min="0" max="1" step="0.01" value="0.9" />
-          <output id="volumeValue">90%</output>
+      <div class="snd-kv" style="margin-top:16px">
+        <label for="volume" class="snd-label">ระดับเสียงทั้งหมด</label>
+        <div class="snd-row">
+          <input type="range" id="volume" class="snd-range" min="0" max="1" step="0.01" value="0.9" />
+          <output id="volumeValue" class="snd-out">90%</output>
         </div>
       </div>
     </section>
 
     <!-- Player: เลือกเพลงจาก /sounds + channel switch ไม่รีสตาร์ท -->
-    <section class="card" aria-labelledby="player-h">
+    <section class="snd-card" aria-labelledby="player-h">
       <h2 id="player-h">เลือกเพลง/ไฟล์เสียง</h2>
-      <div class="kv">
-        <label for="soundSelect" class="muted">โฟลเดอร์ /sounds</label>
-        <select id="soundSelect" class="field">
+      <div class="snd-kv">
+        <label for="soundSelect" class="snd-label">โฟลเดอร์ /sounds</label>
+        <select id="soundSelect" class="snd-select">
           <?php if (empty($files)): ?>
             <option value="">— ไม่มีไฟล์ใน /sounds —</option>
           <?php else: ?>
@@ -95,35 +100,33 @@ include_once __DIR__ . '/../../includes/header.php';
             <?php endforeach; ?>
           <?php endif; ?>
         </select>
-
       </div>
 
-      <div class="kv" style="margin-top:10px">
-        <label for="filePick" class="muted">หรือลากไฟล์จากเครื่อง</label>
-        <input id="filePick" type="file" accept="audio/*" />
+      <div class="snd-kv">
+        <label for="filePick" class="snd-label">หรือเลือกไฟล์จากเครื่อง</label>
+        <input id="filePick" type="file" class="snd-file" accept="audio/*" />
       </div>
 
-
-      <div class="controls" style="margin-top:12px">
-        <button class="btn ok" id="playBtn"><span class="material-symbols-outlined">play_arrow</span> เล่น</button>
-        <button class="btn" id="pauseBtn"><span class="material-symbols-outlined">pause</span> พัก</button>
-        <button class="btn danger" id="stopBtn"><span class="material-symbols-outlined">stop</span> หยุด</button>
+      <div class="snd-controls">
+        <button class="snd-btn snd-btn-ok" id="playBtn"><span class="material-symbols-rounded">play_arrow</span> เล่น</button>
+        <button class="snd-btn" id="pauseBtn"><span class="material-symbols-rounded">pause</span> พัก</button>
+        <button class="snd-btn snd-btn-danger" id="stopBtn"><span class="material-symbols-rounded">stop</span> หยุด</button>
       </div>
 
-      <div class="kv" style="margin-top:12px">
-        <label class="muted">ส่งออกช่อง (ไม่รีสตาร์ทเพลง)</label>
-        <div class="controls">
-          <button class="btn" id="chLeft"><span class="material-symbols-outlined">volume_down</span> ซ้าย</button>
-          <button class="btn" id="chRight"><span class="material-symbols-outlined">volume_up</span> ขวา</button>
-          <button class="btn primary" id="chBoth"><span class="material-symbols-outlined">spatial_audio</span> ทั้งคู่</button>
+      <div class="snd-kv" style="margin-top:16px">
+        <label class="snd-label">ส่งออกช่อง (ไม่รีสตาร์ทเพลง)</label>
+        <div class="snd-controls" style="margin-top:0">
+          <button class="snd-btn" id="chLeft"><span class="material-symbols-rounded">volume_down</span> ซ้าย</button>
+          <button class="snd-btn" id="chRight"><span class="material-symbols-rounded">volume_up</span> ขวา</button>
+          <button class="snd-btn snd-btn-primary" id="chBoth"><span class="material-symbols-rounded">spatial_audio</span> ทั้งคู่</button>
         </div>
       </div>
 
-      <div class="kv" style="margin-top:10px">
-        <label for="seek" class="muted">ตำแหน่ง</label>
-        <div class="row" style="flex:1">
-          <input type="range" id="seek" min="0" max="1000" value="0" />
-          <output id="timeLabel">00:00 / 00:00</output>
+      <div class="snd-kv" style="margin-top:16px">
+        <label for="seek" class="snd-label">ตำแหน่ง</label>
+        <div class="snd-row">
+          <input type="range" id="seek" class="snd-range" min="0" max="1000" value="0" />
+          <output id="timeLabel" class="snd-out">00:00 / 00:00</output>
         </div>
       </div>
 
@@ -132,32 +135,36 @@ include_once __DIR__ . '/../../includes/header.php';
     </section>
 
     <!-- Visualizers -->
-    <section class="grid" aria-label="Visualizers">
-      <div class="card">
+    <section class="snd-viz" aria-label="Visualizers">
+      <div class="snd-card">
         <h2>คลื่นเสียง (Waveform)</h2>
-        <canvas id="waveform" width="900" height="200"></canvas>
+        <canvas id="waveform" class="snd-canvas" width="900" height="200"></canvas>
       </div>
-      <div class="card">
+      <div class="snd-card">
         <h2>สเปกตรัมความถี่</h2>
-        <canvas id="spectrum" width="900" height="200"></canvas>
+        <canvas id="spectrum" class="snd-canvas" width="900" height="200"></canvas>
       </div>
     </section>
 
-    <section class="card">
+    <section class="snd-card">
       <h2>สถานะระบบ</h2>
-      <ul class="list">
+      <ul class="snd-list">
         <li>Sample rate: <strong id="sampleRate">-</strong></li>
         <li>Channel: <strong id="channelState">-</strong></li>
         <li>สถานะ: <strong id="status">ยังไม่ได้เล่นเสียง</strong></li>
       </ul>
     </section>
 
-    <div class="status-bar" role="status" aria-live="polite">
-      <span>คีย์ลัด <span class="kbd">L</span> <span class="kbd">R</span> <span class="kbd">B</span> <span class="kbd">S</span> • หมุนล้อเมาส์ปรับเสียง</span>
-      <button class="btn ok" id="resumeBtn" style="display:none"><span class="material-symbols-outlined">play_arrow</span> Resume Audio</button>
+    <div class="snd-statusbar" role="status" aria-live="polite">
+      <span>คีย์ลัด <span class="snd-kbd">L</span> <span class="snd-kbd">R</span> <span class="snd-kbd">B</span> <span class="snd-kbd">S</span> • หมุนล้อเมาส์ปรับเสียง</span>
+      <button class="snd-btn snd-btn-ok" id="resumeBtn" style="display:none"><span class="material-symbols-rounded">play_arrow</span> Resume Audio</button>
     </div>
 
-    <div class="toast" id="toast"></div>
+    <a class="snd-back" href="/tester/">
+      <span class="material-symbols-rounded">arrow_back</span> หน้ารวมเครื่องมือ
+    </a>
+
+    <div class="snd-toast" id="snd-toast"></div>
   </main>
 
   <?php include_once __DIR__ . '/../../includes/footer.php'; ?>
@@ -169,16 +176,18 @@ include_once __DIR__ . '/../../includes/header.php';
 
       const d = document;
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      const accent = (getComputedStyle(d.documentElement)
+        .getPropertyValue('--accent') || '#fc7404').trim();
 
       // ===== DOM =====
-      const btns = d.querySelectorAll('.btn[data-action]');
+      const btns = d.querySelectorAll('.snd-btn[data-action]');
       const volume = d.getElementById('volume');
       const volumeValue = d.getElementById('volumeValue');
       const statusEl = d.getElementById('status');
       const sampleRateEl = d.getElementById('sampleRate');
       const channelStateEl = d.getElementById('channelState');
       const resumeBtn = d.getElementById('resumeBtn');
-      const toastEl = d.getElementById('toast');
+      const toastEl = d.getElementById('snd-toast');
 
       // player
       const soundSelect = d.getElementById('soundSelect');
@@ -413,7 +422,7 @@ include_once __DIR__ . '/../../includes/header.php';
         // waveform
         wctx.clearRect(0, 0, waveCanvas.width, waveCanvas.height);
         wctx.lineWidth = 2;
-        wctx.strokeStyle = '#007aff';
+        wctx.strokeStyle = accent;
         wctx.beginPath();
         const slice = waveCanvas.width / waveData.length;
         for (let i = 0, x = 0; i < waveData.length; i++, x += slice) {
@@ -425,13 +434,15 @@ include_once __DIR__ . '/../../includes/header.php';
 
         // spectrum
         sctx.clearRect(0, 0, specCanvas.width, specCanvas.height);
+        sctx.fillStyle = accent;
         const barW = specCanvas.width / freqData.length * 2.4;
         for (let i = 0, x = 0; i < freqData.length; i++, x += barW + 1) {
           const v = freqData[i],
             y = (v / 255) * specCanvas.height;
-          sctx.fillStyle = 'rgba(0,122,255,' + (0.25 + v / 255 * 0.75) + ')';
+          sctx.globalAlpha = 0.25 + v / 255 * 0.75;
           sctx.fillRect(x, specCanvas.height - y, barW, y);
         }
+        sctx.globalAlpha = 1;
         requestAnimationFrame(draw);
       }
       requestAnimationFrame(draw);
