@@ -28,15 +28,18 @@ function img_path($raw) {
     return $img;
 }
 
+/* ---------- Filters ---------- */
 $q    = getv('q', '');
 $cat  = getv('cat', '');
 $sort = getv('sort', 'new');
 $page = max(1, (int)getv('page', 1));
-$pp   = 24;
+$pp   = 32;
 $off  = ($page - 1) * $pp;
 
+/* ---------- Categories (for chips) ---------- */
 $categories = $pdo->query("SELECT id, name FROM shop_categories ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
 
+/* ---------- WHERE ---------- */
 $where  = ["sl.status = 'published'", "inv.status != 'SOLD'"];
 $params = [];
 if ($q !== '')   { $where[] = "(sl.title LIKE :q OR inv.name LIKE :q)"; $params[':q'] = "%$q%"; }
@@ -47,15 +50,21 @@ $ORDER = 'ORDER BY sl.created_at DESC, sl.id DESC';
 if ($sort === 'price_asc')  $ORDER = 'ORDER BY sl.price ASC, sl.id DESC';
 if ($sort === 'price_desc') $ORDER = 'ORDER BY sl.price DESC, sl.id DESC';
 
+/* ---------- Items ---------- */
 $sql = "
     SELECT SQL_CALC_FOUND_ROWS
-        sl.id, COALESCE(sl.title, inv.name) AS name, sc.name AS category,
-        sl.price, sl.price_original AS price_old,
+        sl.id,
+        COALESCE(sl.title, inv.name)        AS name,
+        sc.name                             AS category,
+        sl.price,
+        sl.price_original                   AS price_old,
         COALESCE(sl.cover_image, inv.image) AS main_image
     FROM shop_listings sl
     JOIN inventory inv      ON inv.id = sl.inventory_id
     JOIN shop_categories sc ON sc.id = sl.category_id
-    $WHERE $ORDER LIMIT :lim OFFSET :off";
+    $WHERE
+    $ORDER
+    LIMIT :lim OFFSET :off";
 $st = $pdo->prepare($sql);
 foreach ($params as $k => $v) $st->bindValue($k, $v);
 $st->bindValue(':lim', $pp, PDO::PARAM_INT);
@@ -65,6 +74,26 @@ $items = $st->fetchAll(PDO::FETCH_ASSOC);
 $total = (int)$pdo->query("SELECT FOUND_ROWS()")->fetchColumn();
 $pages = max(1, (int)ceil($total / $pp));
 
+/* ---------- Hot deals (top discounts) for featured bento ---------- */
+$dealItems = $pdo->query("
+    SELECT sl.id,
+           COALESCE(sl.title, inv.name)        AS name,
+           sc.name                             AS category,
+           sl.price,
+           sl.price_original                   AS price_old,
+           COALESCE(sl.cover_image, inv.image) AS main_image,
+           ROUND((sl.price_original - sl.price) / sl.price_original * 100) AS pct
+    FROM shop_listings sl
+    JOIN inventory inv      ON inv.id = sl.inventory_id
+    JOIN shop_categories sc ON sc.id = sl.category_id
+    WHERE sl.status = 'published'
+      AND inv.status != 'SOLD'
+      AND sl.price_original > sl.price
+    ORDER BY pct DESC, (sl.price_original - sl.price) DESC
+    LIMIT 5
+")->fetchAll(PDO::FETCH_ASSOC);
+
+/* ---------- Recently sold ---------- */
 $soldItems = $pdo->query("
     SELECT COALESCE(sl.title, inv.name) AS name, sc.name AS category, sl.price,
            COALESCE(sl.cover_image, inv.image) AS main_image
@@ -75,16 +104,18 @@ $soldItems = $pdo->query("
     ORDER BY sl.updated_at DESC LIMIT 4
 ")->fetchAll(PDO::FETCH_ASSOC);
 
+/* ---------- Active filters ---------- */
 $activeFilters = [];
-if ($q !== '')   $activeFilters[] = ['label' => 'Search: "' . $q . '"', 'url' => build_url(['q' => null, 'page' => 1])];
+if ($q !== '')   $activeFilters[] = ['label' => 'Search: "' . $q . '"',        'url' => build_url(['q' => null, 'page' => 1])];
 if ($cat !== '') $activeFilters[] = ['label' => 'Category: ' . cat_label($cat), 'url' => build_url(['cat' => null, 'page' => 1])];
 
-$page_title = 'Shop — Used Mac & iPhone, Graded & Warrantied | CMNS FixMac';
-$meta_desc  = 'CMNS FixMac shop — graded used MacBook, iMac, iPhone, iPad. Carefully inspected, backed by a shop warranty. Pickup in Chiang Mai or nationwide shipping. Ask or order via LINE.';
+$page_title = 'Shop — Graded Used Mac & iPhone with Warranty | CMNS FixMac';
+$meta_desc  = 'CMNS FixMac shop — graded used MacBook, iMac, iPhone, iPad. Carefully inspected and backed by a shop warranty. Pickup in Chiang Mai or nationwide shipping. Ask or order via LINE.';
 $canonical  = 'https://cmnsfixmac.com/en/shop/' . ($cat !== '' ? '?cat=' . urlencode($cat) : '');
-$switch_to_lang_url = '/shop/' . ($_SERVER['QUERY_STRING'] ? '?' . $_SERVER['QUERY_STRING'] : '');
-$page_css = ['/assets/css/shop/shop.css?v=8', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
+$page_css   = ['/assets/css/shop/shop.css?v=18', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
+$switch_to_lang_url = '/shop/' . (!empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '');
 
+/* Build ItemList schema from current page items */
 $itemListEl = [];
 foreach ($items as $i => $row) {
     $itemListEl[] = [
@@ -101,7 +132,7 @@ if ($cat !== '') $breadcrumbEl[] = ['@type' => 'ListItem', 'position' => 3, 'nam
 
 ob_start(); ?>
 <meta name="description" content="<?= h($meta_desc) ?>">
-<meta name="keywords" content="used Mac Chiang Mai, used MacBook, used iPhone, used iPad, used iMac, refurbished Apple Thailand, second hand Mac">
+<meta name="keywords" content="used Mac shop Chiang Mai, used MacBook, used iPhone, used iPad, used iMac, graded used Mac, second-hand Apple store">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="<?= h($canonical) ?>">
 <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/shop/">
@@ -122,7 +153,9 @@ ob_start(); ?>
     '@graph'   => [
         ['@type' => 'BreadcrumbList', 'itemListElement' => $breadcrumbEl],
         ['@type' => 'CollectionPage',
-         'name'  => $page_title, 'description' => $meta_desc, 'url' => $canonical,
+         'name'  => $page_title,
+         'description' => $meta_desc,
+         'url'   => $canonical,
          'mainEntity' => ['@type' => 'ItemList', 'numberOfItems' => $total, 'itemListElement' => $itemListEl],
         ],
     ],
@@ -135,86 +168,98 @@ include_once __DIR__ . '/../../includes/header_en.php';
 
 <main>
 
-<!-- ═══════════ HERO ═══════════ -->
+<!-- ═══════════ HERO (split) ═══════════ -->
 <section class="shop-hero">
-  <div class="shop-hero-dots" aria-hidden="true"></div>
   <div class="shop-hero-orb shop-orb-1" aria-hidden="true"></div>
   <div class="shop-hero-orb shop-orb-2" aria-hidden="true"></div>
-  <div class="shop-bento">
 
-    <!-- Headline + search -->
-    <div class="bento-tile bento-head" data-aos="fade-up">
-      <span class="sv-eyebrow"><span class="material-symbols-rounded">storefront</span> CMNS Mac · Shop</span>
-      <h1>Graded used Mac &amp; iPhone,<br>with warranty</h1>
-      <p>Every device is carefully inspected before listing. Ask or order via LINE.</p>
-      <form class="shop-search" method="get" action="/en/shop/">
+  <div class="shop-hero-wrap">
+
+    <!-- Left: copy + search -->
+    <div class="shop-hero-left" data-aos="fade-up">
+      <span class="shop-hero-eyebrow"><span class="material-symbols-rounded">storefront</span> CMNS Mac · Shop</span>
+      <h1 class="shop-hero-title">Graded Used Mac &amp; iPhone<br>Inspected &amp; Warrantied</h1>
+      <p class="shop-hero-lead">Every device is carefully inspected before listing. Ask or order via LINE.</p>
+
+      <form class="shop-hero-search" method="get" action="/en/shop/">
+        <span class="material-symbols-rounded">search</span>
         <input type="text" name="q" value="<?= h($q) ?>" placeholder="Search a model, e.g. MacBook Air M2, iPhone 13…" aria-label="Search products">
         <?php if ($cat !== ''): ?><input type="hidden" name="cat" value="<?= h($cat) ?>"><?php endif; ?>
-        <button type="submit" aria-label="Search"><span class="material-symbols-rounded">search</span></button>
+        <button type="submit">Search</button>
       </form>
+
+      <div class="shop-hero-trust">
+        <span class="hero-pill"><span class="material-symbols-rounded">verified_user</span> Shop warranty</span>
+        <span class="hero-pill"><span class="material-symbols-rounded">fact_check</span> 30+ point check</span>
+        <span class="hero-pill"><span class="material-symbols-rounded">local_shipping</span> Nationwide shipping</span>
+      </div>
+
+      <div class="shop-hero-quick">
+        <span class="hero-quick-label">Shop by category</span>
+        <div class="hero-quick-row">
+          <a href="/en/shop/?cat=MacBook#shop-products"><span class="material-symbols-rounded">laptop_mac</span> MacBook</a>
+          <a href="/en/shop/?cat=iPhone#shop-products"><span class="material-symbols-rounded">smartphone</span> iPhone</a>
+          <a href="/en/shop/?cat=iPad#shop-products"><span class="material-symbols-rounded">tablet_mac</span> iPad</a>
+          <a href="/en/shop/?cat=<?= urlencode('iMac / Mac mini') ?>#shop-products"><span class="material-symbols-rounded">desktop_mac</span> iMac</a>
+        </div>
+      </div>
     </div>
 
-    <!-- Device showcase -->
-    <div class="bento-tile bento-show" data-aos="fade-up" data-aos-delay="80">
+    <!-- Right: device showcase -->
+    <div class="shop-hero-right" data-aos="fade-up" data-aos-delay="100">
       <div class="shop-hero-stage">
         <div class="shop-glow" aria-hidden="true"></div>
-        <div class="shop-hero-grid" aria-hidden="true"></div>
         <img class="shop-dev shop-dev-mac"    src="/assets/img/shop/dev-macbook.png" alt="" aria-hidden="true" loading="lazy" decoding="async">
         <img class="shop-dev shop-dev-ipad"   src="/assets/img/shop/dev-ipad.png"    alt="" aria-hidden="true" loading="lazy" decoding="async">
         <img class="shop-dev shop-dev-iphone" src="/assets/img/shop/dev-iphone.png"  alt="" aria-hidden="true" loading="lazy" decoding="async">
       </div>
     </div>
 
-    <!-- Sold counter -->
-    <div class="bento-tile bento-sold" data-aos="fade-up" data-aos-delay="120">
-      <span class="material-symbols-rounded">sell</span>
-      <span class="bento-num counter" data-count="1857">0</span>
-      <span class="bento-label2">devices sold</span>
-    </div>
-
-    <!-- Categories -->
-    <div class="bento-tile bento-cats" data-aos="fade-up" data-aos-delay="160">
-      <span class="bento-clabel">Shop by category</span>
-      <div class="bento-cat-row">
-        <a class="bento-cat" href="/en/shop/?cat=MacBook#shop-products"><span class="material-symbols-rounded">laptop_mac</span> MacBook</a>
-        <a class="bento-cat" href="/en/shop/?cat=iPhone#shop-products"><span class="material-symbols-rounded">smartphone</span> iPhone</a>
-        <a class="bento-cat" href="/en/shop/?cat=iPad#shop-products"><span class="material-symbols-rounded">tablet_mac</span> iPad</a>
-        <a class="bento-cat" href="/en/shop/?cat=<?= urlencode('iMac / Mac mini') ?>#shop-products"><span class="material-symbols-rounded">desktop_mac</span> iMac</a>
-      </div>
-    </div>
-
-    <!-- Shipping -->
-    <div class="bento-tile bento-ship" data-aos="fade-up" data-aos-delay="200">
-      <span class="material-symbols-rounded">local_shipping</span>
-      <strong>Nationwide</strong>
-      <span>Pickup in Chiang Mai / ship via Kerry-Grab</span>
-    </div>
-
   </div>
 </section>
 
 <!-- ═══════════ TOOLBAR ═══════════ -->
-<div class="shop-toolbar">
+<div class="shop-toolbar<?= $q !== '' ? ' is-searching' : '' ?>" id="shopToolbar">
   <div class="shop-toolbar-inner">
+
+    <!-- Search toggle (collapsed icon) -->
+    <button type="button" class="shop-search-toggle" id="shopSearchToggle" aria-label="Search products" aria-expanded="<?= $q !== '' ? 'true' : 'false' ?>">
+      <span class="material-symbols-rounded">search</span>
+      <?php if ($q !== ''): ?><span class="shop-search-dot" aria-hidden="true"></span><?php endif; ?>
+    </button>
+
+    <!-- Category chips (text-only, Apple-clean) -->
     <div class="shop-chips" role="tablist" aria-label="Categories">
-      <a href="<?= h(build_url(['cat' => null, 'page' => 1])) ?>#shop-products" class="shop-chip<?= $cat === '' ? ' active' : '' ?>">
-        <span class="material-symbols-rounded">apps</span> All
-      </a>
+      <a href="<?= h(build_url(['cat' => null, 'page' => 1])) ?>#shop-products" class="shop-chip<?= $cat === '' ? ' active' : '' ?>">All</a>
       <?php foreach ($categories as $c): ?>
       <a href="<?= h(build_url(['cat' => $c['name'], 'page' => 1])) ?>#shop-products"
-         class="shop-chip<?= $cat === $c['name'] ? ' active' : '' ?>">
-        <span class="material-symbols-rounded"><?= cat_icon($c['name']) ?></span> <?= h(cat_label($c['name'])) ?>
-      </a>
+         class="shop-chip<?= $cat === $c['name'] ? ' active' : '' ?>"><?= h(cat_label($c['name'])) ?></a>
       <?php endforeach; ?>
     </div>
+
+    <!-- Sort -->
     <div class="shop-sort">
-      <label for="shop-sort-sel">Sort:</label>
-      <select id="shop-sort-sel" onchange="location.href=this.value">
+      <select id="shop-sort-sel" aria-label="Sort" onchange="location.href=this.value">
         <option value="<?= h(build_url(['sort' => null, 'page' => 1])) ?>#shop-products"      <?= $sort === 'new' ? 'selected' : '' ?>>Newest</option>
         <option value="<?= h(build_url(['sort' => 'price_asc', 'page' => 1])) ?>#shop-products"  <?= $sort === 'price_asc' ? 'selected' : '' ?>>Price: low → high</option>
         <option value="<?= h(build_url(['sort' => 'price_desc', 'page' => 1])) ?>#shop-products" <?= $sort === 'price_desc' ? 'selected' : '' ?>>Price: high → low</option>
       </select>
     </div>
+
+    <!-- Expanding search bar (overlays the row when open) -->
+    <form class="shop-search-bar" method="get" action="/en/shop/" role="search">
+      <span class="material-symbols-rounded shop-sb-icon">search</span>
+      <input type="text" name="q" id="shopSearchInput"
+             value="<?= h($q) ?>"
+             placeholder="Search a model, e.g. MacBook Air M2, iPhone 15…"
+             aria-label="Search products" autocomplete="off">
+      <?php if ($cat !== ''): ?><input type="hidden" name="cat" value="<?= h($cat) ?>"><?php endif; ?>
+      <?php if ($sort !== 'new'): ?><input type="hidden" name="sort" value="<?= h($sort) ?>"><?php endif; ?>
+      <button type="button" class="shop-sb-close" id="shopSearchClose" aria-label="Close search">
+        <span class="material-symbols-rounded">close</span>
+      </button>
+    </form>
+
   </div>
 </div>
 
@@ -280,11 +325,14 @@ include_once __DIR__ . '/../../includes/header_en.php';
     </ul>
 
     <?php if ($pages > 1): ?>
-    <nav class="shop-pager" aria-label="Pagination">
+    <nav class="shop-pager" aria-label="Pages">
       <a class="<?= $page <= 1 ? 'disabled' : '' ?>" href="<?= h(build_url(['page' => $page - 1])) ?>#shop-products"><span class="material-symbols-rounded">chevron_left</span></a>
       <?php for ($i = 1; $i <= $pages; $i++): ?>
-        <?php if ($i == $page): ?><span class="current"><?= $i ?></span>
-        <?php else: ?><a href="<?= h(build_url(['page' => $i])) ?>#shop-products"><?= $i ?></a><?php endif; ?>
+        <?php if ($i == $page): ?>
+          <span class="current"><?= $i ?></span>
+        <?php else: ?>
+          <a href="<?= h(build_url(['page' => $i])) ?>#shop-products"><?= $i ?></a>
+        <?php endif; ?>
       <?php endfor; ?>
       <a class="<?= $page >= $pages ? 'disabled' : '' ?>" href="<?= h(build_url(['page' => $page + 1])) ?>#shop-products"><span class="material-symbols-rounded">chevron_right</span></a>
     </nav>
@@ -294,14 +342,71 @@ include_once __DIR__ . '/../../includes/header_en.php';
   </div>
 </section>
 
+<!-- ═══════════ HOT DEALS (asymmetric bento) ═══════════ -->
+<?php if (count($dealItems) >= 5):
+  $feat = $dealItems[0];
+  $rest = array_slice($dealItems, 1, 4);
+?>
+<section class="sv-section shop-deals">
+  <div class="sv-container">
+    <div class="sv-section-head" data-aos="fade-up">
+      <span class="section-label">Hot deals</span>
+      <h2>Big discounts, hand-picked</h2>
+      <p class="sv-desc">Great gear at special prices — limited stock, grab it before it's gone.</p>
+    </div>
+
+    <div class="shop-deals-bento">
+
+      <!-- Feature deal (2×2) -->
+      <?php $u = '/en/shop/product-detail.php?id=' . (int)$feat['id']; $im = img_path($feat['main_image']); ?>
+      <a class="deal-card deal-feature" href="<?= h($u) ?>" data-aos="fade-up">
+        <span class="deal-badge">-<?= (int)$feat['pct'] ?>%</span>
+        <div class="deal-media">
+          <?php if ($im !== ''): ?><img src="<?= h($im) ?>" alt="<?= h($feat['name']) ?>" loading="lazy" decoding="async"><?php else: ?><div class="shop-card-noimg"><span class="material-symbols-rounded">image</span></div><?php endif; ?>
+        </div>
+        <div class="deal-info">
+          <span class="deal-cat"><?= h(cat_label($feat['category'])) ?></span>
+          <h3 class="deal-title"><?= h($feat['name']) ?></h3>
+          <div class="deal-price-row">
+            <span class="deal-price">฿<?= number_format((float)$feat['price']) ?></span>
+            <span class="deal-old">฿<?= number_format((float)$feat['price_old']) ?></span>
+          </div>
+          <span class="deal-cta">View deal <span class="material-symbols-rounded">arrow_forward</span></span>
+        </div>
+      </a>
+
+      <!-- Small deals (1×1) -->
+      <?php foreach ($rest as $i => $row):
+        $u = '/en/shop/product-detail.php?id=' . (int)$row['id']; $im = img_path($row['main_image']); ?>
+      <a class="deal-card deal-mini" href="<?= h($u) ?>" data-aos="fade-up" data-aos-delay="<?= ($i + 1) * 60 ?>">
+        <span class="deal-badge deal-badge-sm">-<?= (int)$row['pct'] ?>%</span>
+        <div class="deal-mini-media">
+          <?php if ($im !== ''): ?><img src="<?= h($im) ?>" alt="<?= h($row['name']) ?>" loading="lazy" decoding="async"><?php else: ?><div class="shop-card-noimg"><span class="material-symbols-rounded">image</span></div><?php endif; ?>
+        </div>
+        <div class="deal-mini-info">
+          <span class="deal-cat"><?= h(cat_label($row['category'])) ?></span>
+          <h4 class="deal-mini-title"><?= h($row['name']) ?></h4>
+          <div class="deal-price-row">
+            <span class="deal-price-sm">฿<?= number_format((float)$row['price']) ?></span>
+            <span class="deal-old-sm">฿<?= number_format((float)$row['price_old']) ?></span>
+          </div>
+        </div>
+      </a>
+      <?php endforeach; ?>
+
+    </div>
+  </div>
+</section>
+<?php endif; ?>
+
 <!-- ═══════════ RECENTLY SOLD ═══════════ -->
 <?php if ($soldItems): ?>
 <section class="sv-section shop-sold">
   <div class="sv-container">
     <div class="sv-section-head">
       <span class="section-label">Sold</span>
-      <h2>Recently sold devices</h2>
-      <p class="sv-desc">Stock moves fast — see a model you like? Message us to reserve it first.</p>
+      <h2>Recently sold examples</h2>
+      <p class="sv-desc">Stock moves fast — if you like a model, message us to reserve it.</p>
     </div>
     <ul class="shop-grid">
       <?php foreach ($soldItems as $row): $img = img_path($row['main_image']); ?>
@@ -327,15 +432,15 @@ include_once __DIR__ . '/../../includes/header_en.php';
   <div class="sv-container">
     <div class="sv-section-head" data-aos="fade-up">
       <span class="section-label">Why buy from us</span>
-      <h2>Buying used with CMNS Mac feels safer</h2>
-      <p class="sv-desc">Every device passes through our technicians and is thoroughly checked before handover.</p>
+      <h2>Buying used with CMNS Mac is safer</h2>
+      <p class="sv-desc">Every device passes through expert technicians and is thoroughly checked before handover.</p>
     </div>
     <div class="shop-why-grid">
       <?php foreach ([
-          ['fact_check', '30+ point inspection', 'Every function checked by a technician, flaws disclosed honestly.'],
-          ['verified',   'Shop warranty',        'After-sales warranty — easy claims if anything goes wrong.'],
-          ['swap_horiz', 'Trade-in & buyback',   'Trade your old device for a discount, or sell it back to us.'],
-          ['bolt',       'Fast replies',         'Message us on LINE — quick quotes and easy pickup.'],
+          ['fact_check',   '30+ point inspection', 'Every function is checked by a technician before listing; any flaws disclosed honestly.'],
+          ['verified',     'Shop warranty',        'After-sales warranty — if anything goes wrong, you can claim. We\'ve got you.'],
+          ['swap_horiz',   'Trade-in & buyback',   'Trade your old device for a discount, or sell it back to us.'],
+          ['bolt',         'Fast replies',         'Message us on LINE — photos and deal summary sorted fast, easy pickup.'],
       ] as $i => [$icon, $title, $desc]): ?>
       <div class="shop-why-card" data-aos="fade-up" data-aos-delay="<?= ($i % 4) * 80 ?>">
         <div class="shop-why-ico"><span class="material-symbols-rounded"><?= $icon ?></span></div>
@@ -348,18 +453,22 @@ include_once __DIR__ . '/../../includes/header_en.php';
 </section>
 
 <!-- ═══════════ CTA ═══════════ -->
-<section class="sv-cta">
+<section class="shop-cta">
   <div class="sv-container">
-    <div class="sv-cta-inner" data-aos="fade-up">
-      <span class="material-symbols-rounded sv-cta-icon">storefront</span>
-      <h2>Can't find the right model?</h2>
-      <p>Tell us the model and budget you want and we'll source a graded unit for you<br>— or sell us your device, we buy too.</p>
-      <div class="sv-cta-btns">
+    <div class="shop-cta-inner" data-aos="fade-up">
+      <span class="shop-cta-eyebrow">Need help?</span>
+      <h2 class="shop-cta-heading">Can't find the right model?</h2>
+      <p class="shop-cta-sub">Tell us the model, specs and budget — we'll find it. Got a device to sell? We buy too.</p>
+      <div class="shop-cta-btns">
         <a href="https://line.me/R/ti/p/@cmns" target="_blank" rel="noopener" class="btn btn-line">
           <img src="/assets/img/line-icon.png" alt="LINE" width="18" height="18"> Chat with us on LINE
         </a>
-        <a href="tel:0841511684" class="btn btn-accent"><span class="material-symbols-rounded">call</span> 084-151-1684</a>
-        <a href="/en/buyback/" class="btn btn-ghost"><span class="material-symbols-rounded">sell</span> Sell us your device</a>
+        <a href="tel:0841511684" class="btn btn-cta-phone">
+          <span class="material-symbols-rounded">call</span> 084-151-1684
+        </a>
+        <a href="/en/buyback/" class="btn btn-cta-ghost">
+          <span class="material-symbols-rounded">sell</span> Sell your device
+        </a>
       </div>
     </div>
   </div>
@@ -387,6 +496,72 @@ document.querySelectorAll('.counter').forEach(function (el) {
   }, { threshold: 0.4 });
   io.observe(el);
 });
+
+/* ── Hero device showcase: subtle mouse parallax ── */
+(function () {
+  var stage = document.querySelector('.shop-hero-stage');
+  if (!stage) return;
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  if (window.matchMedia('(hover: none)').matches) return;   /* skip touch */
+
+  var hero = stage.closest('.shop-hero');
+  var raf = null, tx = 0, ty = 0;
+
+  function onMove(e) {
+    var r = hero.getBoundingClientRect();
+    var cx = (e.clientX - r.left) / r.width  - 0.5;   /* -0.5 … 0.5 */
+    var cy = (e.clientY - r.top)  / r.height - 0.5;
+    tx = cx * 22;   /* max px shift */
+    ty = cy * 16;
+    if (!raf) raf = requestAnimationFrame(apply);
+  }
+  function apply() {
+    raf = null;
+    stage.style.setProperty('--px', tx.toFixed(1) + 'px');
+    stage.style.setProperty('--py', ty.toFixed(1) + 'px');
+  }
+  function reset() {
+    stage.style.setProperty('--px', '0px');
+    stage.style.setProperty('--py', '0px');
+  }
+  hero.addEventListener('mousemove', onMove);
+  hero.addEventListener('mouseleave', reset);
+})();
+
+/* ── Toolbar: expanding search + sticky shadow ── */
+(function () {
+  var toolbar = document.getElementById('shopToolbar');
+  if (!toolbar) return;
+  var toggle  = document.getElementById('shopSearchToggle');
+  var closeBt = document.getElementById('shopSearchClose');
+  var input   = document.getElementById('shopSearchInput');
+
+  function openSearch() {
+    toolbar.classList.add('is-searching');
+    toggle.setAttribute('aria-expanded', 'true');
+    setTimeout(function () { input.focus(); input.select(); }, 60);
+  }
+  function closeSearch() {
+    /* keep open if there is an active server-side query so it isn't lost */
+    toolbar.classList.remove('is-searching');
+    toggle.setAttribute('aria-expanded', 'false');
+  }
+
+  toggle.addEventListener('click', function () {
+    toolbar.classList.contains('is-searching') ? closeSearch() : openSearch();
+  });
+  closeBt.addEventListener('click', closeSearch);
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && toolbar.classList.contains('is-searching')) closeSearch();
+  });
+
+  /* sticky elevation when toolbar reaches its stuck position */
+  var sentinel = document.createElement('div');
+  toolbar.parentNode.insertBefore(sentinel, toolbar);
+  new IntersectionObserver(function (entries) {
+    toolbar.classList.toggle('is-stuck', !entries[0].isIntersecting);
+  }, { rootMargin: '-' + (toolbar.offsetTop) + 'px 0px 0px 0px', threshold: 0 }).observe(sentinel);
+})();
 </script>
 </body>
 </html>

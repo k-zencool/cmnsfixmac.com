@@ -116,7 +116,7 @@ $line_msg = "Interested in: {$product['title']} (THB " . number_format($price) .
 $line_url = 'https://line.me/R/oaMessage/' . LINE_ID . '/?' . rawurlencode($line_msg);
 
 $page_title = h($product['title']) . ' | CMNS FixMac Shop';
-$page_css   = ['/assets/css/shop/shop.css?v=8', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
+$page_css   = ['/assets/css/shop/shop.css?v=18', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
 
 ob_start(); ?>
 <meta name="description" content="<?= h($meta_desc) ?>">
