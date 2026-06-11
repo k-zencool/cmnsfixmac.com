@@ -106,10 +106,10 @@ $jobs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 /* ── Stats ── */
 $stats = $pdo->query("
     SELECT
-        SUM(status IN ('QS','WC','OK','RW'))                                                    AS active_count,
-        SUM(status = 'FN')                                                                       AS done_count,
-        SUM(status NOT IN ('DV','RT','NCF','NCS') AND appointment_date IS NOT NULL AND appointment_date < CURDATE()) AS overdue_count,
-        SUM(MONTH(created_at) = MONTH(NOW()) AND YEAR(created_at) = YEAR(NOW()))                AS this_month
+        COALESCE(SUM(status IN ('QS','WC','OK','RW')), 0)                                        AS active_count,
+        COALESCE(SUM(status = 'FN'), 0)                                                          AS done_count,
+        COALESCE(SUM(status NOT IN ('DV','RT','NCF','NCS') AND appointment_date IS NOT NULL AND appointment_date < CURDATE()), 0) AS overdue_count,
+        COALESCE(SUM(MONTH(created_at) = MONTH(NOW()) AND YEAR(created_at) = YEAR(NOW())), 0)    AS this_month
     FROM tracking
 ")->fetch(PDO::FETCH_ASSOC);
 

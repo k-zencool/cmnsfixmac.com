@@ -275,7 +275,7 @@ $stmt_count->execute($params);
 $total_items = $stmt_count->fetchColumn();
 $total_pages = ceil($total_items / $per_page);
 
-$sql = "SELECT i.*, SUM(l.qty_remaining) as total_qty, 
+$sql = "SELECT i.*, COALESCE(SUM(l.qty_remaining), 0) as total_qty,
         MIN(CASE WHEN l.qty_remaining > 0 THEN l.warranty_end END) as nearest_warranty 
         FROM inventory i 
         LEFT JOIN inventory_lots l ON i.id = l.inventory_id 

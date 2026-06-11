@@ -172,10 +172,10 @@ $tab = in_array($_GET['tab'] ?? '', ['available']) ? 'available' : 'listings';
 // ── Stats (always load — lightweight) ────────────────────────
 $stats = $pdo->query("
     SELECT COUNT(*) total,
-           SUM(status='published') published,
-           SUM(status='reserved')  reserved,
-           SUM(status='sold')      sold,
-           SUM(status='draft')     draft
+           COALESCE(SUM(status='published'), 0) published,
+           COALESCE(SUM(status='reserved'), 0)  reserved,
+           COALESCE(SUM(status='sold'), 0)      sold,
+           COALESCE(SUM(status='draft'), 0)     draft
     FROM shop_listings
 ")->fetch(PDO::FETCH_ASSOC);
 

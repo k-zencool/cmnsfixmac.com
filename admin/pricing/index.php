@@ -37,9 +37,9 @@ $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
 // Stats
 $stats = $pdo->query("SELECT
     COUNT(*) AS total,
-    SUM(show_on_web = 1) AS on_web,
-    SUM(is_active = 0) AS inactive,
-    SUM(updated_at < DATE_SUB(NOW(), INTERVAL 90 DAY)) AS outdated
+    COALESCE(SUM(show_on_web = 1), 0) AS on_web,
+    COALESCE(SUM(is_active = 0), 0) AS inactive,
+    COALESCE(SUM(updated_at < DATE_SUB(NOW(), INTERVAL 90 DAY)), 0) AS outdated
     FROM service_pricing")->fetch(PDO::FETCH_ASSOC);
 
 // Tab counts

@@ -51,12 +51,12 @@ $repairs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $stats = $pdo->query("
     SELECT
         COUNT(*) AS total_posts,
-        SUM(tracking_id IS NOT NULL) AS linked_jobs,
-        SUM(MONTH(created_at) = MONTH(NOW()) AND YEAR(created_at) = YEAR(NOW())) AS this_month,
-        SUM(slug IS NOT NULL AND slug != '') AS has_slug,
-        SUM(status = 'published') AS cnt_published,
-        SUM(status = 'draft')     AS cnt_draft,
-        SUM(status = 'hidden')    AS cnt_hidden
+        COALESCE(SUM(tracking_id IS NOT NULL), 0) AS linked_jobs,
+        COALESCE(SUM(MONTH(created_at) = MONTH(NOW()) AND YEAR(created_at) = YEAR(NOW())), 0) AS this_month,
+        COALESCE(SUM(slug IS NOT NULL AND slug != ''), 0) AS has_slug,
+        COALESCE(SUM(status = 'published'), 0) AS cnt_published,
+        COALESCE(SUM(status = 'draft'), 0)     AS cnt_draft,
+        COALESCE(SUM(status = 'hidden'), 0)    AS cnt_hidden
     FROM repairs
 ")->fetch(PDO::FETCH_ASSOC);
 

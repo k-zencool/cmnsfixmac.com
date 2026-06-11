@@ -132,9 +132,9 @@ $orderBy = $ORDER_MAP[$sort] ?? $ORDER_MAP['created_desc'];
 $stats = $pdo->query("
   SELECT
     COUNT(*) AS total,
-    SUM(status = 1) AS published,
-    SUM(MONTH(created_at) = MONTH(NOW()) AND YEAR(created_at) = YEAR(NOW())) AS this_month,
-    SUM(slug IS NOT NULL AND slug != '') AS has_slug
+    COALESCE(SUM(status = 1), 0) AS published,
+    COALESCE(SUM(MONTH(created_at) = MONTH(NOW()) AND YEAR(created_at) = YEAR(NOW())), 0) AS this_month,
+    COALESCE(SUM(slug IS NOT NULL AND slug != ''), 0) AS has_slug
   FROM articles
 ")->fetch(PDO::FETCH_ASSOC);
 
