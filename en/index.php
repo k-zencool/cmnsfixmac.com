@@ -43,7 +43,6 @@ include_once '../includes/header_en.php';
        HERO
   ════════════════════════════════════════════════ -->
   <section class="hero">
-    <canvas id="heroCanvas" class="hero-canvas" aria-hidden="true"></canvas>
     <div class="hero-orb hero-orb-1" aria-hidden="true"></div>
     <div class="hero-orb hero-orb-2" aria-hidden="true"></div>
 
@@ -720,7 +719,6 @@ include_once '../includes/header_en.php';
   <div class="grain-overlay" aria-hidden="true"></div>
 
   <?php include_once '../includes/floating-buttons.php'; ?>
-  <script src="/assets/js/hero-particles.js"></script>
 
   <script>
   (function () {
