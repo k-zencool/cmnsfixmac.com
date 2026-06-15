@@ -3,12 +3,15 @@ include 'includes/db.php';
 
 $page_title = 'ซ่อม MacBook เชียงใหม่ | ร้านซ่อม Apple โดยช่างผู้เชี่ยวชาญ - CMNS FixMac';
 $page_css   = [
-    '/assets/css/style.css?v=27',
-    '/assets/css/floating-buttons.css?v=2',
+    '/assets/css/style.css?v=28',
     'https://unpkg.com/aos@2.3.4/dist/aos.css',
-    'https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css',
 ];
 $page_head_extra = <<<'HTML'
+<link rel="preload" as="image" href="/assets/img/macbook.webp" type="image/webp" fetchpriority="high">
+<link rel="stylesheet" href="/assets/css/floating-buttons.css?v=2" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="/assets/css/floating-buttons.css?v=2"></noscript>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css"></noscript>
 <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/" />
 <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/" />
 <link rel="alternate" hreflang="x-default" href="https://cmnsfixmac.com/en/" />
@@ -80,7 +83,11 @@ include_once 'includes/header.php';
       <!-- Device visual -->
       <div class="hero-visual" data-aos="fade-left" data-aos-duration="800" data-aos-delay="150">
         <div class="hero-device-wrap">
-          <img src="/assets/img/macbook.png" class="hero-device" alt="ซ่อม MacBook เชียงใหม่ CMNS FixMac">
+          <picture style="display:contents">
+            <source srcset="/assets/img/macbook.webp" type="image/webp">
+            <img src="/assets/img/macbook.png" class="hero-device" alt="ซ่อม MacBook เชียงใหม่ CMNS FixMac"
+                 width="800" height="800" fetchpriority="high" decoding="async">
+          </picture>
 
           <!-- Repair job card -->
           <div class="hero-badge-float hero-job-card hero-badge-1">

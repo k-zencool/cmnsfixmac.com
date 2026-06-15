@@ -233,6 +233,8 @@ h2 {
 .hero-device {
   width: 100%;
   max-width: 500px;
+  height: auto;            /* override the height="800" attribute hint — keeps
+                              aspect-ratio (1:1) for CLS without stretching */
   margin: 0 auto;
   filter: drop-shadow(0 32px 64px rgba(0,0,0,0.25));
   animation: heroFloat 5s ease-in-out infinite;

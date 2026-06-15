@@ -8,10 +8,13 @@
   <title><?= isset($page_title) ? htmlspecialchars($page_title) : 'CMNS Fix Mac — ซ่อม Mac & iPhone เชียงใหม่' ?></title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="preconnect" href="https://unpkg.com">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
   <script src="/assets/js/theme.js"></script>
   <link rel="stylesheet" href="/assets/css/design-tokens.css?v=1">
   <link rel="stylesheet" href="/assets/css/navbar-style.css?v=10">
-  <link rel="stylesheet" href="/assets/css/footer-style.css?v=2">
+  <link rel="stylesheet" href="/assets/css/footer-style.css?v=2" media="print" onload="this.media='all'">
+  <noscript><link rel="stylesheet" href="/assets/css/footer-style.css?v=2"></noscript>
   <link rel="stylesheet" href="/assets/css/micro.css?v=2">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded&display=block" rel="stylesheet">
   <?php foreach ($page_css ?? [] as $css): ?>
