@@ -3,7 +3,7 @@ include 'includes/db.php';
 
 $page_title = 'ซ่อม MacBook เชียงใหม่ | ร้านซ่อม Apple โดยช่างผู้เชี่ยวชาญ - CMNS FixMac';
 $page_css   = [
-    '/assets/css/style.css?v=28',
+    '/assets/css/style.css?v=29',
     'https://unpkg.com/aos@2.3.4/dist/aos.css',
 ];
 $page_head_extra = <<<'HTML'

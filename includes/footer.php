@@ -1,3 +1,5 @@
+</main>
+
 <footer class="footer">
   <div class="footer-inner">
 
@@ -12,7 +14,7 @@
 
     <!-- Col 2: Menu -->
     <div class="footer-col">
-      <h4 class="footer-col-title">เมนู</h4>
+      <div class="footer-col-title">เมนู</div>
       <ul class="footer-links">
         <li><a href="/">หน้าแรก</a></li>
         <li><a href="/works/">ผลงานซ่อม</a></li>
@@ -25,7 +27,7 @@
 
     <!-- Col 3: Contact -->
     <div class="footer-col">
-      <h4 class="footer-col-title">ติดต่อเรา</h4>
+      <div class="footer-col-title">ติดต่อเรา</div>
       <ul class="footer-links">
         <li>
           <a href="https://line.me/R/ti/p/@cmns" target="_blank" rel="noopener">
@@ -53,7 +55,7 @@
 
     <!-- Col 4: Social + QR -->
     <div class="footer-col footer-col-social">
-      <h4 class="footer-col-title">ติดตามเรา</h4>
+      <div class="footer-col-title">ติดตามเรา</div>
       <div class="footer-socials">
         <a href="https://www.facebook.com/CmnsShop" target="_blank" rel="noopener" class="social-pill">
           <img src="/assets/img/facebook.svg" alt="Facebook"> Facebook

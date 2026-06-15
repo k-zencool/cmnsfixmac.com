@@ -4,7 +4,7 @@ include '../includes/db.php';
 $page_title        = 'MacBook Repair Chiang Mai | Apple Specialist — CMNS FixMac';
 $switch_to_lang_url = '/';
 $page_css = [
-  '/assets/css/style.css?v=28',
+  '/assets/css/style.css?v=29',
   'https://unpkg.com/aos@2.3.4/dist/aos.css',
 ];
 $page_head_extra = <<<'HTML'

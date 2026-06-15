@@ -55,7 +55,7 @@
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);  /* a11y: darker for contrast on the light footer */
 }
 
 .footer-links {
@@ -125,7 +125,7 @@
 }
 .footer-qr-wrap span {
   font-size: 11px;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);  /* a11y: darker for contrast on the light footer */
   letter-spacing: 0.02em;
 }
 
@@ -143,7 +143,7 @@
 .footer-bottom p {
   margin: 0;
   font-size: 13px;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);  /* a11y: darker for contrast on the light footer */
 }
 .footer-credit a {
   color: var(--accent);
