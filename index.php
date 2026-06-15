@@ -3,7 +3,7 @@ include 'includes/db.php';
 
 $page_title = 'ซ่อม MacBook เชียงใหม่ | ร้านซ่อม Apple โดยช่างผู้เชี่ยวชาญ - CMNS FixMac';
 $page_css   = [
-    '/assets/css/style.css?v=24',
+    '/assets/css/style.css?v=27',
     '/assets/css/floating-buttons.css?v=2',
     'https://unpkg.com/aos@2.3.4/dist/aos.css',
     'https://cdn.jsdelivr.net/npm/swiper@10/swiper-bundle.min.css',
@@ -40,7 +40,6 @@ include_once 'includes/header.php';
        HERO
   ════════════════════════════════════════════════ -->
   <section class="hero">
-    <canvas id="heroCanvas" class="hero-canvas" aria-hidden="true"></canvas>
     <div class="hero-orb hero-orb-1" aria-hidden="true"></div>
     <div class="hero-orb hero-orb-2" aria-hidden="true"></div>
 
@@ -731,7 +730,6 @@ include_once 'includes/header.php';
   <div class="grain-overlay" aria-hidden="true"></div>
 
   <?php include_once 'includes/floating-buttons.php'; ?>
-  <script src="/assets/js/hero-particles.js"></script>
 
   <script>
   /* Elfsight lazy load */

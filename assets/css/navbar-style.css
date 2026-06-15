@@ -310,13 +310,22 @@
   opacity: 0;
   pointer-events: none;
   transition: opacity 180ms ease, transform 180ms ease;
+  transition-delay: 350ms;       /* linger before closing when the mouse leaves */
   z-index: 200;
+}
+/* invisible bridge over the 12px gap so moving trigger → menu keeps :hover */
+.dropdown-menu::before {
+  content: '';
+  position: absolute;
+  top: -14px; left: 0; right: 0;
+  height: 14px;
 }
 .menu-dropdown:hover .dropdown-menu,
 .menu-dropdown:focus-within .dropdown-menu {
   opacity: 1;
   pointer-events: auto;
   transform: translateX(-50%) translateY(0);
+  transition-delay: 0ms;         /* open instantly */
 }
 
 .dropdown-menu a {

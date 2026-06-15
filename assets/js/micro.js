@@ -34,6 +34,9 @@
   const dot  = document.getElementById('cursor-dot');
   const ring = document.getElementById('cursor-ring');
   if (!dot || !ring) return;
+  // Custom cursor is disabled via CSS (display:none) — bail out instead of
+  // running a forever rAF loop + mousemove writes against hidden elements.
+  if (getComputedStyle(dot).display === 'none') return;
 
   let mx = -100, my = -100;
   let rx = -100, ry = -100;

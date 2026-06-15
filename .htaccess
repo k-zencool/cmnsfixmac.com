@@ -20,6 +20,10 @@ RewriteCond %{HTTPS} off
 RewriteCond %{HTTP:X-Forwarded-Proto} !https
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
 
+# Canonical host: force www → non-www (matches every page's <link rel="canonical">)
+RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+RewriteRule ^ https://%1%{REQUEST_URI} [R=301,L]
+
 # ══════════════════════════════════════════════════════════════
 # 2. PROTECT SENSITIVE FILES
 # ══════════════════════════════════════════════════════════════
@@ -169,8 +173,8 @@ RewriteRule ^en/work/([^/]+)/?$ /en/works/detail.php?slug=$1 [L,QSA]
 # /product/slug (ระบบเก่า) → /shop
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^product/([\w-]+)/?$ /shop [R=301,L]
+RewriteRule ^product/([\w-]+)/?$ /shop/ [R=301,L]
 
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^en/product/([\w-]+)/?$ /en/shop [R=301,L]
+RewriteRule ^en/product/([\w-]+)/?$ /en/shop/ [R=301,L]

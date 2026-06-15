@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <script src="/assets/js/theme.js"></script>
   <link rel="stylesheet" href="/assets/css/design-tokens.css?v=1">
-  <link rel="stylesheet" href="/assets/css/navbar-style.css?v=9">
+  <link rel="stylesheet" href="/assets/css/navbar-style.css?v=10">
   <link rel="stylesheet" href="/assets/css/footer-style.css?v=2">
   <link rel="stylesheet" href="/assets/css/micro.css?v=2">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded&display=block" rel="stylesheet">
@@ -249,7 +249,7 @@
     <span class="material-symbols-rounded">keyboard_arrow_up</span>
   </button>
 
-  <script src="/assets/js/micro.js" defer></script>
+  <script src="/assets/js/micro.js?v=2" defer></script>
 
   <script>
     function toggleSidebar() {

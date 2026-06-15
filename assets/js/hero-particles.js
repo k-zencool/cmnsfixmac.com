@@ -2,17 +2,26 @@
   const canvas = document.getElementById('heroCanvas');
   if (!canvas) return;
 
+  // Respect users who asked for less motion — skip the animation entirely.
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
   const ctx = canvas.getContext('2d');
-  const COUNT = 40;
+  const COUNT = window.innerWidth < 768 ? 18 : 40;   // fewer dots on phones
   const CONNECT_DIST = 120;
   const SPEED = 0.35;
+  const FRAME_MS = 1000 / 30;                        // cap ~30fps (slow drift)
 
-  let W, H, particles, rafId;
+  let W, H, particles, rafId, running = false, lastT = 0;
 
   function resize() {
     const hero = canvas.closest('.hero');
-    W = canvas.width  = hero.offsetWidth;
-    H = canvas.height = hero.offsetHeight;
+    const cssW = hero.offsetWidth, cssH = hero.offsetHeight;
+    // Cap the internal resolution so per-frame clear/draw/composite cost does
+    // NOT scale with huge monitors (the #1 reason it got laggier on big
+    // screens). CSS stretches the canvas to fill — faint dots upscale unseen.
+    const scale = Math.min(1, 1280 / cssW);
+    W = canvas.width  = Math.round(cssW * scale);
+    H = canvas.height = Math.round(cssH * scale);
   }
 
   function mkParticle() {
@@ -42,7 +51,10 @@
     };
   }
 
-  function draw() {
+  function draw(now) {
+    if (running) rafId = requestAnimationFrame(draw);
+    if (now - lastT < FRAME_MS) return;   // throttle to ~30fps
+    lastT = now;
     ctx.clearRect(0, 0, W, H);
     const { dot, line } = getColors();
 
@@ -80,17 +92,23 @@
       }
     }
 
-    rafId = requestAnimationFrame(draw);
   }
+
+  function start() { if (!running) { running = true; rafId = requestAnimationFrame(draw); } }
+  function stop()  { running = false; cancelAnimationFrame(rafId); }
 
   /* หยุดเมื่อ tab ไม่ active */
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      cancelAnimationFrame(rafId);
-    } else {
-      rafId = requestAnimationFrame(draw);
-    }
+    document.hidden ? stop() : start();
   });
+
+  /* หยุดเมื่อ hero เลื่อนพ้นจอ — กัน CPU/GPU ทำงานเปล่าตอน scroll ทั้งหน้า */
+  const heroEl = canvas.closest('.hero');
+  if (heroEl && 'IntersectionObserver' in window) {
+    new IntersectionObserver((entries) => {
+      entries[0].isIntersecting && !document.hidden ? start() : stop();
+    }, { threshold: 0 }).observe(heroEl);
+  }
 
   let resizeTimer;
   window.addEventListener('resize', () => {
@@ -99,5 +117,5 @@
   });
 
   init();
-  draw();
+  start();
 })();
