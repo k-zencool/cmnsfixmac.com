@@ -188,7 +188,7 @@ if ($search !== '') {
                         <th width="60" style="text-align:center;">QTY</th>
                         <th width="130" style="text-align:center;">STATUS / WARRANTY</th>
                         <th width="100" style="text-align:right;">PRICE</th>
-                        <th width="90" style="text-align:center;">ACTION</th>
+                        <th width="150" style="text-align:center;">ACTION</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -256,10 +256,29 @@ if ($search !== '') {
                             </td>
                             <td style="text-align:right; font-weight:700; color:var(--primary); font-size:14px;">฿<?= number_format($item['sell_price']) ?></td>
                             <td style="text-align:center;" onclick="event.stopPropagation()">
-                                <a href="view.php?id=<?= (int)$item['category_id'] ?>&type=<?= htmlspecialchars($it) ?>&q=<?= urlencode($item['name']) ?>"
-                                   class="inv-btn inv-btn-edit" title="เปิดในหมวดหมู่ (จัดการ/เบิก/แก้ไข)" style="text-decoration:none;">
-                                    <span class="material-symbols-rounded">open_in_new</span>
-                                </a>
+                                <div style="display:flex; justify-content:center; gap:4px;">
+                                    <?php if($it === 'new'): ?>
+                                        <button class="inv-btn inv-btn-requisition <?= $isOos ? 'disabled' : '' ?>"
+                                                title="เบิกอะไหล่ NEW"
+                                                onclick="<?= $isOos ? '' : "openRequisitionModal({$item['id']},'new')" ?>" <?= $isOos ? 'disabled' : '' ?>>
+                                            <span class="material-symbols-rounded">output</span>
+                                        </button>
+                                    <?php elseif($it === 'used'): ?>
+                                        <button class="inv-btn <?= $isOos ? 'disabled' : '' ?>"
+                                                title="ใช้อะไหล่ USED"
+                                                style="background:rgba(245,158,11,.12); border:1px solid rgba(245,158,11,.35); color:#f59e0b;"
+                                                onclick="<?= $isOos ? '' : "openRequisitionModal({$item['id']},'used')" ?>" <?= $isOos ? 'disabled' : '' ?>>
+                                            <span class="material-symbols-rounded">build</span>
+                                        </button>
+                                    <?php endif; ?>
+                                    <button class="inv-btn inv-btn-edit" title="แก้ไข" onclick="openEditModal(<?= $item['id'] ?>)">
+                                        <span class="material-symbols-rounded">edit</span>
+                                    </button>
+                                    <a href="view.php?id=<?= (int)$item['category_id'] ?>&type=<?= htmlspecialchars($it) ?>&q=<?= urlencode($item['name']) ?>"
+                                       class="inv-btn" title="เปิดในหมวดหมู่ (จัดการเต็ม)" style="text-decoration:none;">
+                                        <span class="material-symbols-rounded">open_in_new</span>
+                                    </a>
+                                </div>
                             </td>
                         </tr>
                         <tr id="lot-detail-<?= $item['id'] ?>" class="lot-detail-row" style="display:none;">
@@ -391,4 +410,5 @@ document.head.appendChild(_spinStyle);
 </script>
 
 <?php include 'modal_add.php'; ?>
+<?php if ($search !== '') include '_action_modals.php'; // เบิก/แก้ไข modals — โหลดเฉพาะตอนค้นหา ?>
 <?php include '../templates/footer_admin.php'; ?>
