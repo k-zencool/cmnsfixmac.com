@@ -70,9 +70,37 @@ foreach ($root_categories as $key => $cat) {
         'sale'    => $stats['sale']    ?? 0
     ];
 }
+
+// 5. PARTS SEARCH (server-side) — แสดงผลเป็นตารางเฉพาะตอนที่ค้นหาเท่านั้น
+$search = isset($_GET['q']) ? trim($_GET['q']) : '';
+$search_results = [];
+if ($search !== '') {
+    $sw = [];
+    $sp = [];
+    if ($current_type !== 'all') { $sw[] = "i.type = ?"; $sp[] = $current_type; }
+    $sw[] = "(i.name LIKE ? OR i.sku LIKE ? OR i.serial_number LIKE ? OR i.part_number LIKE ? OR i.asset_tag LIKE ?)";
+    $kw = "%$search%";
+    array_push($sp, $kw, $kw, $kw, $kw, $kw);
+    $sw_sql = implode(" AND ", $sw);
+
+    $sql_search = "SELECT i.*, c.name AS cat_name,
+            COALESCE(SUM(l.qty_remaining), 0) AS total_qty,
+            MIN(CASE WHEN l.qty_remaining > 0 THEN l.warranty_end END) AS nearest_warranty
+        FROM inventory i
+        LEFT JOIN inventory_lots l ON i.id = l.inventory_id
+        LEFT JOIN parts_categories c ON i.category_id = c.id
+        WHERE $sw_sql
+        GROUP BY i.id
+        ORDER BY FIELD(i.type,'new','used','machine','sale'), i.name ASC
+        LIMIT 100";
+    $stmt_search = $pdo->prepare($sql_search);
+    $stmt_search->execute($sp);
+    $search_results = $stmt_search->fetchAll(PDO::FETCH_ASSOC);
+}
 ?>
 
 <link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time(); ?>">
+<link rel="stylesheet" href="../templates/assets/css/inventory-view.css?v=<?= time(); ?>">
 <link rel="stylesheet" href="../templates/assets/css/modal.css?v=<?= time(); ?>">
 
 <div class="cmns-wrapper" style="--active-theme-color: <?= $header_color ?>;">
@@ -119,12 +147,16 @@ foreach ($root_categories as $key => $cat) {
     </div>
 
     <div class="cmns-search-bar">
-        <div class="cmns-search-input-wrap">
+        <form action="index.php" method="GET" class="cmns-search-input-wrap" style="margin:0;">
+            <input type="hidden" name="type" value="<?= htmlspecialchars($current_type) ?>">
             <span class="material-symbols-rounded search-icon">search</span>
-            <input type="text" id="cmns-search" class="cmns-search-input" placeholder="Search categories..." autocomplete="off">
-        </div>
+            <input type="text" id="cmns-search" name="q" value="<?= htmlspecialchars($search) ?>" class="cmns-search-input" placeholder="ค้นหาอะไหล่ (ชื่อ, SKU, S/N, Part No., Asset Tag)..." autocomplete="off">
+            <?php if ($search !== ''): ?>
+            <a href="index.php?type=<?= htmlspecialchars($current_type) ?>" class="search-clear-x" title="ล้างการค้นหา" style="position:absolute; right:14px; top:50%; transform:translateY(-50%); color:var(--text-muted); text-decoration:none; font-size:18px; line-height:1;">✕</a>
+            <?php endif; ?>
+        </form>
 
-        <?php if ($current_type == 'all'): ?>
+        <?php if ($current_type == 'all' && $search === ''): ?>
         <div class="cmns-filter-group">
             <button class="cmns-filter-btn" data-filter="new" onclick="toggleFilter(this)">NEW</button>
             <button class="cmns-filter-btn" data-filter="used" onclick="toggleFilter(this)">USED</button>
@@ -135,8 +167,113 @@ foreach ($root_categories as $key => $cat) {
         <?php endif; ?>
     </div>
 
+    <?php if ($search !== ''): ?>
+    <!-- ============ PARTS SEARCH RESULTS (ตารางแบบ view.php) ============ -->
+    <div class="cmns-view-card" style="margin-top:6px;">
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:16px; font-size:13px; color:var(--text-muted);">
+            <span class="material-symbols-rounded" style="font-size:18px; color:var(--primary);">search</span>
+            ผลการค้นหา "<b style="color:var(--text-main);"><?= htmlspecialchars($search) ?></b>" — พบ <b style="color:var(--text-main);"><?= count($search_results) ?></b> รายการ
+            <?php if (count($search_results) >= 100): ?><span style="opacity:.6;">(แสดงสูงสุด 100)</span><?php endif; ?>
+        </div>
+
+        <div class="cmns-table-responsive">
+            <table class="cmns-table">
+                <thead>
+                    <tr>
+                        <th width="40" style="text-align:center;">#</th>
+                        <th width="60">IMG</th>
+                        <th>NAME / SKU</th>
+                        <th>TYPE</th>
+                        <th>CATEGORY</th>
+                        <th width="60" style="text-align:center;">QTY</th>
+                        <th width="130" style="text-align:center;">STATUS / WARRANTY</th>
+                        <th width="100" style="text-align:right;">PRICE</th>
+                        <th width="90" style="text-align:center;">ACTION</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php
+                    $type_meta = [
+                        'new'     => ['label'=>'NEW',     'color'=>'#10b981', 'icon'=>'fiber_new'],
+                        'used'    => ['label'=>'USED',    'color'=>'#f59e0b', 'icon'=>'build'],
+                        'machine' => ['label'=>'MACHINE', 'color'=>'#8b5cf6', 'icon'=>'computer'],
+                        'sale'    => ['label'=>'SALE',    'color'=>'#ef4444', 'icon'=>'sell'],
+                    ];
+                    if (empty($search_results)): ?>
+                        <tr><td colspan="9" style="padding:70px 20px; text-align:center; color:var(--text-muted);">
+                            <span class="material-symbols-rounded" style="font-size:56px; opacity:.15; display:block; margin-bottom:12px;">search_off</span>
+                            ไม่พบอะไหล่ที่ตรงกับ "<?= htmlspecialchars($search) ?>"
+                        </td></tr>
+                    <?php else: foreach($search_results as $idx => $item):
+                        $it  = $item['type'];
+                        $qty = (int)($item['total_qty'] ?: 0);
+                        $st  = strtoupper(trim($item['status']));
+                        $st_class = ['STOCK'=>'status-green','GOOD'=>'status-green','READY'=>'status-green','TEST'=>'status-orange','PENDING'=>'status-orange','SOLD'=>'status-red'][$st] ?? 'status-red';
+                        $isMachine = ($it === 'machine' || $it === 'sale');
+                        $isOos  = !$isMachine && ($qty === 0 || $st === 'OOS');
+                        $isDead = ($st === 'DEAD');
+                        $rowClass = $isOos ? 'row-oos' : ($isDead ? 'row-dead' : '');
+                        $tm = $type_meta[$it] ?? ['label'=>strtoupper($it),'color'=>'#888','icon'=>'inventory_2'];
+                    ?>
+                        <tr class="inventory-row <?= $rowClass ?>" id="row-<?= $item['id'] ?>" onclick="toggleLotDetails(<?= $item['id'] ?>)">
+                            <td style="text-align:center; opacity:.45; font-size:11px;"><?= $idx + 1 ?></td>
+                            <td>
+                                <?php if (!empty($item['image'])): ?>
+                                    <img src="../../uploads/inventory/<?= htmlspecialchars($item['image']) ?>"
+                                         style="width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid var(--border);"
+                                         onerror="this.outerHTML='<div class=\'no-img-box\'><span class=\'material-symbols-rounded\'>image_not_supported</span></div>'">
+                                <?php else: ?>
+                                    <div class="no-img-box"><span class="material-symbols-rounded">image</span></div>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <div style="font-weight:700; color:var(--text-main); font-size:14px; line-height:1.3;"><?= htmlspecialchars($item['name']) ?></div>
+                                <div style="font-size:11px; color:var(--text-muted); margin-top:3px; display:flex; gap:6px; align-items:center; flex-wrap:wrap;">
+                                    <code style="background:var(--bg-surface-alt); padding:1px 5px; border-radius:4px;"><?= htmlspecialchars($item['sku'] ?: '—') ?></code>
+                                    <?php if($item['asset_tag']): ?><span style="opacity:.6; font-family:monospace;"><?= htmlspecialchars($item['asset_tag']) ?></span><?php endif; ?>
+                                    <?php if($item['serial_number']): ?><span style="opacity:.5; font-family:monospace;"><?= htmlspecialchars($item['serial_number']) ?></span><?php endif; ?>
+                                </div>
+                            </td>
+                            <td>
+                                <span style="font-size:10px; font-weight:800; padding:2px 8px; border-radius:6px; background:<?= $tm['color'] ?>22; color:<?= $tm['color'] ?>; border:1px solid <?= $tm['color'] ?>44; white-space:nowrap;"><?= $tm['label'] ?></span>
+                            </td>
+                            <td style="font-size:12px; color:var(--text-muted);"><?= htmlspecialchars($item['cat_name'] ?: '—') ?></td>
+                            <td style="text-align:center;">
+                                <?php if($isMachine): ?>
+                                    <span style="color:var(--text-muted); opacity:.3; font-size:13px;">—</span>
+                                <?php else: ?>
+                                    <span style="font-size:20px; font-weight:800; color:<?= $isOos ? '#ef4444' : ($qty <= ($item['min_qty'] ?? 1) ? '#f59e0b' : 'var(--text-main)') ?>;"><?= $qty ?></span>
+                                <?php endif; ?>
+                            </td>
+                            <td style="text-align:center;">
+                                <span class="status-indicator <?= $st_class ?>"><?= $st ?: '—' ?></span>
+                                <?php if($item['nearest_warranty']):
+                                    $wDays = (strtotime($item['nearest_warranty']) - time()) / 86400;
+                                    $wColor = $wDays < 30 ? '#ef4444' : ($wDays < 90 ? '#f59e0b' : 'var(--text-muted)');
+                                ?>
+                                    <div style="font-size:10px; color:<?= $wColor ?>; margin-top:5px; font-weight:600;">Exp: <?= date('d/m/y', strtotime($item['nearest_warranty'])) ?></div>
+                                <?php endif; ?>
+                            </td>
+                            <td style="text-align:right; font-weight:700; color:var(--primary); font-size:14px;">฿<?= number_format($item['sell_price']) ?></td>
+                            <td style="text-align:center;" onclick="event.stopPropagation()">
+                                <a href="view.php?id=<?= (int)$item['category_id'] ?>&type=<?= htmlspecialchars($it) ?>&q=<?= urlencode($item['name']) ?>"
+                                   class="inv-btn inv-btn-edit" title="เปิดในหมวดหมู่ (จัดการ/เบิก/แก้ไข)" style="text-decoration:none;">
+                                    <span class="material-symbols-rounded">open_in_new</span>
+                                </a>
+                            </td>
+                        </tr>
+                        <tr id="lot-detail-<?= $item['id'] ?>" class="lot-detail-row" style="display:none;">
+                            <td colspan="9"><div id="lot-content-<?= $item['id'] ?>"></div></td>
+                        </tr>
+                    <?php endforeach; endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <?php else: ?>
     <div id="folder-container" class="cmns-container view-grid">
-        <?php foreach($root_categories as $cat): 
+        <?php foreach($root_categories as $cat):
             $s = $cat['stats'];
             $total_q = $s['new'] + $s['used'] + $s['machine'] + $s['sale'];
         ?>
@@ -164,6 +301,7 @@ foreach ($root_categories as $key => $cat) {
             </a>
         <?php endforeach; ?>
     </div>
+    <?php endif; ?>
 
 </div>
 
@@ -188,6 +326,7 @@ document.addEventListener("DOMContentLoaded", () => setViewMode(localStorage.get
 const searchInput = document.getElementById('cmns-search');
 let activeFilter = null;
 
+// ── Folder stock filter (โหมดโฟลเดอร์เท่านั้น) ──
 function toggleFilter(btn) {
     const filter = btn.dataset.filter;
     if (activeFilter === filter) {
@@ -196,23 +335,59 @@ function toggleFilter(btn) {
         document.querySelectorAll('.cmns-filter-btn').forEach(b => b.classList.remove('active'));
         activeFilter = filter; btn.classList.add('active');
     }
-    applySearch();
-}
-
-function applySearch() {
-    const kw = searchInput.value.toLowerCase().trim();
     document.querySelectorAll('.cmns-folder-card').forEach(card => {
-        const matchT = kw === '' || card.dataset.name.includes(kw);
         let matchF = true;
         if (activeFilter === 'new') matchF = card.dataset.hasNew === 'true';
         if (activeFilter === 'used') matchF = card.dataset.hasUsed === 'true';
         if (activeFilter === 'machine') matchF = card.dataset.hasMachine === 'true';
         if (activeFilter === 'sale') matchF = card.dataset.hasSale === 'true';
         if (activeFilter === 'empty') matchF = card.dataset.isEmpty === 'true';
-        card.classList.toggle('search-hidden', !(matchT && matchF));
+        card.classList.toggle('search-hidden', !matchF);
     });
 }
-if (searchInput) searchInput.addEventListener('input', applySearch);
+
+// ── Parts search: auto-submit form (debounce 0.5s / Enter) ──
+if (searchInput) {
+    let typingTimer;
+    const form = searchInput.closest('form');
+    searchInput.addEventListener('input', () => {
+        clearTimeout(typingTimer);
+        typingTimer = setTimeout(() => { if (form) form.submit(); }, 500);
+    });
+    searchInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') { e.preventDefault(); clearTimeout(typingTimer); if (form) form.submit(); }
+    });
+    // ย้ายเคอร์เซอร์ไปท้ายข้อความเดิม
+    if (searchInput.value) { const v = searchInput.value; searchInput.focus(); searchInput.value = ''; searchInput.value = v; }
+}
+
+// ── กางรายละเอียด lot/อะไหล่ (ใช้ AJAX ของ view.php) ──
+function toggleLotDetails(id) {
+    const detailRow  = document.getElementById(`lot-detail-${id}`);
+    const contentDiv = document.getElementById(`lot-content-${id}`);
+    const mainRow    = document.getElementById(`row-${id}`);
+    if (!detailRow || !contentDiv || !mainRow) return;
+
+    if (detailRow.style.display === 'table-row') {
+        detailRow.style.display = 'none';
+        mainRow.classList.remove('active');
+        return;
+    }
+    document.querySelectorAll('.lot-detail-row').forEach(r => r.style.display = 'none');
+    document.querySelectorAll('.inventory-row').forEach(r => r.classList.remove('active'));
+
+    detailRow.style.display = 'table-row';
+    mainRow.classList.add('active');
+    contentDiv.innerHTML = '<div style="padding:40px; text-align:center; color:var(--text-muted);"><span class="material-symbols-rounded" style="animation:spin 1s linear infinite; font-size:24px;">sync</span></div>';
+
+    fetch(`view.php?action=get_lots_inline&item_id=${id}`)
+        .then(res => res.text())
+        .then(data => { contentDiv.innerHTML = data; })
+        .catch(() => { contentDiv.innerHTML = '<div style="padding:20px; text-align:center; color:#ef4444;">โหลดข้อมูลไม่สำเร็จ</div>'; });
+}
+const _spinStyle = document.createElement('style');
+_spinStyle.innerHTML = `@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`;
+document.head.appendChild(_spinStyle);
 </script>
 
 <?php include 'modal_add.php'; ?>
