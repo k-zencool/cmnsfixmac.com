@@ -32,6 +32,7 @@ function img_path($raw) {
 $q    = getv('q', '');
 $cat  = getv('cat', '');
 $sort = getv('sort', 'new');
+$view = getv('view', '') === 'sold' ? 'sold' : 'available';   // active zone (tab)
 $page = max(1, (int)getv('page', 1));
 $pp   = 32;
 $off  = ($page - 1) * $pp;
@@ -39,20 +40,43 @@ $off  = ($page - 1) * $pp;
 /* ---------- Categories (for chips) ---------- */
 $categories = $pdo->query("SELECT id, name FROM shop_categories ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
 
-/* ---------- WHERE ---------- */
-$where  = ["sl.status = 'published'", "inv.status != 'SOLD'"];
-$params = [];
-if ($q !== '')   { $where[] = "(sl.title LIKE :q OR inv.name LIKE :q)"; $params[':q'] = "%$q%"; }
-if ($cat !== '') { $where[] = "sc.name = :cat"; $params[':cat'] = $cat; }
-$WHERE = 'WHERE ' . implode(' AND ', $where);
+/* ---------- Zone base filters (mutually exclusive) ---------- */
+$availBase = "(sl.status = 'published' AND inv.status != 'SOLD')";
+$soldBase  = "(sl.status = 'sold' OR inv.status = 'SOLD')";
+
+/* ---------- Shared q/cat filter (applies to whichever zone is active) ---------- */
+$filterSql    = '';
+$filterParams = [];
+if ($q !== '')   { $filterSql .= " AND (sl.title LIKE :q OR inv.name LIKE :q)"; $filterParams[':q'] = "%$q%"; }
+if ($cat !== '') { $filterSql .= " AND sc.name = :cat"; $filterParams[':cat'] = $cat; }
+
+/* ---------- Tab counts (same q/cat filter so badges match the results) ---------- */
+$countSql = "
+    SELECT SUM($availBase) AS avail, SUM($soldBase) AS sold
+    FROM shop_listings sl
+    JOIN inventory inv      ON inv.id = sl.inventory_id
+    JOIN shop_categories sc ON sc.id = sl.category_id
+    WHERE 1=1 $filterSql";
+$cst = $pdo->prepare($countSql);
+foreach ($filterParams as $k => $v) $cst->bindValue($k, $v);
+$cst->execute();
+$counts     = $cst->fetch(PDO::FETCH_ASSOC);
+$availCount = (int)$counts['avail'];
+$soldCount  = (int)$counts['sold'];
+
+/* ---------- Active zone selection ---------- */
+$base  = $view === 'sold' ? $soldBase : $availBase;
+$total = $view === 'sold' ? $soldCount : $availCount;
+$pages = max(1, (int)ceil($total / $pp));
 
 $ORDER = 'ORDER BY sl.created_at DESC, sl.id DESC';
+if ($view === 'sold')       $ORDER = 'ORDER BY sl.updated_at DESC, sl.id DESC';  // most recently sold first
 if ($sort === 'price_asc')  $ORDER = 'ORDER BY sl.price ASC, sl.id DESC';
 if ($sort === 'price_desc') $ORDER = 'ORDER BY sl.price DESC, sl.id DESC';
 
 /* ---------- Items ---------- */
 $sql = "
-    SELECT SQL_CALC_FOUND_ROWS
+    SELECT
         sl.id,
         COALESCE(sl.title, inv.name)        AS name,
         sc.name                             AS category,
@@ -62,17 +86,15 @@ $sql = "
     FROM shop_listings sl
     JOIN inventory inv      ON inv.id = sl.inventory_id
     JOIN shop_categories sc ON sc.id = sl.category_id
-    $WHERE
+    WHERE $base $filterSql
     $ORDER
     LIMIT :lim OFFSET :off";
 $st = $pdo->prepare($sql);
-foreach ($params as $k => $v) $st->bindValue($k, $v);
+foreach ($filterParams as $k => $v) $st->bindValue($k, $v);
 $st->bindValue(':lim', $pp, PDO::PARAM_INT);
 $st->bindValue(':off', $off, PDO::PARAM_INT);
 $st->execute();
 $items = $st->fetchAll(PDO::FETCH_ASSOC);
-$total = (int)$pdo->query("SELECT FOUND_ROWS()")->fetchColumn();
-$pages = max(1, (int)ceil($total / $pp));
 
 /* ---------- Hot deals (top discounts) for featured bento ---------- */
 $dealItems = $pdo->query("
@@ -93,17 +115,6 @@ $dealItems = $pdo->query("
     LIMIT 5
 ")->fetchAll(PDO::FETCH_ASSOC);
 
-/* ---------- Recently sold ---------- */
-$soldItems = $pdo->query("
-    SELECT COALESCE(sl.title, inv.name) AS name, sc.name AS category, sl.price,
-           COALESCE(sl.cover_image, inv.image) AS main_image
-    FROM shop_listings sl
-    JOIN inventory inv      ON inv.id = sl.inventory_id
-    JOIN shop_categories sc ON sc.id = sl.category_id
-    WHERE sl.status = 'sold' AND COALESCE(sl.cover_image, inv.image) IS NOT NULL
-    ORDER BY sl.updated_at DESC LIMIT 4
-")->fetchAll(PDO::FETCH_ASSOC);
-
 /* ---------- Active filters ---------- */
 $activeFilters = [];
 if ($q !== '')   $activeFilters[] = ['label' => 'Search: "' . $q . '"',        'url' => build_url(['q' => null, 'page' => 1])];
@@ -112,7 +123,7 @@ if ($cat !== '') $activeFilters[] = ['label' => 'Category: ' . cat_label($cat), 
 $page_title = 'Shop — Graded Used Mac & iPhone with Warranty | CMNS FixMac';
 $meta_desc  = 'CMNS FixMac shop — graded used MacBook, iMac, iPhone, iPad. Carefully inspected and backed by a shop warranty. Pickup in Chiang Mai or nationwide shipping. Ask or order via LINE.';
 $canonical  = 'https://cmnsfixmac.com/en/shop/' . ($cat !== '' ? '?cat=' . urlencode($cat) : '');
-$page_css   = ['/assets/css/shop/shop.css?v=18', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
+$page_css   = ['/assets/css/shop/shop.css?v=24', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
 $switch_to_lang_url = '/shop/' . (!empty($_SERVER['QUERY_STRING']) ? '?' . $_SERVER['QUERY_STRING'] : '');
 
 /* Build ItemList schema from current page items */
@@ -133,7 +144,7 @@ if ($cat !== '') $breadcrumbEl[] = ['@type' => 'ListItem', 'position' => 3, 'nam
 ob_start(); ?>
 <meta name="description" content="<?= h($meta_desc) ?>">
 <meta name="keywords" content="used Mac shop Chiang Mai, used MacBook, used iPhone, used iPad, used iMac, graded used Mac, second-hand Apple store">
-<meta name="robots" content="index, follow">
+<meta name="robots" content="<?= $view === 'sold' ? 'noindex, follow' : 'index, follow' ?>">
 <link rel="canonical" href="<?= h($canonical) ?>">
 <link rel="alternate" hreflang="th" href="https://cmnsfixmac.com/shop/">
 <link rel="alternate" hreflang="en" href="https://cmnsfixmac.com/en/shop/">
@@ -267,45 +278,75 @@ include_once __DIR__ . '/../../includes/header_en.php';
 <section class="shop-products" id="shop-products">
   <div class="sv-container">
 
+    <!-- Zone switch: Apple segmented control (Available / Sold) -->
+    <div class="shop-seg" data-active="<?= h($view) ?>" role="tablist" aria-label="Product zones">
+      <span class="shop-seg-thumb" aria-hidden="true"></span>
+      <a class="shop-seg-btn<?= $view === 'available' ? ' active' : '' ?>" role="tab" data-seg="available"
+         aria-selected="<?= $view === 'available' ? 'true' : 'false' ?>"
+         href="<?= h(build_url(['view' => null, 'page' => 1])) ?>#shop-products">
+        <span class="material-symbols-rounded">storefront</span>
+        <span class="shop-seg-text">Available</span>
+        <span class="shop-seg-count"><?= number_format($availCount) ?></span>
+      </a>
+      <a class="shop-seg-btn<?= $view === 'sold' ? ' active' : '' ?>" role="tab" data-seg="sold"
+         aria-selected="<?= $view === 'sold' ? 'true' : 'false' ?>"
+         href="<?= h(build_url(['view' => 'sold', 'page' => 1])) ?>#shop-products">
+        <span class="material-symbols-rounded">sell</span>
+        <span class="shop-seg-text">Sold</span>
+        <span class="shop-seg-count"><?= number_format($soldCount) ?></span>
+      </a>
+    </div>
+
     <?php if ($activeFilters): ?>
     <div class="shop-active">
       <span class="af-title">Filters:</span>
       <?php foreach ($activeFilters as $f): ?>
       <a class="shop-af-pill" href="<?= h($f['url']) ?>#shop-products"><?= h($f['label']) ?> <span class="material-symbols-rounded">close</span></a>
       <?php endforeach; ?>
-      <a class="shop-af-pill clear-all" href="/en/shop/#shop-products"><span class="material-symbols-rounded">delete_sweep</span> Clear all</a>
+      <a class="shop-af-pill clear-all" href="<?= h(build_url(['q' => null, 'cat' => null, 'page' => 1])) ?>#shop-products"><span class="material-symbols-rounded">delete_sweep</span> Clear all</a>
     </div>
     <?php endif; ?>
 
-    <h2 class="shop-count">All products <span>(<?= number_format($total) ?> items)</span></h2>
+    <?php $isSold = $view === 'sold'; ?>
+    <h2 class="shop-count"><?= $isSold ? 'Sold' : 'Available products' ?> <span>(<?= number_format($total) ?> items)</span></h2>
 
     <?php if (empty($items)): ?>
     <div class="shop-empty">
-      <span class="material-symbols-rounded">inventory_2</span>
+      <span class="material-symbols-rounded"><?= $isSold ? 'sell' : 'inventory_2' ?></span>
+      <?php if ($isSold): ?>
+      <h3>No sold items in this category yet</h3>
+      <p>Switch to the "Available" zone, or tell us the model you want.</p>
+      <?php else: ?>
       <h3>No products in this category yet</h3>
       <p>Try clearing the filters, or tell us the model you want — we'll find it for you.</p>
+      <?php endif; ?>
       <a href="https://line.me/R/ti/p/@cmns" target="_blank" rel="noopener" class="btn btn-line">
         <img src="/assets/img/line-icon.png" alt="LINE" width="18" height="18"> Chat with us on LINE
       </a>
     </div>
     <?php else: ?>
     <ul class="shop-grid">
-      <?php foreach ($items as $row):
+      <?php foreach ($items as $idx => $row):
         $url   = '/en/shop/product-detail.php?id=' . (int)$row['id'];
         $img   = img_path($row['main_image']);
         $price = (float)$row['price'];
         $old   = (float)($row['price_old'] ?? 0);
         $disc  = $old > $price ? $old - $price : 0;
         $pct   = $old > 0 ? round($disc / $old * 100) : 0;
+        /* First two rows are above the fold: load eagerly, high priority. */
+        $eager = $idx < 8;
       ?>
-      <li class="shop-card">
+      <li class="shop-card<?= $isSold ? ' is-sold' : '' ?>">
         <a class="shop-card-link" href="<?= h($url) ?>">
-          <div class="shop-card-media">
-            <?php if ($disc > 0): ?><span class="shop-badge">-<?= $pct ?>%</span><?php endif; ?>
+          <div class="shop-card-media<?= $img === '' ? ' is-ready' : '' ?>">
+            <?php if ($isSold): ?><span class="shop-sold-ribbon">SOLD</span>
+            <?php elseif ($disc > 0): ?><span class="shop-badge">-<?= $pct ?>%</span><?php endif; ?>
             <?php if ($img !== ''): ?>
-              <img src="<?= h($img) ?>" alt="<?= h($row['name']) ?>" loading="lazy" decoding="async">
+              <span class="shop-loader" aria-hidden="true"></span>
+              <img src="<?= h($img) ?>" alt="<?= h($row['name']) ?>" width="400" height="400"
+                   <?= $eager ? 'loading="eager" fetchpriority="high"' : 'loading="lazy" fetchpriority="low"' ?> decoding="async">
             <?php else: ?>
-              <div class="shop-card-noimg"><span class="material-symbols-rounded">image</span></div>
+              <div class="shop-card-noimg"><span class="material-symbols-rounded">hide_image</span></div>
             <?php endif; ?>
           </div>
           <div class="shop-card-body">
@@ -313,7 +354,7 @@ include_once __DIR__ . '/../../includes/header_en.php';
             <h3 class="shop-card-title"><?= h($row['name']) ?></h3>
             <div class="shop-card-price-row">
               <span class="shop-card-price">฿<?= number_format($price) ?></span>
-              <?php if ($old > $price): ?><span class="shop-card-old">฿<?= number_format($old) ?></span><?php endif; ?>
+              <?php if (!$isSold && $old > $price): ?><span class="shop-card-old">฿<?= number_format($old) ?></span><?php endif; ?>
             </div>
           </div>
         </a>
@@ -343,7 +384,7 @@ include_once __DIR__ . '/../../includes/header_en.php';
 </section>
 
 <!-- ═══════════ HOT DEALS (asymmetric bento) ═══════════ -->
-<?php if (count($dealItems) >= 5):
+<?php if ($view === 'available' && count($dealItems) >= 5):
   $feat = $dealItems[0];
   $rest = array_slice($dealItems, 1, 4);
 ?>
@@ -361,8 +402,8 @@ include_once __DIR__ . '/../../includes/header_en.php';
       <?php $u = '/en/shop/product-detail.php?id=' . (int)$feat['id']; $im = img_path($feat['main_image']); ?>
       <a class="deal-card deal-feature" href="<?= h($u) ?>" data-aos="fade-up">
         <span class="deal-badge">-<?= (int)$feat['pct'] ?>%</span>
-        <div class="deal-media">
-          <?php if ($im !== ''): ?><img src="<?= h($im) ?>" alt="<?= h($feat['name']) ?>" loading="lazy" decoding="async"><?php else: ?><div class="shop-card-noimg"><span class="material-symbols-rounded">image</span></div><?php endif; ?>
+        <div class="deal-media<?= $im === '' ? ' is-ready' : '' ?>">
+          <?php if ($im !== ''): ?><span class="shop-loader" aria-hidden="true"></span><img src="<?= h($im) ?>" alt="<?= h($feat['name']) ?>" width="600" height="600" loading="lazy" decoding="async"><?php else: ?><div class="shop-card-noimg"><span class="material-symbols-rounded">hide_image</span></div><?php endif; ?>
         </div>
         <div class="deal-info">
           <span class="deal-cat"><?= h(cat_label($feat['category'])) ?></span>
@@ -380,8 +421,8 @@ include_once __DIR__ . '/../../includes/header_en.php';
         $u = '/en/shop/product-detail.php?id=' . (int)$row['id']; $im = img_path($row['main_image']); ?>
       <a class="deal-card deal-mini" href="<?= h($u) ?>" data-aos="fade-up" data-aos-delay="<?= ($i + 1) * 60 ?>">
         <span class="deal-badge deal-badge-sm">-<?= (int)$row['pct'] ?>%</span>
-        <div class="deal-mini-media">
-          <?php if ($im !== ''): ?><img src="<?= h($im) ?>" alt="<?= h($row['name']) ?>" loading="lazy" decoding="async"><?php else: ?><div class="shop-card-noimg"><span class="material-symbols-rounded">image</span></div><?php endif; ?>
+        <div class="deal-mini-media<?= $im === '' ? ' is-ready' : '' ?>">
+          <?php if ($im !== ''): ?><span class="shop-loader" aria-hidden="true"></span><img src="<?= h($im) ?>" alt="<?= h($row['name']) ?>" width="300" height="300" loading="lazy" decoding="async"><?php else: ?><div class="shop-card-noimg"><span class="material-symbols-rounded">hide_image</span></div><?php endif; ?>
         </div>
         <div class="deal-mini-info">
           <span class="deal-cat"><?= h(cat_label($row['category'])) ?></span>
@@ -395,34 +436,6 @@ include_once __DIR__ . '/../../includes/header_en.php';
       <?php endforeach; ?>
 
     </div>
-  </div>
-</section>
-<?php endif; ?>
-
-<!-- ═══════════ RECENTLY SOLD ═══════════ -->
-<?php if ($soldItems): ?>
-<section class="sv-section shop-sold">
-  <div class="sv-container">
-    <div class="sv-section-head">
-      <span class="section-label">Sold</span>
-      <h2>Recently sold examples</h2>
-      <p class="sv-desc">Stock moves fast — if you like a model, message us to reserve it.</p>
-    </div>
-    <ul class="shop-grid">
-      <?php foreach ($soldItems as $row): $img = img_path($row['main_image']); ?>
-      <li class="shop-card">
-        <div class="shop-card-link">
-          <div class="shop-card-media">
-            <?php if ($img !== ''): ?><img src="<?= h($img) ?>" alt="<?= h($row['name']) ?>" loading="lazy"><?php else: ?><div class="shop-card-noimg"><span class="material-symbols-rounded">image</span></div><?php endif; ?>
-          </div>
-          <div class="shop-card-body">
-            <span class="shop-card-cat"><?= h(cat_label($row['category'])) ?></span>
-            <h3 class="shop-card-title"><?= h($row['name']) ?></h3>
-          </div>
-        </div>
-      </li>
-      <?php endforeach; ?>
-    </ul>
   </div>
 </section>
 <?php endif; ?>
@@ -480,6 +493,68 @@ include_once __DIR__ . '/../../includes/header_en.php';
 <script src="https://unpkg.com/aos@2.3.4/dist/aos.js"></script>
 <script>
 AOS.init({ duration: 700, once: true, offset: 60 });
+
+/* ── Image loading: smooth fade-in + broken-image fallback ──
+   - on success  → fade the <img> in and stop the skeleton shimmer
+   - on error/404 → drop the <img>, show a centered icon instead   */
+(function () {
+  var MIN_SPIN = 450;                 // keep the loader on screen at least this long
+
+  function apply(img) {
+    // Force one painted frame at opacity:0 before flipping to is-loaded,
+    // otherwise cached/eager images snap in with no transition.
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () {
+        img.classList.add('is-loaded');
+        if (img.parentNode) img.parentNode.classList.add('is-ready');
+      });
+    });
+  }
+  function reveal(img, t0) {
+    // If the image resolved faster than MIN_SPIN, hold the loader a touch
+    // longer so it's actually perceivable (esp. on cached/fast connections).
+    var wait = MIN_SPIN - (performance.now() - t0);
+    wait > 0 ? setTimeout(function () { apply(img); }, wait) : apply(img);
+  }
+  function fail(img) {
+    var box = img.parentNode;
+    if (!box) return;
+    box.classList.add('is-ready');
+    img.remove();
+    if (!box.querySelector('.shop-card-noimg')) {
+      var ph = document.createElement('div');
+      ph.className = 'shop-card-noimg';
+      ph.innerHTML = '<span class="material-symbols-rounded">broken_image</span>';
+      box.appendChild(ph);
+    }
+  }
+  /* Start the spinner timer the moment THIS card scrolls into view, so every
+     card — not just the first rows — shows the loader before its image fades in. */
+  function track(img) {
+    var t0 = performance.now();
+    if (img.complete) {
+      img.naturalWidth > 0 ? reveal(img, t0) : fail(img);
+    } else {
+      img.addEventListener('load',  function () { reveal(img, t0); });
+      img.addEventListener('error', function () { fail(img); });
+    }
+  }
+
+  var imgs = document.querySelectorAll('.shop-card-media img, .deal-media img, .deal-mini-media img');
+
+  if (!('IntersectionObserver' in window)) {   // graceful fallback: handle all now
+    imgs.forEach(track);
+    return;
+  }
+  var io = new IntersectionObserver(function (entries, obs) {
+    entries.forEach(function (e) {
+      if (!e.isIntersecting) return;
+      obs.unobserve(e.target);
+      track(e.target);
+    });
+  }, { rootMargin: '0px 0px 0px 0px' });
+  imgs.forEach(function (img) { io.observe(img); });
+})();
 
 /* Count-up for the bento stat */
 document.querySelectorAll('.counter').forEach(function (el) {
@@ -561,6 +636,26 @@ document.querySelectorAll('.counter').forEach(function (el) {
   new IntersectionObserver(function (entries) {
     toolbar.classList.toggle('is-stuck', !entries[0].isIntersecting);
   }, { rootMargin: '-' + (toolbar.offsetTop) + 'px 0px 0px 0px', threshold: 0 }).observe(sentinel);
+})();
+
+/* ── Zone segmented control: slide the thumb, then navigate ── */
+(function () {
+  var seg = document.querySelector('.shop-seg');
+  if (!seg) return;
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  seg.querySelectorAll('.shop-seg-btn').forEach(function (btn) {
+    btn.addEventListener('click', function (e) {
+      if (btn.classList.contains('active')) return;          // already here
+      if (reduce) return;                                    // let the link navigate instantly
+      e.preventDefault();
+      seg.setAttribute('data-active', btn.dataset.seg);      // slide the thumb now
+      seg.querySelectorAll('.shop-seg-btn').forEach(function (b) {
+        b.classList.toggle('active', b === btn);
+        b.setAttribute('aria-selected', b === btn ? 'true' : 'false');
+      });
+      setTimeout(function () { window.location.href = btn.href; }, 220);
+    });
+  });
 })();
 </script>
 </body>
