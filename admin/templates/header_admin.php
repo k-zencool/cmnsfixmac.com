@@ -35,6 +35,10 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Admin Panel';
     
     <title><?= htmlspecialchars($pageTitle) ?> | FixMac Admin</title>
 
+    <link rel="icon" type="image/png" href="/assets/img/favicon1.png">
+    <link rel="shortcut icon" href="/assets/img/favicon1.png">
+    <link rel="apple-touch-icon" href="/assets/img/favicon1.png">
+
     <script>
         (function() {
             const savedTheme = localStorage.getItem('admin_theme') || 'dark';

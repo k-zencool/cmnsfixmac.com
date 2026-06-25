@@ -25,9 +25,14 @@
     --c-folder: var(--primary);
 
     /* Dimensions */
-    --sidebar-w: 260px;
-    --sidebar-w-collapsed: 72px;
+    --sidebar-w: 264px;
+    --sidebar-w-collapsed: 76px;
     --header-h: 64px;
+
+    /* Brand accent + depth (premium look) */
+    --accent-grad: linear-gradient(135deg, var(--primary) 0%, var(--primary-hover) 100%);
+    --accent-glow: 0 8px 20px -6px rgba(37, 99, 235, 0.45);
+    --item-radius: 11px;
 
     /* Animation Easing */
     --ease-out: cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -49,6 +54,10 @@
 
     --border: #333333;
     --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5);
+
+    /* richer gradient so the active pill pops on the deep-black sidebar */
+    --accent-grad: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
+    --accent-glow: 0 8px 22px -6px rgba(59, 130, 246, 0.55);
 }
 
 /* ---------------------------------------------------------
@@ -111,26 +120,93 @@ body {
 .sidebar-header {
     height: var(--header-h); min-height: var(--header-h);
     display: flex; align-items: center; justify-content: space-between;
-    padding: 0 20px; border-bottom: 1px solid var(--border);
+    padding: 0 18px; border-bottom: 1px solid var(--border);
 }
-.logo-area { display: flex; align-items: center; color: var(--primary); font-weight: bold; font-size: 1.2rem; gap: 10px; }
+.logo-area { display: flex; align-items: center; font-weight: 700; font-size: 1.15rem; gap: 0; overflow: hidden; }
+/* gradient brand mark wrapping the logo glyph */
+.logo-area .material-symbols-rounded {
+    display: flex; align-items: center; justify-content: center;
+    width: 38px; height: 38px; flex: 0 0 38px;
+    border-radius: 11px;
+    background: var(--accent-grad);
+    color: #fff !important; font-size: 22px !important;
+    box-shadow: var(--accent-glow);
+}
+.logo-text {
+    background: var(--accent-grad);
+    -webkit-background-clip: text; background-clip: text;
+    -webkit-text-fill-color: transparent;
+    letter-spacing: 0.3px; white-space: nowrap;
+}
 
-.sidebar-nav { padding: 15px 10px; overflow-y: auto; flex: 1; }
+.sidebar-nav { padding: 14px 12px; overflow-y: auto; overflow-x: hidden; flex: 1; }
 .sidebar-nav a, .sub-head {
-    display: flex; align-items: center; gap: 12px; padding: 12px 16px;
-    color: var(--text-muted); text-decoration: none; border-radius: 8px;
-    margin-bottom: 4px; cursor: pointer; transition: 0.2s; font-weight: 500;
+    position: relative;
+    display: flex; align-items: center; gap: 13px; padding: 10px 13px;
+    color: var(--text-muted); text-decoration: none; border-radius: var(--item-radius);
+    margin-bottom: 3px; cursor: pointer; font-weight: 500; font-size: 0.92rem;
+    transition: background .2s var(--ease-out), color .2s, transform .2s var(--ease-out);
 }
 .sidebar-nav a:hover, .sub-head:hover { background: var(--bg-surface-alt); color: var(--text-main); }
-.sidebar-nav a.active { background: var(--primary-light); color: var(--primary); font-weight: 600; }
-.sidebar-nav .material-symbols-rounded { font-size: 22px; }
+.sidebar-nav a:hover .material-symbols-rounded,
+.sub-head:hover .material-symbols-rounded { transform: scale(1.08); }
+.sidebar-nav .material-symbols-rounded { font-size: 22px; transition: transform .2s var(--ease-spring); }
+
+/* left accent bar shared by hover/active for a tactile feel */
+.sidebar-nav a::before {
+    content: ''; position: absolute; left: 4px; top: 50%;
+    width: 3px; height: 0; border-radius: 3px;
+    background: var(--accent-grad);
+    transform: translateY(-50%); transition: height .2s var(--ease-spring);
+}
+.sidebar-nav a:hover::before { height: 16px; }
+
+/* ── ACTIVE (current page) — bold gradient pill + glow ── */
+.sidebar-nav a.active {
+    background: var(--accent-grad); color: #fff; font-weight: 600;
+    box-shadow: var(--accent-glow);
+}
+.sidebar-nav a.active::before { height: 0; }
+.sidebar-nav a.active .material-symbols-rounded { color: #fff; }
+
+/* ── ACTIVE PARENT (collapsed group holding the current page) ── */
+.sub-head .sub-link.active-parent,
+.has-sub.open > .sub-head .sub-link { color: var(--text-main); font-weight: 600; }
+.sub-head .sub-link.active-parent .material-symbols-rounded { color: var(--primary); }
 
 /* Submenu */
 .submenu-wrapper { display: grid; grid-template-rows: 0fr; transition: grid-template-rows 0.3s var(--ease-out); opacity: 0; }
 .has-sub.open .submenu-wrapper { grid-template-rows: 1fr; opacity: 1; }
-.submenu-inner { overflow: hidden; }
-.submenu-inner a { padding-left: 24px; font-size: 0.9rem; opacity: 0.9; }
+.submenu-inner { overflow: hidden; position: relative; margin: 2px 0 4px; }
+/* tree guide line down the submenu */
+.submenu-inner::before {
+    content: ''; position: absolute; left: 24px; top: 4px; bottom: 8px;
+    width: 1.5px; background: var(--border); border-radius: 2px;
+}
+.submenu-inner a {
+    position: relative; padding: 9px 12px 9px 38px; font-size: 0.875rem;
+    margin-bottom: 1px; color: var(--text-muted);
+}
+.submenu-inner a::after {
+    content: ''; position: absolute; left: 21px; top: 50%; transform: translateY(-50%);
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--bg-surface); border: 1.5px solid var(--border);
+    transition: all .2s var(--ease-spring);
+}
+.submenu-inner a:hover { background: var(--bg-surface-alt); color: var(--text-main); }
+.submenu-inner a:hover::after { border-color: var(--primary); }
+.submenu-inner a.sub-active {
+    color: var(--primary); font-weight: 600; background: var(--primary-light);
+}
+.submenu-inner a.sub-active::after { background: var(--primary); border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
 .sub-toggle { transition: transform 0.3s var(--ease-spring); }
+
+/* logout link — red-tinted affordance */
+.sidebar-nav a.logout-link:hover {
+    background: rgba(239, 68, 68, 0.1); color: #ef4444;
+}
+.sidebar-nav a.logout-link:hover .material-symbols-rounded { color: #ef4444; }
+.sidebar-nav a.logout-link::before { background: #ef4444; }
 
 /* Topbar */
 .topbar {
@@ -140,8 +216,17 @@ body {
     display: flex; align-items: center; justify-content: space-between;
     padding: 0 25px;
     position: sticky; top: 0; z-index: 900;
+    box-shadow: 0 1px 0 var(--border), 0 6px 22px -18px rgba(0, 0, 0, 0.35);
 }
-.page-title { font-size: 1.25rem; font-weight: 700; margin: 0; color: var(--text-main); }
+.page-title {
+    font-size: 1.25rem; font-weight: 700; margin: 0; color: var(--text-main);
+    position: relative; padding-left: 14px;
+}
+/* accent tick before the page title */
+.page-title::before {
+    content: ''; position: absolute; left: 0; top: 50%; transform: translateY(-50%);
+    width: 4px; height: 20px; border-radius: 3px; background: var(--accent-grad);
+}
 .topbar-left, .topbar-right { display: flex; align-items: center; gap: 10px; }
 
 /* Buttons */
@@ -214,10 +299,20 @@ body {
     html.sidebar-collapsed .sub-toggle { display: none; }
     body.sidebar-collapsed .sidebar-header,
     html.sidebar-collapsed .sidebar-header { justify-content: center; padding: 0; }
-    body.sidebar-collapsed .logo-area,
-    html.sidebar-collapsed .logo-area     { display: none; }
+    /* keep the gradient brand mark centered, just hide its wordmark */
+    body.sidebar-collapsed .logo-text,
+    html.sidebar-collapsed .logo-text { display: none; }
     body.sidebar-collapsed .submenu-wrapper,
     html.sidebar-collapsed .submenu-wrapper { display: none !important; }
+
+    /* center the icons in their narrow rail */
+    body.sidebar-collapsed .sidebar-nav a,
+    body.sidebar-collapsed .sub-head,
+    html.sidebar-collapsed .sidebar-nav a,
+    html.sidebar-collapsed .sub-head { justify-content: center; padding: 11px 0; gap: 0; }
+    body.sidebar-collapsed .sidebar-nav a::before,
+    html.sidebar-collapsed .sidebar-nav a::before { display: none; }
+
     .mobile-toggle-btn { display: none; }
     .close-btn         { display: none; }
     .overlay           { display: none !important; }
@@ -245,14 +340,16 @@ body {
    8. GLASSMORPHISM (Sidebar & Topbar)
    ========================================================= */
 .sidebar, .topbar {
-    background: rgba(255, 255, 255, 0.9) !important;
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+    background: rgba(255, 255, 255, 0.82) !important;
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
 }
+.sidebar { box-shadow: 1px 0 0 var(--border), 4px 0 24px -12px rgba(0, 0, 0, 0.12); }
 [data-theme="dark"] .sidebar,
 [data-theme="dark"] .topbar {
-    background: rgba(23, 23, 23, 0.9) !important;
+    background: rgba(20, 20, 20, 0.78) !important;
 }
+[data-theme="dark"] .sidebar { box-shadow: 1px 0 0 var(--border), 4px 0 24px -10px rgba(0, 0, 0, 0.6); }
 
 /* =========================================================
    9. USER DROPDOWN

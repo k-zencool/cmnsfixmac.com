@@ -9,8 +9,8 @@ if (session_status() === PHP_SESSION_NONE) {
     
     <div class="sidebar-header">
         <div class="logo-area">
-            <span class="material-symbols-rounded" style="font-size: 28px; color: var(--primary);">settings_suggest</span>
-            <span class="logo-text" style="margin-left: 10px;">Admin Panel</span>
+            <span class="material-symbols-rounded">settings_suggest</span>
+            <span class="logo-text" style="margin-left: 11px;">Admin Panel</span>
         </div>
         
         <button class="toggle-btn" onclick="toggleSidebarCollapse()" title="ย่อเมนู">
@@ -138,7 +138,7 @@ if (session_status() === PHP_SESSION_NONE) {
             </div>
         </div>
 
-        <hr style="margin: 15px 10px; border: 0; border-top: 1px solid #e2e8f0;">
+        <hr style="margin: 14px 12px; border: 0; border-top: 1px solid var(--border);">
 
         <?php if (!empty($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'super_admin'): ?>
             <a href="/admin/user/" title="จัดการผู้ใช้งาน">
