@@ -2,6 +2,7 @@
 // process_strip.php — แยกอะไหล่จาก machine → สร้าง USED item
 session_start();
 require_once '../../includes/db.php';
+require_once __DIR__ . '/../../includes/image_lib.php';
 
 if (!isset($_SESSION['admin_id']) || $_SERVER['REQUEST_METHOD'] !== 'POST') {
     header("Location: index.php"); exit();
@@ -33,10 +34,9 @@ try {
     if (!empty($_FILES['image']['tmp_name'])) {
         $upload_dir = '../../uploads/inventory/';
         if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
-        $ext = strtolower(pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION));
-        if (in_array($ext, ['jpg','jpeg','png','webp','gif'])) {
-            $image_filename = $sku . '-' . time() . '.' . $ext;
-            if (!move_uploaded_file($_FILES['image']['tmp_name'], $upload_dir . $image_filename)) {
+        if (img_mime_ok($_FILES['image']['tmp_name'])) {
+            $image_filename = $sku . '-' . time() . '.webp';
+            if (!img_save_webp($_FILES['image']['tmp_name'], $upload_dir . $image_filename)) {
                 $image_filename = null;
             }
         }

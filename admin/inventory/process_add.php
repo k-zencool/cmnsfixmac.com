@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../../includes/db.php';
+require_once __DIR__ . '/../../includes/image_lib.php';
 
 if (!isset($_SESSION['admin_id'])) {
     header("Location: ../login.php");
@@ -53,13 +54,7 @@ try {
 
     // Auto-generate SKU
     if (!$sku) {
-        $prefix = match($type) {
-            'new'     => 'NW',
-            'used'    => 'US',
-            'machine' => 'MC',
-            'sale'    => 'SL',
-            default   => 'IT',
-        };
+        $prefix = ['new'=>'NW', 'used'=>'US', 'machine'=>'MC', 'sale'=>'SL'][$type] ?? 'IT';
         $sku = $prefix . '-' . strtoupper(substr(uniqid(), -6));
     }
 
@@ -69,12 +64,11 @@ try {
         $upload_dir = '../../uploads/inventory/';
         if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
 
-        $ext = strtolower(pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION));
-        $allowed = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-        if (!in_array($ext, $allowed)) throw new Exception("ไฟล์รูปไม่รองรับ");
+        if (!img_mime_ok($_FILES['image']['tmp_name'])) throw new Exception("ไฟล์รูปไม่รองรับ");
 
-        $image_filename = $sku . '-' . time() . '.' . $ext;
-        if (!move_uploaded_file($_FILES['image']['tmp_name'], $upload_dir . $image_filename)) {
+        // Resize + re-encode to WebP at the source (no more raw 3–4 MB photos)
+        $image_filename = $sku . '-' . time() . '.webp';
+        if (!img_save_webp($_FILES['image']['tmp_name'], $upload_dir . $image_filename)) {
             $image_filename = null;
         }
     }
@@ -105,13 +99,7 @@ try {
     $posted_status = strtoupper(trim($_POST['status'] ?? ''));
     $status = (in_array($type, ['used','sale']) && in_array($posted_status, $allowed_statuses))
         ? $posted_status
-        : match($type) {
-            'new'     => 'STOCK',
-            'used'    => 'GOOD',
-            'machine' => 'READY',
-            'sale'    => 'PENDING',
-            default   => 'STOCK',
-        };
+        : (['new'=>'STOCK', 'used'=>'GOOD', 'machine'=>'READY', 'sale'=>'PENDING'][$type] ?? 'STOCK');
 
     $sell_price = (float)($_POST['sell_price'] ?? 0);
 

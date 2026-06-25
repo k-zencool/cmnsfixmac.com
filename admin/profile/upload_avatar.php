@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../../includes/db.php';
+require_once __DIR__ . '/../../includes/image_lib.php';
 
 // เช็คว่าล็อกอินไหม
 if (!isset($_SESSION['admin_id'])) {
@@ -13,11 +14,10 @@ $admin_id = $_SESSION['admin_id'];
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['avatar']) && $_FILES['avatar']['error'] == 0) {
     
     $file = $_FILES['avatar'];
-    $allowed_types = ['image/jpeg', 'image/png', 'image/webp'];
     $max_size = 2 * 1024 * 1024; // ลิมิต 2MB
 
-    // 1. เช็คประเภทไฟล์
-    if (!in_array($file['type'], $allowed_types)) {
+    // 1. เช็คประเภทไฟล์ (sniff จริงผ่าน finfo ไม่เชื่อ type ที่ browser ส่งมา)
+    if (!img_mime_ok($file['tmp_name'], ['image/jpeg', 'image/png', 'image/webp'])) {
         $_SESSION['error'] = "อัปโหลดได้เฉพาะไฟล์ JPG, PNG, WEBP เท่านั้น!";
         header("Location: index.php");
         exit();
@@ -42,10 +42,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['avatar']) && $_FILES[
         mkdir($upload_dir, 0777, true);
     }
 
-    // 4. สุ่มชื่อไฟล์ใหม่
-    $ext = pathinfo($file['name'], PATHINFO_EXTENSION);
-    $new_filename = 'admin_' . $admin_id . '_' . time() . '.' . $ext;
-    
+    // 4. สุ่มชื่อไฟล์ใหม่ (เซฟเป็น WebP เสมอ)
+    $new_filename = 'admin_' . $admin_id . '_' . time() . '.webp';
+
     // Path จริงๆ ที่จะเอาไฟล์ไปวางในเซิร์ฟเวอร์
     $target_file = $upload_dir . $new_filename;
 
@@ -58,8 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_FILES['avatar']) && $_FILES[
         $stmt->execute([':id' => $admin_id]);
         $old_avatar = $stmt->fetchColumn();
 
-        // 6. โยนไฟล์รูปเข้าโฟลเดอร์ย่อย
-        if (move_uploaded_file($file['tmp_name'], $target_file)) {
+        // 6. ย่อ + แปลงเป็น WebP แล้วเซฟเข้าโฟลเดอร์ย่อย (avatar 512px พอ)
+        if (img_save_webp($file['tmp_name'], $target_file, 512)) {
             
             // 7. อัปเดต Path ใหม่ลง Database
             $updateStmt = $pdo->prepare("UPDATE admin_users SET avatar = :avatar WHERE id = :id");

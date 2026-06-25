@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../../includes/db.php';
+require_once __DIR__ . '/../../includes/image_lib.php';
 
 if (!isset($_SESSION['admin_id'])) {
     header("Location: ../login.php");
@@ -79,12 +80,11 @@ try {
         $upload_dir = '../../uploads/inventory/';
         if (!is_dir($upload_dir)) mkdir($upload_dir, 0755, true);
 
-        $ext = strtolower(pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION));
-        $allowed = ['jpg', 'jpeg', 'png', 'webp', 'gif'];
-        if (!in_array($ext, $allowed)) throw new Exception("ไฟล์รูปไม่รองรับ");
+        if (!img_mime_ok($_FILES['image']['tmp_name'])) throw new Exception("ไฟล์รูปไม่รองรับ");
 
-        $image_filename = $sku . '-' . time() . '.' . $ext;
-        if (!move_uploaded_file($_FILES['image']['tmp_name'], $upload_dir . $image_filename)) {
+        // Resize + re-encode to WebP at the source
+        $image_filename = $sku . '-' . time() . '.webp';
+        if (!img_save_webp($_FILES['image']['tmp_name'], $upload_dir . $image_filename)) {
             $image_filename = $existing['image'];
         } else {
             // ลบรูปเก่า
