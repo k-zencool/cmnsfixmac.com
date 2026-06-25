@@ -3,6 +3,24 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+
+// ── Current admin (for the user card at the bottom) ──
+global $pdo;
+$sb_name   = 'Admin';
+$sb_email  = '';
+$sb_avatar = null;
+if (!empty($_SESSION['admin_id']) && isset($pdo)) {
+    try {
+        $sb_stmt = $pdo->prepare("SELECT full_name, username, email, avatar, role FROM admin_users WHERE id = :id");
+        $sb_stmt->execute([':id' => $_SESSION['admin_id']]);
+        if ($u = $sb_stmt->fetch(PDO::FETCH_ASSOC)) {
+            $sb_name   = !empty($u['full_name']) ? $u['full_name'] : $u['username'];
+            $sb_email  = !empty($u['email']) ? $u['email'] : ($u['role'] ?? '');
+            $sb_avatar = $u['avatar'] ?? null;
+        }
+    } catch (PDOException $e) { /* silent */ }
+}
+$sb_initial = mb_strtoupper(mb_substr($sb_name, 0, 1));
 ?>
 
 <aside class="sidebar" id="sidebar">
@@ -24,7 +42,9 @@ if (session_status() === PHP_SESSION_NONE) {
     </div>
 
     <nav class="sidebar-nav" id="sidebarNav">
-        
+
+        <span class="nav-section">เมนูหลัก</span>
+
         <a href="/admin/dashboard/" title="Dashboard">
             <span class="material-symbols-rounded">space_dashboard</span>
             <span class="link-text">Dashboard</span>
@@ -73,6 +93,8 @@ if (session_status() === PHP_SESSION_NONE) {
             <span class="material-symbols-rounded">article</span>
             <span class="link-text">จัดการบทความ</span>
         </a>
+
+        <span class="nav-section">จัดการ</span>
 
         <a href="/admin/pricing/" title="จัดการราคาซ่อม">
             <span class="material-symbols-rounded">price_change</span>
@@ -142,7 +164,7 @@ if (session_status() === PHP_SESSION_NONE) {
             </div>
         </div>
 
-        <hr style="margin: 14px 12px; border: 0; border-top: 1px solid var(--border);">
+        <span class="nav-section">ระบบ</span>
 
         <?php if (!empty($_SESSION['admin_role']) && $_SESSION['admin_role'] === 'super_admin'): ?>
             <a href="/admin/user/" title="จัดการผู้ใช้งาน">
@@ -151,12 +173,43 @@ if (session_status() === PHP_SESSION_NONE) {
             </a>
         <?php endif; ?>
 
-        <a href="/admin/logout.php" class="logout-link" title="ออกจากระบบ">
-            <span class="material-symbols-rounded">logout</span>
-            <span class="link-text">ออกจากระบบ</span>
+    </nav>
+
+    <div class="sidebar-footer">
+        <a href="/admin/help/" title="ศูนย์ช่วยเหลือ">
+            <span class="material-symbols-rounded">help</span>
+            <span class="link-text">ศูนย์ช่วยเหลือ</span>
+        </a>
+        <a href="/admin/settings/" title="การตั้งค่า">
+            <span class="material-symbols-rounded">settings</span>
+            <span class="link-text">การตั้งค่า</span>
         </a>
 
-    </nav>
+        <div class="sidebar-user" id="sidebarUser">
+            <div class="sidebar-user-main">
+                <a class="sb-userlink" href="/admin/profile/" title="ไปที่โปรไฟล์">
+                    <div class="sb-avatar">
+                        <?php if (!empty($sb_avatar)): ?>
+                            <img src="/uploads/avatars/<?= htmlspecialchars($sb_avatar) ?>" alt="">
+                        <?php else: ?>
+                            <?= htmlspecialchars($sb_initial) ?>
+                        <?php endif; ?>
+                    </div>
+                    <div class="sb-user-info">
+                        <span class="sb-name"><?= htmlspecialchars($sb_name) ?></span>
+                        <?php if ($sb_email !== ''): ?><span class="sb-email"><?= htmlspecialchars($sb_email) ?></span><?php endif; ?>
+                    </div>
+                </a>
+                <button type="button" class="sb-kebab" onclick="toggleSidebarUser(event)" title="ตัวเลือก" aria-label="ตัวเลือก">
+                    <span class="material-symbols-rounded">more_vert</span>
+                </button>
+            </div>
+            <div class="sidebar-user-menu" id="sidebarUserMenu">
+                <a href="/admin/profile/"><span class="material-symbols-rounded">account_circle</span> โปรไฟล์</a>
+                <a href="/admin/logout.php" class="logout-link"><span class="material-symbols-rounded">logout</span> ออกจากระบบ</a>
+            </div>
+        </div>
+    </div>
 </aside>
 
 <div id="overlay" class="overlay" onclick="toggleSidebarMobile()"></div>

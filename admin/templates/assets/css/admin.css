@@ -130,7 +130,16 @@ body {
 .brand-logo { height: 34px; width: auto; display: block; }
 [data-theme="dark"] .brand-logo { filter: brightness(0) invert(1); }
 
-.sidebar-nav { padding: 14px 12px; overflow-y: auto; overflow-x: hidden; flex: 1; }
+.sidebar-nav { padding: 14px 12px; overflow-y: auto; overflow-x: hidden; flex: 1; position: relative; z-index: 1; }
+
+/* group labels — give the long list rhythm without heavy dividers */
+.nav-section {
+    display: block; padding: 16px 13px 7px;
+    font-size: 0.67rem; font-weight: 700; letter-spacing: 0.09em;
+    text-transform: uppercase; color: var(--text-muted); opacity: 0.55;
+    white-space: nowrap; user-select: none;
+}
+.nav-section:first-child { padding-top: 2px; }
 .sidebar-nav a, .sub-head {
     position: relative;
     display: flex; align-items: center; gap: 13px; padding: 10px 13px;
@@ -193,11 +202,80 @@ body {
 .sub-toggle { transition: transform 0.3s var(--ease-spring); }
 
 /* logout link — red-tinted affordance */
-.sidebar-nav a.logout-link:hover {
+.sidebar-nav a.logout-link:hover,
+.sidebar-footer a.logout-link:hover {
     background: rgba(239, 68, 68, 0.1); color: #ef4444;
 }
-.sidebar-nav a.logout-link:hover .material-symbols-rounded { color: #ef4444; }
+.sidebar-nav a.logout-link:hover .material-symbols-rounded,
+.sidebar-footer a.logout-link:hover .material-symbols-rounded { color: #ef4444; }
 .sidebar-nav a.logout-link::before { background: #ef4444; }
+
+/* ── Sidebar footer — account / settings / help pinned to the bottom ── */
+.sidebar-footer {
+    padding: 10px 12px 14px; border-top: 1px solid var(--border);
+    position: relative; z-index: 1;
+}
+.sidebar-footer a {
+    display: flex; align-items: center; gap: 13px; padding: 10px 13px;
+    color: var(--text-muted); text-decoration: none; border-radius: var(--item-radius);
+    margin-bottom: 2px; font-weight: 500; font-size: 0.92rem;
+    transition: background .2s var(--ease-out), color .2s;
+}
+.sidebar-footer a:hover { background: var(--bg-surface-alt); color: var(--text-main); }
+.sidebar-footer a:hover .material-symbols-rounded { transform: scale(1.08); }
+.sidebar-footer .material-symbols-rounded { font-size: 22px; transition: transform .2s var(--ease-spring); }
+.sidebar-footer a.active { background: var(--accent-grad); color: #fff; font-weight: 600; box-shadow: var(--accent-glow); }
+.sidebar-footer a.active .material-symbols-rounded { color: #fff; }
+
+/* user card pinned at the very bottom */
+.sidebar-user { position: relative; margin-top: 4px; }
+.sidebar-user-main {
+    display: flex; align-items: center; gap: 6px;
+    padding: 6px 7px; border-radius: 10px;
+}
+.sb-userlink {
+    display: flex; align-items: center; gap: 11px; flex: 1 1 auto; min-width: 0;
+    text-decoration: none; color: inherit; border-radius: 9px; padding: 4px;
+    transition: background .2s;
+}
+.sb-userlink:hover { background: var(--bg-surface-alt); }
+.sb-avatar {
+    flex: 0 0 38px; width: 38px; height: 38px; border-radius: 50%; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg-surface-alt); border: 1px solid var(--border);
+    color: var(--text-muted); font-weight: 700; font-size: 0.95rem;
+}
+.sb-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.sb-user-info { flex: 1; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.sb-name  { font-weight: 600; font-size: 0.85rem; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-email { font-size: 0.72rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-kebab {
+    flex: 0 0 auto; display: flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: 8px;
+    background: transparent; border: 0; cursor: pointer; padding: 0;
+    color: var(--text-muted); transition: background .2s, color .2s;
+}
+.sb-kebab:hover { background: var(--bg-surface-alt); color: var(--text-main); }
+.sb-kebab .material-symbols-rounded { font-size: 20px; }
+.sidebar-user.open .sb-kebab { color: var(--primary); }
+
+.sidebar-user-menu {
+    position: absolute; left: 0; right: 0; bottom: calc(100% + 8px);
+    background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px;
+    box-shadow: 0 12px 30px -8px rgba(0, 0, 0, 0.25); padding: 6px; z-index: 10;
+    opacity: 0; visibility: hidden; transform: translateY(8px) scale(0.97);
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.sidebar-user.open .sidebar-user-menu { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
+.sidebar-user-menu a {
+    display: flex; align-items: center; gap: 10px; padding: 9px 11px; border-radius: 8px;
+    color: var(--text-main); text-decoration: none; font-size: 0.88rem; font-weight: 500;
+}
+.sidebar-user-menu a:hover { background: var(--bg-surface-alt); color: var(--primary); }
+.sidebar-user-menu a .material-symbols-rounded { font-size: 19px; color: var(--text-muted); }
+.sidebar-user-menu a:hover .material-symbols-rounded { color: var(--primary); }
+.sidebar-user-menu a.logout-link:hover { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+.sidebar-user-menu a.logout-link:hover .material-symbols-rounded { color: #ef4444; }
 
 /* Topbar */
 .topbar {
@@ -299,10 +377,22 @@ body {
     /* center the icons in their narrow rail */
     body.sidebar-collapsed .sidebar-nav a,
     body.sidebar-collapsed .sub-head,
+    body.sidebar-collapsed .sidebar-footer a,
     html.sidebar-collapsed .sidebar-nav a,
-    html.sidebar-collapsed .sub-head { justify-content: center; padding: 11px 0; gap: 0; }
+    html.sidebar-collapsed .sub-head,
+    html.sidebar-collapsed .sidebar-footer a { justify-content: center; padding: 11px 0; gap: 0; }
     body.sidebar-collapsed .sidebar-nav a::before,
     html.sidebar-collapsed .sidebar-nav a::before { display: none; }
+
+    /* user card → just the avatar; menu pops wider over the content */
+    body.sidebar-collapsed .sb-user-info, body.sidebar-collapsed .sb-kebab,
+    html.sidebar-collapsed .sb-user-info, html.sidebar-collapsed .sb-kebab { display: none; }
+    body.sidebar-collapsed .sidebar-user-main,
+    html.sidebar-collapsed .sidebar-user-main { justify-content: center; padding: 8px 0; gap: 0; }
+    body.sidebar-collapsed .sb-userlink,
+    html.sidebar-collapsed .sb-userlink { flex: 0 0 auto; justify-content: center; padding: 0; }
+    body.sidebar-collapsed .sidebar-user-menu,
+    html.sidebar-collapsed .sidebar-user-menu { left: 8px; right: auto; min-width: 190px; }
 
     .mobile-toggle-btn { display: none; }
     .close-btn         { display: none; }
@@ -341,6 +431,23 @@ body {
     background: rgba(20, 20, 20, 0.78) !important;
 }
 [data-theme="dark"] .sidebar { box-shadow: 1px 0 0 var(--border), 4px 0 24px -10px rgba(0, 0, 0, 0.6); }
+
+/* ── Sidebar ambience: a soft accent glow up top ── */
+.sidebar { --glow-c: rgba(37, 99, 235, 0.10); }
+[data-theme="dark"] .sidebar { --glow-c: rgba(96, 165, 250, 0.12); }
+.sidebar::after {                                    /* ambient glow behind logo */
+    content: ''; position: absolute; inset: 0; pointer-events: none; z-index: 0;
+    background: radial-gradient(130% 220px at 28% -6%, var(--glow-c), transparent 72%);
+}
+.sidebar-header { position: relative; z-index: 1; }  /* keep header above the ambience */
+
+/* collapsed: turn group labels into slim dividers */
+body.sidebar-collapsed .nav-section,
+html.sidebar-collapsed .nav-section { font-size: 0; padding: 9px 0; opacity: 1; }
+body.sidebar-collapsed .nav-section::before,
+html.sidebar-collapsed .nav-section::before {
+    content: ''; display: block; height: 1px; margin: 0 18px; background: var(--border);
+}
 
 /* =========================================================
    9. USER DROPDOWN

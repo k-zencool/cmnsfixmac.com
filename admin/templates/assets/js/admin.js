@@ -64,7 +64,7 @@ document.addEventListener("DOMContentLoaded", function() {
     // ------------------------------------------------
     const currentPath = window.location.pathname;
     const curSearch   = new URLSearchParams(window.location.search);
-    const navLinks    = document.querySelectorAll('.sidebar-nav a');
+    const navLinks    = document.querySelectorAll('.sidebar-nav a, .sidebar-footer a');
 
     /* Pick the single best-matching link. Siblings can share a pathname and
        differ only by query (?type=, ?group=), so score by path + query match
@@ -131,6 +131,11 @@ document.addEventListener("DOMContentLoaded", function() {
             if (!wrapper.contains(e.target)) {
                 wrapper.classList.remove('active');
             }
+        }
+        // sidebar user card menu
+        const sbUser = document.getElementById('sidebarUser');
+        if (sbUser && sbUser.classList.contains('open') && !sbUser.contains(e.target)) {
+            sbUser.classList.remove('open');
         }
     });
 
@@ -260,4 +265,13 @@ window.toggleUserMenu = function(e) {
     if(e) e.stopPropagation(); // กันไม่ให้ Event ไปชนกับ click outside
     const wrapper = document.querySelector('.user-dropdown-wrapper');
     if(wrapper) wrapper.classList.toggle('active');
+};
+
+/**
+ * 👤 Toggle Sidebar User Card menu (profile / logout)
+ */
+window.toggleSidebarUser = function(e) {
+    if (e) e.stopPropagation();
+    const card = document.getElementById('sidebarUser');
+    if (card) card.classList.toggle('open');
 };
