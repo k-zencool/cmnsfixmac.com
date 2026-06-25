@@ -122,22 +122,13 @@ body {
     display: flex; align-items: center; justify-content: space-between;
     padding: 0 18px; border-bottom: 1px solid var(--border);
 }
-.logo-area { display: flex; align-items: center; font-weight: 700; font-size: 1.15rem; gap: 0; overflow: hidden; }
-/* gradient brand mark wrapping the logo glyph */
-.logo-area .material-symbols-rounded {
-    display: flex; align-items: center; justify-content: center;
-    width: 38px; height: 38px; flex: 0 0 38px;
-    border-radius: 11px;
-    background: var(--accent-grad);
-    color: #fff !important; font-size: 22px !important;
-    box-shadow: var(--accent-glow);
-}
-.logo-text {
-    background: var(--accent-grad);
-    -webkit-background-clip: text; background-clip: text;
-    -webkit-text-fill-color: transparent;
-    letter-spacing: 0.3px; white-space: nowrap;
-}
+.logo-area { display: flex; align-items: center; overflow: hidden; }
+.brand-link { display: inline-flex; align-items: center; text-decoration: none; }
+/* real shop logo, sitting flush on the sidebar (no badge). In dark mode the
+   dark-inked artwork is flattened to a clean white monochrome mark so it
+   stays legible without a sticker-looking plate. */
+.brand-logo { height: 34px; width: auto; display: block; }
+[data-theme="dark"] .brand-logo { filter: brightness(0) invert(1); }
 
 .sidebar-nav { padding: 14px 12px; overflow-y: auto; overflow-x: hidden; flex: 1; }
 .sidebar-nav a, .sub-head {
@@ -299,9 +290,9 @@ body {
     html.sidebar-collapsed .sub-toggle { display: none; }
     body.sidebar-collapsed .sidebar-header,
     html.sidebar-collapsed .sidebar-header { justify-content: center; padding: 0; }
-    /* keep the gradient brand mark centered, just hide its wordmark */
-    body.sidebar-collapsed .logo-text,
-    html.sidebar-collapsed .logo-text { display: none; }
+    /* horizontal logo can't fit the narrow rail — hide it when collapsed */
+    body.sidebar-collapsed .logo-area,
+    html.sidebar-collapsed .logo-area { display: none; }
     body.sidebar-collapsed .submenu-wrapper,
     html.sidebar-collapsed .submenu-wrapper { display: none !important; }
 

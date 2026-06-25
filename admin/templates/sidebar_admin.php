@@ -9,8 +9,9 @@ if (session_status() === PHP_SESSION_NONE) {
     
     <div class="sidebar-header">
         <div class="logo-area">
-            <span class="material-symbols-rounded">settings_suggest</span>
-            <span class="logo-text" style="margin-left: 11px;">Admin Panel</span>
+            <a href="/admin/dashboard/" class="brand-link" title="CMNS FixMac Admin">
+                <img class="brand-logo" src="/assets/img/Logo1.png" alt="CMNS FixMac">
+            </a>
         </div>
         
         <button class="toggle-btn" onclick="toggleSidebarCollapse()" title="ย่อเมนู">
@@ -93,6 +94,9 @@ if (session_status() === PHP_SESSION_NONE) {
             </div>
             <div class="submenu-wrapper">
                 <div class="submenu-inner">
+                    <a href="/admin/inventory/index.php?type=all">
+                        <span class="material-symbols-rounded" style="font-size:18px;">dashboard</span> ภาพรวมทั้งหมด
+                    </a>
                     <a href="/admin/inventory/index.php?type=new">
                         <span class="material-symbols-rounded" style="font-size:18px;">new_releases</span> อะไหล่มือ 1
                     </a>

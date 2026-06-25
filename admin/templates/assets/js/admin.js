@@ -62,27 +62,44 @@ document.addEventListener("DOMContentLoaded", function() {
     // ------------------------------------------------
     // 4. Auto Active Menu (ไฮไลท์เมนูปัจจุบัน)
     // ------------------------------------------------
-    const currentUrl = window.location.href;
     const currentPath = window.location.pathname;
-    const navLinks = document.querySelectorAll('.sidebar-nav a');
+    const curSearch   = new URLSearchParams(window.location.search);
+    const navLinks    = document.querySelectorAll('.sidebar-nav a');
 
+    /* Pick the single best-matching link. Siblings can share a pathname and
+       differ only by query (?type=, ?group=), so score by path + query match
+       and disqualify any link that demands a query the current URL doesn't have. */
+    let bestLink = null, bestScore = -1;
     navLinks.forEach(link => {
         const linkUrl = new URL(link.href, window.location.origin);
-        // เช็คว่า Path ตรงกัน หรือเป็นหน้าลูกของ Path นั้น
-        if (currentPath === linkUrl.pathname || (linkUrl.pathname !== '/admin/' && currentPath.startsWith(linkUrl.pathname))) {
-            link.classList.add(link.closest('.submenu-inner') ? 'sub-active' : 'active');
-            
-            // กางเมนูแม่ (Parent) ออกมา
-            const parentGroup = link.closest('.has-sub');
-            if (parentGroup) {
-                parentGroup.classList.add('open');
-                const toggle = parentGroup.querySelector('.sub-toggle');
-                if(toggle) toggle.style.transform = 'rotate(180deg)';
-                const parentLink = parentGroup.querySelector('.sub-link');
-                if (parentLink) parentLink.classList.add('active-parent');
-            }
-        }
+        const exact   = currentPath === linkUrl.pathname;
+        const prefix  = linkUrl.pathname !== '/admin/' && currentPath.startsWith(linkUrl.pathname);
+        if (!exact && !prefix) return;
+
+        let score = exact ? 2 : 1;
+        let disqualified = false;
+        linkUrl.searchParams.forEach((v, k) => {
+            if (curSearch.get(k) === v) score += 2;   // matched the right ?type / ?group
+            else disqualified = true;                  // link wants a query we're not on
+        });
+        if (disqualified) return;
+
+        if (score > bestScore) { bestScore = score; bestLink = link; }
     });
+
+    if (bestLink) {
+        bestLink.classList.add(bestLink.closest('.submenu-inner') ? 'sub-active' : 'active');
+
+        // กางเมนูแม่ (Parent) ออกมา
+        const parentGroup = bestLink.closest('.has-sub');
+        if (parentGroup) {
+            parentGroup.classList.add('open');
+            const toggle = parentGroup.querySelector('.sub-toggle');
+            if (toggle) toggle.style.transform = 'rotate(180deg)';
+            const parentLink = parentGroup.querySelector('.sub-link');
+            if (parentLink) parentLink.classList.add('active-parent');
+        }
+    }
 
     // ------------------------------------------------
     // 5. Restore Sidebar State (PC Only)
