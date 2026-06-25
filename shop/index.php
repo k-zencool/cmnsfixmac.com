@@ -119,7 +119,7 @@ if ($cat !== '') $activeFilters[] = ['label' => 'หมวด: ' . $cat,        
 $page_title = 'ร้านค้า — Mac & iPhone มือสองคัดเกรด พร้อมรับประกัน | CMNS FixMac';
 $meta_desc  = 'ร้านค้า CMNS FixMac — MacBook, iMac, iPhone, iPad มือสองคัดเกรด ตรวจสภาพละเอียด พร้อมรับประกันร้าน นัดรับเชียงใหม่หรือส่งทั่วประเทศ สอบถาม/สั่งซื้อผ่าน LINE ได้เลย';
 $canonical  = 'https://cmnsfixmac.com/shop/' . ($cat !== '' ? '?cat=' . urlencode($cat) : '');
-$page_css   = ['/assets/css/shop/shop.css?v=24', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
+$page_css   = ['/assets/css/shop/shop.css?v=25', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
 
 /* Build ItemList schema from current page items */
 $itemListEl = [];
@@ -490,27 +490,15 @@ include_once __DIR__ . '/../includes/header.php';
 <script>
 AOS.init({ duration: 700, once: true, offset: 60 });
 
-/* ── Image loading: smooth fade-in + broken-image fallback ──
-   - on success  → fade the <img> in and stop the skeleton shimmer
-   - on error/404 → drop the <img>, show a centered icon instead   */
+/* ── Image loading: instant fade-in + broken-image fallback ──
+   - on success  → reveal the <img> the moment it decodes (no forced wait)
+   - on error/404 → drop the <img>, show a centered icon instead
+   The loader skeleton only shows while the bytes are actually in flight; a
+   cached/fast image snaps in immediately instead of being held back. */
 (function () {
-  var MIN_SPIN = 450;                 // keep the loader on screen at least this long
-
   function apply(img) {
-    // Force one painted frame at opacity:0 before flipping to is-loaded,
-    // otherwise cached/eager images snap in with no transition.
-    requestAnimationFrame(function () {
-      requestAnimationFrame(function () {
-        img.classList.add('is-loaded');
-        if (img.parentNode) img.parentNode.classList.add('is-ready');
-      });
-    });
-  }
-  function reveal(img, t0) {
-    // If the image resolved faster than MIN_SPIN, hold the loader a touch
-    // longer so it's actually perceivable (esp. on cached/fast connections).
-    var wait = MIN_SPIN - (performance.now() - t0);
-    wait > 0 ? setTimeout(function () { apply(img); }, wait) : apply(img);
+    img.classList.add('is-loaded');
+    if (img.parentNode) img.parentNode.classList.add('is-ready');
   }
   function fail(img) {
     var box = img.parentNode;
@@ -524,14 +512,11 @@ AOS.init({ duration: 700, once: true, offset: 60 });
       box.appendChild(ph);
     }
   }
-  /* Start the spinner timer the moment THIS card scrolls into view, so every
-     card — not just the first rows — shows the loader before its image fades in. */
   function track(img) {
-    var t0 = performance.now();
     if (img.complete) {
-      img.naturalWidth > 0 ? reveal(img, t0) : fail(img);
+      img.naturalWidth > 0 ? apply(img) : fail(img);
     } else {
-      img.addEventListener('load',  function () { reveal(img, t0); });
+      img.addEventListener('load',  function () { apply(img); });
       img.addEventListener('error', function () { fail(img); });
     }
   }
@@ -542,13 +527,16 @@ AOS.init({ duration: 700, once: true, offset: 60 });
     imgs.forEach(track);
     return;
   }
+  /* Reveal/fail as cards approach the viewport. A generous rootMargin lets the
+     browser kick off the native lazy fetch ~2 rows early, so by the time you
+     scroll a card into view its image is already decoded — no waiting. */
   var io = new IntersectionObserver(function (entries, obs) {
     entries.forEach(function (e) {
       if (!e.isIntersecting) return;
       obs.unobserve(e.target);
       track(e.target);
     });
-  }, { rootMargin: '0px 0px 0px 0px' });
+  }, { rootMargin: '800px 0px 800px 0px' });
   imgs.forEach(function (img) { io.observe(img); });
 })();
 

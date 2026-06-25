@@ -543,7 +543,7 @@
   position: relative; z-index: 1;
   width: 100%; height: 100%; object-fit: cover;
   opacity: 0;
-  transition: opacity .5s ease-out, transform .4s;
+  transition: opacity .25s ease-out, transform .4s;
 }
 .shop-card-media img.is-loaded { opacity: 1; }
 .shop-card:hover .shop-card-media img { transform: scale(1.05); }
@@ -742,7 +742,7 @@
   width: 100%; height: 100%;
   object-fit: cover;
   opacity: 0;
-  transition: opacity .5s ease-out, transform .5s var(--ease);
+  transition: opacity .25s ease-out, transform .5s var(--ease);
 }
 .deal-feature .deal-media img.is-loaded { opacity: 1; }
 .deal-feature:hover .deal-media img { transform: scale(1.04); }
@@ -785,7 +785,7 @@
   width: 100%; height: 100%;
   object-fit: cover;
   opacity: 0;
-  transition: opacity .5s ease-out, transform .5s var(--ease);
+  transition: opacity .25s ease-out, transform .5s var(--ease);
 }
 .deal-mini-media img.is-loaded { opacity: 1; }
 .deal-mini:hover .deal-mini-media img { transform: scale(1.05); }
