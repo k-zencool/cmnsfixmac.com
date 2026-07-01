@@ -99,8 +99,9 @@
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 25px;">
             <h3 style="margin: 0; display: flex; align-items: center; gap: 10px; color: var(--text-main); font-weight: 800; font-size: 20px;">
                 <span class="material-symbols-rounded" style="color: var(--primary); font-size: 28px;">edit</span>
-                แก้ไขข้อมูลสินค้า
+                <span id="edit-modal-title-text">แก้ไขข้อมูลสินค้า</span>
             </h3>
+            <style>.rs-hidden{display:none !important;}</style>
             <button type="button" class="modal-close-btn" onclick="closeEditModal()"><span class="material-symbols-rounded">close</span></button>
         </div>
 
@@ -125,7 +126,7 @@
                 <div id="edit-status-badge"></div>
             </div>
 
-            <div style="display: flex; gap: 25px; flex-wrap: wrap; margin-bottom: 20px;">
+            <div id="edit-profile-block" style="display: flex; gap: 25px; flex-wrap: wrap; margin-bottom: 20px;">
                 <!-- Image -->
                 <div style="flex-shrink: 0;">
                     <label class="cmns-label">รูปสินค้า</label>
@@ -782,17 +783,33 @@ function closeEditModal() {
     const btn = document.getElementById('btn-toggle-restock');
     if (rs)  { rs.style.display = 'none'; rs.querySelectorAll('input').forEach(i => { if(i.name !== 'qty_received') i.value = i.defaultValue || ''; else i.value = 1; }); }
     if (btn) { btn.style.background = 'rgba(16,185,129,.1)'; btn.style.color = '#059669'; }
+    // โชว์ส่วนแก้โปรไฟล์กลับ + คืนหัวข้อ (เผื่อปิดตอนอยู่โหมดเติมสต็อก)
+    ['edit-info-bar', 'edit-profile-block', 'edit-dynamic-fields'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('rs-hidden');
+    });
+    const ttl = document.getElementById('edit-modal-title-text');
+    if (ttl) ttl.textContent = 'แก้ไขข้อมูลสินค้า';
 }
 
 function toggleRestockSection() {
     const rs   = document.getElementById('restock-section');
     const btn  = document.getElementById('btn-toggle-restock');
-    const open = rs.style.display === 'block';
-    rs.style.display = open ? 'none' : 'block';
-    rs.querySelectorAll('input').forEach(i => i.disabled = open);
-    btn.classList.toggle('cmns-btn-warranty', open);
-    btn.classList.toggle('cmns-btn-primary',  !open);
-    if (!open) {
+    const opening = rs.style.display !== 'block';   // กำลังจะเปิดโหมดเติมสต็อก?
+    rs.style.display = opening ? 'block' : 'none';
+    rs.querySelectorAll('input').forEach(i => i.disabled = !opening);
+
+    // เติมสต็อก = โชว์แค่ส่วนล่าง → ซ่อนส่วนบน (แก้โปรไฟล์)
+    ['edit-info-bar', 'edit-profile-block', 'edit-dynamic-fields'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('rs-hidden', opening);
+    });
+    const ttl = document.getElementById('edit-modal-title-text');
+    if (ttl) ttl.textContent = opening ? 'เติมสต็อก Lot ใหม่' : 'แก้ไขข้อมูลสินค้า';
+
+    btn.classList.toggle('cmns-btn-warranty', !opening);
+    btn.classList.toggle('cmns-btn-primary',  opening);
+    if (opening) {
         btn.style.background = '#10b981';
         btn.style.borderColor = '#10b981';
         document.getElementById('rs-qty').focus();

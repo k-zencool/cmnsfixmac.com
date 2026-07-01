@@ -7,6 +7,10 @@ if (!isset($_SESSION['admin_id'])) {
     exit();
 }
 
+// Hard-delete privilege: ONLY super_admin with id = 1. ห้ามผูกกับ role string — ล็อกที่ id ตรงๆ
+// ซ่อนตอนสวมมุมมองยศอื่น (view-as) เพื่อให้ preview เหมือนยศนั้นจริงๆ
+$can_hard_delete = ((int)($_SESSION['admin_id'] ?? 0) === 1) && empty($_SESSION['view_as']);
+
 // =========================================================
 // 🛑 1. SELF-AJAX LOGIC (กางรายละเอียดล็อตแบบ Seamless)
 // =========================================================
@@ -61,9 +65,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_lots_inline') {
 
     // MACHINE type — แสดง specs + ตำหนิ
     if ($item_row && $item_row['type'] === 'machine') {
-        $grade_color = match($item_row['condition_grade'] ?? '') {
-            'A' => '#10b981', 'B' => '#3b82f6', 'C' => '#f59e0b', 'D' => '#ef4444', default => '#888'
-        };
+        $grade_color = ['A' => '#10b981', 'B' => '#3b82f6', 'C' => '#f59e0b', 'D' => '#ef4444'][$item_row['condition_grade'] ?? ''] ?? '#888';
         $dis_map = [
             'intact'             => ['lock',         '#10b981', 'Intact — ยังไม่แกะ'],
             'partially_stripped' => ['build',         '#f59e0b', 'Partially Stripped — แกะบางส่วน'],
@@ -89,7 +91,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_lots_inline') {
                 <div style="font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:.8px;margin-bottom:8px;">อะไหล่ที่แยกออกมาแล้ว (<?= count($parts) ?>)</div>
                 <div style="display:flex;flex-wrap:wrap;gap:6px;">
                     <?php foreach($parts as $p):
-                        $pc = match($p['status']) { 'GOOD'=>'#10b981','TEST'=>'#f59e0b',default=>'#ef4444' };
+                        $pc = ['GOOD'=>'#10b981','TEST'=>'#f59e0b'][$p['status']] ?? '#ef4444';
                     ?>
                     <span style="font-size:11px;padding:3px 10px;border-radius:20px;background:<?= $pc ?>14;border:1px solid <?= $pc ?>33;color:<?= $pc ?>;font-weight:700;">
                         <?= htmlspecialchars($p['name']) ?> · <?= $p['status'] ?>
@@ -112,7 +114,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_lots_inline') {
         $apple_days   = null;
         $store_w_days = $item_row['store_warranty_days'] ?? null;
         if (!empty($item_row['apple_warranty_date'])) $apple_days = (int)((strtotime($item_row['apple_warranty_date']) - time()) / 86400);
-        $grade_color = match($item_row['condition_grade'] ?? '') { 'A'=>'#10b981','B'=>'#3b82f6','C'=>'#f59e0b',default=>'#888' };
+        $grade_color = ['A'=>'#10b981','B'=>'#3b82f6','C'=>'#f59e0b'][$item_row['condition_grade'] ?? ''] ?? '#888';
         ?>
         <div style="padding:14px 20px 14px 80px; border-top:1px solid var(--border);">
             <div style="display:flex;gap:28px;flex-wrap:wrap;margin-bottom:<?= $item_row['condition_note'] ? '14px' : '0' ?>;">
@@ -442,12 +444,7 @@ include '../templates/header_admin.php';
                         $it  = $item['type'];
                         $qty = (int)($item['total_qty'] ?: 0);
                         $st  = strtoupper(trim($item['status']));
-                        $st_class = match($st) {
-                            'STOCK','GOOD','READY' => 'status-green',
-                            'TEST','PENDING'       => 'status-orange',
-                            'SOLD'                 => 'status-red',
-                            default                => 'status-red',
-                        };
+                        $st_class = ['STOCK'=>'status-green','GOOD'=>'status-green','READY'=>'status-green','TEST'=>'status-orange','PENDING'=>'status-orange','SOLD'=>'status-red'][$st] ?? 'status-red';
                         $isMachine = ($it === 'machine' || $it === 'sale');
                         $isOos  = !$isMachine && ($qty === 0 || $st === 'OOS');
                         $isDead = ($st === 'DEAD');
@@ -507,16 +504,12 @@ include '../templates/header_admin.php';
                                     <?php endforeach; ?>
                                 </td>
                             <?php elseif($it === 'machine'):
-                                $grade_color = match($item['condition_grade'] ?? '') {
-                                    'A' => '#10b981', 'B' => '#3b82f6',
-                                    'C' => '#f59e0b', 'D' => '#ef4444', default => '#888'
-                                };
-                                $dis_label = match($item['disassembly_status'] ?? '') {
-                                    'intact'            => ['lock','#10b981','Intact'],
-                                    'partially_stripped'=> ['build','#f59e0b','Partial'],
-                                    'stripped'          => ['check_circle','#6b7280','Stripped'],
-                                    default             => ['','#888','—']
-                                };
+                                $grade_color = ['A' => '#10b981', 'B' => '#3b82f6', 'C' => '#f59e0b', 'D' => '#ef4444'][$item['condition_grade'] ?? ''] ?? '#888';
+                                $dis_label = [
+                                    'intact'             => ['lock','#10b981','Intact'],
+                                    'partially_stripped' => ['build','#f59e0b','Partial'],
+                                    'stripped'           => ['check_circle','#6b7280','Stripped'],
+                                ][$item['disassembly_status'] ?? ''] ?? ['','#888','—'];
                             ?>
                                 <td>
                                     <div style="font-weight:700; font-size:14px; line-height:1.3;"><?= htmlspecialchars($item['name']) ?></div>
@@ -560,9 +553,7 @@ include '../templates/header_admin.php';
                                     <?php endif; ?>
                                 </td>
                             <?php elseif($it === 'sale'):
-                                $sale_grade_color = match($item['condition_grade'] ?? '') {
-                                    'A' => '#10b981', 'B' => '#3b82f6', 'C' => '#f59e0b', default => '#888'
-                                };
+                                $sale_grade_color = ['A' => '#10b981', 'B' => '#3b82f6', 'C' => '#f59e0b'][$item['condition_grade'] ?? ''] ?? '#888';
                                 $apple_days   = null;
                                 $store_w_days = $item['store_warranty_days'] ?? null;
                                 if (!empty($item['apple_warranty_date'])) {
@@ -754,6 +745,12 @@ include '../templates/header_admin.php';
                                             onclick="openEditModal(<?= $item['id'] ?>)">
                                         <span class="material-symbols-rounded">edit</span>
                                     </button>
+                                    <?php if ($can_hard_delete): ?>
+                                        <button class="inv-btn inv-btn-delete" title="ลบทั้งก้อน (super admin)"
+                                                onclick="confirmHardDelete(<?= $item['id'] ?>, <?= htmlspecialchars(json_encode($item['name']), ENT_QUOTES) ?>)">
+                                            <span class="material-symbols-rounded">delete_forever</span>
+                                        </button>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                         </tr>
@@ -1353,6 +1350,10 @@ document.getElementById('req-job-results').addEventListener('mouseout', e => {
 .inv-btn-to-sale:hover { color:#ef4444; background:rgba(239,68,68,.08); border-color:#ef4444; }
 .inv-btn-to-sale.disabled { opacity:.35; cursor:not-allowed; }
 .inv-btn-to-sale.disabled:hover { transform:none; box-shadow:none; color:var(--text-muted); background:var(--bg-surface-alt); border-color:var(--border); }
+.inv-btn-delete { color:#ef4444; background:rgba(239,68,68,.08); border-color:rgba(239,68,68,.3); }
+.inv-btn-delete:hover { color:#fff; background:#ef4444; border-color:#ef4444; }
+#hd-btn:disabled { opacity:.45; cursor:not-allowed; }
+#hd-input:focus { outline:none; border-color:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,.12); }
 
 /* ── OOS row ── */
 .row-oos td { opacity:.55; }
@@ -1878,7 +1879,74 @@ function _doRevertSale(inventoryId) {
         })
         .catch(() => alert('เกิดข้อผิดพลาด'));
 }
+
+// ── HARD DELETE (super_admin id=1 only) — ลบทั้งก้อน ถาวร ไม่เก็บประวัติ ──
+let _hdId = null;
+function confirmHardDelete(inventoryId, itemName) {
+    _hdId = inventoryId;
+    document.getElementById('hd-title').textContent = itemName;
+    const input = document.getElementById('hd-input');
+    const btn   = document.getElementById('hd-btn');
+    input.value = '';
+    btn.disabled = true;
+    document.getElementById('hd-overlay').style.display = 'flex';
+    setTimeout(() => input.focus(), 50);
+}
+function closeHardDelete() { document.getElementById('hd-overlay').style.display = 'none'; }
+function _hdCheck() {
+    document.getElementById('hd-btn').disabled = (document.getElementById('hd-input').value !== 'DELETE');
+}
+function doHardDelete() {
+    if (!_hdId || document.getElementById('hd-input').value !== 'DELETE') return;
+    const btn = document.getElementById('hd-btn');
+    btn.disabled = true; btn.textContent = 'กำลังลบ...';
+    const fd = new FormData();
+    fd.append('inventory_id', _hdId);
+    fetch('process_delete.php', { method: 'POST', body: fd })
+        .then(r => r.json())
+        .then(res => {
+            closeHardDelete();
+            if (res.ok) {
+                if (typeof Swal !== 'undefined') {
+                    Swal.fire({ icon:'success', title: res.msg, toast:true, position:'top-end', showConfirmButton:false, timer:2500, timerProgressBar:true });
+                }
+                setTimeout(() => location.reload(), 400);
+            } else {
+                Swal.fire({ icon:'error', title:'ลบไม่สำเร็จ', text: res.msg||'', toast:true, position:'top-end', showConfirmButton:false, timer:3000 });
+            }
+            btn.textContent = 'ลบถาวร';
+        })
+        .catch(() => { btn.disabled = false; btn.textContent = 'ลบถาวร'; alert('เกิดข้อผิดพลาด'); });
+}
 </script>
+
+<?php if ($can_hard_delete): ?>
+<!-- Hard Delete Confirm Dialog (super_admin id=1 only) — house style ตาม shop/user -->
+<div id="hd-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:9999;align-items:center;justify-content:center;">
+  <div style="background:var(--bg-surface);width:90%;max-width:380px;border-radius:16px;overflow:hidden;border:1px solid var(--border);box-shadow:0 8px 32px rgba(0,0,0,.2);">
+    <div style="padding:20px 20px 12px;text-align:center;background:rgba(239,68,68,.06);border-bottom:1px solid var(--border);">
+      <div style="width:44px;height:44px;border-radius:50%;background:rgba(239,68,68,.12);color:#ef4444;display:flex;align-items:center;justify-content:center;margin:0 auto 10px;">
+        <span class="material-symbols-rounded" style="font-size:22px;">delete_forever</span>
+      </div>
+      <h3 style="margin:0;font-size:15px;font-weight:700;color:#dc2626;">ลบทั้งก้อนถาวร?</h3>
+    </div>
+    <div style="padding:16px 20px;text-align:center;font-size:14px;line-height:1.6;">
+      ลบ <strong id="hd-title" style="color:var(--primary)"></strong> พร้อมล็อตสต็อกทั้งหมด<br>
+      <span style="font-size:12px;color:#ef4444;font-weight:600;">‼️ กู้คืนไม่ได้ และไม่เก็บประวัติ</span>
+      <input id="hd-input" type="text" oninput="_hdCheck()" placeholder="พิมพ์ DELETE เพื่อยืนยัน" autocomplete="off"
+             style="width:100%;margin-top:14px;padding:10px 12px;border:1px solid var(--border);border-radius:10px;background:var(--bg-surface-alt);color:var(--text-main);text-align:center;font-size:14px;letter-spacing:1px;">
+    </div>
+    <div style="padding:12px 20px;border-top:1px solid var(--border);background:var(--bg-surface-alt);display:flex;gap:8px;justify-content:center;">
+      <button onclick="closeHardDelete()" class="cmns-btn cmns-btn-secondary">ยกเลิก</button>
+      <button id="hd-btn" onclick="doHardDelete()" class="cmns-btn cmns-btn-primary" disabled style="background:#ef4444;border-color:#ef4444;">ลบถาวร</button>
+    </div>
+  </div>
+</div>
+<script>
+document.getElementById('hd-overlay').addEventListener('click', e => { if (e.target === document.getElementById('hd-overlay')) closeHardDelete(); });
+document.getElementById('hd-input').addEventListener('keydown', e => { if (e.key === 'Enter' && !document.getElementById('hd-btn').disabled) doHardDelete(); });
+</script>
+<?php endif; ?>
 
 <?php include 'modal_add.php'; ?>
 
@@ -1888,8 +1956,9 @@ function _doRevertSale(inventoryId) {
         <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 20px; margin-bottom: 25px;">
             <h3 style="margin: 0; display: flex; align-items: center; gap: 10px; color: var(--text-main); font-weight: 800; font-size: 20px;">
                 <span class="material-symbols-rounded" style="color: var(--primary); font-size: 28px;">edit</span>
-                แก้ไขข้อมูลสินค้า
+                <span id="edit-modal-title-text">แก้ไขข้อมูลสินค้า</span>
             </h3>
+            <style>.rs-hidden{display:none !important;}</style>
             <button type="button" class="modal-close-btn" onclick="closeEditModal()"><span class="material-symbols-rounded">close</span></button>
         </div>
 
@@ -1914,7 +1983,7 @@ function _doRevertSale(inventoryId) {
                 <div id="edit-status-badge"></div>
             </div>
 
-            <div style="display: flex; gap: 25px; flex-wrap: wrap; margin-bottom: 20px;">
+            <div id="edit-profile-block" style="display: flex; gap: 25px; flex-wrap: wrap; margin-bottom: 20px;">
                 <!-- Image -->
                 <div style="flex-shrink: 0;">
                     <label class="cmns-label">รูปสินค้า</label>
@@ -2266,17 +2335,33 @@ function closeEditModal() {
     const btn = document.getElementById('btn-toggle-restock');
     if (rs)  { rs.style.display = 'none'; rs.querySelectorAll('input').forEach(i => { if(i.name !== 'qty_received') i.value = i.defaultValue || ''; else i.value = 1; }); }
     if (btn) { btn.style.background = 'rgba(16,185,129,.1)'; btn.style.color = '#059669'; }
+    // โชว์ส่วนแก้โปรไฟล์กลับ + คืนหัวข้อ (เผื่อปิดตอนอยู่โหมดเติมสต็อก)
+    ['edit-info-bar', 'edit-profile-block', 'edit-dynamic-fields'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('rs-hidden');
+    });
+    const ttl0 = document.getElementById('edit-modal-title-text');
+    if (ttl0) ttl0.textContent = 'แก้ไขข้อมูลสินค้า';
 }
 
 function toggleRestockSection() {
     const rs   = document.getElementById('restock-section');
     const btn  = document.getElementById('btn-toggle-restock');
-    const open = rs.style.display === 'block';
-    rs.style.display = open ? 'none' : 'block';
-    rs.querySelectorAll('input').forEach(i => i.disabled = open);
-    btn.classList.toggle('cmns-btn-warranty', open);
-    btn.classList.toggle('cmns-btn-primary',  !open);
-    if (!open) {
+    const opening = rs.style.display !== 'block';   // กำลังจะเปิดโหมดเติมสต็อก?
+    rs.style.display = opening ? 'block' : 'none';
+    rs.querySelectorAll('input').forEach(i => i.disabled = !opening);
+
+    // เติมสต็อก = โชว์แค่ส่วนล่าง → ซ่อนส่วนบน (แก้โปรไฟล์)
+    ['edit-info-bar', 'edit-profile-block', 'edit-dynamic-fields'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.toggle('rs-hidden', opening);
+    });
+    const ttl = document.getElementById('edit-modal-title-text');
+    if (ttl) ttl.textContent = opening ? 'เติมสต็อก Lot ใหม่' : 'แก้ไขข้อมูลสินค้า';
+
+    btn.classList.toggle('cmns-btn-warranty', !opening);
+    btn.classList.toggle('cmns-btn-primary',  opening);
+    if (opening) {
         btn.style.background = '#10b981';
         btn.style.borderColor = '#10b981';
         document.getElementById('rs-qty').focus();
