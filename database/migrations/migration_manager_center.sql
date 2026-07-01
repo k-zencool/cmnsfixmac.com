@@ -7,6 +7,8 @@
 -- ============================================================
 
 -- 1) Audit ledger กลาง — ทุก sensitive action ลงที่นี่
+-- หมายเหตุ: ใช้ COLLATE=utf8mb4_unicode_ci (portable ทั้ง MySQL 5.7 / 8 / MariaDB)
+--           ห้ามใช้ utf8mb4_0900_ai_ci เพราะ prod เก่ากว่า MySQL 8 จะ error #1273
 CREATE TABLE IF NOT EXISTS manager_actions (
     id            BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     action_type   VARCHAR(40)   NOT NULL,   -- requisition | price_set | stock_delete | stock_edit | donor_strip | to_sale | sale_status
@@ -30,7 +32,7 @@ CREATE TABLE IF NOT EXISTS manager_actions (
     INDEX idx_ts     (created_at),
     INDEX idx_actor  (actor_id),
     INDEX idx_ref    (ref_table, ref_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 2) parts_requisitions: mark สถานะเมื่อถูก reverse (แทนการลบทิ้ง)
 --    MySQL 8 ไม่มี ADD COLUMN IF NOT EXISTS — ถ้ารันซ้ำแล้ว error ว่า column ซ้ำ ข้ามได้เลย
