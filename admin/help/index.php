@@ -10,41 +10,54 @@ if (!isset($_SESSION['admin_id'])) {
 $pageTitle = "ศูนย์ช่วยเหลือ";
 include '../templates/header_admin.php';
 
+// ── ช่องทางติดต่อผู้พัฒนา/ผู้ดูแลเว็บ (แก้ค่าตรงนี้) ──
+$dev_name  = 'นัฐ (ผู้พัฒนาเว็บ)';
+$dev_line  = '27042005_natt';
+$dev_phone = '0612955236';
+$dev_email = 'zencool.xxx@gmail.com';
+$dev_fb    = 'khun natt';
+
 // Quick "how do I…" shortcuts into the real admin areas
 $shortcuts = [
-    ['icon' => 'add_task',          'title' => 'เปิดงานซ่อมใหม่',     'href' => '/admin/tracking/create.php'],
-    ['icon' => 'inventory_2',       'title' => 'เพิ่มอะไหล่เข้าคลัง',  'href' => '/admin/inventory/index.php?type=all'],
-    ['icon' => 'storefront',        'title' => 'ลงขายสินค้าหน้าร้าน',  'href' => '/admin/shop/'],
-    ['icon' => 'verified_user',     'title' => 'ออกใบรับประกัน',       'href' => '/admin/warranty/'],
-    ['icon' => 'article',           'title' => 'เขียนบทความใหม่',      'href' => '/admin/articles/'],
+    ['icon' => 'add_task',          'title' => 'เปิดงานซ่อมใหม่',      'href' => '/admin/tracking/create.php'],
+    ['icon' => 'inventory_2',       'title' => 'เพิ่มอะไหล่เข้าคลัง',   'href' => '/admin/inventory/index.php?type=all'],
+    ['icon' => 'storefront',        'title' => 'ลงขายสินค้าหน้าร้าน',   'href' => '/admin/shop/'],
+    ['icon' => 'verified_user',     'title' => 'ออกใบรับประกัน',        'href' => '/admin/warranty/'],
+    ['icon' => 'article',           'title' => 'เขียนบทความใหม่',       'href' => '/admin/articles/'],
     ['icon' => 'account_circle',    'title' => 'แก้ไขโปรไฟล์/รหัสผ่าน', 'href' => '/admin/profile/'],
 ];
 ?>
 
 <div class="help-wrap">
 
-    <div class="help-hero card">
+    <div class="help-head">
         <span class="material-symbols-rounded help-hero-icon">support_agent</span>
-        <div>
-            <h2>ต้องการความช่วยเหลือ?</h2>
-            <p>ติดปัญหาการใช้งานระบบหลังบ้าน หรือเจอบั๊ก ทักหาทีมงานได้เลย</p>
-            <div class="help-contact">
-                <a class="help-btn help-btn-line" href="https://line.me/R/ti/p/@cmns" target="_blank" rel="noopener">
-                    <span class="material-symbols-rounded">chat</span> LINE @cmns
-                </a>
-                <a class="help-btn help-btn-call" href="tel:0841511684">
-                    <span class="material-symbols-rounded">call</span> 084-151-1684
-                </a>
-            </div>
+        <h1 class="help-title">ศูนย์ช่วยเหลือ</h1>
+        <p class="help-lead">ระบบหลังบ้านนี้พัฒนาและดูแลโดย<?= htmlspecialchars($dev_name) ?><br>ติดปัญหาการใช้งานหรือเจอบั๊ก ทักหาได้เลย</p>
+
+        <div class="help-contact">
+            <a href="https://line.me/ti/p/~<?= rawurlencode($dev_line) ?>" target="_blank" rel="noopener">
+                <span class="material-symbols-rounded">chat</span> LINE <?= htmlspecialchars($dev_line) ?>
+            </a>
+            <a href="tel:<?= preg_replace('/[^0-9+]/', '', $dev_phone) ?>">
+                <span class="material-symbols-rounded">call</span> <?= htmlspecialchars($dev_phone) ?>
+            </a>
+            <a href="mailto:<?= htmlspecialchars($dev_email) ?>">
+                <span class="material-symbols-rounded">mail</span> <?= htmlspecialchars($dev_email) ?>
+            </a>
+            <a href="https://www.facebook.com/search/top?q=<?= rawurlencode($dev_fb) ?>" target="_blank" rel="noopener">
+                <span class="material-symbols-rounded">group</span> <?= htmlspecialchars($dev_fb) ?>
+            </a>
         </div>
     </div>
 
-    <h3 class="help-subhead">ทางลัดงานที่ใช้บ่อย</h3>
-    <div class="help-grid">
+    <h2 class="help-subhead">ทางลัดงานที่ใช้บ่อย</h2>
+    <div class="help-links">
         <?php foreach ($shortcuts as $s): ?>
-            <a class="help-card" href="<?= htmlspecialchars($s['href']) ?>">
+            <a class="help-link" href="<?= htmlspecialchars($s['href']) ?>">
                 <span class="material-symbols-rounded"><?= htmlspecialchars($s['icon']) ?></span>
-                <span><?= htmlspecialchars($s['title']) ?></span>
+                <span class="help-link-text"><?= htmlspecialchars($s['title']) ?></span>
+                <span class="material-symbols-rounded help-arrow">chevron_right</span>
             </a>
         <?php endforeach; ?>
     </div>
@@ -52,38 +65,30 @@ $shortcuts = [
 </div>
 
 <style>
-.help-wrap { max-width: 980px; }
-.help-hero {
-    display: flex; align-items: center; gap: 22px;
-    background: linear-gradient(135deg, var(--primary), var(--primary-hover));
-    border: none; color: #fff;
-}
-.help-hero h2 { margin: 0 0 4px; font-size: 1.3rem; font-weight: 800; color: #fff; }
-.help-hero p  { margin: 0 0 14px; font-size: .92rem; opacity: .9; }
-.help-hero-icon { font-size: 56px; opacity: .9; flex: 0 0 auto; }
-.help-contact { display: flex; flex-wrap: wrap; gap: 10px; }
-.help-btn {
-    display: inline-flex; align-items: center; gap: 7px;
-    padding: 9px 16px; border-radius: 10px; text-decoration: none;
-    font-weight: 700; font-size: .9rem; background: rgba(255,255,255,.18); color: #fff;
-    transition: background .2s, transform .2s;
-}
-.help-btn:hover { background: rgba(255,255,255,.3); transform: translateY(-2px); }
-.help-btn .material-symbols-rounded { font-size: 20px; }
+.help-wrap { max-width: 540px; margin: 0 auto; }
 
-.help-subhead { margin: 26px 0 12px; font-size: 1rem; font-weight: 700; color: var(--text-main); }
-.help-grid {
-    display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px;
-}
-.help-card {
-    display: flex; align-items: center; gap: 13px;
-    background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px;
-    padding: 16px 18px; text-decoration: none; color: var(--text-main); font-weight: 600;
-    box-shadow: var(--shadow);
-    transition: transform .2s var(--ease-out), border-color .2s, box-shadow .2s;
-}
-.help-card:hover { transform: translateY(-3px); border-color: var(--primary); box-shadow: 0 12px 26px -10px rgba(0,0,0,.2); }
-.help-card .material-symbols-rounded { font-size: 24px; color: var(--primary); }
+/* ── หัวเรื่อง: จัดกลางให้สมมาตร ── */
+.help-head { text-align: center; margin-bottom: 38px; }
+.help-hero-icon { font-size: 52px; color: var(--primary); }
+.help-title { margin: 6px 0 8px; font-size: 1.6rem; font-weight: 800; color: var(--text-main); }
+.help-lead { margin: 0 0 20px; color: var(--text-muted); font-size: .95rem; line-height: 1.6; }
+
+/* ── ติดต่อ: ลิงก์ข้อความล้วน จัดกลาง ── */
+.help-contact { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px 28px; }
+.help-contact a { display: inline-flex; align-items: center; gap: 8px; color: var(--primary); font-weight: 700; font-size: .95rem; text-decoration: none; }
+.help-contact a:hover { text-decoration: underline; }
+.help-contact .material-symbols-rounded { font-size: 20px; }
+
+/* ── ทางลัด: ลิสต์เส้นบาง ไม่มีการ์ด ── */
+.help-subhead { margin: 0 0 6px; text-align: center; font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); }
+.help-links { display: flex; flex-direction: column; }
+.help-link { display: flex; align-items: center; gap: 14px; padding: 14px 4px; color: var(--text-main); font-weight: 500; text-decoration: none; border-bottom: 1px solid var(--border); transition: color .15s; }
+.help-link:last-child { border-bottom: none; }
+.help-link:hover { color: var(--primary); }
+.help-link > .material-symbols-rounded:first-child { font-size: 22px; color: var(--primary); }
+.help-link-text { flex: 1; }
+.help-arrow { font-size: 20px; color: var(--text-muted); }
+.help-link:hover .help-arrow { color: var(--primary); }
 </style>
 
 <?php include '../templates/footer_admin.php'; ?>

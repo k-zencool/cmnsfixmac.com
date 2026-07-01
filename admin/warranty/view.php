@@ -77,6 +77,11 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
     <div class="war-no-big"><?= h($war['warranty_no']) ?></div>
     <?= w_status_badge($war['status']) ?>
     <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;">
+        <?php if (can('content.write')): ?>
+        <a href="edit.php?id=<?= $id ?>" class="cmns-btn cmns-btn-secondary">
+            <span class="material-symbols-rounded">edit</span> แก้ไขข้อมูล
+        </a>
+        <?php endif; ?>
         <a href="print.php?id=<?= $id ?>" target="_blank" class="cmns-btn cmns-btn-secondary">
             <span class="material-symbols-rounded">print</span> พิมพ์ใบประกัน
         </a>

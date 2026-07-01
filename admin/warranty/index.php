@@ -7,6 +7,7 @@ require_once __DIR__ . '/../../includes/warranty_lib.php';
 require_login();
 
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
+function war_page_url($i){ $q = $_GET; $q['page'] = max(1, (int)$i); return '?' . http_build_query($q); }
 
 $pageTitle = "ใบรับประกัน";
 
@@ -28,11 +29,25 @@ if ($q !== '') {
     array_push($params, $like, $like, $like, $like, $like);
 }
 
+$where_sql = implode(' AND ', $where);
+
+// ── Pagination ──
+$per  = max(10, min(200, (int)($_GET['per'] ?? 25)));
+$page = max(1, (int)($_GET['page'] ?? 1));
+
+$cst = $pdo->prepare("SELECT COUNT(*) FROM warranties w LEFT JOIN tracking t ON t.id = w.tracking_id WHERE $where_sql");
+$cst->execute($params);
+$total  = (int)$cst->fetchColumn();
+$pages  = max(1, (int)ceil($total / $per));
+if ($page > $pages) $page = $pages;
+$offset = ($page - 1) * $per;
+
 $rows = $pdo->prepare("SELECT w.*, t.ticket_number
                         FROM warranties w
                         LEFT JOIN tracking t ON t.id = w.tracking_id
-                        WHERE " . implode(' AND ', $where) . "
-                        ORDER BY w.id DESC");
+                        WHERE $where_sql
+                        ORDER BY w.id DESC
+                        LIMIT $per OFFSET $offset");
 $rows->execute($params);
 $warranties = $rows->fetchAll(PDO::FETCH_ASSOC);
 
@@ -86,8 +101,25 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
 .war-days-left.ok { color:#059669; }
 .war-days-left.warn { color:#b45309; }
 .war-days-left.over { color:var(--text-muted); }
-.war-actions { display:flex; gap:6px; }
+.war-actions { display:flex; gap:6px; justify-content:flex-end; }
+
+/* ── Action buttons (มาตรฐานเดียวกับหน้าอื่น: .t-btn) ── */
+.t-btn { width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center; border-radius:7px; border:1px solid var(--border); background:var(--bg-surface-alt); color:var(--text-muted); cursor:pointer; transition:all .18s; padding:0; flex-shrink:0; text-decoration:none; }
+.t-btn .material-symbols-rounded { font-size:16px; line-height:1; }
+.t-btn:hover { transform:translateY(-1px); box-shadow:0 3px 8px rgba(0,0,0,.1); border-color:var(--primary); color:var(--primary); background:rgba(37,99,235,.07); }
+.t-edit:hover { color:var(--primary); background:rgba(37,99,235,.07); border-color:var(--primary); }
+.t-del:hover  { color:#ef4444; background:rgba(239,68,68,.07); border-color:#ef4444; }
+
+/* ── Pagination (มาตรฐานเดียวกับหน้าอื่น) ── */
+.log-pagination { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; font-size:13px; color:var(--text-muted); border-top:1px solid var(--border); flex-wrap:wrap; gap:10px; }
+.page-btns { display:flex; gap:5px; }
+.page-btn { min-width:36px; height:36px; padding:0 10px; border-radius:9px; border:1px solid var(--border); background:var(--bg-surface-alt); color:var(--text-main); font-size:13px; text-decoration:none; font-weight:600; transition:.2s; display:inline-flex; align-items:center; justify-content:center; }
+.page-btn:hover:not(.disabled) { border-color:var(--primary); color:var(--primary); background:rgba(37,99,235,.06); }
+.page-btn.active { background:var(--primary); color:#fff; border-color:var(--primary); box-shadow:0 2px 8px rgba(37,99,235,.3); }
+.page-btn.disabled { opacity:.3; pointer-events:none; }
+
 @media(max-width:768px){ .war-stats { grid-template-columns:repeat(2,1fr); } }
+@media(max-width:640px){ .log-pagination { flex-direction:column; align-items:flex-start; } }
 </style>
 
 <div class="main-content">
@@ -230,11 +262,16 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
                 <td><?= w_status_badge($w['status']) ?></td>
                 <td>
                     <div class="war-actions" style="justify-content:flex-end;">
-                        <a href="view.php?id=<?= $w['id'] ?>" class="cmns-btn cmns-btn-secondary" style="padding:6px 12px; font-size:0.82rem;">
-                            <span class="material-symbols-rounded" style="font-size:16px;">visibility</span>
+                        <a href="view.php?id=<?= $w['id'] ?>" class="t-btn" title="ดู">
+                            <span class="material-symbols-rounded">visibility</span>
                         </a>
-                        <a href="print.php?id=<?= $w['id'] ?>" target="_blank" class="cmns-btn cmns-btn-secondary" style="padding:6px 12px; font-size:0.82rem;" title="พิมพ์ใบประกัน">
-                            <span class="material-symbols-rounded" style="font-size:16px;">print</span>
+                        <?php if (can('content.write')): ?>
+                        <a href="edit.php?id=<?= $w['id'] ?>" class="t-btn t-edit" title="แก้ไข">
+                            <span class="material-symbols-rounded">edit</span>
+                        </a>
+                        <?php endif; ?>
+                        <a href="print.php?id=<?= $w['id'] ?>" target="_blank" class="t-btn" title="พิมพ์ใบประกัน">
+                            <span class="material-symbols-rounded">print</span>
                         </a>
                     </div>
                 </td>
@@ -242,8 +279,47 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
         <?php endforeach; endif; ?>
         </tbody>
     </table>
+
+    <?php if ($total > 0): ?>
+    <div class="log-pagination">
+        <div>
+            แสดง <b><?= number_format(min($total, $offset+1)) ?>–<?= number_format(min($total, $offset+$per)) ?></b>
+            จาก <b><?= number_format($total) ?></b> รายการ
+            &nbsp;·&nbsp; หน้า <?= $page ?> / <?= $pages ?>
+        </div>
+        <div class="page-btns">
+            <a href="<?= $page > 1 ? war_page_url($page-1) : '#' ?>" class="page-btn <?= $page<=1?'disabled':'' ?>">
+                <span class="material-symbols-rounded" style="font-size:16px;">chevron_left</span>
+            </a>
+            <?php
+            $pStart = max(1, $page - 2);
+            $pEnd   = min($pages, $pStart + 4);
+            for ($p = $pStart; $p <= $pEnd; $p++): ?>
+                <a href="<?= war_page_url($p) ?>" class="page-btn <?= $p===$page?'active':'' ?>"><?= $p ?></a>
+            <?php endfor; ?>
+            <a href="<?= $page < $pages ? war_page_url($page+1) : '#' ?>" class="page-btn <?= $page>=$pages?'disabled':'' ?>">
+                <span class="material-symbols-rounded" style="font-size:16px;">chevron_right</span>
+            </a>
+            <select onchange="goPerPage(this)"
+                    style="padding:6px 10px;border-radius:8px;border:1px solid var(--border);background:var(--bg-surface);color:var(--text-main);font-size:13px;outline:none;cursor:pointer;font-family:'Sarabun',sans-serif;">
+                <?php foreach([25,50,100] as $pp): ?>
+                    <option value="<?= $pp ?>" <?= $per===$pp?'selected':'' ?>><?= $pp ?>/หน้า</option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+    </div>
+    <?php endif; ?>
 </div>
 </div>
+
+<script>
+function goPerPage(sel) {
+    const u = new URL(location.href);
+    u.searchParams.set('per', sel.value);
+    u.searchParams.set('page', '1');
+    location = u.toString();
+}
+</script>
 
 <!-- ══════════════════════════════════════════
      CREATE WARRANTY MODAL
