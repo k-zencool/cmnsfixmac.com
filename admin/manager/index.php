@@ -145,6 +145,10 @@ include '../templates/header_admin.php';
         <input type="text" name="q" placeholder="ค้นหา รายการ / ชื่อคนทำ" value="<?= htmlspecialchars($f_q) ?>">
         <button type="submit"><span class="material-symbols-rounded" style="font-size:16px;vertical-align:-3px;">search</span> ค้นหา</button>
         <a class="reset" href="/admin/manager/">ล้าง</a>
+        <a href="print.php?<?= http_build_query(array_filter(['type'=>$f_type,'status'=>$f_status,'q'=>$f_q])) ?>" target="_blank"
+           style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:var(--bg-surface-alt);color:var(--text-main);text-decoration:none;padding:9px 14px;border-radius:10px;border:1px solid var(--border);font-weight:600;">
+            <span class="material-symbols-rounded" style="font-size:16px;">checklist</span> พิมพ์ To-do
+        </a>
     </form>
 
     <div class="mgr-table-wrap">

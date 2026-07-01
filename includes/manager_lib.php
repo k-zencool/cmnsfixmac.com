@@ -75,6 +75,9 @@ if (!function_exists('mgr_log')) {
         $actor_name = $data['actor_name'] ?? ($_SESSION['admin_username'] ?? ($_SESSION['admin_name'] ?? null));
         $actor_role = $data['actor_role'] ?? real_role();
 
+        // ยศเจ้าของ (super_admin) ทำอะไร ไม่ต้องเก็บประวัติในศูนย์ควบคุม
+        if ($actor_role === 'super_admin') return 0;
+
         try {
             $stmt = $pdo->prepare("
                 INSERT INTO manager_actions
