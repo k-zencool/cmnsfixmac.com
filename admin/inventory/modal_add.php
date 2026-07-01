@@ -357,7 +357,7 @@ if ($modal_cat_id) {
                     <span class="material-symbols-rounded" style="color: #10b981; font-size: 22px;">inventory</span> ข้อมูลสต็อกล็อตนี้
                 </h4>
                 <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-                    <div><label class="cmns-label">จำนวนรับ (Qty) <span style="color:red">*</span></label><input type="number" name="qty_received" class="cmns-input" value="1" min="1" required style="font-weight: 800; color: #10b981; border-color: #10b981;"></div>
+                    <div><label class="cmns-label">จำนวนรับ (Qty) <span style="color:var(--text-muted);font-weight:400;text-transform:none;letter-spacing:0;">(เว้นว่าง = 0 ชิ้น)</span></label><input type="number" name="qty_received" class="cmns-input" value="" min="0" placeholder="0" style="font-weight: 800; color: #10b981; border-color: #10b981;"></div>
                     <div><label class="cmns-label">ทุน/ชิ้น</label><input type="number" name="cost_price" class="cmns-input" placeholder="0.00" step="0.01"></div>
                     <div><label class="cmns-label">ขาย/ชิ้น</label><input type="number" name="sell_price" class="cmns-input" placeholder="0.00" step="0.01"></div>
                 </div>

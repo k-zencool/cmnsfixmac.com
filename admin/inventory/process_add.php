@@ -38,6 +38,12 @@ try {
             VALUES (?, ?, ?, ?, ?, CURDATE(), ?, ?)");
         $stmt->execute([$inventory_id, $lot_number, $qty_received, $qty_received, $cost_price, $warranty_end, $supplier_name]);
 
+        // เดิม OOS แล้วเติมของเข้ามา → กลับเป็น STOCK
+        if ($qty_received > 0) {
+            $pdo->prepare("UPDATE inventory SET status = 'STOCK' WHERE id = ? AND type = 'new' AND status = 'OOS'")
+                ->execute([$inventory_id]);
+        }
+
         // อัปเดตราคาขายถ้ากรอกมา
         if ($sell_price > 0) {
             $pdo->prepare("UPDATE inventory SET sell_price = ? WHERE id = ?")->execute([$sell_price, $inventory_id]);
@@ -104,6 +110,10 @@ try {
         ? $posted_status
         : (['new'=>'STOCK', 'used'=>'GOOD', 'machine'=>'READY', 'sale'=>'PENDING'][$type] ?? 'STOCK');
 
+    // จำนวน (ไม่บังคับ): เว้นว่าง/0 = สร้างโปรไฟล์แบบยังไม่มีสต็อก
+    $qty_received = max(0, (int)($_POST['qty_received'] ?? 0));
+    if ($type === 'new' && $qty_received < 1) $status = 'OOS';
+
     $sell_price = (float)($_POST['sell_price'] ?? 0);
 
     $stmt = $pdo->prepare("INSERT INTO inventory
@@ -131,9 +141,9 @@ try {
     $inventory_id = $pdo->lastInsertId();
 
     // Machine / Sale ไม่ใช้ lot (1 record = 1 เครื่อง)
-    if ($type !== 'machine' && $type !== 'sale') {
+    // new/used สร้าง lot เฉพาะเมื่อกรอกจำนวน > 0 (ไม่กรอก = โปรไฟล์เปล่า 0 ชิ้น)
+    if ($type !== 'machine' && $type !== 'sale' && $qty_received > 0) {
         $lot_number    = 'LOT-' . strtoupper(substr(uniqid(), -6));
-        $qty_received  = (int)($_POST['qty_received'] ?? 1);
         $cost_price    = (float)($_POST['cost_price'] ?? 0);
         $supplier_name = trim($_POST['supplier_name'] ?? '');
         $warranty_end  = !empty($_POST['warranty_end']) ? $_POST['warranty_end'] : null;
