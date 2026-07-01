@@ -63,56 +63,48 @@ function current_role(): string
 }
 
 /**
- * เมทริกซ์ Permission: ปรับตามงานจริง
- * คีย์ = role, ค่า = รายการ permission (รองรับ wildcard)
+ * ========== เมทริกซ์ Permission (ออกแบบใหม่ 2026-07) ==========
+ * โมเดล: "tier + gate จุดอ่อนไหว" — การ "ดู" ทำได้ทุกยศที่ล็อกอิน
+ * (ไม่ต้องมี perm) ส่วนที่ต้อง gate จริงคือ "การเขียน/การเงิน" เท่านั้น
  *
- * คีย์มาตรฐานที่พูดคุยกัน:
- *  - parts.new.*      (แท็บมือ 1)
- *  - parts.used.*     (แท็บมือ 2)
- *  - parts.donor.*    (เครื่องซาก)
- *  - parts.history.*  (ประวัติ)
- * Action ย่อยที่ใช้บ่อย: view / create / update / restock / consume / split
+ * ยศ (map กับงานจริงในร้าน):
+ *   super_admin = เจ้าของ   → ทุกอย่าง
+ *   manager     = ผู้จัดการ → operation + การเงิน + อนุมัติ/ย้อน (ไม่แตะ users/settings)
+ *   admin       = หน้าร้าน  → รับงาน + shop/บทความ/ประกัน + ขาย
+ *   staff       = ช่าง       → งานซ่อม + เบิกอะไหล่
+ *   viewer      = บัญชี      → อ่านอย่างเดียว + รายงานการเงิน
+ *
+ * Capability keys ที่ enforce จริง:
+ *   jobs.write      เปิด/แก้/ปิดงานซ่อม
+ *   content.write   บทความ / ประกัน / จัดการเนื้อหา shop
+ *   parts.consume   เบิกอะไหล่ (ถูก log ในศูนย์ควบคุม)
+ *   parts.manage    เพิ่ม/แก้/ลบ/เติมสต็อก + แยกเครื่องซาก
+ *   pricing.write   ตั้ง/แก้ราคาซ่อม
+ *   shop.finance    เอาขึ้นขาย / ปิดการขาย / mark sold / revert
+ *   manager.center  ศูนย์ควบคุมผู้จัดการ (ดู + ย้อนรายการ)
+ *   reports.view    ดูรายงานการเงิน
+ *   users.manage    จัดการผู้ใช้/ยศ
+ *   settings.manage ตั้งค่าระบบ + เชื่อมต่อแชท (integrations)
  */
 function permission_matrix(): array
 {
     return [
         'super_admin' => ['*'],
-        'manager'     => ['parts.*'],
+        'manager'     => [
+            'jobs.write', 'content.write',
+            'parts.consume', 'parts.manage',
+            'pricing.write', 'shop.finance',
+            'manager.center', 'reports.view',
+        ],
         'admin'       => [
-            'parts.new.view',
-            'parts.new.consume',
-            'parts.new.restock',
-            'parts.new.create',
-            'parts.new.update',
-            'parts.used.view',
-            'parts.used.create',
-            'parts.used.update',
-            'parts.used.consume',
-            'parts.used.delete',
-            'parts.donor.view',
-            'parts.donor.create',
-            'parts.donor.update',
-            'parts.donor.split',
-            'parts.donor.delete',
-            'parts.history.view',
+            'jobs.write', 'content.write',
+            'parts.consume', 'shop.finance',
         ],
         'staff'       => [
-            // ดูทุกแท็บ
-            'parts.new.view',
-            'parts.used.view',
-            'parts.donor.view',
-            'parts.history.view',
-            // เบิกได้หมด (มือ 1 และมือ 2)
-            'parts.new.consume',
-            'parts.used.consume',
-            'parts.donor.split',
-            // ไม่ให้ create/update/delete/restock/split ใดๆ
+            'jobs.write', 'parts.consume',
         ],
         'viewer'      => [
-            'parts.new.view',
-            'parts.used.view',
-            'parts.donor.view',
-            'parts.history.view'
+            'reports.view',
         ],
     ];
 }
@@ -148,10 +140,87 @@ function require_perms(array $perms): void
     foreach ($perms as $p) {
         if (!can($p)) {
             // โยนกลับหน้าก่อน พร้อมข้อความ
-            $to = $_SERVER['HTTP_REFERER'] ?? '/admin/';
-            $q  = (strpos($to, '?') !== false ? '&' : '?');
+            $to       = $_SERVER['HTTP_REFERER'] ?? '';
+            $cur_path = strtok($_SERVER['REQUEST_URI'] ?? '', '?');
+            $to_path  = $to !== '' ? parse_url($to, PHP_URL_PATH) : '';
+            // กัน redirect loop: อย่าเด้งกลับหน้าเดิม หรือหน้า redirector (view_as.php)
+            if ($to === '' || strpos($to, 'view_as.php') !== false || $to_path === $cur_path) {
+                $to = '/admin/dashboard/';
+            }
+            $q = (strpos($to, '?') !== false ? '&' : '?');
             header("Location: {$to}{$q}err=" . rawurlencode("ไม่มีสิทธิ์ ($p)"));
             exit;
         }
     }
+}
+
+/**
+ * เวอร์ชันสำหรับ AJAX/process endpoint ที่ต้องคืน JSON
+ * (require_perms เดิม redirect ซึ่งพัง contract ของ JSON)
+ * ต้องมี admin_id ก่อน แล้วเช็คสิทธิ์ — ไม่ผ่านคืน 403 JSON แล้ว exit
+ */
+function require_perms_json(array $perms): void
+{
+    if (!headers_sent()) header('Content-Type: application/json; charset=utf-8');
+    if (!is_logged_in()) {
+        http_response_code(403);
+        echo json_encode(['ok' => false, 'msg' => 'กรุณาเข้าสู่ระบบ'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    foreach ($perms as $p) {
+        if (!can($p)) {
+            http_response_code(403);
+            echo json_encode(['ok' => false, 'msg' => "ไม่มีสิทธิ์ทำรายการนี้ ($p)"], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+    }
+}
+
+/**
+ * ========== View-As: super_admin ดูมุมมองยศอื่น ==========
+ * ตอนสลับ: เก็บ role จริงไว้ใน $_SESSION['real_admin_role'] แล้วเปลี่ยน
+ * $_SESSION['admin_role'] เป็น role เป้าหมาย → ทุก can()/current_role()/
+ * sidebar ที่อ่าน admin_role เปลี่ยนตามอัตโนมัติ ไม่ต้องแก้รายหน้า.
+ * ความปลอดภัย: ค่าจริงอยู่ที่ real_admin_role เสมอ, ตั้ง/ปลดได้เฉพาะ super_admin จริง.
+ */
+function real_role(): string
+{
+    return (string)($_SESSION['real_admin_role'] ?? $_SESSION['admin_role'] ?? $_SESSION['user_role'] ?? '');
+}
+
+/** เช็คยศจริง (ไม่ใช่มุมมองที่สวมอยู่) */
+function is_super_admin(): bool
+{
+    return real_role() === 'super_admin';
+}
+
+/** กำลังสวมมุมมองยศอื่นอยู่ไหม */
+function is_viewing_as(): bool
+{
+    return is_super_admin() && !empty($_SESSION['view_as']);
+}
+
+/** ยศที่กำลังสวมอยู่ ('' = ไม่ได้สวม) */
+function viewing_as_role(): string
+{
+    return is_viewing_as() ? (string)$_SESSION['view_as'] : '';
+}
+
+/** รายการยศที่ super_admin สลับไปดูได้ (super_admin = มุมมองเดิม จึงไม่อยู่ในลิสต์) */
+function view_as_roles(): array
+{
+    return ['manager', 'admin', 'staff', 'viewer'];
+}
+
+/** ป้ายชื่อยศแบบอ่านง่าย */
+function role_label(string $role): string
+{
+    $map = [
+        'super_admin' => 'เจ้าของ (Owner)',
+        'manager'     => 'ผู้จัดการ (Manager)',
+        'admin'       => 'หน้าร้าน (Front Desk)',
+        'staff'       => 'ช่าง (Technician)',
+        'viewer'      => 'บัญชี (Accountant)',
+    ];
+    return $map[$role] ?? $role;
 }

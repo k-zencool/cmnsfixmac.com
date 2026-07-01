@@ -13,6 +13,7 @@ session_start();
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_login();
+require_perms(['reports.view']); // รายงาน: เจ้าของ/ผจก./บัญชี เท่านั้น
 
 defined('BASE_URL') or define('BASE_URL', 'https://cmnsfixmac.com');
 function h($s) { return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }

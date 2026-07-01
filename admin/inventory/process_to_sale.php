@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../../includes/db.php';
+require_once '../../includes/manager_lib.php';
 
 if (!isset($_SESSION['admin_id'])) {
     http_response_code(403);
@@ -29,6 +30,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['ok' => false, 'msg' => 'Method not allowed']);
     exit;
 }
+
+require_perms_json(['shop.finance']); // เอาขึ้นขาย: หน้าร้าน+ ขึ้นไป
 
 $source_type  = $_POST['source_type'] ?? '';
 $inventory_id = (int)($_POST['inventory_id'] ?? 0);
@@ -175,6 +178,14 @@ try {
 
         $new_sale_id = $inventory_id;
     }
+
+    // log ให้ manager เห็น (reverse ใช้ปุ่ม "คืนสต็อก" ในหน้า inventory)
+    mgr_log($pdo, [
+        'action_type' => 'to_sale', 'ref_table' => 'inventory', 'ref_id' => $new_sale_id,
+        'summary' => "เอา {$name} ขึ้นขาย ฿" . number_format($sell_price), 'amount' => $sell_price,
+        'reversible' => 0,
+        'payload' => ['inventory_id' => $new_sale_id, 'source_type' => $source_type, 'qty' => $qty_transfer],
+    ]);
 
     $pdo->commit();
     echo json_encode(['ok' => true, 'msg' => "ย้ายไป SALE เรียบร้อย", 'sale_id' => $new_sale_id]);

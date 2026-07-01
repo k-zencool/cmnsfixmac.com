@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_login();
 header('Content-Type: application/json; charset=utf-8');
+require_perms_json(['content.write']); // ค้นข้อมูลงานสำหรับทำผลงาน: หน้าร้าน+ ขึ้นไป
 
 $q = trim($_GET['q'] ?? '');
 if (strlen($q) < 1) { echo '[]'; exit; }

@@ -3,6 +3,7 @@ session_start();
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_login();
+require_perms(['content.write']); // เพิ่มสินค้า shop: หน้าร้าน+ ขึ้นไป
 
 function h($s) { return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 $isModal = !empty($_GET['modal']);
@@ -27,15 +28,15 @@ if ($already) { $_SESSION['flash'] = 'สินค้านี้อยู่ใ
 $categories = $pdo->query("SELECT * FROM shop_categories ORDER BY sort_order")->fetchAll(PDO::FETCH_ASSOC);
 
 // ── Image helpers ─────────────────────────────────────────────
-function shop_process_webp(string $tmp, string $dest, int $maxW = 1200, int $q = 82): array|false {
+function shop_process_webp(string $tmp, string $dest, int $maxW = 1200, int $q = 82) {
     $info = @getimagesize($tmp); if (!$info) return false;
     [$w, $h, $type] = $info;
-    $src = match($type) {
-        IMAGETYPE_JPEG => @imagecreatefromjpeg($tmp),
-        IMAGETYPE_PNG  => @imagecreatefrompng($tmp),
-        IMAGETYPE_WEBP => @imagecreatefromwebp($tmp),
-        default        => false,
-    };
+    switch ($type) {
+        case IMAGETYPE_JPEG: $src = @imagecreatefromjpeg($tmp); break;
+        case IMAGETYPE_PNG:  $src = @imagecreatefrompng($tmp);  break;
+        case IMAGETYPE_WEBP: $src = @imagecreatefromwebp($tmp); break;
+        default:             $src = false;
+    }
     if (!$src) return false;
     if ($w > $maxW) {
         $nh = (int)round($h * $maxW / $w);

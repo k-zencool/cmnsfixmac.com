@@ -2,6 +2,7 @@
 session_start();
 require_once '../../includes/db.php';
 require_once __DIR__ . '/../../includes/image_lib.php';
+require_once __DIR__ . '/../../includes/manager_lib.php';
 
 if (!isset($_SESSION['admin_id'])) {
     header("Location: ../login.php");
@@ -29,6 +30,8 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     header("Location: index.php");
     exit();
 }
+
+require_perms(['parts.manage']); // แก้/ปรับสต็อก: ผู้จัดการ+ เท่านั้น
 
 $redirect_back = $_SERVER['HTTP_REFERER'] ?? 'index.php';
 
@@ -192,6 +195,18 @@ try {
             $pdo->prepare("UPDATE inventory SET status = 'STOCK' WHERE id = ?")->execute([$id]);
         }
     }
+
+    // ── log ให้ manager center เห็น (แก้ field/ปรับสต็อก reverse อัตโนมัติไม่ได้) ──
+    $adj_txt = ($adj_mode && $adj_qty > 0) ? " | ปรับสต็อก {$adj_mode} {$adj_qty}" : '';
+    $price_txt = ((float)$existing['sell_price'] != $sell_price) ? " | ราคา ฿" . number_format((float)$existing['sell_price']) . "→฿" . number_format($sell_price) : '';
+    mgr_log($pdo, [
+        'action_type' => 'stock_edit', 'ref_table' => 'inventory', 'ref_id' => $id,
+        'summary' => "แก้สต็อก: {$name}{$price_txt}{$adj_txt}", 'amount' => $sell_price,
+        'reversible' => 0,
+        'payload' => ['inventory_id' => $id, 'old' => [
+            'name' => $existing['name'], 'sell_price' => $existing['sell_price'], 'status' => $existing['status'],
+        ]],
+    ]);
 
     header("Location: $redirect_back");
     exit();

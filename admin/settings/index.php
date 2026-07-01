@@ -1,11 +1,13 @@
 <?php
 session_start();
 require_once '../../includes/db.php';
+require_once __DIR__ . '/../../includes/auth.php';
 
 if (!isset($_SESSION['admin_id'])) {
     header("Location: ../login.php");
     exit();
 }
+require_perms(['settings.manage']); // ตั้งค่าระบบ: เจ้าของเท่านั้น
 
 $pageTitle = "การตั้งค่า";
 include '../templates/header_admin.php';
@@ -27,13 +29,6 @@ $cards = [
         'desc'  => 'ตั้งรหัสผ่านใหม่เพื่อความปลอดภัยของบัญชี',
         'href'  => '/admin/profile/#security',
         'color' => '#f59e0b',
-    ],
-    [
-        'icon'  => 'link',
-        'title' => 'การเชื่อมต่อแชต',
-        'desc'  => 'ตั้งค่าการเชื่อมต่อ LINE / แพลตฟอร์มแชต',
-        'href'  => '/admin/chat/settings.php',
-        'color' => '#10b981',
     ],
     [
         'icon'  => 'category',

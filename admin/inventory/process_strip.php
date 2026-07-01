@@ -3,10 +3,13 @@
 session_start();
 require_once '../../includes/db.php';
 require_once __DIR__ . '/../../includes/image_lib.php';
+require_once __DIR__ . '/../../includes/manager_lib.php';
 
 if (!isset($_SESSION['admin_id']) || $_SERVER['REQUEST_METHOD'] !== 'POST') {
     header("Location: index.php"); exit();
 }
+
+require_perms(['parts.manage']); // แยกเครื่องซาก: ผู้จัดการ+ เท่านั้น
 
 $redirect_back = $_SERVER['HTTP_REFERER'] ?? 'index.php';
 
@@ -66,10 +69,23 @@ try {
     $cur = $pdo->prepare("SELECT disassembly_status FROM inventory WHERE id = ?");
     $cur->execute([$source_machine_id]);
     $cur_status = $cur->fetchColumn();
-    if ($cur_status === 'intact') {
+    $machine_was_intact = ($cur_status === 'intact');
+    if ($machine_was_intact) {
         $pdo->prepare("UPDATE inventory SET disassembly_status = 'partially_stripped' WHERE id = ?")
             ->execute([$source_machine_id]);
     }
+
+    // log ให้ manager center (reverse ได้ถ้ายังไม่ถูกเบิก/ขาย)
+    mgr_log($pdo, [
+        'action_type' => 'donor_strip', 'ref_table' => 'inventory', 'ref_id' => (int)$inv_id,
+        'summary' => "แยกอะไหล่ '{$name}' จากเครื่องซาก #{$source_machine_id}",
+        'amount' => $sell_price ?: null, 'reversible' => 1,
+        'payload' => [
+            'new_inv_id' => (int)$inv_id,
+            'source_machine_id' => $source_machine_id,
+            'machine_was_intact' => $machine_was_intact,
+        ],
+    ]);
 
     header("Location: $redirect_back");
     exit();

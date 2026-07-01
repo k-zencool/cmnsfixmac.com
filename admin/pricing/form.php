@@ -2,7 +2,9 @@
 session_start();
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/../../includes/manager_lib.php';
 require_login();
+require_perms(['pricing.write']); // ตั้ง/แก้ราคาซ่อม: ผู้จัดการ+ เท่านั้น
 
 $id      = intval($_GET['id'] ?? 0);
 $isModal = !empty($_GET['modal']);
@@ -40,12 +42,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $cols = ['device_type','device_name','category_id','price','price_note','warranty_days','is_active','show_on_web'];
         $vals = array_map(fn($c) => $data[$c], $cols);
         if ($id) {
+            // เก็บค่าเดิมไว้ให้ manager ย้อนได้
+            $old_stmt = $pdo->prepare("SELECT " . implode(',', array_map(fn($c) => "`$c`", $cols)) . ", price AS _old_price FROM service_pricing WHERE id = ?");
+            $old_stmt->execute([$id]);
+            $old_row = $old_stmt->fetch(PDO::FETCH_ASSOC) ?: [];
+            $old_price = $old_row['_old_price'] ?? null;
+            unset($old_row['_old_price']);
+
             $set = implode(', ', array_map(fn($c) => "`$c` = ?", $cols));
             $pdo->prepare("UPDATE service_pricing SET $set, updated_at = NOW() WHERE id = ?")->execute([...$vals, $id]);
+
+            if ($old_price != $data['price'] || $old_row) {
+                mgr_log($pdo, [
+                    'action_type' => 'price_set',
+                    'ref_table'   => 'service_pricing',
+                    'ref_id'      => $id,
+                    'summary'     => "แก้ราคา {$data['device_name']}: ฿" . number_format((float)$old_price) . " → ฿" . number_format((float)$data['price']),
+                    'amount'      => (float)$data['price'],
+                    'reversible'  => 1,
+                    'payload'     => ['pricing_id' => (int)$id, 'old' => $old_row],
+                ]);
+            }
         } else {
             $ph  = implode(', ', array_fill(0, count($cols), '?'));
             $col = implode(', ', array_map(fn($c) => "`$c`", $cols));
             $pdo->prepare("INSERT INTO service_pricing ($col) VALUES ($ph)")->execute($vals);
+            $new_pid = (int)$pdo->lastInsertId();
+            mgr_log($pdo, [
+                'action_type' => 'price_set',
+                'ref_table'   => 'service_pricing',
+                'ref_id'      => $new_pid,
+                'summary'     => "เพิ่มราคาใหม่ {$data['device_name']}: ฿" . number_format((float)$data['price']),
+                'amount'      => (float)$data['price'],
+                'reversible'  => 1,
+                'payload'     => ['pricing_id' => $new_pid, 'was_insert' => true],
+            ]);
         }
         if ($isModal) {
             echo "<!DOCTYPE html><html><head><meta charset='UTF-8'></head><body><script>window.parent.postMessage('pricing-saved','*');</script></body></html>";

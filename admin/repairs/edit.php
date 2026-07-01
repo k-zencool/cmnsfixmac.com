@@ -3,6 +3,7 @@ session_start();
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_login();
+require_perms(['content.write']); // แก้ผลงานซ่อม: หน้าร้าน+ ขึ้นไป
 
 $isModal = !empty($_GET['modal']);
 
@@ -32,12 +33,12 @@ function process_webp(string $tmp, string $dest, int $maxW = IMG_MAX_W, int $q =
     $info = @getimagesize($tmp);
     if (!$info) return false;
     [$w, $h, $type] = $info;
-    $src = match($type) {
-        IMAGETYPE_JPEG => @imagecreatefromjpeg($tmp),
-        IMAGETYPE_PNG  => @imagecreatefrompng($tmp),
-        IMAGETYPE_WEBP => @imagecreatefromwebp($tmp),
-        default        => false,
-    };
+    switch ($type) {
+        case IMAGETYPE_JPEG: $src = @imagecreatefromjpeg($tmp); break;
+        case IMAGETYPE_PNG:  $src = @imagecreatefrompng($tmp);  break;
+        case IMAGETYPE_WEBP: $src = @imagecreatefromwebp($tmp); break;
+        default:             $src = false;
+    }
     if (!$src) return false;
     if ($w > $maxW) {
         $nh  = (int)round($h * $maxW / $w);

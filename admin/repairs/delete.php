@@ -4,6 +4,11 @@ require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_login();
 
+if (!can('content.write')) { // ลบผลงานซ่อม: หน้าร้าน+ ขึ้นไป
+    if (!empty($_GET['ajax'])) { header('Content-Type: application/json'); echo '{"ok":false,"msg":"ไม่มีสิทธิ์"}'; exit; }
+    header('Location: index.php'); exit;
+}
+
 $id = (int)($_GET['id'] ?? 0);
 if (!$id) { header('Location: index.php'); exit; }
 

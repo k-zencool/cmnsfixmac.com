@@ -47,9 +47,6 @@ $kpi['articles'] = (int)$pdo->query("SELECT COUNT(*) FROM articles WHERE status=
 // สินค้าในร้าน
 $kpi['shop'] = (int)$pdo->query("SELECT COUNT(*) FROM shop_listings WHERE status='active'")->fetchColumn();
 
-// Chat contacts
-$kpi['chats'] = (int)$pdo->query("SELECT COUNT(*) FROM chat_contacts")->fetchColumn();
-
 /* ═══════════════════════════════════════════
    STATUS BREAKDOWN (Donut chart)
 ═══════════════════════════════════════════ */
@@ -72,11 +69,8 @@ foreach ($status_rows as $r) {
     $status_data[] = ['label'=>$info[0], 'color'=>$info[1], 'cnt'=>(int)$r['cnt']];
 }
 
-// Active only donut (งานที่ยังไม่เสร็จ)
-$active_status_data = array_filter($status_data, fn($d) => in_array(array_search($d, $status_data) >= 0, [true]) && $d['cnt'] > 0 && !in_array($d['label'], ['ส่งมอบแล้ว','รับคืนแล้ว']));
-
 /* ═══════════════════════════════════════════
-   DAILY JOBS — 30 วัน (Line chart)
+   DAILY JOBS — 30 วัน (Line chart + heatmap)
 ═══════════════════════════════════════════ */
 $daily_rows = $pdo->query("
     SELECT DATE(created_at) as day, COUNT(*) as cnt
@@ -95,6 +89,7 @@ for ($i = 29; $i >= 0; $i--) {
     $daily_labels[] = date('d/m', strtotime($d));
     $daily_values[] = (int)($daily_map[$d] ?? 0);
 }
+$daily_max = max(1, max($daily_values));
 
 /* ═══════════════════════════════════════════
    MONTHLY JOBS — 6 เดือน (Bar chart)
@@ -134,7 +129,7 @@ $device_colors = ['#2563eb','#7c3aed','#059669','#d97706','#dc2626','#0891b2','#
 ═══════════════════════════════════════════ */
 $recent_jobs = $pdo->query("
     SELECT id, ticket_number, customer_name, device_type, device_model, status, created_at, final_cost
-    FROM tracking ORDER BY id DESC LIMIT 10
+    FROM tracking ORDER BY id DESC LIMIT 8
 ")->fetchAll(PDO::FETCH_ASSOC);
 
 /* ═══════════════════════════════════════════
@@ -161,40 +156,150 @@ $low_parts = $pdo->query("
     ORDER BY quantity ASC LIMIT 5
 ")->fetchAll(PDO::FETCH_ASSOC);
 
+/* ═══════════════════════════════════════════
+   PARTS ORDERING PLANNER — วางแผนสั่งอะไหล่
+   อิงการเบิกจริงจาก parts_requisitions ใน N วันล่าสุด:
+     • ควรสั่งด่วน  = สต็อก ≤ จุดสั่งซื้อ (min_qty) เรียงตามจะหมดเร็วสุด
+     • ใช้บ่อย      = เบิกเยอะสุดในช่วง
+     • ไม่ค่อยใช้   = มีของค้างแต่ไม่มีการเบิกในช่วง (เงินจม)
+═══════════════════════════════════════════ */
+$PLAN_DAYS = 90;
+$plan_reorder = $plan_movers = $plan_dead = [];
+try {
+    $plan_rows = $pdo->query("
+        SELECT i.id, i.name, i.sku, i.type, i.min_qty,
+               COALESCE(s.stock,0) AS stock,
+               COALESCE(u.used,0)  AS used_n,
+               ua.last_ever
+        FROM inventory i
+        LEFT JOIN (
+            SELECT inventory_id, SUM(qty_remaining) AS stock
+            FROM inventory_lots GROUP BY inventory_id
+        ) s ON s.inventory_id = i.id
+        LEFT JOIN (
+            SELECT inventory_id, SUM(qty) AS used
+            FROM parts_requisitions
+            WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL $PLAN_DAYS DAY)
+            GROUP BY inventory_id
+        ) u ON u.inventory_id = i.id
+        LEFT JOIN (
+            SELECT inventory_id, MAX(created_at) AS last_ever
+            FROM parts_requisitions GROUP BY inventory_id
+        ) ua ON ua.inventory_id = i.id
+        WHERE i.type IN ('new','used')
+    ")->fetchAll(PDO::FETCH_ASSOC);
+
+    foreach ($plan_rows as $r) {
+        $stock = (int)$r['stock']; $used = (int)$r['used_n']; $min = (int)$r['min_qty'];
+        $avg_daily = $used / $PLAN_DAYS;
+        $r['stock'] = $stock; $r['used_n'] = $used; $r['min_qty'] = $min;
+        $r['days_left'] = $avg_daily > 0 ? (int)floor($stock / $avg_daily) : null;
+        if ($stock <= $min)            $plan_reorder[] = $r;   // ถึงจุดสั่งซื้อ
+        if ($used > 0)                 $plan_movers[]  = $r;   // มีการเบิก
+        if ($used === 0 && $stock > 0) $plan_dead[]    = $r;   // ของค้างไม่ขยับ
+    }
+    // ควรสั่งด่วน: จะหมดเร็วสุดก่อน (null = ไม่มี usage ไปท้าย), แล้ว deficit มากสุด
+    usort($plan_reorder, function ($a, $b) {
+        $da = $a['days_left']; $db = $b['days_left'];
+        if ($da === null && $db === null) return ($a['stock'] - $a['min_qty']) <=> ($b['stock'] - $b['min_qty']);
+        if ($da === null) return 1;
+        if ($db === null) return -1;
+        return $da <=> $db;
+    });
+    usort($plan_movers, fn($a, $b) => $b['used_n'] <=> $a['used_n']);
+    usort($plan_dead,   fn($a, $b) => $b['stock']  <=> $a['stock']);
+    $plan_reorder = array_slice($plan_reorder, 0, 6);
+    $plan_movers  = array_slice($plan_movers,  0, 6);
+    $plan_dead    = array_slice($plan_dead,    0, 6);
+} catch (PDOException $e) { error_log('parts planner: ' . $e->getMessage()); }
+
+/* ═══════════════════════════════════════════
+   GREETING (admin name + Thai date)
+═══════════════════════════════════════════ */
+$adminName = 'Admin';
+try {
+    $me = $pdo->prepare("SELECT full_name, username FROM admin_users WHERE id = ?");
+    $me->execute([$_SESSION['admin_id'] ?? 0]);
+    if ($row = $me->fetch(PDO::FETCH_ASSOC)) {
+        $adminName = !empty($row['full_name']) ? $row['full_name'] : $row['username'];
+    }
+} catch (PDOException $e) { /* silent */ }
+
+$th_months_full = [1=>'มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+$th_days = ['Sunday'=>'อาทิตย์','Monday'=>'จันทร์','Tuesday'=>'อังคาร','Wednesday'=>'พุธ','Thursday'=>'พฤหัสบดี','Friday'=>'ศุกร์','Saturday'=>'เสาร์'];
+$today_str = 'วัน' . ($th_days[date('l')] ?? '') . 'ที่ ' . (int)date('j') . ' ' . $th_months_full[(int)date('n')] . ' ' . (date('Y') + 543);
+
+$hour = (int)date('G');
+$greet = $hour < 12 ? 'อรุณสวัสดิ์' : ($hour < 17 ? 'สวัสดีตอนบ่าย' : 'สวัสดีตอนเย็น');
+
 include __DIR__ . '/../templates/header_admin.php';
 ?>
 <link rel="stylesheet" href="<?= $assets_base ?>css/inventory-dashboard.css?v=3">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
-/* ── Layout ── */
-.db-page { padding:0 0 40px; }
-.db-section-title { font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.8px; color:var(--text-muted); margin:28px 0 14px; display:flex; align-items:center; gap:8px; }
-.db-section-title .material-symbols-rounded { font-size:16px; }
+.dash { display:flex; flex-direction:column; gap:18px; padding-bottom:40px; }
 
-/* ── KPI Grid ── */
-.db-kpi-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:6px; }
-.db-kpi-grid.sm { grid-template-columns:repeat(4,1fr); gap:10px; }
-.db-kpi { background:var(--bg-surface); border:1px solid var(--border); border-radius:14px; padding:18px 20px; display:flex; align-items:center; gap:14px; transition:.15s; }
-.db-kpi:hover { border-color:var(--primary); transform:translateY(-2px); box-shadow:0 4px 16px rgba(37,99,235,.1); }
-.db-kpi.sm { padding:14px 16px; border-radius:12px; }
-.db-kpi-icon { width:46px; height:46px; border-radius:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-.db-kpi.sm .db-kpi-icon { width:38px; height:38px; border-radius:10px; }
-.db-kpi-icon .material-symbols-rounded { font-size:22px; }
-.db-kpi.sm .db-kpi-icon .material-symbols-rounded { font-size:18px; }
-.db-kpi-val { font-size:1.7rem; font-weight:900; color:var(--text-main); line-height:1; }
-.db-kpi.sm .db-kpi-val { font-size:1.3rem; }
-.db-kpi-lbl { font-size:.76rem; color:var(--text-muted); margin-top:3px; }
+/* ── Hero ── */
+.dash-hero {
+    display:flex; justify-content:space-between; align-items:center; gap:22px; flex-wrap:wrap;
+    background:linear-gradient(135deg, var(--primary), var(--primary-hover));
+    color:#fff; border-radius:20px; padding:26px 30px;
+    box-shadow:0 16px 34px -14px rgba(37,99,235,.55); position:relative; overflow:hidden;
+}
+.dash-hero::after { content:''; position:absolute; right:-40px; top:-60px; width:220px; height:220px; border-radius:50%; background:rgba(255,255,255,.10); }
+.dash-hero-text { position:relative; z-index:1; }
+.dash-hello { font-size:.78rem; font-weight:700; opacity:.9; text-transform:uppercase; letter-spacing:.6px; }
+.dash-hero-text h2 { margin:7px 0 5px; font-size:1.55rem; font-weight:800; color:#fff; }
+.dash-hero-text p { margin:0; opacity:.88; font-size:.9rem; }
+.dash-hero-actions { display:flex; gap:10px; flex-wrap:wrap; position:relative; z-index:1; }
+.dash-hero-actions a {
+    display:inline-flex; align-items:center; gap:7px; padding:11px 17px; border-radius:12px;
+    background:rgba(255,255,255,.18); color:#fff; text-decoration:none; font-weight:700; font-size:.88rem;
+    transition:background .2s, transform .2s;
+}
+.dash-hero-actions a:hover { background:rgba(255,255,255,.3); transform:translateY(-2px); }
+.dash-hero-actions a.solid { background:#fff; color:var(--primary); }
+.dash-hero-actions a .material-symbols-rounded { font-size:19px; }
 
-/* ── Chart Grid ── */
-.db-chart-grid { display:grid; grid-template-columns:2fr 1fr; gap:16px; }
-.db-chart-grid.half { grid-template-columns:1fr 1fr; }
-.db-card { background:var(--bg-surface); border:1px solid var(--border); border-radius:14px; padding:20px 22px; }
-.db-card-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; }
-.db-card-title { font-size:.88rem; font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:7px; }
-.db-card-title .material-symbols-rounded { font-size:17px; color:var(--primary); }
-.db-card-link { font-size:.78rem; color:var(--primary); text-decoration:none; display:flex; align-items:center; gap:3px; }
-.db-card-link:hover { text-decoration:underline; }
+/* ── Stat tiles ── */
+.dash-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+.stat {
+    background:var(--bg-surface); border:1px solid var(--border); border-radius:16px; padding:18px 20px;
+    transition:transform .2s var(--ease-out), box-shadow .2s, border-color .2s;
+}
+.stat:hover { transform:translateY(-3px); border-color:var(--primary); box-shadow:0 14px 28px -14px rgba(0,0,0,.2); }
+.stat-top { display:flex; align-items:center; justify-content:space-between; }
+.stat-chip { width:44px; height:44px; border-radius:13px; display:flex; align-items:center; justify-content:center; }
+.stat-chip .material-symbols-rounded { font-size:23px; }
+.stat-tag { font-size:.7rem; font-weight:700; color:var(--text-muted); }
+.stat-val { font-size:1.95rem; font-weight:900; color:var(--text-main); line-height:1; margin-top:14px; }
+.stat-lbl { font-size:.8rem; color:var(--text-muted); margin-top:5px; }
+
+/* ── Bento ── */
+.dash-bento { display:grid; grid-template-columns:1.9fr 1fr; gap:16px; }
+.dash-bento-3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:16px; }
+.panel { background:var(--bg-surface); border:1px solid var(--border); border-radius:16px; padding:20px 22px; }
+.panel-head { display:flex; justify-content:space-between; align-items:center; margin-bottom:16px; gap:10px; }
+.panel-title { font-size:.9rem; font-weight:700; color:var(--text-main); display:flex; align-items:center; gap:8px; }
+.panel-title .material-symbols-rounded { font-size:18px; color:var(--primary); }
+.panel-link { font-size:.78rem; color:var(--primary); text-decoration:none; display:inline-flex; align-items:center; gap:3px; white-space:nowrap; }
+.panel-link:hover { text-decoration:underline; }
 .chart-wrap { position:relative; }
+
+/* ── Mini strip ── */
+.dash-mini { display:grid; grid-template-columns:repeat(6,1fr); gap:12px; }
+.mini { background:var(--bg-surface); border:1px solid var(--border); border-radius:14px; padding:13px 15px; display:flex; align-items:center; gap:11px; transition:border-color .2s, transform .2s; }
+.mini:hover { border-color:var(--primary); transform:translateY(-2px); }
+.mini-chip { width:36px; height:36px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.mini-chip .material-symbols-rounded { font-size:19px; }
+.mini-val { font-size:1.2rem; font-weight:800; color:var(--text-main); line-height:1; }
+.mini-lbl { font-size:.7rem; color:var(--text-muted); margin-top:3px; }
+
+/* ── Activity heatmap ── */
+.heat { display:grid; grid-template-columns:repeat(10,1fr); gap:6px; }
+.heat-cell { aspect-ratio:1; border-radius:6px; }
+.heat-legend { display:flex; align-items:center; gap:6px; justify-content:flex-end; margin-top:14px; font-size:.7rem; color:var(--text-muted); }
+.heat-key { width:13px; height:13px; border-radius:4px; }
 
 /* ── Status badges ── */
 .st { display:inline-flex; align-items:center; padding:2px 9px; border-radius:20px; font-size:.73rem; font-weight:700; border:1px solid transparent; white-space:nowrap; }
@@ -208,302 +313,323 @@ include __DIR__ . '/../templates/header_admin.php';
 .st-XX,.st-RT { background:var(--bg-surface-alt); color:var(--text-muted); border-color:var(--border); }
 
 /* ── Table ── */
-.db-table-wrap { overflow-x:auto; }
 .db-table { width:100%; border-collapse:collapse; font-size:.84rem; }
 .db-table th { padding:9px 12px; text-align:left; font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.5px; color:var(--text-muted); border-bottom:1px solid var(--border); }
-.db-table td { padding:10px 12px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.db-table td { padding:11px 12px; border-bottom:1px solid var(--border); vertical-align:middle; }
 .db-table tr:last-child td { border-bottom:none; }
 .db-table tr:hover td { background:var(--bg-surface-alt); }
 .db-ticket { font-weight:700; font-family:monospace; font-size:.82rem; color:var(--primary); }
 .db-name { font-weight:600; }
 .db-sub { font-size:.76rem; color:var(--text-muted); }
 
-/* ── Warning/Alert items ── */
-.db-alert-item { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); }
+/* ── Alert items ── */
+.db-alert-item { display:flex; align-items:center; gap:10px; padding:11px 0; border-bottom:1px solid var(--border); }
 .db-alert-item:last-child { border-bottom:none; }
 .db-alert-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
-.db-empty { text-align:center; padding:24px; color:var(--text-muted); font-size:.85rem; }
-.db-empty .material-symbols-rounded { font-size:32px; display:block; opacity:.3; margin-bottom:6px; }
+.db-empty { text-align:center; padding:26px; color:var(--text-muted); font-size:.85rem; }
+.db-empty .material-symbols-rounded { font-size:34px; display:block; opacity:.3; margin-bottom:6px; }
+.days-badge { display:inline-block; padding:1px 8px; border-radius:10px; font-size:.72rem; font-weight:700; }
+.days-ok   { background:rgba(16,185,129,.15); color:#059669; }
+.days-warn { background:rgba(245,158,11,.18); color:#b45309; }
+.days-over { background:rgba(239,68,68,.15); color:#dc2626; }
 
-/* ── Quick actions ── */
-.db-actions { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:28px; }
-.db-action-btn { background:var(--bg-surface); border:1.5px solid var(--border); border-radius:12px; padding:14px 10px; text-align:center; text-decoration:none; color:var(--text-main); transition:.15s; display:flex; flex-direction:column; align-items:center; gap:6px; font-size:.8rem; font-weight:600; }
-.db-action-btn .material-symbols-rounded { font-size:24px; color:var(--primary); }
-.db-action-btn:hover { border-color:var(--primary); background:var(--primary-light); }
-
-/* ── Days remaining badge ── */
-.days-badge { display:inline-block; padding:1px 7px; border-radius:10px; font-size:.72rem; font-weight:700; }
-.days-ok   { background:#d1fae5; color:#065f46; }
-.days-warn { background:#fef3c7; color:#92400e; }
-.days-over { background:#fee2e2; color:#991b1b; }
-
-@media(max-width:1100px){ .db-kpi-grid,.db-kpi-grid.sm { grid-template-columns:repeat(2,1fr); } }
-@media(max-width:900px) { .db-chart-grid,.db-chart-grid.half { grid-template-columns:1fr; } .db-actions { grid-template-columns:repeat(2,1fr); } }
-@media(max-width:600px) { .db-kpi-grid,.db-kpi-grid.sm { grid-template-columns:repeat(2,1fr); } }
+@media(max-width:1100px){ .dash-stats,.dash-mini { grid-template-columns:repeat(2,1fr); } .dash-mini { grid-template-columns:repeat(3,1fr); } }
+@media(max-width:900px){ .dash-bento,.dash-bento-3 { grid-template-columns:1fr; } .dash-hero { flex-direction:column; align-items:flex-start; } }
+@media(max-width:560px){ .dash-stats,.dash-mini { grid-template-columns:repeat(2,1fr); } }
 </style>
 
-<div class="main-content db-page">
+<div class="dash">
 
-<!-- ── Quick Actions ── -->
-<div class="db-section-title"><span class="material-symbols-rounded">bolt</span>Quick Actions</div>
-<div class="db-actions">
-    <a href="/admin/tracking/create.php" class="db-action-btn">
-        <span class="material-symbols-rounded">add_task</span> เปิดงานซ่อม
-    </a>
-    <a href="/admin/warranty/create.php" class="db-action-btn">
-        <span class="material-symbols-rounded">verified_user</span> ออกใบประกัน
-    </a>
-    <a href="/admin/inventory/" class="db-action-btn">
-        <span class="material-symbols-rounded">inventory_2</span> คลังอะไหล่
-    </a>
-    <a href="/admin/articles/create.php" class="db-action-btn">
-        <span class="material-symbols-rounded">edit_note</span> เขียนบทความ
-    </a>
-</div>
-
-<!-- ── KPI Main ── -->
-<div class="db-section-title"><span class="material-symbols-rounded">monitoring</span>ภาพรวมวันนี้</div>
-<div class="db-kpi-grid">
-    <div class="db-kpi">
-        <div class="db-kpi-icon" style="background:rgba(37,99,235,.1);">
-            <span class="material-symbols-rounded" style="color:var(--primary);">build_circle</span>
+    <!-- ── Hero ── -->
+    <div class="dash-hero">
+        <div class="dash-hero-text">
+            <span class="dash-hello"><?= h($greet) ?>, <?= h($adminName) ?> 👋</span>
+            <h2>ภาพรวมร้านวันนี้</h2>
+            <p><?= h($today_str) ?></p>
         </div>
-        <div>
-            <div class="db-kpi-val"><?= number_format($kpi['active_jobs']) ?></div>
-            <div class="db-kpi-lbl">งานที่กำลังดำเนินการ</div>
-        </div>
-    </div>
-    <div class="db-kpi">
-        <div class="db-kpi-icon" style="background:rgba(16,185,129,.1);">
-            <span class="material-symbols-rounded" style="color:#059669;">today</span>
-        </div>
-        <div>
-            <div class="db-kpi-val"><?= number_format($kpi['today_in']) ?></div>
-            <div class="db-kpi-lbl">งานเข้าวันนี้</div>
-        </div>
-    </div>
-    <div class="db-kpi">
-        <div class="db-kpi-icon" style="background:rgba(30,64,175,.1);">
-            <span class="material-symbols-rounded" style="color:#1e40af;">task_alt</span>
-        </div>
-        <div>
-            <div class="db-kpi-val"><?= number_format($kpi['today_done']) ?></div>
-            <div class="db-kpi-lbl">ส่งมอบวันนี้</div>
-        </div>
-    </div>
-    <div class="db-kpi">
-        <div class="db-kpi-icon" style="background:rgba(107,114,128,.1);">
-            <span class="material-symbols-rounded" style="color:#6b7280;">folder_open</span>
-        </div>
-        <div>
-            <div class="db-kpi-val"><?= number_format($kpi['total_jobs']) ?></div>
-            <div class="db-kpi-lbl">งานทั้งหมดในระบบ</div>
-        </div>
-    </div>
-</div>
-
-<!-- ── KPI Secondary ── -->
-<div class="db-kpi-grid sm" style="margin-top:10px;">
-    <div class="db-kpi sm" style="<?= $kpi['warranties']>0?'':'opacity:.6;' ?>">
-        <div class="db-kpi-icon" style="background:rgba(16,185,129,.1);">
-            <span class="material-symbols-rounded" style="color:#059669; font-size:18px;">verified_user</span>
-        </div>
-        <div>
-            <div class="db-kpi-val"><?= $kpi['warranties'] ?></div>
-            <div class="db-kpi-lbl">ประกัน active</div>
-        </div>
-    </div>
-    <div class="db-kpi sm" style="<?= $kpi['expiring_soon']>0?'border-color:rgba(245,158,11,.4);':'' ?>">
-        <div class="db-kpi-icon" style="background:rgba(245,158,11,.1);">
-            <span class="material-symbols-rounded" style="color:#b45309; font-size:18px;">schedule</span>
-        </div>
-        <div>
-            <div class="db-kpi-val"><?= $kpi['expiring_soon'] ?></div>
-            <div class="db-kpi-lbl">ประกันหมดใน 30 วัน</div>
-        </div>
-    </div>
-    <div class="db-kpi sm" style="<?= $kpi['low_stock']>0?'border-color:rgba(239,68,68,.4);':'' ?>">
-        <div class="db-kpi-icon" style="background:rgba(239,68,68,.1);">
-            <span class="material-symbols-rounded" style="color:#dc2626; font-size:18px;">warning</span>
-        </div>
-        <div>
-            <div class="db-kpi-val"><?= $kpi['low_stock'] ?></div>
-            <div class="db-kpi-lbl">อะไหล่ใกล้หมด</div>
-        </div>
-    </div>
-    <div class="db-kpi sm">
-        <div class="db-kpi-icon" style="background:rgba(139,92,246,.1);">
-            <span class="material-symbols-rounded" style="color:#7c3aed; font-size:18px;">storefront</span>
-        </div>
-        <div>
-            <div class="db-kpi-val"><?= $kpi['shop'] ?></div>
-            <div class="db-kpi-lbl">สินค้าในร้านค้า</div>
-        </div>
-    </div>
-</div>
-
-<!-- ── Charts Row 1: Line + Donut ── -->
-<div class="db-section-title" style="margin-top:32px;"><span class="material-symbols-rounded">bar_chart</span>สถิติงานซ่อม</div>
-<div class="db-chart-grid">
-    <!-- Line chart: งานซ่อม 30 วัน -->
-    <div class="db-card">
-        <div class="db-card-header">
-            <div class="db-card-title"><span class="material-symbols-rounded">show_chart</span>งานซ่อมรายวัน — 30 วันล่าสุด</div>
-            <a href="/admin/tracking/" class="db-card-link"><span class="material-symbols-rounded" style="font-size:14px;">open_in_new</span>ดูทั้งหมด</a>
-        </div>
-        <div class="chart-wrap" style="height:200px;">
-            <canvas id="chartDaily"></canvas>
-        </div>
-    </div>
-    <!-- Donut: สถานะงาน -->
-    <div class="db-card">
-        <div class="db-card-header">
-            <div class="db-card-title"><span class="material-symbols-rounded">donut_large</span>สัดส่วนสถานะงาน</div>
-        </div>
-        <div class="chart-wrap" style="height:200px;">
-            <canvas id="chartStatus"></canvas>
-        </div>
-    </div>
-</div>
-
-<!-- ── Charts Row 2: Bar monthly + Device types ── -->
-<div class="db-chart-grid half" style="margin-top:16px;">
-    <!-- Bar: รายเดือน -->
-    <div class="db-card">
-        <div class="db-card-header">
-            <div class="db-card-title"><span class="material-symbols-rounded">bar_chart</span>งานซ่อมรายเดือน — 6 เดือน</div>
-        </div>
-        <div class="chart-wrap" style="height:200px;">
-            <canvas id="chartMonthly"></canvas>
-        </div>
-    </div>
-    <!-- Horizontal bar: Device type -->
-    <div class="db-card">
-        <div class="db-card-header">
-            <div class="db-card-title"><span class="material-symbols-rounded">devices</span>อุปกรณ์ที่ซ่อมมากสุด</div>
-        </div>
-        <div class="chart-wrap" style="height:200px;">
-            <canvas id="chartDevice"></canvas>
-        </div>
-    </div>
-</div>
-
-<!-- ── Tables Row ── -->
-<div class="db-section-title" style="margin-top:32px;"><span class="material-symbols-rounded">table_rows</span>รายละเอียด</div>
-<div class="db-chart-grid">
-    <!-- Recent jobs -->
-    <div class="db-card" style="padding:0; overflow:hidden;">
-        <div class="db-card-header" style="padding:16px 20px; border-bottom:1px solid var(--border);">
-            <div class="db-card-title"><span class="material-symbols-rounded">receipt_long</span>งานซ่อมล่าสุด</div>
-            <a href="/admin/tracking/" class="db-card-link">ดูทั้งหมด →</a>
-        </div>
-        <div class="db-table-wrap">
-        <table class="db-table">
-            <thead>
-                <tr>
-                    <th>Ticket</th>
-                    <th>ลูกค้า</th>
-                    <th>อุปกรณ์</th>
-                    <th>สถานะ</th>
-                    <th>วันที่</th>
-                </tr>
-            </thead>
-            <tbody>
-            <?php if (empty($recent_jobs)): ?>
-                <tr><td colspan="5"><div class="db-empty"><span class="material-symbols-rounded">inbox</span>ยังไม่มีงาน</div></td></tr>
-            <?php else: foreach ($recent_jobs as $j): ?>
-                <tr>
-                    <td>
-                        <a href="/admin/tracking/edit.php?id=<?= $j['id'] ?>" style="text-decoration:none;">
-                            <span class="db-ticket"><?= h($j['ticket_number']) ?></span>
-                        </a>
-                    </td>
-                    <td>
-                        <div class="db-name"><?= h($j['customer_name']) ?></div>
-                    </td>
-                    <td>
-                        <div><?= h($j['device_type']) ?></div>
-                        <div class="db-sub"><?= h(mb_substr($j['device_model'] ?? '', 0, 20)) ?></div>
-                    </td>
-                    <td><span class="st st-<?= h($j['status']) ?>"><?= h($statusMap[$j['status']][0] ?? $j['status']) ?></span></td>
-                    <td class="db-sub"><?= date('d/m/y', strtotime($j['created_at'])) ?></td>
-                </tr>
-            <?php endforeach; endif; ?>
-            </tbody>
-        </table>
+        <div class="dash-hero-actions">
+            <a class="solid" href="/admin/tracking/create.php"><span class="material-symbols-rounded">add_task</span> เปิดงานซ่อม</a>
+            <a href="/admin/warranty/create.php"><span class="material-symbols-rounded">verified_user</span> ออกใบประกัน</a>
+            <a href="/admin/inventory/"><span class="material-symbols-rounded">inventory_2</span> คลังอะไหล่</a>
         </div>
     </div>
 
-    <!-- Right column: warranties + low stock -->
-    <div style="display:flex; flex-direction:column; gap:16px;">
-
-        <!-- Expiring warranties -->
-        <div class="db-card">
-            <div class="db-card-header">
-                <div class="db-card-title"><span class="material-symbols-rounded">schedule</span>ประกันจะหมดเร็วๆ นี้</div>
-                <a href="/admin/warranty/" class="db-card-link">ดูทั้งหมด →</a>
+    <!-- ── Primary stat tiles ── -->
+    <div class="dash-stats">
+        <div class="stat">
+            <div class="stat-top">
+                <div class="stat-chip" style="background:rgba(37,99,235,.12); color:var(--primary);"><span class="material-symbols-rounded">build_circle</span></div>
+                <span class="stat-tag">กำลังทำ</span>
             </div>
-            <?php if (empty($expiring)): ?>
-                <div class="db-empty"><span class="material-symbols-rounded">verified</span>ไม่มีประกันใกล้หมด</div>
-            <?php else: ?>
-            <?php foreach ($expiring as $w):
-                $d = (int)$w['days_left'];
-                $bc = $d <= 7 ? 'days-over' : ($d <= 14 ? 'days-warn' : 'days-ok');
-            ?>
-            <div class="db-alert-item">
-                <div class="db-alert-dot" style="background:<?= $d<=7?'#ef4444':($d<=14?'#f59e0b':'#10b981') ?>;"></div>
-                <div style="flex:1; min-width:0;">
-                    <div style="font-size:.82rem; font-weight:700; font-family:monospace; color:var(--primary);"><?= h($w['warranty_no']) ?></div>
-                    <div class="db-sub"><?= h($w['customer_name']) ?> · <?= h(mb_substr($w['device_model'],0,18)) ?></div>
+            <div class="stat-val"><?= number_format($kpi['active_jobs']) ?></div>
+            <div class="stat-lbl">งานที่กำลังดำเนินการ</div>
+        </div>
+        <div class="stat">
+            <div class="stat-top">
+                <div class="stat-chip" style="background:rgba(16,185,129,.12); color:#059669;"><span class="material-symbols-rounded">today</span></div>
+                <span class="stat-tag">วันนี้</span>
+            </div>
+            <div class="stat-val"><?= number_format($kpi['today_in']) ?></div>
+            <div class="stat-lbl">งานเข้าวันนี้</div>
+        </div>
+        <div class="stat">
+            <div class="stat-top">
+                <div class="stat-chip" style="background:rgba(30,64,175,.12); color:#1e40af;"><span class="material-symbols-rounded">task_alt</span></div>
+                <span class="stat-tag">วันนี้</span>
+            </div>
+            <div class="stat-val"><?= number_format($kpi['today_done']) ?></div>
+            <div class="stat-lbl">ส่งมอบวันนี้</div>
+        </div>
+        <div class="stat">
+            <div class="stat-top">
+                <div class="stat-chip" style="background:rgba(107,114,128,.12); color:#6b7280;"><span class="material-symbols-rounded">folder_open</span></div>
+                <span class="stat-tag">ทั้งหมด</span>
+            </div>
+            <div class="stat-val"><?= number_format($kpi['total_jobs']) ?></div>
+            <div class="stat-lbl">งานทั้งหมดในระบบ</div>
+        </div>
+    </div>
+
+    <!-- ── Bento: line + donut ── -->
+    <div class="dash-bento">
+        <div class="panel">
+            <div class="panel-head">
+                <div class="panel-title"><span class="material-symbols-rounded">show_chart</span>สถิติงานซ่อม — 30 วันล่าสุด</div>
+                <a href="/admin/tracking/" class="panel-link">ดูทั้งหมด <span class="material-symbols-rounded" style="font-size:14px;">arrow_forward</span></a>
+            </div>
+            <div class="chart-wrap" style="height:230px;"><canvas id="chartDaily"></canvas></div>
+        </div>
+        <div class="panel">
+            <div class="panel-head">
+                <div class="panel-title"><span class="material-symbols-rounded">donut_large</span>สัดส่วนสถานะงาน</div>
+            </div>
+            <div class="chart-wrap" style="height:230px;"><canvas id="chartStatus"></canvas></div>
+        </div>
+    </div>
+
+    <!-- ── Mini stat strip ── -->
+    <div class="dash-mini">
+        <div class="mini">
+            <div class="mini-chip" style="background:rgba(16,185,129,.12); color:#059669;"><span class="material-symbols-rounded">verified_user</span></div>
+            <div><div class="mini-val"><?= number_format($kpi['warranties']) ?></div><div class="mini-lbl">ประกัน active</div></div>
+        </div>
+        <div class="mini">
+            <div class="mini-chip" style="background:rgba(245,158,11,.12); color:#b45309;"><span class="material-symbols-rounded">schedule</span></div>
+            <div><div class="mini-val"><?= number_format($kpi['expiring_soon']) ?></div><div class="mini-lbl">หมดใน 30 วัน</div></div>
+        </div>
+        <div class="mini">
+            <div class="mini-chip" style="background:rgba(239,68,68,.12); color:#dc2626;"><span class="material-symbols-rounded">warning</span></div>
+            <div><div class="mini-val"><?= number_format($kpi['low_stock']) ?></div><div class="mini-lbl">อะไหล่ใกล้หมด</div></div>
+        </div>
+        <div class="mini">
+            <div class="mini-chip" style="background:rgba(139,92,246,.12); color:#7c3aed;"><span class="material-symbols-rounded">storefront</span></div>
+            <div><div class="mini-val"><?= number_format($kpi['shop']) ?></div><div class="mini-lbl">สินค้าในร้าน</div></div>
+        </div>
+        <div class="mini">
+            <div class="mini-chip" style="background:rgba(8,145,178,.12); color:#0891b2;"><span class="material-symbols-rounded">article</span></div>
+            <div><div class="mini-val"><?= number_format($kpi['articles']) ?></div><div class="mini-lbl">บทความ</div></div>
+        </div>
+    </div>
+
+    <!-- ── Bento: monthly bar + device bar + heatmap ── -->
+    <div class="dash-bento-3">
+        <div class="panel">
+            <div class="panel-head"><div class="panel-title"><span class="material-symbols-rounded">bar_chart</span>รายเดือน — 6 เดือน</div></div>
+            <div class="chart-wrap" style="height:210px;"><canvas id="chartMonthly"></canvas></div>
+        </div>
+        <div class="panel">
+            <div class="panel-head"><div class="panel-title"><span class="material-symbols-rounded">devices</span>อุปกรณ์ที่ซ่อมมากสุด</div></div>
+            <div class="chart-wrap" style="height:210px;"><canvas id="chartDevice"></canvas></div>
+        </div>
+        <div class="panel">
+            <div class="panel-head"><div class="panel-title"><span class="material-symbols-rounded">calendar_month</span>ความเคลื่อนไหว 30 วัน</div></div>
+            <div class="heat">
+                <?php foreach ($daily_values as $idx => $v):
+                    $ratio = $v / $daily_max;
+                    if ($v <= 0)        $bg = 'var(--bg-surface-alt)';
+                    elseif ($ratio<=.25) $bg = 'rgba(37,99,235,.28)';
+                    elseif ($ratio<=.5)  $bg = 'rgba(37,99,235,.5)';
+                    elseif ($ratio<=.75) $bg = 'rgba(37,99,235,.72)';
+                    else                 $bg = 'rgba(37,99,235,1)';
+                ?>
+                <div class="heat-cell" style="background:<?= $bg ?>;" title="<?= h($daily_labels[$idx]) ?>: <?= $v ?> งาน"></div>
+                <?php endforeach; ?>
+            </div>
+            <div class="heat-legend">
+                น้อย
+                <span class="heat-key" style="background:var(--bg-surface-alt);"></span>
+                <span class="heat-key" style="background:rgba(37,99,235,.28);"></span>
+                <span class="heat-key" style="background:rgba(37,99,235,.5);"></span>
+                <span class="heat-key" style="background:rgba(37,99,235,.72);"></span>
+                <span class="heat-key" style="background:rgba(37,99,235,1);"></span>
+                มาก
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Tables: recent jobs + alerts ── -->
+    <div class="dash-bento">
+        <div class="panel" style="padding:0; overflow:hidden;">
+            <div class="panel-head" style="padding:18px 22px; margin:0; border-bottom:1px solid var(--border);">
+                <div class="panel-title"><span class="material-symbols-rounded">receipt_long</span>งานซ่อมล่าสุด</div>
+                <a href="/admin/tracking/" class="panel-link">ดูทั้งหมด <span class="material-symbols-rounded" style="font-size:14px;">arrow_forward</span></a>
+            </div>
+            <div style="overflow-x:auto;">
+            <table class="db-table">
+                <thead><tr><th>Ticket</th><th>ลูกค้า</th><th>อุปกรณ์</th><th>สถานะ</th><th>วันที่</th></tr></thead>
+                <tbody>
+                <?php if (empty($recent_jobs)): ?>
+                    <tr><td colspan="5"><div class="db-empty"><span class="material-symbols-rounded">inbox</span>ยังไม่มีงาน</div></td></tr>
+                <?php else: foreach ($recent_jobs as $j): ?>
+                    <tr>
+                        <td><a href="/admin/tracking/edit.php?id=<?= $j['id'] ?>" style="text-decoration:none;"><span class="db-ticket"><?= h($j['ticket_number']) ?></span></a></td>
+                        <td><div class="db-name"><?= h($j['customer_name']) ?></div></td>
+                        <td><div><?= h($j['device_type']) ?></div><div class="db-sub"><?= h(mb_substr($j['device_model'] ?? '', 0, 20)) ?></div></td>
+                        <td><span class="st st-<?= h($j['status']) ?>"><?= h($statusMap[$j['status']][0] ?? $j['status']) ?></span></td>
+                        <td class="db-sub"><?= date('d/m/y', strtotime($j['created_at'])) ?></td>
+                    </tr>
+                <?php endforeach; endif; ?>
+                </tbody>
+            </table>
+            </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:16px;">
+            <div class="panel">
+                <div class="panel-head">
+                    <div class="panel-title"><span class="material-symbols-rounded">schedule</span>ประกันจะหมดเร็วๆ นี้</div>
+                    <a href="/admin/warranty/" class="panel-link">ทั้งหมด</a>
                 </div>
-                <span class="days-badge <?= $bc ?>">เหลือ <?= $d ?> วัน</span>
+                <?php if (empty($expiring)): ?>
+                    <div class="db-empty"><span class="material-symbols-rounded">verified</span>ไม่มีประกันใกล้หมด</div>
+                <?php else: foreach ($expiring as $w):
+                    $d = (int)$w['days_left'];
+                    $bc = $d <= 7 ? 'days-over' : ($d <= 14 ? 'days-warn' : 'days-ok');
+                ?>
+                <div class="db-alert-item">
+                    <div class="db-alert-dot" style="background:<?= $d<=7?'#ef4444':($d<=14?'#f59e0b':'#10b981') ?>;"></div>
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:.82rem; font-weight:700; font-family:monospace; color:var(--primary);"><?= h($w['warranty_no']) ?></div>
+                        <div class="db-sub"><?= h($w['customer_name']) ?> · <?= h(mb_substr($w['device_model'],0,18)) ?></div>
+                    </div>
+                    <span class="days-badge <?= $bc ?>">เหลือ <?= $d ?> วัน</span>
+                </div>
+                <?php endforeach; endif; ?>
             </div>
-            <?php endforeach; ?>
-            <?php endif; ?>
-        </div>
 
-        <!-- Low stock parts -->
-        <div class="db-card">
-            <div class="db-card-header">
-                <div class="db-card-title"><span class="material-symbols-rounded">warning</span>อะไหล่ใกล้หมด</div>
-                <a href="/admin/inventory/" class="db-card-link">คลัง →</a>
+            <div class="panel">
+                <div class="panel-head">
+                    <div class="panel-title"><span class="material-symbols-rounded">warning</span>อะไหล่ใกล้หมด</div>
+                    <a href="/admin/inventory/" class="panel-link">คลัง</a>
+                </div>
+                <?php if (empty($low_parts)): ?>
+                    <div class="db-empty"><span class="material-symbols-rounded">check_circle</span>อะไหล่เพียงพอ</div>
+                <?php else: foreach ($low_parts as $p):
+                    $qty = (int)$p['quantity']; $min = (int)$p['min_qty'];
+                    $pct = $min > 0 ? min(100, round($qty / $min * 100)) : 0;
+                    $is_oos = $qty === 0 || $p['status'] === 'OOS';
+                ?>
+                <div class="db-alert-item">
+                    <div class="db-alert-dot" style="background:<?= $is_oos?'#ef4444':'#f59e0b' ?>;"></div>
+                    <div style="flex:1; min-width:0;">
+                        <div style="font-size:.82rem; font-weight:600;"><?= h(mb_substr($p['name'],0,24)) ?></div>
+                        <div class="db-sub"><?= h($p['type']) ?> · <?= $is_oos?'หมด':'ใกล้หมด' ?></div>
+                        <div style="height:4px; background:var(--border); border-radius:4px; margin-top:5px; overflow:hidden;">
+                            <div style="height:100%; width:<?= $pct ?>%; background:<?= $is_oos?'#ef4444':'#f59e0b' ?>; border-radius:4px;"></div>
+                        </div>
+                    </div>
+                    <div style="font-size:.88rem; font-weight:800; color:<?= $is_oos?'#dc2626':'#b45309' ?>; flex-shrink:0; margin-left:8px;"><?= $qty ?> / <?= $min ?></div>
+                </div>
+                <?php endforeach; endif; ?>
             </div>
-            <?php if (empty($low_parts)): ?>
-                <div class="db-empty"><span class="material-symbols-rounded">check_circle</span>อะไหล่เพียงพอ</div>
-            <?php else: ?>
-            <?php foreach ($low_parts as $p):
-                $qty = (int)$p['quantity'];
-                $min = (int)$p['min_qty'];
-                $pct = $min > 0 ? min(100, round($qty / $min * 100)) : 0;
-                $is_oos = $qty === 0 || $p['status'] === 'OOS';
+        </div>
+    </div>
+
+    <!-- ═══ ระบบวางแผนสั่งอะไหล่ ═══ -->
+    <div style="display:flex; align-items:center; gap:8px; margin-top:6px;">
+        <span class="material-symbols-rounded" style="color:var(--primary);">insights</span>
+        <h2 style="font-size:1rem; font-weight:800; margin:0;">วางแผนสั่งอะไหล่</h2>
+        <span style="font-size:.76rem; color:var(--text-muted);">อิงการเบิกจริง <?= (int)$PLAN_DAYS ?> วันล่าสุด</span>
+    </div>
+
+    <div class="dash-bento-3">
+        <!-- 1) ควรสั่งด่วน -->
+        <div class="panel">
+            <div class="panel-head">
+                <div class="panel-title"><span class="material-symbols-rounded">shopping_cart</span>ควรสั่งด่วน</div>
+                <a href="/admin/inventory/" class="panel-link">คลัง</a>
+            </div>
+            <?php if (empty($plan_reorder)): ?>
+                <div class="db-empty"><span class="material-symbols-rounded">check_circle</span>สต็อกเพียงพอ</div>
+            <?php else: foreach ($plan_reorder as $p):
+                $dl = $p['days_left'];
+                $urgent = ($p['stock'] === 0) || ($dl !== null && $dl <= 14);
             ?>
             <div class="db-alert-item">
-                <div class="db-alert-dot" style="background:<?= $is_oos?'#ef4444':'#f59e0b' ?>;"></div>
+                <div class="db-alert-dot" style="background:<?= $urgent ? '#ef4444' : '#f59e0b' ?>;"></div>
                 <div style="flex:1; min-width:0;">
-                    <div style="font-size:.82rem; font-weight:600;"><?= h(mb_substr($p['name'],0,24)) ?></div>
-                    <div class="db-sub"><?= h($p['type']) ?> · <?= $is_oos?'หมด':'ใกล้หมด' ?></div>
-                    <div style="height:4px; background:var(--border); border-radius:4px; margin-top:5px; overflow:hidden;">
-                        <div style="height:100%; width:<?= $pct ?>%; background:<?= $is_oos?'#ef4444':'#f59e0b' ?>; border-radius:4px;"></div>
+                    <div style="font-size:.82rem; font-weight:600;"><?= h(mb_substr($p['name'], 0, 24)) ?></div>
+                    <div class="db-sub">
+                        เหลือ <?= $p['stock'] ?>/<?= $p['min_qty'] ?>
+                        <?php if ($dl !== null): ?> · พอใช้อีก ~<?= $dl ?> วัน<?php elseif ($p['used_n'] === 0): ?> · ไม่มีการเบิก<?php endif; ?>
                     </div>
                 </div>
-                <div style="font-size:.88rem; font-weight:800; color:<?= $is_oos?'#dc2626':'#b45309' ?>; flex-shrink:0; margin-left:8px;">
-                    <?= $qty ?> / <?= $min ?>
-                </div>
+                <span class="days-badge <?= $urgent ? 'days-over' : 'days-warn' ?>"><?= $p['stock'] === 0 ? 'หมด' : 'ใกล้หมด' ?></span>
             </div>
-            <?php endforeach; ?>
-            <?php endif; ?>
+            <?php endforeach; endif; ?>
         </div>
 
-    </div><!-- right col -->
-</div><!-- table grid -->
+        <!-- 2) ใช้บ่อย -->
+        <div class="panel">
+            <div class="panel-head">
+                <div class="panel-title"><span class="material-symbols-rounded">local_fire_department</span>ใช้บ่อย</div>
+            </div>
+            <?php if (empty($plan_movers)): ?>
+                <div class="db-empty"><span class="material-symbols-rounded">info</span>ยังไม่มีการเบิกในช่วงนี้</div>
+            <?php else: $mmax = max(array_map(fn($x) => $x['used_n'], $plan_movers)); foreach ($plan_movers as $p):
+                $pct = $mmax > 0 ? round($p['used_n'] / $mmax * 100) : 0;
+            ?>
+            <div class="db-alert-item">
+                <div style="flex:1; min-width:0;">
+                    <div style="font-size:.82rem; font-weight:600;"><?= h(mb_substr($p['name'], 0, 24)) ?></div>
+                    <div style="height:4px; background:var(--border); border-radius:4px; margin-top:6px; overflow:hidden;">
+                        <div style="height:100%; width:<?= $pct ?>%; background:#2563eb; border-radius:4px;"></div>
+                    </div>
+                </div>
+                <div style="font-size:.88rem; font-weight:800; color:#2563eb; flex-shrink:0; margin-left:8px;"><?= $p['used_n'] ?> ชิ้น</div>
+            </div>
+            <?php endforeach; endif; ?>
+        </div>
 
-</div><!-- .db-page -->
+        <!-- 3) ไม่ค่อยได้ใช้ -->
+        <div class="panel">
+            <div class="panel-head">
+                <div class="panel-title"><span class="material-symbols-rounded">hourglass_empty</span>ไม่ค่อยได้ใช้</div>
+            </div>
+            <?php if (empty($plan_dead)): ?>
+                <div class="db-empty"><span class="material-symbols-rounded">cached</span>ของหมุนเวียนดี</div>
+            <?php else: foreach ($plan_dead as $p): ?>
+            <div class="db-alert-item">
+                <div class="db-alert-dot" style="background:#94a3b8;"></div>
+                <div style="flex:1; min-width:0;">
+                    <div style="font-size:.82rem; font-weight:600;"><?= h(mb_substr($p['name'], 0, 24)) ?></div>
+                    <div class="db-sub">ค้าง <?= $p['stock'] ?> ชิ้น · <?= $p['last_ever'] ? 'เบิกล่าสุด ' . date('d/m/y', strtotime($p['last_ever'])) : 'ไม่เคยเบิก' ?></div>
+                </div>
+                <span class="days-badge" style="background:rgba(148,163,184,.18); color:#64748b;">ค้าง</span>
+            </div>
+            <?php endforeach; endif; ?>
+        </div>
+    </div>
+
+</div><!-- .dash -->
 
 <!-- ── Chart.js Init ── -->
 <script>
 const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 const gridColor  = isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
 const textColor  = isDark ? '#94a3b8' : '#6b7280';
+// read the real card background so the donut gaps match the surface (no white ring in dark)
+const surfaceBorder = getComputedStyle(document.documentElement).getPropertyValue('--bg-surface').trim() || '#ffffff';
 const chartDefaults = {
     responsive: true, maintainAspectRatio: false,
     plugins: { legend: { display: false }, tooltip: { mode:'index', intersect:false } },
@@ -513,33 +639,30 @@ const chartDefaults = {
     }
 };
 
-// ── Daily line chart ──
 new Chart(document.getElementById('chartDaily'), {
     type: 'line',
     data: {
         labels: <?= json_encode($daily_labels) ?>,
         datasets: [{
             label: 'งาน', data: <?= json_encode($daily_values) ?>,
-            borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,.08)',
-            fill: true, tension: .4, pointRadius: 3, pointHoverRadius: 5,
-            borderWidth: 2, pointBackgroundColor: '#2563eb'
+            borderColor: '#2563eb', backgroundColor: 'rgba(37,99,235,.10)',
+            fill: true, tension: .4, pointRadius: 0, pointHoverRadius: 5,
+            borderWidth: 2.5, pointBackgroundColor: '#2563eb'
         }]
     },
-    options: { ...chartDefaults, plugins:{ ...chartDefaults.plugins, tooltip:{ callbacks:{ title: t => t[0].label+' (30 วัน)' } } } }
+    options: { ...chartDefaults, plugins:{ ...chartDefaults.plugins, tooltip:{ callbacks:{ title: t => t[0].label } } } }
 });
 
-// ── Status donut ──
 const statusData = <?= json_encode(array_values($status_data)) ?>;
 const activeStatus = statusData.filter(d => d.cnt > 0);
 new Chart(document.getElementById('chartStatus'), {
     type: 'doughnut',
     data: {
         labels: activeStatus.map(d => d.label),
-        datasets: [{ data: activeStatus.map(d => d.cnt), backgroundColor: activeStatus.map(d => d.color), borderWidth:2, borderColor: isDark?'#1e293b':'#fff', hoverOffset:6 }]
+        datasets: [{ data: activeStatus.map(d => d.cnt), backgroundColor: activeStatus.map(d => d.color), borderWidth:3, borderColor: surfaceBorder, hoverOffset:6 }]
     },
     options: {
-        responsive:true, maintainAspectRatio:false,
-        cutout:'65%',
+        responsive:true, maintainAspectRatio:false, cutout:'66%',
         plugins: {
             legend: { display:true, position:'right', labels:{ color:textColor, font:{size:10}, padding:8, boxWidth:10 } },
             tooltip: { callbacks:{ label: c => ` ${c.label}: ${c.raw} งาน` } }
@@ -547,38 +670,19 @@ new Chart(document.getElementById('chartStatus'), {
     }
 });
 
-// ── Monthly bar chart ──
 new Chart(document.getElementById('chartMonthly'), {
     type: 'bar',
-    data: {
-        labels: <?= json_encode($monthly_labels) ?>,
-        datasets: [{
-            label: 'งาน', data: <?= json_encode($monthly_values) ?>,
-            backgroundColor: 'rgba(37,99,235,.75)', borderRadius:8, borderSkipped:false
-        }]
-    },
+    data: { labels: <?= json_encode($monthly_labels) ?>,
+        datasets: [{ label:'งาน', data: <?= json_encode($monthly_values) ?>, backgroundColor:'rgba(37,99,235,.78)', borderRadius:8, borderSkipped:false }] },
     options: { ...chartDefaults }
 });
 
-// ── Device horizontal bar ──
 new Chart(document.getElementById('chartDevice'), {
     type: 'bar',
-    data: {
-        labels: <?= json_encode($device_labels) ?>,
-        datasets: [{
-            label: 'งาน', data: <?= json_encode($device_values) ?>,
-            backgroundColor: <?= json_encode($device_colors) ?>,
-            borderRadius: 6, borderSkipped: false
-        }]
-    },
-    options: {
-        ...chartDefaults,
-        indexAxis: 'y',
-        scales: {
-            x: { grid:{ color:gridColor }, ticks:{ color:textColor, font:{size:10} }, beginAtZero:true },
-            y: { grid:{ display:false }, ticks:{ color:textColor, font:{size:11} } }
-        }
-    }
+    data: { labels: <?= json_encode($device_labels) ?>,
+        datasets: [{ label:'งาน', data: <?= json_encode($device_values) ?>, backgroundColor: <?= json_encode($device_colors) ?>, borderRadius:6, borderSkipped:false }] },
+    options: { ...chartDefaults, indexAxis:'y',
+        scales: { x:{ grid:{color:gridColor}, ticks:{color:textColor, font:{size:10}}, beginAtZero:true }, y:{ grid:{display:false}, ticks:{color:textColor, font:{size:11}} } } }
 });
 </script>
 

@@ -6,6 +6,7 @@
 
 session_start();
 require_once '../../includes/db.php';
+require_once '../../includes/manager_lib.php';
 
 if (!isset($_SESSION['admin_id'])) {
     http_response_code(403);
@@ -68,6 +69,7 @@ if ($action === 'get_item') {
 
 /* ── REQUISITION ── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'requisition') {
+    require_perms_json(['parts.consume']); // เบิกอะไหล่: ช่าง+ ขึ้นไป
     $inventory_id = (int)($_POST['inventory_id'] ?? 0);
     $qty_req      = max(1, (int)($_POST['qty'] ?? 1));
     $tracking_id  = (int)($_POST['tracking_id'] ?? 0) ?: null;
@@ -135,6 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'requisition') {
         $avg_cost       = 0;
         $total_cost_sum = 0;
         $qty_used       = 0;
+        $deductions     = []; // เก็บ lot ที่ตัดไว้สำหรับ reverse ทีหลัง
 
         foreach ($lots as $lot) {
             if ($remaining_to_deduct <= 0) break;
@@ -144,6 +147,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'requisition') {
                 ->execute([$take, $lot['id']]);
 
             if ($first_lot_id === null) $first_lot_id = $lot['id'];
+            $deductions[]    = ['lot_id' => (int)$lot['id'], 'take' => (int)$take];
             $total_cost_sum += $lot['cost_price'] * $take;
             $qty_used       += $take;
             $remaining_to_deduct -= $take;
@@ -163,6 +167,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'requisition') {
             $qty_req, round($avg_cost, 2), $item['sell_price'],
             $admin_id, $admin_name, $remarks
         ]);
+        $requisition_id = (int)$pdo->lastInsertId();
+
+        // ── log ลงศูนย์ควบคุมผู้จัดการ (ให้ manager เห็น + ย้อนได้) ──
+        $ref_label   = $ticket_num ? " → งาน {$ticket_num}" : '';
+        $action_id = mgr_log($pdo, [
+            'action_type' => 'requisition',
+            'ref_table'   => 'parts_requisitions',
+            'ref_id'      => $requisition_id,
+            'summary'     => "เบิก {$item['name']} x{$qty_req}{$ref_label}",
+            'amount'      => round($avg_cost * $qty_req, 2),
+            'reversible'  => 1,
+            'payload'     => [
+                'requisition_id' => $requisition_id,
+                'inventory_id'   => $inventory_id,
+                'qty'            => $qty_req,
+                'deductions'     => $deductions,
+            ],
+        ]);
+        if ($action_id) {
+            $pdo->prepare("UPDATE parts_requisitions SET manager_action_id = ? WHERE id = ?")
+                ->execute([$action_id, $requisition_id]);
+        }
 
         // Update inventory status if now OOS
         $avail_after = $pdo->prepare("SELECT COALESCE(SUM(qty_remaining),0) FROM inventory_lots WHERE inventory_id = ?");

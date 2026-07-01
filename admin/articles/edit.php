@@ -10,6 +10,7 @@ session_start();
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_login();
+require_perms(['content.write']); // แก้บทความ: หน้าร้าน+ ขึ้นไป
 
 $isModal = !empty($_GET['modal']);
 
@@ -31,16 +32,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     // ── Image helpers ───────────────────────────────────────────
-    function art_process_webp(string $tmp, string $dest, int $maxW = 1200, int $q = 82): array|false {
+    function art_process_webp(string $tmp, string $dest, int $maxW = 1200, int $q = 82) {
         $info = @getimagesize($tmp);
         if (!$info) return false;
         [$w, $h, $type] = $info;
-        $src = match($type) {
-            IMAGETYPE_JPEG => @imagecreatefromjpeg($tmp),
-            IMAGETYPE_PNG  => @imagecreatefrompng($tmp),
-            IMAGETYPE_WEBP => @imagecreatefromwebp($tmp),
-            default        => false,
-        };
+        switch ($type) {
+            case IMAGETYPE_JPEG: $src = @imagecreatefromjpeg($tmp); break;
+            case IMAGETYPE_PNG:  $src = @imagecreatefrompng($tmp);  break;
+            case IMAGETYPE_WEBP: $src = @imagecreatefromwebp($tmp); break;
+            default:             $src = false;
+        }
         if (!$src) return false;
         if ($w > $maxW) {
             $nh = (int)round($h * $maxW / $w);
@@ -582,6 +583,9 @@ function initQuillEditors() {
     const enEl = document.getElementById('editor-content-en');
     qTh = new Quill(thEl, { theme:'snow', placeholder:'เนื้อหาบทความ...', modules:{ toolbar: QUILL_TB } });
     qEn = new Quill(enEl, { theme:'snow', placeholder:'Article content...', modules:{ toolbar: QUILL_TB } });
+    // Block pasted images that point to a local temp file (file://, blob:, /var/folders…)
+    // instead of an uploaded/remote URL — these break on production.
+    [qTh, qEn].forEach(q => blockLocalImagePaste(q));
     // Load existing content
     const initTh = thEl?.getAttribute('data-init') || '';
     const initEn = enEl?.getAttribute('data-init') || '';
@@ -589,6 +593,23 @@ function initQuillEditors() {
     if (initEn.trim()) qEn.clipboard.dangerouslyPasteHTML(initEn);
     qTh.on('text-change', () => { formDirty = true; });
     qEn.on('text-change', () => { formDirty = true; });
+}
+
+// Drop any pasted <img> whose src is a local/temporary file path.
+// Real images must be added via the gallery uploader, not pasted screenshots.
+function blockLocalImagePaste(q) {
+    if (!q) return;
+    const BAD = /^(file:|blob:)|\/var\/folders\/|\/private\/var\/|TemporaryItems|^data:/i;
+    let warned = false;
+    q.clipboard.addMatcher('IMG', (node, delta) => {
+        const src = node.getAttribute('src') || '';
+        if (BAD.test(src)) {
+            if (!warned) { warned = true;
+                alert('วางรูปจากเครื่องตรงๆ ไม่ได้ — รูปจะพังบนเว็บจริง\nให้อัปโหลดผ่านแกลเลอรีรูปภาพแทน'); }
+            return { ops: [] }; // strip it
+        }
+        return delta;
+    });
 }
 
 function syncQuill() {

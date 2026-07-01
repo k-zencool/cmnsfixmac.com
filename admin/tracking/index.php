@@ -58,6 +58,10 @@ $statusMap = [
 
 /* ── Delete Action ── */
 if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['id'])) {
+    if (!can('jobs.write')) { // ลบงานซ่อม: ช่าง+ ขึ้นไป (ยกเว้นบัญชี)
+        if (!empty($_POST['ajax'])) { header('Content-Type: application/json'); echo json_encode(['ok'=>false,'msg'=>'ไม่มีสิทธิ์']); exit; }
+        header("Location: index.php?err=" . rawurlencode('ไม่มีสิทธิ์ลบงาน')); exit;
+    }
     $pdo->prepare("DELETE FROM tracking WHERE id = ?")->execute([(int)$_POST['id']]);
     $_SESSION['success'] = "ลบรายการเรียบร้อย";
     if (!empty($_POST['ajax'])) { header('Content-Type: application/json'); echo '{"ok":true}'; exit; }

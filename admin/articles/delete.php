@@ -16,6 +16,7 @@ session_start();
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_login();
+require_perms(['content.write']); // ลบบทความ: หน้าร้าน+ ขึ้นไป
 
 // เพิ่ม CSRF Token (สำหรับฟอร์มหลัก)
 if (empty($_SESSION['csrf_token'])) {

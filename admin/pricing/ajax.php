@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_login();
 header('Content-Type: application/json');
+require_perms_json(['pricing.write']); // toggle/ลบราคา: ผู้จัดการ+ เท่านั้น
 
 $action = $_POST['action'] ?? '';
 $id     = intval($_POST['id'] ?? 0);

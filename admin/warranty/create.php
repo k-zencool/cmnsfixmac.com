@@ -5,6 +5,7 @@ require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/warranty_lib.php';
 require_login();
+require_perms(['content.write']); // ออกใบประกัน: หน้าร้าน+ ขึ้นไป
 
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 

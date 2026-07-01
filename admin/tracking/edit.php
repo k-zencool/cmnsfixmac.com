@@ -9,6 +9,7 @@ date_default_timezone_set('Asia/Bangkok');
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_login();
+require_perms(['jobs.write']); // แก้งานซ่อม: ช่าง+ ขึ้นไป (ยกเว้นบัญชี)
 
 function h($s) { return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 

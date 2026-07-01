@@ -3,6 +3,9 @@
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
+if (!function_exists('can')) {
+    require_once __DIR__ . '/../../includes/auth.php';
+}
 
 // ── Current admin (for the user card at the bottom) ──
 global $pdo;
@@ -11,10 +14,10 @@ $sb_email  = '';
 $sb_avatar = null;
 if (!empty($_SESSION['admin_id']) && isset($pdo)) {
     try {
-        $sb_stmt = $pdo->prepare("SELECT full_name, username, email, avatar, role FROM admin_users WHERE id = :id");
+        $sb_stmt = $pdo->prepare("SELECT * FROM admin_users WHERE id = :id");
         $sb_stmt->execute([':id' => $_SESSION['admin_id']]);
         if ($u = $sb_stmt->fetch(PDO::FETCH_ASSOC)) {
-            $sb_name   = !empty($u['full_name']) ? $u['full_name'] : $u['username'];
+            $sb_name   = !empty($u['full_name']) ? $u['full_name'] : ($u['username'] ?? 'Admin');
             $sb_email  = !empty($u['email']) ? $u['email'] : ($u['role'] ?? '');
             $sb_avatar = $u['avatar'] ?? null;
         }
@@ -63,9 +66,11 @@ $sb_initial = mb_strtoupper(mb_substr($sb_name, 0, 1));
                     <a href="/admin/tracking/index.php">
                         <span class="material-symbols-rounded" style="font-size:18px;">monitoring</span> ภาพรวม
                     </a>
+                    <?php if (can('jobs.write')): ?>
                     <a href="/admin/tracking/create.php">
                         <span class="material-symbols-rounded" style="font-size:18px;">add_task</span> เปิดงานใหม่
                     </a>
+                    <?php endif; ?>
                     <a href="/admin/tracking/index.php?group=active">
                         <span class="material-symbols-rounded" style="font-size:18px;">engineering</span> กำลังซ่อม
                     </a>
@@ -79,6 +84,7 @@ $sb_initial = mb_strtoupper(mb_substr($sb_name, 0, 1));
             </div>
         </div>
 
+        <?php if (can('content.write')): ?>
         <a href="/admin/shop/" title="จัดการหน้าร้าน">
             <span class="material-symbols-rounded">storefront</span>
             <span class="link-text">จัดการหน้าร้าน</span>
@@ -93,18 +99,23 @@ $sb_initial = mb_strtoupper(mb_substr($sb_name, 0, 1));
             <span class="material-symbols-rounded">article</span>
             <span class="link-text">จัดการบทความ</span>
         </a>
+        <?php endif; ?>
 
         <span class="nav-section">จัดการ</span>
 
+        <?php if (can('pricing.write')): ?>
         <a href="/admin/pricing/" title="จัดการราคาซ่อม">
             <span class="material-symbols-rounded">price_change</span>
             <span class="link-text">จัดการราคาซ่อม</span>
         </a>
+        <?php endif; ?>
 
+        <?php if (can('content.write')): ?>
         <a href="/admin/warranty/" title="ใบรับประกัน">
             <span class="material-symbols-rounded">verified_user</span>
             <span class="link-text">ใบรับประกัน</span>
         </a>
+        <?php endif; ?>
 
         <div class="has-sub">
             <div class="sub-head" onclick="toggleSubmenu(this)">
@@ -134,9 +145,11 @@ $sb_initial = mb_strtoupper(mb_substr($sb_name, 0, 1));
 
                     <div class="dropdown-divider" style="margin: 5px 0; border-top: 1px solid var(--border); opacity: 0.3;"></div>
                     
+                    <?php if (can('parts.manage')): ?>
                     <a href="/admin/inventory/categories.php">
                         <span class="material-symbols-rounded" style="font-size:18px;">folder_managed</span> จัดการหมวดหมู่
                     </a>
+                    <?php endif; ?>
                     <a href="/admin/inventory/logs.php">
                         <span class="material-symbols-rounded" style="font-size:18px;">history</span> ประวัติสต็อก
                     </a>
@@ -144,25 +157,14 @@ $sb_initial = mb_strtoupper(mb_substr($sb_name, 0, 1));
             </div>
         </div>
 
-        <div class="has-sub">
-            <div class="sub-head" onclick="toggleSubmenu(this)">
-                <div class="sub-link">
-                    <span class="material-symbols-rounded">chat</span>
-                    <span class="link-text">Chat Inbox</span>
-                </div>
-                <span class="material-symbols-rounded sub-toggle">keyboard_arrow_down</span>
-            </div>
-            <div class="submenu-wrapper">
-                <div class="submenu-inner">
-                    <a href="/admin/chat/">
-                        <span class="material-symbols-rounded" style="font-size:18px">inbox</span> Inbox
-                    </a>
-                    <a href="/admin/chat/settings.php">
-                        <span class="material-symbols-rounded" style="font-size:18px">link</span> Connections
-                    </a>
-                </div>
-            </div>
-        </div>
+        <?php if (function_exists('can') && can('manager.center')): ?>
+        <span class="nav-section">ผู้จัดการ</span>
+
+        <a href="/admin/manager/" title="ศูนย์ควบคุมผู้จัดการ">
+            <span class="material-symbols-rounded">shield_person</span>
+            <span class="link-text">ศูนย์ควบคุม</span>
+        </a>
+        <?php endif; ?>
 
         <span class="nav-section">ระบบ</span>
 
@@ -180,10 +182,12 @@ $sb_initial = mb_strtoupper(mb_substr($sb_name, 0, 1));
             <span class="material-symbols-rounded">help</span>
             <span class="link-text">ศูนย์ช่วยเหลือ</span>
         </a>
+        <?php if (can('settings.manage')): ?>
         <a href="/admin/settings/" title="การตั้งค่า">
             <span class="material-symbols-rounded">settings</span>
             <span class="link-text">การตั้งค่า</span>
         </a>
+        <?php endif; ?>
 
         <div class="sidebar-user" id="sidebarUser">
             <div class="sidebar-user-main">

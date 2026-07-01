@@ -9,6 +9,7 @@ function h($s) { return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 // ── AJAX: update listing status ──────────────────────────────
 if (($_POST['action'] ?? '') === 'update_status') {
     header('Content-Type: application/json');
+    require_perms_json(['content.write']); // เปลี่ยนสถานะสินค้า: หน้าร้าน+ ขึ้นไป
     $lid    = (int)($_POST['id'] ?? 0);
     $status = $_POST['status'] ?? '';
     $allowed = ['published','draft','reserved','sold'];
@@ -477,7 +478,7 @@ include __DIR__ . '/../templates/header_admin.php';
                         <?php if ($row['price_original']): ?><div style="font-size:11px;color:var(--text-muted);text-decoration:line-through;">฿<?= number_format($row['price_original']) ?></div><?php endif; ?>
                     </td>
                     <td>
-                        <span class="s-badge s-<?= h($row['status']) ?>"><?= match($row['status']){'published'=>'เผยแพร่','draft'=>'Draft','reserved'=>'จอง','sold'=>'ขายแล้ว',default=>h($row['status'])} ?></span>
+                        <span class="s-badge s-<?= h($row['status']) ?>"><?= ['published'=>'เผยแพร่','draft'=>'Draft','reserved'=>'จอง','sold'=>'ขายแล้ว'][$row['status']] ?? h($row['status']) ?></span>
                     </td>
                     <td style="text-align:center;color:var(--text-muted);"><?= $row['img_count'] ?></td>
                     <td style="font-size:12px;color:var(--text-muted);white-space:nowrap;"><?= date('d/m/y', strtotime($row['created_at'])) ?></td>

@@ -14,6 +14,7 @@ session_start();
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_login();
+require_perms_json(['content.write']); // ลบรูปบทความ (AJAX): หน้าร้าน+ ขึ้นไป
 
 // 1. [Security] เช็ค CSRF Token
 if (empty($_GET['csrf']) || !hash_equals($_SESSION['csrf_token'] ?? '', $_GET['csrf'])) {

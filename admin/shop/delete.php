@@ -5,6 +5,7 @@ require_once __DIR__ . '/../../includes/auth.php';
 require_login();
 
 header('Content-Type: application/json');
+require_perms_json(['content.write']); // ลบสินค้า shop: หน้าร้าน+ ขึ้นไป
 
 $id       = (int)($_GET['id'] ?? 0);
 $admin_id = $_SESSION['admin_id'] ?? null;

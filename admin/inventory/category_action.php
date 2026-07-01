@@ -1,6 +1,9 @@
 <?php
 session_start();
 require_once '../../includes/db.php';
+require_once __DIR__ . '/../../includes/auth.php';
+require_login();
+require_perms(['parts.manage']); // จัดการหมวดหมู่อะไหล่: ผู้จัดการ+ เท่านั้น
 
 if (isset($_POST['add_category'])) {
     $name        = trim($_POST['name']);

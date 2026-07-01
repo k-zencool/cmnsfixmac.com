@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once '../../includes/db.php';
+require_once __DIR__ . '/../../includes/auth.php';
 
 if (!isset($_SESSION['admin_id']) || $_SERVER['REQUEST_METHOD'] !== 'POST') {
     http_response_code(403);
@@ -9,6 +10,7 @@ if (!isset($_SESSION['admin_id']) || $_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 header('Content-Type: application/json; charset=utf-8');
+require_perms_json(['shop.finance']); // revert การขาย: หน้าร้าน+ ขึ้นไป
 
 $inventory_id = (int)($_POST['inventory_id'] ?? 0);
 $admin_id     = $_SESSION['admin_id'] ?? null;

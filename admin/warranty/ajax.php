@@ -16,6 +16,11 @@ function redirect_back(): void {
 
 $action = $_REQUEST['action'] ?? '';
 
+// การเขียนทั้งหมดต้องมี content.write (lookup เป็น read เปิดให้ทุกยศ)
+if (in_array($action, ['create_warranty', 'add_claim', 'edit_claim', 'void_warranty'], true)) {
+    require_perms_json(['content.write']);
+}
+
 // ── GET: lookup tracking job ──────────────────────────────────────
 if ($action === 'lookup_tracking') {
     $q = trim($_GET['q'] ?? '');
