@@ -43,11 +43,7 @@ if ($category !== '') {
     $params[] = $category;
 }
 $whereSQL = ' WHERE ' . implode(' AND ', $where);
-$orderBy  = match($sort) {
-    'views' => 'views DESC, created_at DESC',
-    'az'    => 'title ASC',
-    default => 'created_at DESC',
-};
+$orderBy  = ['views' => 'views DESC, created_at DESC', 'az' => 'title ASC'][$sort] ?? 'created_at DESC';
 
 $cntStmt = $pdo->prepare("SELECT COUNT(*) FROM articles$whereSQL");
 $cntStmt->execute($params);

@@ -12,6 +12,23 @@
 //    เพื่อหาโฟลเดอร์ vendor ที่อยู่ข้างนอก
 require_once __DIR__ . '/../vendor/autoload.php';
 
+// ── PHP 7.4 polyfills (production host runs PHP 7.4; these are PHP 8 builtins) ──
+if (!function_exists('str_contains')) {
+    function str_contains($haystack, $needle) {
+        return $needle === '' || strpos($haystack, $needle) !== false;
+    }
+}
+if (!function_exists('str_starts_with')) {
+    function str_starts_with($haystack, $needle) {
+        return $needle === '' || strncmp($haystack, $needle, strlen($needle)) === 0;
+    }
+}
+if (!function_exists('str_ends_with')) {
+    function str_ends_with($haystack, $needle) {
+        return $needle === '' || substr($haystack, -strlen($needle)) === $needle;
+    }
+}
+
 // 2. โหลดตัวแปรจากไฟล์ .env
 //    สร้าง instance ของ Dotenv ให้มันไปหาไฟล์ .env ที่ root ของโปรเจค
 //    (เราก็ใช้ __DIR__ . '/../' เพื่อชี้ตำแหน่งไปที่ root เหมือนเดิม)

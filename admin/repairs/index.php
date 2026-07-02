@@ -25,7 +25,7 @@ if ($q)      { $where[] = '(r.title LIKE ? OR r.model LIKE ?)'; $params[] = "%$q
 if ($cat)    { $where[] = 'r.category = ?'; $params[] = $cat; }
 if ($status) { $where[] = 'r.status = ?';   $params[] = $status; }
 $where_sql = $where ? 'WHERE ' . implode(' AND ', $where) : '';
-$order_sql  = match($sort) { 'oldest'=>'r.created_at ASC','title'=>'r.title ASC','popular'=>'r.views DESC', default=>'r.created_at DESC' };
+$order_sql  = ['oldest'=>'r.created_at ASC','title'=>'r.title ASC','popular'=>'r.views DESC'][$sort] ?? 'r.created_at DESC';
 
 $cnt = $pdo->prepare("SELECT COUNT(*) FROM repairs r $where_sql");
 $cnt->execute($params); $total = (int)$cnt->fetchColumn();
@@ -241,12 +241,11 @@ include __DIR__ . '/../templates/header_admin.php';
                     </td>
                     <td style="text-align:center;">
                         <?php
-                        $sBadge = match($r['status'] ?? 'published') {
+                        $sBadge = [
                             'published' => ['เผยแพร่',  '#10b981','#f0fdf4','#bbf7d0'],
                             'draft'     => ['ฉบับร่าง', '#d97706','#fffbeb','#fde68a'],
                             'hidden'    => ['ซ่อน',     '#6b7280','#f9fafb','#e5e7eb'],
-                            default     => ['เผยแพร่',  '#10b981','#f0fdf4','#bbf7d0'],
-                        };
+                        ][$r['status'] ?? 'published'] ?? ['เผยแพร่',  '#10b981','#f0fdf4','#bbf7d0'];
                         ?>
                         <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;background:<?= $sBadge[2] ?>;color:<?= $sBadge[1] ?>;border:1px solid <?= $sBadge[3] ?>;">
                             <span style="width:6px;height:6px;border-radius:50%;background:<?= $sBadge[1] ?>;display:inline-block;flex-shrink:0;"></span>

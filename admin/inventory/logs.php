@@ -40,11 +40,7 @@ if ($search !== '') {
 if ($filter_type !== 'all') { $where_common[] = "inv_type = ?"; $params[] = $filter_type; }
 if ($filter_cat  >  0)      { $where_common[] = "cat_id   = ?"; $params[] = $filter_cat;  }
 
-$action_sql = match($filter_action) {
-    'IN'  => "AND action = 'IN'",
-    'OUT' => "AND action = 'OUT'",
-    default => ''
-};
+$action_sql = ['IN'  => "AND action = 'IN'", 'OUT' => "AND action = 'OUT'"][$filter_action] ?? '';
 
 $where_sql = !empty($where_common) ? 'WHERE ' . implode(' AND ', $where_common) : '';
 
