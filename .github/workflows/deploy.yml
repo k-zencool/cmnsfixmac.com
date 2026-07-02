@@ -1,0 +1,41 @@
+name: Deploy to cPanel
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:   # allow manual trigger from the Actions tab
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '7.4'   # MUST match the production host PHP version
+
+      - name: Install Composer deps (no dev)
+        run: composer install --no-dev --optimize-autoloader --no-interaction
+
+      - name: Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USER }}
+          password: ${{ secrets.FTP_PASS }}
+          server-dir: ./public_html/
+          # Never overwrite/delete production-only files
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            .env
+            .env.*
+            uploads/**
+            database/**
+            docker-compose.yml
+            Dockerfile
+            BackUp/**
+            **/*.md
