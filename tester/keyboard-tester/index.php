@@ -1,6 +1,6 @@
 <?php
 $page_title = 'ทดสอบคีย์บอร์ดออนไลน์ | Keyboard Tester ภาษาไทย-อังกฤษสำหรับ Mac';
-$page_css   = ['/tester/keyboard-tester/assets/css/style.css'];
+$page_css   = ['/assets/css/tester-style.css?v=4', '/tester/keyboard-tester/assets/css/style.css?v=4'];
 
 ob_start(); ?>
 <meta name="description" content="เครื่องมือทดสอบคีย์บอร์ด MacBook ออนไลน์ รองรับปุ่มทุกภาษา กดแล้วแสดงผลทันที พร้อมจัด Layout ตามจริงเหมือน MacBook ของคุณ ใช้งานฟรี" />
@@ -23,9 +23,40 @@ ob_start(); ?>
 include_once '../../includes/header.php';
 ?>
 
-  <div class="container">
-    <h1>ทดสอบคีย์บอร์ดออนไลน์</h1> <div class="live-display">
-        คุณกำลังกด: <span id="key-log">-</span> </div>
+<main class="kt-main">
+
+  <section class="kt-hero">
+    <span class="kt-eyebrow">
+      <span class="material-symbols-rounded">keyboard</span> ทดสอบคีย์บอร์ด
+    </span>
+    <h1>ทดสอบ<span class="kt-accent">คีย์บอร์ด</span></h1>
+    <p class="kt-lead">
+      กดทุกปุ่มบนคีย์บอร์ดให้ครบ — ปุ่มที่กดติดจะกลายเป็นสีเขียว "ผ่าน"
+      ปุ่มที่ยังไม่เปลี่ยนสีคือยังไม่ได้กดหรือกดไม่ติด ใช้เช็คปุ่มค้าง ปุ่มตาย ก่อนซื้อ-ขายเครื่องมือสอง
+    </p>
+  </section>
+
+  <div class="kt-bar">
+    <div class="kt-live">
+      <span class="kt-live-label">ปุ่มล่าสุด</span>
+      <kbd id="key-log">—</kbd>
+    </div>
+    <div class="kt-progress">
+      <div class="kt-progress-track"><div class="kt-progress-fill" id="ktFill"></div></div>
+      <span class="kt-progress-text"><b id="ktDone">0</b> / <span id="ktTotal">0</span> ปุ่ม</span>
+    </div>
+    <button class="kt-reset" id="ktReset" type="button">
+      <span class="material-symbols-rounded">restart_alt</span> รีเซ็ต
+    </button>
+  </div>
+
+  <div class="kt-legend">
+    <span><i class="kt-dot kt-dot-active"></i> กำลังกด</span>
+    <span><i class="kt-dot kt-dot-ok"></i> ผ่านแล้ว</span>
+    <span><i class="kt-dot kt-dot-idle"></i> ยังไม่ทดสอบ</span>
+  </div>
+
+  <div class="kt-board-wrap">
     <section class="keyboard-section">
       <div class="keyboard-row row-1">
         <div class="push-left"><div class="key key-esc" data-key="Escape">Esc</div></div>
@@ -41,7 +72,7 @@ include_once '../../includes/header.php';
         <div class="key key-f10" data-key="F10">F10</div>
         <div class="key key-f11" data-key="F11">F11</div>
         <div class="key key-f12" data-key="F12">F12</div>
-        <div class="push-right"><div class="key key-power" data-key="Power"><span class="material-symbols-outlined">power_settings_new</span></div></div>
+        <div class="push-right"><div class="key key-power" data-key="Power" data-skip><span class="material-symbols-outlined">power_settings_new</span></div></div>
       </div>
 
       <div class="keyboard-row row-2">
@@ -110,7 +141,7 @@ include_once '../../includes/header.php';
       </div>
 
       <div class="keyboard-row row-6">
-        <div class="push-left"><div class="key key-fn" data-code="Fn"><span class="symbol-top-right">fn</span><span class="material-symbols-outlined">language</span></div></div>
+        <div class="push-left"><div class="key key-fn" data-code="Fn" data-skip><span class="symbol-top-right">fn</span><span class="material-symbols-outlined">language</span></div></div>
         <div class="key key-control" data-code="ControlLeft"><span class="symbol-top-right">⌃</span><span class="label-button">control</span></div>
         <div class="key key-option" data-code="AltLeft"><span class="symbol-top-right">⌥</span><span class="label-button">option</span></div>
         <div class="key key-command-left wide" data-code="MetaLeft"><span class="symbol-top-right">⌘</span><span class="label-button">command</span></div>
@@ -129,6 +160,12 @@ include_once '../../includes/header.php';
     </section>
   </div>
 
-  <script src="/tester/keyboard-tester/assets/js/script.js"></script>
+  <a class="kt-back-link" href="/tester/">
+    <span class="material-symbols-rounded">arrow_back</span> หน้ารวมเครื่องมือ
+  </a>
+
+</main>
+
+<script src="/tester/keyboard-tester/assets/js/script.js?v=2"></script>
 
 <?php include_once '../../includes/footer.php'; ?>

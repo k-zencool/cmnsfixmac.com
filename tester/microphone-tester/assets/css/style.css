@@ -1,173 +1,223 @@
-/* ==== GLOBAL ==== */
-body {
-  margin: 0;
-  padding: 0;
-  font-family: 'Inter', sans-serif;
-  background-color: #f8f8f8;
-  color: #111;
+/* ==========================================================
+   Microphone Tester — prefix mic- ; HIG design tokens
+   ========================================================== */
+
+.mic-main {
+  min-height: 100vh;
+  background: var(--bg-page);
+  color: var(--text-primary);
+  font-family: var(--font);
+  padding: calc(var(--nav-h) + var(--sp-10)) var(--sp-5) var(--sp-20);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-6);
 }
 
-.main-container {
-  max-width: 500px;
-  margin: 2rem auto;
-  padding: 2rem;
-  background: white;
-  border-radius: 16px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
-  text-align: center;
-  position: relative;
-  margin-top: 7rem;
-}
-
-h1 {
-  font-size: 1.8rem;
-  margin-bottom: 1.5rem;
+/* ── Hero ── */
+.mic-hero { max-width: 600px; text-align: center; }
+.mic-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--r-full);
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  backdrop-filter: var(--nav-blur);
+  font-size: var(--text-sm);
   font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--sp-4);
+}
+.mic-eyebrow .material-symbols-rounded { font-size: 18px; color: var(--accent); }
+.mic-hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(1.8rem, 5vw, var(--text-4xl));
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin: 0 0 var(--sp-3);
+  white-space: nowrap;
+}
+.mic-accent { color: var(--accent); }
+.mic-lead {
+  font-size: var(--text-base);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0 auto;
+  max-width: 52ch;
 }
 
-label {
-  display: block;
-  margin-bottom: 0.5rem;
-  font-weight: 500;
-  text-align: left;
-}
-
-select {
+/* ── Card ── */
+.mic-card {
   width: 100%;
-  padding: 0.6rem;
-  font-size: 1rem;
-  border-radius: 8px;
-  border: 1px solid #ccc;
-  margin-bottom: 1.5rem;
+  max-width: 520px;
+  padding: var(--sp-6);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-2xl);
+  box-shadow: var(--shadow-md);
 }
 
-button {
+.mic-field-label {
+  display: block;
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: var(--sp-2);
+}
+.mic-select {
+  width: 100%;
+  padding: var(--sp-3) var(--sp-4);
+  font-family: var(--font);
+  font-size: var(--text-base);
+  color: var(--text-primary);
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  margin-bottom: var(--sp-4);
+  cursor: pointer;
+}
+
+/* ── Buttons ── */
+.mic-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.25rem;
-  font-size: 1rem;
+  gap: var(--sp-2);
+  width: 100%;
+  padding: var(--sp-3) var(--sp-5);
+  font-family: var(--font);
+  font-size: var(--text-base);
   font-weight: 600;
-  border-radius: 8px;
   border: none;
+  border-radius: var(--r-full);
   cursor: pointer;
-  transition: background 0.3s;
+  transition: background var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
 }
-
-button:hover {
-  opacity: 0.9;
+.mic-btn .material-symbols-rounded { font-size: 20px; }
+.mic-btn-primary { background: var(--accent); color: var(--text-inverse); box-shadow: 0 4px 16px var(--accent-shadow); }
+.mic-btn-primary:hover { background: var(--accent-dark); transform: translateY(-2px); }
+.mic-btn-danger { background: #ff3b30; color: #fff; }
+.mic-btn-danger:hover { filter: brightness(0.94); transform: translateY(-2px); }
+.mic-btn-ghost {
+  background: var(--bg-glass);
+  color: var(--text-primary);
+  border: 1px solid var(--border-strong);
 }
+.mic-btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
 
-#start-btn {
-  background-color: var(--accent);
-  color: white;
-  width: 100%;
-  margin-bottom: 1rem;
-}
-
-#stop-btn {
-  background-color: #dc3545;
-  color: white;
-  width: 100%;
-  margin-bottom: 1rem;
-}
-
-#record-controls button {
-  background-color: white;
-  color: var(--accent);
-  border: 2px solid var(--accent);
-  width: 100%;
-  margin: 0.3rem 0;
-}
-
-#record-controls button:hover {
-  background-color: var(--accent);
-  color: white;
-}
-
-#lang-toggle {
-  background-color: #fdd9b5;
-  border: none;
-  padding: 0.5rem 1rem;
-  font-weight: 600;
-  border-radius: 8px;
-  position: absolute;
-  top: 1.5rem;
-  right: 1.5rem;
-  white-space: nowrap;
-  width: 200px;
-  height: 42px;
-  display: flex;
+/* ── Level meter ── */
+.mic-meter {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  justify-content: center;
-  box-sizing: border-box;
-  margin-top: 0;
-  z-index: 10;
+  gap: var(--sp-3);
+  margin: var(--sp-5) 0 var(--sp-4);
 }
-
-.main-container h1 {
-  margin-top: 4rem;
-}
-
+.mic-meter-label { font-size: var(--text-sm); color: var(--text-secondary); white-space: nowrap; }
 .mic-level {
-  background-color: #ddd;
-  border-radius: 20px;
-  height: 16px;
-  margin: 1.5rem 0;
+  height: 14px;
+  border-radius: var(--r-full);
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border);
   overflow: hidden;
 }
-
 .mic-bar {
-  background: linear-gradient(to right, #00c853, #b2ff59);
   height: 100%;
   width: 0%;
-  transition: width 0.1s ease-out;
+  border-radius: var(--r-full);
+  background: linear-gradient(90deg, #34c759, #a7e84f, #ffd60a);
+  transition: width 80ms linear;
 }
+#mic-percent { font-weight: 700; font-variant-numeric: tabular-nums; min-width: 42px; text-align: right; }
 
-#mic-percent {
-  font-weight: bold;
-  margin-bottom: 1.5rem;
-}
-
-#waveform {
-  height: 100px;
-  background: #fff;
-  border: 1px solid #eee;
-  margin-bottom: 1.5rem;
-  border-radius: 8px;
-  position: relative;
+/* ── Waveform ── */
+.mic-wave {
+  height: 110px;
+  background: var(--bg-surface-alt);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  margin-bottom: var(--sp-4);
   overflow: hidden;
+}
+.mic-wave canvas { width: 100% !important; height: 100% !important; display: block; }
+
+/* ── Recording status ── */
+.mic-rec-status {
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: var(--sp-2);
+  color: #ff3b30;
+  font-weight: 600;
+  font-size: var(--text-sm);
+  margin-bottom: var(--sp-3);
 }
+.mic-rec-status .dot { width: 9px; height: 9px; border-radius: 50%; background: #ff3b30; animation: mic-blink 1s infinite; }
+@keyframes mic-blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.2; } }
 
-#waveform canvas {
-  width: 100% !important;
-  height: 100% !important;
-  display: block;
-}
+/* ── Record controls ── */
+.mic-rec { display: flex; flex-direction: column; gap: var(--sp-2); }
+.mic-rec audio { width: 100%; margin-top: var(--sp-2); }
 
-#recording-status {
-  color: red;
-  font-weight: bold;
-  margin-bottom: 1.5rem;
-  display: flex;
-  justify-content: center;
+/* ── Back link ── */
+.mic-back {
+  display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  gap: var(--sp-1);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color var(--dur-fast) var(--ease);
+}
+.mic-back:hover { color: var(--accent); }
+.mic-back .material-symbols-rounded { font-size: 18px; }
+
+/* ── Toast notifications ── */
+.mic-toast-wrap {
+  position: fixed;
+  top: calc(var(--nav-h) + 16px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(92vw, 420px);
+  pointer-events: none;
+}
+.mic-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border-radius: var(--r-lg);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  line-height: 1.4;
+  opacity: 0;
+  transform: translateY(-12px);
+  transition: opacity 0.25s var(--ease), transform 0.25s var(--ease-spring);
+}
+.mic-toast.show { opacity: 1; transform: translateY(0); }
+.mic-toast .material-symbols-rounded { font-size: 20px; flex-shrink: 0; }
+.mic-toast.warn  .material-symbols-rounded { color: #ff9f0a; }
+.mic-toast.error .material-symbols-rounded { color: #ff3b30; }
+.mic-toast.info  .material-symbols-rounded { color: var(--accent); }
+
+@media (prefers-reduced-motion: reduce) {
+  .mic-toast { transition: opacity 0.2s linear; transform: none; }
+  .mic-toast.show { transform: none; }
 }
 
-#recording-status .dot {
-  width: 10px;
-  height: 10px;
-  background-color: red;
-  border-radius: 50%;
-  animation: blink 1s infinite;
-}
-
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0; }
+@media (max-width: 480px) {
+  .mic-hero h1 { white-space: normal; }
 }

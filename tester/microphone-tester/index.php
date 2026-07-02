@@ -1,54 +1,78 @@
 <?php
 $page_title = 'ทดสอบไมโครโฟน (Microphone) ออนไลน์ ฟรี | CMNS FixMac';
-$page_css   = ['/assets/css/tester-style.css?v=1', 'assets/css/style.css'];
+$page_css   = ['/assets/css/tester-style.css?v=4', 'assets/css/style.css?v=3'];
 
 ob_start(); ?>
 <meta name="description" content="ทดสอบไมโครโฟน Mac / iPhone / iPad วัดระดับเสียงเข้าแบบเรียลไทม์ พร้อมอัด-เล่นกลับเพื่อเช็คว่าไมค์รับเสียงปกติ ออนไลน์ฟรี">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://cmnsfixmac.com/tester/microphone-tester/">
 <link rel="shortcut icon" href="/assets/img/favicon1.png">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
-<script src="https://unpkg.com/wavesurfer.js"></script>
-<script src="https://unpkg.com/@ffmpeg/ffmpeg@0.12.10/dist/umd/ffmpeg.js"></script>
-<script type="module" src="assets/js/script.js" defer></script>
 <?php $page_head_extra = ob_get_clean();
 
 include_once '../../includes/header.php';
 ?>
 
-  <main class="main-container">
+<main class="mic-main">
 
-    <button id="lang-toggle" class="lang-btn">
-      <span class="material-symbols-outlined">translate</span> เปลี่ยนภาษา</button>
+  <section class="mic-hero">
+    <span class="mic-eyebrow">
+      <span class="material-symbols-rounded">mic</span> ทดสอบไมโครโฟน
+    </span>
+    <h1>ทดสอบ<span class="mic-accent">ไมโครโฟน</span></h1>
+    <p class="mic-lead">
+      วัดระดับเสียงเข้าแบบเรียลไทม์ พร้อมอัด–เล่นกลับ เพื่อเช็คว่าไมค์รับเสียงปกติ
+      ไม่ขาด ๆ หาย ๆ หรือเบาผิดปกติ — เบราว์เซอร์จะขออนุญาตใช้ไมค์เมื่อกด "เริ่มทดสอบ"
+    </p>
+  </section>
 
-
-    <label for="mic-select"></label>
-    <select id="mic-select">
-      <option>กำลังโหลด...</option>
+  <div class="mic-card">
+    <label class="mic-field-label" for="mic-select">เลือกไมโครโฟน</label>
+    <select id="mic-select" class="mic-select">
+      <option value="">ไมโครโฟนเริ่มต้น (ระบบเลือกให้)</option>
     </select>
 
-    <button id="start-btn"><span class="material-symbols-outlined">play_arrow</span></button>
-    <button id="stop-btn" style="display:none;"><span class="material-symbols-outlined">stop</span></button>
+    <button id="start-btn" class="mic-btn mic-btn-primary">
+      <span class="material-symbols-rounded">play_arrow</span> เริ่มทดสอบ
+    </button>
+    <button id="stop-btn" class="mic-btn mic-btn-danger" style="display:none">
+      <span class="material-symbols-rounded">stop</span> หยุด
+    </button>
 
-    <!-- แถบระดับเสียง -->
-    <div class="mic-level">
-      <div class="mic-bar" id="mic-bar"></div>
+    <div class="mic-meter">
+      <span class="mic-meter-label">ระดับเสียง</span>
+      <div class="mic-level"><div class="mic-bar" id="mic-bar"></div></div>
+      <span id="mic-percent">0%</span>
     </div>
-    <p id="mic-percent">0%</p>
 
-    <!-- waveform -->
-    <div id="waveform"></div>
+    <div id="waveform" class="mic-wave"></div>
 
-    <!-- สถานะอัดเสียง -->
-    <div id="recording-status" style="display:none;"></div>
-
-    <!-- ปุ่มควบคุมการอัดเสียง -->
-    <div id="record-controls">
-      <button id="record-btn"><span class="material-symbols-outlined">mic</span></button>
-      <button id="stop-record-btn" style="display:none;"><span class="material-symbols-outlined">stop_circle</span></button>
-      <button id="play-btn" style="display:none;"><span class="material-symbols-outlined">play_circle</span></button>
-      <button id="download-btn" style="display:none;"><span class="material-symbols-outlined">download</span></button>
-      <audio id="audio-playback" controls style="display:none; width:100%; margin-top: 1rem;"></audio>
+    <div id="recording-status" class="mic-rec-status" style="display:none">
+      <span class="dot"></span> กำลังอัดเสียง...
     </div>
-  </main>
+
+    <div id="record-controls" class="mic-rec">
+      <button id="record-btn" class="mic-btn mic-btn-ghost">
+        <span class="material-symbols-rounded">mic</span> เริ่มอัดเสียง
+      </button>
+      <button id="stop-record-btn" class="mic-btn mic-btn-ghost" style="display:none">
+        <span class="material-symbols-rounded">stop_circle</span> หยุดอัด
+      </button>
+      <button id="play-btn" class="mic-btn mic-btn-ghost" style="display:none">
+        <span class="material-symbols-rounded">play_circle</span> ฟังเสียง
+      </button>
+      <button id="download-btn" class="mic-btn mic-btn-ghost" style="display:none">
+        <span class="material-symbols-rounded">download</span> ดาวน์โหลด
+      </button>
+      <audio id="audio-playback" controls style="display:none"></audio>
+    </div>
+  </div>
+
+  <a class="mic-back" href="/tester/">
+    <span class="material-symbols-rounded">arrow_back</span> หน้ารวมเครื่องมือ
+  </a>
+
+</main>
+
+<script src="assets/js/script.js?v=3" defer></script>
+
+<?php include_once '../../includes/footer.php'; ?>

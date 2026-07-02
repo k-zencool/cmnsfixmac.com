@@ -1,246 +1,275 @@
-let backButtonTimeout;
-let colorCycleInterval = null;
-let animationBox;
-let currentStep = 0;
-let lastShownMode = null;
-let currentLang = "th";
+/* ==========================================================
+   Monitor / Dead-Pixel Tester engine (EN)
+   All patterns are drawn on a single canvas (crisp pixels).
+   ========================================================== */
+(function () {
+  "use strict";
 
-const testSteps = [
-  { mode: "Solid Color: Black", color: "black" },
-  { mode: "Solid Color: White", color: "white" },
-  { mode: "Solid Color: Red", color: "red" },
-  { mode: "Solid Color: Green", color: "green" },
-  { mode: "Solid Color: Blue", color: "blue" },
-  { mode: "Color Cycle", action: "cycle" },
-  { mode: "Grid Checker", action: "grid" },
-  { mode: "Crosshair", action: "crosshair" },
-  { mode: "Moving Box", action: "animation" },
-  { mode: "Dead Pixel", action: "deadpixel" },
-  { mode: "Rainbow Scroll", action: "rainbowscroll" }
-];
+  const $ = (id) => document.getElementById(id);
+  const stage  = $("mtStage");
+  const canvas = $("mtCanvas");
+  if (!stage || !canvas) return;
+  const ctx = canvas.getContext("2d", { alpha: false });
 
-const i18n = {
-  en: {
-    back: "← Back to Home",
-    title: "Welcome to the Monitor Testing Website",
-    desc1: "This site is used to test color, background, lines, and display performance on your screen.",
-    desc2: 'Click "Start Test" to enter fullscreen and begin testing.',
-    start: "Start Test",
-    toggleLang: "Switch Language"
-  },
-  th: {
-    back: "← กลับหน้าแรก",
-    title: "ยินดีต้อนรับสู่เว็บไซต์ทดสอบหน้าจอ",
-    desc1: "เว็บไซต์นี้ใช้สำหรับทดสอบสี พื้นหลัง เส้น และการแสดงผลของหน้าจอ",
-    desc2: 'กดปุ่ม "เริ่มทดสอบ" เพื่อเข้าสู่โหมดเต็มจอและเริ่มใช้งาน',
-    start: "เริ่มทดสอบ",
-    toggleLang: "เปลี่ยนภาษา"
+  let W = 0, H = 0, dpr = 1;
+  let idx = 0, raf = 0, open = false, usedFS = false, idleTimer = 0;
+  let swiped = false, touchX = 0, touchY = 0;
+
+  /* ── pattern definitions ── */
+  const fill = (c) => { ctx.fillStyle = c; ctx.fillRect(0, 0, W, H); };
+  const solid = (name, c) => ({ name, swatch: c, animated: false, paint: () => fill(c) });
+
+  const RAINBOW = "linear-gradient(90deg,red,orange,yellow,#0f0,#09f,#63f,#f0f)";
+
+  const patterns = [
+    solid("White",            "#ffffff"),
+    solid("Black",            "#000000"),
+    solid("Red",              "#ff0000"),
+    solid("Green",            "#00ff00"),
+    solid("Blue",             "#0000ff"),
+    solid("Cyan",             "#00ffff"),
+    solid("Magenta",          "#ff00ff"),
+    solid("Yellow",           "#ffff00"),
+    solid("Gray 50%",         "#808080"),
+    {
+      name: "Grayscale gradient", swatch: "linear-gradient(90deg,#000,#fff)", animated: false,
+      paint() {
+        const g = ctx.createLinearGradient(0, 0, W, 0);
+        g.addColorStop(0, "#000"); g.addColorStop(1, "#fff");
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      }
+    },
+    {
+      name: "RGB gradient", swatch: RAINBOW, animated: false,
+      paint() {
+        const g = ctx.createLinearGradient(0, 0, W, 0);
+        const stops = ["#ff0000", "#ffff00", "#00ff00", "#00ffff", "#0000ff", "#ff00ff", "#ff0000"];
+        stops.forEach((c, i) => g.addColorStop(i / (stops.length - 1), c));
+        ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+      }
+    },
+    {
+      name: "Checkerboard", swatch: "repeating-conic-gradient(#000 0 25%,#fff 0 50%) 0/12px 12px", animated: false,
+      paint() {
+        const s = Math.round(18 * dpr);
+        for (let y = 0; y < H; y += s) {
+          for (let x = 0; x < W; x += s) {
+            ctx.fillStyle = ((x / s + y / s) & 1) ? "#000" : "#fff";
+            ctx.fillRect(x, y, s, s);
+          }
+        }
+      }
+    },
+    {
+      name: "Grid lines", swatch: "linear-gradient(#bbb 1px,transparent 0) 0 0/10px 10px,linear-gradient(90deg,#bbb 1px,#fff 0) 0 0/10px 10px", animated: false,
+      paint() {
+        fill("#ffffff");
+        const s = Math.round(24 * dpr), lw = Math.max(1, Math.round(dpr));
+        ctx.fillStyle = "#999";
+        for (let x = 0; x < W; x += s) ctx.fillRect(x, 0, lw, H);
+        for (let y = 0; y < H; y += s) ctx.fillRect(0, y, W, lw);
+      }
+    },
+    {
+      name: "Crosshair + border", swatch: "#fff", animated: false,
+      paint() {
+        fill("#ffffff");
+        const lw = Math.max(1, Math.round(dpr));
+        ctx.fillStyle = "#ff0000";
+        ctx.fillRect((W - lw) / 2, 0, lw, H);
+        ctx.fillRect(0, (H - lw) / 2, W, lw);
+        const b = Math.max(2, Math.round(2 * dpr));
+        ctx.fillStyle = "#0000ff";
+        ctx.fillRect(0, 0, W, b); ctx.fillRect(0, H - b, W, b);
+        ctx.fillRect(0, 0, b, H); ctx.fillRect(W - b, 0, b, H);
+        ctx.strokeStyle = "#00aa00"; ctx.lineWidth = lw;
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W, H);
+        ctx.moveTo(W, 0); ctx.lineTo(0, H); ctx.stroke();
+      }
+    },
+    {
+      name: "Moving box (ghosting)", swatch: "#7f7f7f", animated: true,
+      paint(t) {
+        fill("#7f7f7f");
+        const box = Math.round(Math.min(W, H) * 0.09);
+        const span = W - box;
+        const cycle = (t % 4000) / 4000;
+        const tri = cycle < 0.5 ? cycle * 2 : (1 - cycle) * 2;
+        const x = tri * span;
+        const y = (H - box) / 2;
+        ctx.fillStyle = "#ff3b30";
+        ctx.fillRect(x, y, box, box);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(x, y - box * 1.4, box, box);
+        ctx.fillStyle = "#000000";
+        ctx.fillRect(x, y + box * 1.4, box, box);
+      }
+    },
+    {
+      name: "Auto colour cycle", swatch: RAINBOW, animated: true,
+      paint(t) { fill("hsl(" + ((t / 22) % 360) + ",100%,50%)"); }
+    }
+  ];
+
+  const N = patterns.length;
+
+  /* ── canvas sizing ── */
+  function sizeCanvas() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = Math.floor(window.innerWidth * dpr);
+    H = Math.floor(window.innerHeight * dpr);
+    canvas.width = W; canvas.height = H;
   }
-};
 
-function switchLangToggle() {
-  currentLang = currentLang === "th" ? "en" : "th";
-  document.querySelectorAll("[data-i18n]").forEach(el => {
-    const key = el.getAttribute("data-i18n");
-    el.textContent = i18n[currentLang][key];
-  });
-  document.getElementById("lang-toggle").innerHTML =
-    `<span class="material-symbols-outlined">translate</span> ${i18n[currentLang].toggleLang}`;
-}
-
-document.getElementById("lang-toggle").addEventListener("click", switchLangToggle);
-
-function startTest() {
-  const el = document.documentElement;
-  el.requestFullscreen?.();
-  document.body.classList.add("fullscreen");
-  document.getElementById("welcome").style.display = "none";
-  document.getElementById("tester").style.display = "flex";
-  document.getElementById("lang-toggle").style.display = "none";
-  document.querySelector("header.navbar")?.classList.add("hidden-header");
-  document.querySelector(".main-container").style.display = "none";
-  currentStep = 0;
-  lastShownMode = null;
-  runCurrentStep();
-}
-
-function goBack() {
-  document.exitFullscreen?.();
-  document.body.classList.remove("fullscreen");
-  document.getElementById("tester").style.display = "none";
-  document.getElementById("welcome").style.display = "flex";
-  document.body.style.background = "#ffffff";
-  document.body.style.backgroundImage = "";
-  document.getElementById("lang-toggle").style.display = "inline-flex";
-  document.querySelector("header.navbar")?.classList.remove("hidden-header");
-  document.querySelector(".main-container").style.display = "block";
-  clearAll();
-}
-
-function runCurrentStep() {
-  clearAll();
-  const step = testSteps[currentStep];
-  if (step.mode !== lastShownMode) {
-    showModeLabel(step.mode);
-    lastShownMode = step.mode;
-  }
-  if (step.color) {
-    document.body.style.backgroundColor = step.color;
-    document.body.style.backgroundImage = "none";
-  } else {
-    switch (step.action) {
-      case "cycle": startColorCycle(); break;
-      case "grid": showGrid(); break;
-      case "crosshair": showCrosshair(); break;
-      case "animation": startAnimationBox(); break;
-      case "deadpixel": showDeadPixelScreen(); break;
-      case "rainbowscroll": startRainbowScroll(); break;
+  /* ── render current pattern ── */
+  function render() {
+    cancelAnimationFrame(raf); raf = 0;
+    const p = patterns[idx];
+    $("mtName").textContent = p.name;
+    $("mtCount").textContent = (idx + 1) + " / " + N;
+    document.querySelectorAll(".mt-pick").forEach((el, i) =>
+      el.classList.toggle("is-active", i === idx));
+    if (p.animated) {
+      const loop = (t) => { p.paint(t); raf = requestAnimationFrame(loop); };
+      raf = requestAnimationFrame(loop);
+    } else {
+      p.paint(0);
     }
   }
-  flashBackButton();
-}
 
-function nextStep() {
-  currentStep = (currentStep + 1) % testSteps.length;
-  runCurrentStep();
-}
+  function go(d) { idx = (idx + d + N) % N; render(); showHud(); }
+  function goTo(i) { idx = ((i % N) + N) % N; render(); }
 
-function prevStep() {
-  currentStep = (currentStep - 1 + testSteps.length) % testSteps.length;
-  runCurrentStep();
-}
-
-document.addEventListener("keydown", e => {
-  if (document.getElementById("tester").style.display !== "none") {
-    if (e.key === "ArrowRight") nextStep();
-    else if (e.key === "ArrowLeft") prevStep();
+  /* ── HUD auto-hide ── */
+  function showHud() {
+    $("mtHud").classList.add("show");
+    stage.classList.remove("is-idle");
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(() => {
+      if ($("mtPicker").hidden !== false) return;
+      $("mtHud").classList.remove("show");
+      stage.classList.add("is-idle");
+    }, 2600);
   }
-});
 
-document.addEventListener("click", () => {
-  if (document.getElementById("tester").style.display !== "none") {
-    nextStep();
+  /* ── fullscreen ── */
+  function requestFS() {
+    const el = document.documentElement;
+    if (el.requestFullscreen) el.requestFullscreen().then(() => { usedFS = true; }).catch(() => {});
   }
-});
-
-function showModeLabel(text) {
-  const label = document.getElementById("modeLabel");
-  label.textContent = text;
-  label.classList.add("show");
-  clearTimeout(label._timeout);
-  label._timeout = setTimeout(() => label.classList.remove("show"), 1500);
-}
-
-function flashBackButton() {
-  const btn = document.getElementById("backButton");
-  btn.classList.add("show");
-  clearTimeout(backButtonTimeout);
-  backButtonTimeout = setTimeout(() => btn.classList.remove("show"), 2000);
-}
-
-function clearAll() {
-  clearInterval(colorCycleInterval);
-  colorCycleInterval = null;
-  document.body.style.backgroundColor = "";
-  document.body.style.backgroundImage = "";
-  document.getElementById("cross-vert")?.remove();
-  document.getElementById("cross-horz")?.remove();
-  document.getElementById("anim-box")?.remove();
-  document.getElementById("rainbow-canvas")?.remove();
-}
-
-
-
-function startColorCycle() {
-  let hue = 0;
-  colorCycleInterval = setInterval(() => {
-    document.body.style.backgroundColor = `hsl(${hue}, 100%, 50%)`;
-    document.body.style.backgroundImage = "none";
-    hue = (hue + 1) % 360;
-  }, 30);
-}
-
-function startRainbowScroll() {
-  clearInterval(colorCycleInterval);
-  document.getElementById("rainbow-canvas")?.remove();
-
-  const canvas = document.createElement("canvas");
-  canvas.id = "rainbow-canvas";
-  canvas.width = window.innerWidth;
-  canvas.height = window.innerHeight;
-  canvas.style.position = "fixed";
-  canvas.style.top = 0;
-  canvas.style.left = 0;
-  canvas.style.zIndex = -1;
-  document.body.appendChild(canvas);
-
-  const ctx = canvas.getContext("2d");
-  let offset = 0;
-  colorCycleInterval = setInterval(() => {
-    offset = (offset + 2) % canvas.width;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    const grad = ctx.createLinearGradient(-offset, 0, canvas.width - offset, 0);
-    grad.addColorStop(0, "red");
-    grad.addColorStop(0.17, "orange");
-    grad.addColorStop(0.33, "yellow");
-    grad.addColorStop(0.5, "green");
-    grad.addColorStop(0.67, "blue");
-    grad.addColorStop(0.83, "indigo");
-    grad.addColorStop(1, "violet");
-    ctx.fillStyle = grad;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-  }, 30);
-}
-
-
-function showGrid() {
-  document.body.style.backgroundColor = "white";
-  document.body.style.backgroundImage = `
-    linear-gradient(to right, #ccc 1px, transparent 1px),
-    linear-gradient(to bottom, #ccc 1px, transparent 1px)
-  `;
-  document.body.style.backgroundSize = "20px 20px";
-}
-
-function showCrosshair() {
-  document.body.style.backgroundColor = "white";
-  const vert = document.createElement("div");
-  vert.id = "cross-vert";
-  Object.assign(vert.style, {
-    position: "fixed", left: "50%", top: "0",
-    width: "1px", height: "100vh",
-    backgroundColor: "red", zIndex: 999
+  function toggleFS() {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    else requestFS();
+  }
+  document.addEventListener("fullscreenchange", () => {
+    const fs = !!document.fullscreenElement;
+    $("mtFs").querySelector(".material-symbols-rounded").textContent = fs ? "fullscreen_exit" : "fullscreen";
+    if (!fs && open && usedFS) { usedFS = false; exit(); }
   });
-  const horz = document.createElement("div");
-  horz.id = "cross-horz";
-  Object.assign(horz.style, {
-    position: "fixed", top: "50%", left: "0",
-    height: "1px", width: "100vw",
-    backgroundColor: "red", zIndex: 999
-  });
-  document.body.appendChild(vert);
-  document.body.appendChild(horz);
-}
 
-function startAnimationBox() {
-  document.body.style.backgroundColor = "white";
-  animationBox = document.createElement("div");
-  animationBox.id = "anim-box";
-  Object.assign(animationBox.style, {
-    width: "50px", height: "50px",
-    backgroundColor: "red", position: "fixed",
-    top: "50%", left: "0", transform: "translateY(-50%)",
-    zIndex: 999
-  });
-  document.body.appendChild(animationBox);
-  let x = 0, dir = 1;
-  colorCycleInterval = setInterval(() => {
-    x += dir * 5;
-    if (x >= window.innerWidth - 50 || x <= 0) dir *= -1;
-    animationBox.style.left = x + "px";
-  }, 16);
-}
+  /* ── open / close ── */
+  function start(jump) {
+    open = true;
+    stage.hidden = false;
+    document.body.style.overflow = "hidden";
+    sizeCanvas();
+    idx = jump | 0;
+    render();
+    showHud();
+    requestFS();
+    if (!localStorage.getItem("mt_hint_seen")) $("mtHint").hidden = false;
+  }
+  function exit() {
+    open = false;
+    cancelAnimationFrame(raf); raf = 0;
+    stage.hidden = true;
+    $("mtPicker").hidden = true;
+    document.body.style.overflow = "";
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  }
 
-function showDeadPixelScreen() {
-  document.body.style.backgroundColor = "black";
-}
+  /* ── pattern picker ── */
+  function buildPicker() {
+    const grid = $("mtPickerGrid");
+    grid.innerHTML = "";
+    patterns.forEach((p, i) => {
+      const b = document.createElement("button");
+      b.className = "mt-pick";
+      b.innerHTML = '<span class="mt-pick-sw" style="background:' + p.swatch + '"></span><span>' + p.name + "</span>";
+      b.addEventListener("click", () => { goTo(i); $("mtPicker").hidden = true; showHud(); });
+      grid.appendChild(b);
+    });
+  }
+
+  /* ── intro chips ── */
+  function buildChips() {
+    const wrap = $("mtChips");
+    if (!wrap) return;
+    patterns.forEach((p, i) => {
+      const b = document.createElement("button");
+      b.className = "mt-chip";
+      b.innerHTML = '<span class="mt-chip-swatch" style="background:' + p.swatch + '"></span>' + p.name;
+      b.addEventListener("click", () => start(i));
+      wrap.appendChild(b);
+    });
+  }
+
+  /* ── events ── */
+  $("mtStart").addEventListener("click", () => start(0));
+  $("mtPrev").addEventListener("click", (e) => { e.stopPropagation(); go(-1); });
+  $("mtNext").addEventListener("click", (e) => { e.stopPropagation(); go(1); });
+  $("mtExit").addEventListener("click", (e) => { e.stopPropagation(); exit(); });
+  $("mtFs").addEventListener("click", (e) => { e.stopPropagation(); toggleFS(); });
+  $("mtGrid").addEventListener("click", (e) => {
+    e.stopPropagation();
+    const pk = $("mtPicker");
+    pk.hidden = !pk.hidden;
+    showHud();
+  });
+  $("mtPickerClose").addEventListener("click", (e) => { e.stopPropagation(); $("mtPicker").hidden = true; });
+  $("mtHintOk").addEventListener("click", (e) => {
+    e.stopPropagation();
+    $("mtHint").hidden = true;
+    localStorage.setItem("mt_hint_seen", "1");
+  });
+
+  stage.addEventListener("click", (e) => {
+    if (e.target.closest(".mt-hud,.mt-picker,.mt-hint")) return;
+    if (swiped) { swiped = false; return; }
+    go(1);
+  });
+
+  stage.addEventListener("mousemove", showHud);
+
+  stage.addEventListener("touchstart", (e) => {
+    const t = e.changedTouches[0]; touchX = t.clientX; touchY = t.clientY; swiped = false;
+  }, { passive: true });
+  stage.addEventListener("touchend", (e) => {
+    const t = e.changedTouches[0];
+    const dx = t.clientX - touchX, dy = t.clientY - touchY;
+    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy)) {
+      swiped = true; go(dx < 0 ? 1 : -1);
+    }
+    showHud();
+  }, { passive: true });
+
+  document.addEventListener("keydown", (e) => {
+    if (!open) return;
+    switch (e.key) {
+      case "ArrowRight": case " ": e.preventDefault(); go(1); break;
+      case "ArrowLeft": go(-1); break;
+      case "Escape": exit(); break;
+      case "f": case "F": toggleFS(); break;
+      case "g": case "G": { const pk = $("mtPicker"); pk.hidden = !pk.hidden; showHud(); break; }
+    }
+  });
+
+  window.addEventListener("resize", () => {
+    if (!open) return;
+    sizeCanvas();
+    if (!raf) render();
+  });
+
+  buildPicker();
+  buildChips();
+})();

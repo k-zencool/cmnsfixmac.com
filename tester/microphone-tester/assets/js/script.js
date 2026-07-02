@@ -1,264 +1,206 @@
-// script.js (รองรับภาษาไทยและอังกฤษ พร้อมใช้ .mp4 แทน .webm เพื่อรองรับ iOS พร้อมภาษาอังกฤษใน UI)
+/* ==========================================================
+   Microphone Tester engine
+   - permission requested on "Start" (not on load)
+   - single AudioContext feeding both level meter + waveform
+   - records with whichever mime the browser supports
+   ========================================================== */
+(function () {
+  "use strict";
 
-const i18n = {
-  th: {
-    loading: "กำลังโหลด...",
-    select: "เลือกไมโครโฟน",
-    heading: "เลือกไมโครโฟนและเริ่มการทดสอบ",
-    startTest: "เริ่มทดสอบ",
-    stop: "หยุด",
-    startRec: "เริ่มอัดเสียง",
-    stopRec: "หยุดอัดเสียง",
-    play: "ฟังเสียง",
-    download: "ดาวน์โหลดเสียง",
-    needPermission: "⚠️ กรุณาอนุญาตให้เข้าถึงไมโครโฟน",
-    startFirst: "กรุณากด 'เริ่มทดสอบ' ก่อนเพื่อเปิดไมโครโฟน",
-    cannotStart: "⚠️ ไม่สามารถเริ่มการทดสอบไมค์ได้",
-    cannotRecord: "ไม่สามารถเริ่มอัดเสียงได้: ",
-    recording: "กำลังอัดเสียง...",
-    toggleLang: "เปลี่ยนภาษา"
-  },
-  en: {
-    loading: "Loading...",
-    select: "Select Microphone",
-    heading: "Select a Microphone and Start Testing",
-    startTest: "Start Test",
-    stop: "Stop",
-    startRec: "Start Recording",
-    stopRec: "Stop Recording",
-    play: "Play",
-    download: "Download",
-    needPermission: "⚠️ Please allow microphone access",
-    startFirst: "Please click 'Start Test' to enable the microphone",
-    cannotStart: "⚠️ Unable to start microphone test",
-    cannotRecord: "Cannot start recording: ",
-    recording: "Recording...",
-    toggleLang: "Change Language"
+  const $ = (id) => document.getElementById(id);
+  const micSelect   = $("mic-select");
+  const startBtn    = $("start-btn");
+  const stopBtn     = $("stop-btn");
+  const micBar      = $("mic-bar");
+  const micPercent  = $("mic-percent");
+  const recordBtn   = $("record-btn");
+  const stopRecBtn  = $("stop-record-btn");
+  const playBtn     = $("play-btn");
+  const downloadBtn = $("download-btn");
+  const audioEl     = $("audio-playback");
+  const recStatus   = $("recording-status");
+  const waveBox     = $("waveform");
+
+  const accent = (getComputedStyle(document.documentElement)
+    .getPropertyValue("--accent") || "#fc7404").trim();
+
+  let stream = null, ctx = null, analyser = null, raf = 0;
+  let freqData, timeData, canvas, cctx;
+  let recorder = null, chunks = [], blobUrl = null;
+
+  /* ── in-page toast (replaces native alert) ── */
+  function toast(msg, type) {
+    type = type || "warn";
+    let wrap = document.querySelector(".mic-toast-wrap");
+    if (!wrap) {
+      wrap = document.createElement("div");
+      wrap.className = "mic-toast-wrap";
+      document.body.appendChild(wrap);
+    }
+    const icon = type === "error" ? "error" : type === "info" ? "info" : "warning";
+    const el = document.createElement("div");
+    el.className = "mic-toast " + type;
+    el.setAttribute("role", "status");
+    el.innerHTML = '<span class="material-symbols-rounded">' + icon + "</span><span></span>";
+    el.lastChild.textContent = msg;
+    wrap.appendChild(el);
+    requestAnimationFrame(() => el.classList.add("show"));
+    setTimeout(() => { el.classList.remove("show"); setTimeout(() => el.remove(), 260); }, 3400);
   }
-};
 
-let currentLang = 'th';
-
-const micSelect = document.getElementById('mic-select');
-const startBtn = document.getElementById('start-btn');
-const stopBtn = document.getElementById('stop-btn');
-const micBar = document.getElementById('mic-bar');
-const micPercent = document.getElementById('mic-percent');
-const recordBtn = document.getElementById('record-btn');
-const stopRecordBtn = document.getElementById('stop-record-btn');
-const playBtn = document.getElementById('play-btn');
-const downloadBtn = document.getElementById('download-btn');
-const audioPlayback = document.getElementById('audio-playback');
-const recordingStatus = document.getElementById('recording-status');
-const headingEl = document.querySelector('h1');
-const micLabel = document.querySelector('label[for="mic-select"]');
-const langToggleBtn = document.getElementById('lang-toggle');
-
-let stream = null;
-let audioContext, analyser, dataArray, source;
-let mediaRecorder;
-let recordedChunks = [];
-
-function applyLang() {
-  const t = i18n[currentLang];
-  if (micSelect.options.length === 0) {
-    micSelect.innerHTML = `<option value="" disabled selected hidden>${t.loading}</option>`;
+  /* ── device list (labels need permission, so fill after first start) ── */
+  async function refreshDevices() {
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const mics = devices.filter((d) => d.kind === "audioinput");
+      if (!mics.length || !mics[0].label) return;       // no permission yet
+      const current = micSelect.value;
+      micSelect.innerHTML = "";
+      mics.forEach((d, i) => {
+        const o = document.createElement("option");
+        o.value = d.deviceId;
+        o.text = d.label || ("ไมโครโฟน " + (i + 1));
+        micSelect.appendChild(o);
+      });
+      if (current) micSelect.value = current;
+    } catch (_) { /* ignore */ }
   }
-  startBtn.innerText = t.startTest;
-  stopBtn.innerText = t.stop;
-  recordBtn.innerText = t.startRec;
-  stopRecordBtn.innerText = t.stopRec;
-  playBtn.innerText = t.play;
-  downloadBtn.innerText = t.download;
-  if (headingEl) headingEl.innerText = t.heading;
-  if (micLabel) micLabel.innerText = t.select;
-  if (recordingStatus) recordingStatus.innerHTML = `<span class="dot"></span> ${t.recording}`;
-  if (langToggleBtn) langToggleBtn.innerHTML = `<span class="material-symbols-outlined">translate</span> ${t.toggleLang}`;
-}
 
-async function loadMicrophones() {
-  applyLang();
-  try {
-    const tempStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const devices = await navigator.mediaDevices.enumerateDevices();
-    const t = i18n[currentLang];
-    micSelect.innerHTML = `<option value="" disabled selected hidden>${t.select}</option>`;
-    devices.forEach(device => {
-      if (device.kind === 'audioinput') {
-        const option = document.createElement('option');
-        option.value = device.deviceId;
-        option.text = device.label || `Microphone ${micSelect.length + 1}`;
-        micSelect.appendChild(option);
-      }
-    });
-    tempStream.getTracks().forEach(track => track.stop());
-  } catch (err) {
-    alert(i18n[currentLang].needPermission);
-    console.error(err);
+  /* ── canvas waveform ── */
+  function setupCanvas() {
+    canvas = document.createElement("canvas");
+    canvas.width = waveBox.clientWidth || 480;
+    canvas.height = 110;
+    waveBox.innerHTML = "";
+    waveBox.appendChild(canvas);
+    cctx = canvas.getContext("2d");
   }
-}
 
-loadMicrophones();
+  function loop() {
+    raf = requestAnimationFrame(loop);
+    if (!analyser) return;
 
-startBtn.addEventListener('click', async () => {
-  const selectedDeviceId = micSelect.value;
-  if (stream) {
-    stream.getTracks().forEach(track => track.stop());
+    // level (volume)
+    analyser.getByteFrequencyData(freqData);
+    let sum = 0;
+    for (let i = 0; i < freqData.length; i++) sum += freqData[i];
+    const avg = sum / freqData.length;
+    const pct = Math.min(100, Math.round(avg * 1.8));
+    micBar.style.width = pct + "%";
+    micPercent.textContent = pct + "%";
+
+    // waveform
+    analyser.getByteTimeDomainData(timeData);
+    const w = canvas.width, h = canvas.height;
+    cctx.clearRect(0, 0, w, h);
+    cctx.lineWidth = 2;
+    cctx.strokeStyle = accent;
+    cctx.beginPath();
+    const slice = w / timeData.length;
+    for (let i = 0, x = 0; i < timeData.length; i++, x += slice) {
+      const y = (timeData[i] / 128) * (h / 2);
+      i === 0 ? cctx.moveTo(x, y) : cctx.lineTo(x, y);
+    }
+    cctx.lineTo(w, h / 2);
+    cctx.stroke();
   }
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: { deviceId: selectedDeviceId ? { exact: selectedDeviceId } : undefined }
-    });
-    startVisualizer(stream);
-    startWaveform(stream);
 
-    startBtn.style.display = 'none';
-    stopBtn.style.display = 'inline-block';
-  } catch (err) {
-    alert(i18n[currentLang].cannotStart);
-    console.error(err);
-  }
-});
-
-stopBtn.addEventListener('click', () => {
-  if (stream) {
-    stream.getTracks().forEach(track => track.stop());
-    stream = null;
-  }
-  if (audioContext) audioContext.close();
-  micBar.style.width = '0%';
-  micPercent.innerText = '0%';
-  startBtn.style.display = 'inline-block';
-  stopBtn.style.display = 'none';
-});
-
-function startVisualizer(stream) {
-  audioContext = new (window.AudioContext || window.webkitAudioContext)();
-  analyser = audioContext.createAnalyser();
-  analyser.fftSize = 256;
-  source = audioContext.createMediaStreamSource(stream);
-  source.connect(analyser);
-  dataArray = new Uint8Array(analyser.frequencyBinCount);
-
-  function updateBar() {
-    requestAnimationFrame(updateBar);
-    analyser.getByteFrequencyData(dataArray);
-    const avg = dataArray.reduce((a, b) => a + b) / dataArray.length;
-    micBar.style.width = `${Math.min(avg, 100)}%`;
-    micPercent.innerText = `${Math.round(avg)}%`;
-  }
-  updateBar();
-}
-
-recordBtn.addEventListener('click', async () => {
-  try {
-    if (!stream) {
-      alert(i18n[currentLang].startFirst);
+  async function start() {
+    const id = micSelect.value;
+    if (stream) stream.getTracks().forEach((t) => t.stop());
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: id ? { deviceId: { exact: id } } : true
+      });
+    } catch (e) {
+      toast("ไม่สามารถเข้าถึงไมโครโฟนได้ — กรุณาอนุญาตให้เบราว์เซอร์ใช้ไมค์", "error");
       return;
     }
-    recordedChunks = [];
-    mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/mp4' });
 
-    mediaRecorder.ondataavailable = e => {
-      if (e.data.size > 0) recordedChunks.push(e.data);
-    };
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 2048;
+    ctx.createMediaStreamSource(stream).connect(analyser);
+    freqData = new Uint8Array(analyser.frequencyBinCount);
+    timeData = new Uint8Array(analyser.fftSize);
 
-    mediaRecorder.onstop = () => {
-      const blob = new Blob(recordedChunks, { type: 'audio/mp4' });
-      const audioURL = URL.createObjectURL(blob);
-      audioPlayback.src = audioURL;
-      audioPlayback.style.display = 'block';
-      playBtn.style.display = 'inline-block';
-      downloadBtn.style.display = 'inline-block';
-      recordingStatus.style.display = 'none';
+    setupCanvas();
+    cancelAnimationFrame(raf);
+    loop();
+    refreshDevices();
+
+    startBtn.style.display = "none";
+    stopBtn.style.display = "inline-flex";
+  }
+
+  function stop() {
+    cancelAnimationFrame(raf); raf = 0;
+    if (recorder && recorder.state !== "inactive") recorder.stop();
+    if (stream) { stream.getTracks().forEach((t) => t.stop()); stream = null; }
+    if (ctx) { ctx.close(); ctx = null; }
+    analyser = null;
+    micBar.style.width = "0%";
+    micPercent.textContent = "0%";
+    if (cctx) cctx.clearRect(0, 0, canvas.width, canvas.height);
+    startBtn.style.display = "inline-flex";
+    stopBtn.style.display = "none";
+    recordBtn.style.display = "inline-flex";
+    stopRecBtn.style.display = "none";
+    recStatus.style.display = "none";
+  }
+
+  /* ── recording ── */
+  function pickMime() {
+    const types = ["audio/mp4", "audio/webm;codecs=opus", "audio/webm"];
+    return types.find((t) => window.MediaRecorder && MediaRecorder.isTypeSupported(t)) || "";
+  }
+
+  function startRecording() {
+    if (!stream) { toast("กด 'เริ่มทดสอบ' ก่อนเพื่อเปิดไมโครโฟน", "warn"); return; }
+    chunks = [];
+    const mime = pickMime();
+    try {
+      recorder = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+    } catch (e) {
+      toast("ไม่สามารถเริ่มอัดเสียงได้: " + e.message, "error");
+      return;
+    }
+    recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+    recorder.onstop = () => {
+      const type = recorder.mimeType || mime || "audio/webm";
+      const blob = new Blob(chunks, { type });
+      if (blobUrl) URL.revokeObjectURL(blobUrl);
+      blobUrl = URL.createObjectURL(blob);
+      audioEl.src = blobUrl;
+      audioEl.style.display = "block";
+      playBtn.style.display = "inline-flex";
+      downloadBtn.style.display = "inline-flex";
+      const ext = type.includes("mp4") ? "m4a" : "webm";
       downloadBtn.onclick = () => {
-        const a = document.createElement('a');
-        a.href = audioURL;
-        a.download = 'recorded-audio.mp4';
-        a.click();
+        const a = document.createElement("a");
+        a.href = blobUrl; a.download = "mic-recording." + ext; a.click();
       };
     };
-
-    mediaRecorder.start();
-    recordBtn.style.display = 'none';
-    stopRecordBtn.style.display = 'inline-block';
-    recordingStatus.style.display = 'block';
-  } catch (err) {
-    alert(i18n[currentLang].cannotRecord + err.message);
-    console.error(err);
-  }
-});
-
-stopRecordBtn.addEventListener('click', () => {
-  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop();
-  recordBtn.style.display = 'inline-block';
-  stopRecordBtn.style.display = 'none';
-  recordingStatus.style.display = 'none';
-});
-
-playBtn.addEventListener('click', () => {
-  audioPlayback.play();
-});
-
-if (langToggleBtn) {
-  langToggleBtn.addEventListener('click', () => {
-    currentLang = currentLang === 'th' ? 'en' : 'th';
-    applyLang();
-    loadMicrophones();
-  });
-}
-
-function startWaveform(stream) {
-  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  const source = audioCtx.createMediaStreamSource(stream);
-  const analyser = audioCtx.createAnalyser();
-  analyser.fftSize = 2048;
-
-  source.connect(analyser);
-
-  const canvas = document.createElement('canvas');
-  canvas.width = document.getElementById('waveform').clientWidth;
-  canvas.height = 100;
-  canvas.style.width = '100%';
-  canvas.style.height = '100px';
-
-  const waveformDiv = document.getElementById('waveform');
-  waveformDiv.innerHTML = '';
-  waveformDiv.appendChild(canvas);
-
-  const canvasCtx = canvas.getContext('2d');
-  const dataArray = new Uint8Array(analyser.fftSize);
-
-  function draw() {
-    requestAnimationFrame(draw);
-    analyser.getByteTimeDomainData(dataArray);
-
-    canvasCtx.fillStyle = '#ffffff';
-    canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
-
-    canvasCtx.lineWidth = 2;
-    canvasCtx.strokeStyle = '#fc7404';
-    canvasCtx.beginPath();
-
-    const sliceWidth = canvas.width * 1.0 / dataArray.length;
-    let x = 0;
-
-    for (let i = 0; i < dataArray.length; i++) {
-      const v = dataArray[i] / 128.0;
-      const y = v * canvas.height / 2;
-
-      if (i === 0) {
-        canvasCtx.moveTo(x, y);
-      } else {
-        canvasCtx.lineTo(x, y);
-      }
-
-      x += sliceWidth;
-    }
-
-    canvasCtx.lineTo(canvas.width, canvas.height / 2);
-    canvasCtx.stroke();
+    recorder.start();
+    recordBtn.style.display = "none";
+    stopRecBtn.style.display = "inline-flex";
+    recStatus.style.display = "flex";
   }
 
-  draw();
-}
+  function stopRecording() {
+    if (recorder && recorder.state !== "inactive") recorder.stop();
+    recordBtn.style.display = "inline-flex";
+    stopRecBtn.style.display = "none";
+    recStatus.style.display = "none";
+  }
+
+  /* ── wiring ── */
+  startBtn.addEventListener("click", start);
+  stopBtn.addEventListener("click", stop);
+  recordBtn.addEventListener("click", startRecording);
+  stopRecBtn.addEventListener("click", stopRecording);
+  playBtn.addEventListener("click", () => audioEl.play());
+  micSelect.addEventListener("change", () => { if (stream) start(); });
+
+  window.addEventListener("resize", () => { if (canvas && waveBox.clientWidth) canvas.width = waveBox.clientWidth; });
+})();
