@@ -12,10 +12,15 @@ RewriteBase /
 </IfModule>
 
 # ══════════════════════════════════════════════════════════════
-# 1. HTTPS REDIRECT (production only — skip localhost/127.0.0.1)
+# 1. HTTPS REDIRECT (production only — skip localhost + LAN dev access)
 # ══════════════════════════════════════════════════════════════
 RewriteCond %{HTTP_HOST} !^localhost [NC]
 RewriteCond %{HTTP_HOST} !^127\.0\.0\.1 [NC]
+# skip private LAN ranges + *.local so other devices on the WiFi can browse over http
+RewriteCond %{HTTP_HOST} !^192\.168\. [NC]
+RewriteCond %{HTTP_HOST} !^10\. [NC]
+RewriteCond %{HTTP_HOST} !^172\.(1[6-9]|2[0-9]|3[01])\. [NC]
+RewriteCond %{HTTP_HOST} !\.local(:|$) [NC]
 RewriteCond %{HTTPS} off
 RewriteCond %{HTTP:X-Forwarded-Proto} !https
 RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
