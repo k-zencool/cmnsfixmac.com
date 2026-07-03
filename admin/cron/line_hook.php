@@ -133,16 +133,10 @@ function line_handle_command(PDO $pdo, array $admin, string $text): array {
 
     if ($cmd === '/today' || $cmd === 'today') {
         $rows  = $pdo->query("SELECT status, COUNT(*) c FROM tracking WHERE status NOT IN ('DV','RT') GROUP BY status")->fetchAll(PDO::FETCH_ASSOC);
-        $total = array_sum(array_column($rows, 'c'));
+        $total = (int)array_sum(array_column($rows, 'c'));
         $order = ['QS' => 0, 'WC' => 1, 'OK' => 2, 'RW' => 3, 'FN' => 4, 'XX' => 5, 'NCF' => 6, 'NCS' => 7];
         usort($rows, fn($a, $b) => ($order[$a['status']] ?? 99) <=> ($order[$b['status']] ?? 99));
-        $body = "📦 งานค้างในร้าน: {$total} งาน";
-        foreach ($rows as $r) {
-            $st = line_tracking_status($r['status']);
-            $body .= "\n{$st['emoji']} {$st['label']}: {$r['c']}";
-        }
-        $body .= "\n\nพิมพ์ /status <เลขงาน> เพื่อดูรายละเอียด";
-        return [line_text_msg($body)];
+        return [line_summary_flex($rows, $total)];
     }
 
     return [line_text_msg("สวัสดี {$name} 👋\nพิมพ์ /help เพื่อดูคำสั่ง")];
@@ -191,6 +185,44 @@ function line_job_flex(array $j): array {
             'body' => [
                 'type' => 'box', 'layout' => 'vertical', 'spacing' => 'md', 'paddingAll' => '16px',
                 'contents' => $rows ?: [['type' => 'text', 'text' => 'ไม่มีรายละเอียด', 'color' => '#94a3b8', 'size' => 'sm']],
+            ],
+        ],
+    ];
+}
+
+/** สร้าง Flex Message สรุปงานค้าง แยกตามสถานะ (สำหรับ /today) */
+function line_summary_flex(array $rows, int $total): array {
+    $items = [];
+    foreach ($rows as $r) {
+        $st = line_tracking_status($r['status']);
+        $items[] = ['type' => 'box', 'layout' => 'baseline', 'spacing' => 'sm', 'contents' => [
+            ['type' => 'text', 'text' => $st['emoji'] . ' ' . $st['label'], 'color' => '#1f2937', 'size' => 'sm', 'flex' => 5, 'wrap' => true],
+            ['type' => 'text', 'text' => (string)$r['c'], 'color' => $st['color'], 'weight' => 'bold', 'size' => 'sm', 'align' => 'end', 'flex' => 1],
+        ]];
+    }
+    if (!$items) $items[] = ['type' => 'text', 'text' => 'ไม่มีงานค้าง 🎉', 'color' => '#94a3b8', 'size' => 'sm'];
+    $items[] = ['type' => 'separator', 'margin' => 'lg'];
+    $items[] = ['type' => 'text', 'text' => 'พิมพ์ /status <เลขงาน> เพื่อดูรายละเอียด', 'color' => '#94a3b8', 'size' => 'xxs', 'margin' => 'lg', 'wrap' => true];
+
+    return [
+        'type'    => 'flex',
+        'altText' => "📦 งานค้างในร้าน: {$total} งาน",
+        'contents' => [
+            'type' => 'bubble',
+            'size' => 'mega',
+            'header' => [
+                'type' => 'box', 'layout' => 'vertical', 'backgroundColor' => '#06c755',
+                'paddingAll' => '16px', 'spacing' => 'none', 'contents' => [
+                    ['type' => 'text', 'text' => '📦 งานค้างในร้าน', 'color' => '#ffffff', 'size' => 'sm'],
+                    ['type' => 'box', 'layout' => 'baseline', 'contents' => [
+                        ['type' => 'text', 'text' => (string)$total, 'color' => '#ffffff', 'weight' => 'bold', 'size' => '3xl', 'flex' => 0],
+                        ['type' => 'text', 'text' => 'งาน', 'color' => '#ffffff', 'size' => 'md', 'margin' => 'sm', 'flex' => 0],
+                    ]],
+                ],
+            ],
+            'body' => [
+                'type' => 'box', 'layout' => 'vertical', 'spacing' => 'md', 'paddingAll' => '16px',
+                'contents' => $items,
             ],
         ],
     ];
