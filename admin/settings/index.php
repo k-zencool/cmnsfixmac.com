@@ -37,6 +37,13 @@ $cards = [
         'href'  => '/admin/inventory/categories.php',
         'color' => '#8b5cf6',
     ],
+    [
+        'icon'  => 'chat',
+        'title' => 'ตั้งค่า LINE',
+        'desc'  => 'เชื่อม LINE OA: token, secret และ Webhook URL',
+        'href'  => '/admin/settings/line.php',
+        'color' => '#06c755',
+    ],
 ];
 
 if ($role === 'super_admin') {

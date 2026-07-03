@@ -101,6 +101,31 @@ if (!function_exists('line_get_token')) {
         return hash_equals($hash, $signature);
     }
 
+    /** low-level GET → LINE API */
+    function line_api_get(string $url, string $token): array {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER     => ['Authorization: Bearer ' . $token],
+            CURLOPT_TIMEOUT        => 10,
+        ]);
+        $res  = curl_exec($ch);
+        $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err  = curl_error($ch);
+        curl_close($ch);
+        return ['code' => $code, 'body' => json_decode($res ?: '{}', true) ?? [], 'err' => $err];
+    }
+
+    /**
+     * ตรวจว่า access token ใช้งานได้จริง + คืนข้อมูล bot (basicId/displayName)
+     * ใช้ยืนยันว่า token ตรงกับ channel ไหน (GET /v2/bot/info)
+     */
+    function line_bot_info(PDO $pdo, ?string $token = null): array {
+        $token = $token ?? line_get_token($pdo);
+        if (!$token) return ['code' => 0, 'body' => [], 'err' => 'no token'];
+        return line_api_get('https://api.line.me/v2/bot/info', $token);
+    }
+
     /** รหัสสั้น 6 หลัก (ตัดตัวอักษรกำกวม O/0/I/1) สำหรับลงทะเบียน */
     function line_gen_code(): string {
         return strtoupper(substr(str_shuffle('ABCDEFGHJKLMNPQRSTUVWXYZ23456789'), 0, 6));
