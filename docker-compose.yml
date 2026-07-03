@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # เว็บเซิร์ฟเวอร์ (สร้างจาก Dockerfile ของเรา)
   web:
@@ -9,19 +7,22 @@ services:
       - "8000:80"
     volumes:
       - ./:/var/www/html/
+    environment:
+      # override DB_HOST only inside Docker; .env still holds 127.0.0.1 for the real host
+      DB_HOST: db
     depends_on:
       - db
 
-  # Database Server (MySQL)
+  # Database Server (MySQL) — creds come from the shared .env
   db:
     image: mysql:8.0
     container_name: cmns-db
     restart: unless-stopped
     environment:
       MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: cmnsfixmac_db
-      MYSQL_USER: cmns_user
-      MYSQL_PASSWORD: cmns_password
+      MYSQL_DATABASE: ${DB_NAME}
+      MYSQL_USER: ${DB_USER}
+      MYSQL_PASSWORD: ${DB_PASS}
     volumes:
       - db_data:/var/lib/mysql
       - ./database:/docker-entrypoint-initdb.d

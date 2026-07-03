@@ -45,7 +45,9 @@ try {
 
 // 3. ดึงค่าจาก Environment Variables (ที่โหลดมาจาก .env)
 //    ใช้ $_ENV['KEY_NAME'] ในการดึงค่าออกมา
-$host = $_ENV['DB_HOST'];
+// getenv() picks up the DB_HOST that docker-compose injects into the web
+// container; on the real host getenv() is empty so we fall back to .env (127.0.0.1)
+$host = getenv('DB_HOST') ?: $_ENV['DB_HOST'];
 $db   = $_ENV['DB_NAME'];
 $user = $_ENV['DB_USER'];
 $pass = $_ENV['DB_PASS'];
