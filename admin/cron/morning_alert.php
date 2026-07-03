@@ -112,12 +112,22 @@ $res = sendTelegram($msg);
 
 // 8.1 ส่งเข้า LINE คู่กัน (1:1 หา admin ที่ลงทะเบียนเท่านั้น) — ข้ามเงียบถ้ายังไม่ตั้ง token
 require_once __DIR__ . '/../../includes/line_helper.php';
-$lineRes  = sendLineToAdmins($pdo, $msg);
-$lineGrp  = sendLineToGroups($pdo, $msg);   // + เข้ากลุ่มที่บอทอยู่
+// LINE: การ์ด Flex สรุป + รายละเอียดเต็ม (เนื้อเดียวกับ Telegram, แบ่งหลายข้อความไม่ให้โดนตัด)
+$lineRows = [];
+foreach ($order_show as $st) {
+    if (!empty($grouped[$st])) {
+        $m = line_tracking_status($st);
+        $lineRows[] = ['label' => $m['emoji'] . ' ' . $m['label'], 'value' => count($grouped[$st]), 'color' => $m['color']];
+    }
+}
+$lineMsgs = array_merge(
+    [line_report_flex('🔔 รายงานเช้า', "📅 $report_date  ⏰ $report_time น.", (string)count($all_jobs), 'รายการ', $lineRows, '#0ea5e9')],
+    line_text_chunks(line_html_to_text($msg), 4800, 4)
+);
+$lineOut = line_alert_send($pdo, $lineMsgs);
 
 // แสดงผลลัพธ์บนหน้าเว็บ (กรณีรัน Manual เพื่อเช็คสถานะ)
 echo "<h3>✅ Morning Report Sent (Official)</h3>";
 echo "<pre>Telegram: " . htmlspecialchars($res) . "</pre>";
-echo "<pre>LINE (1:1): " . htmlspecialchars(json_encode($lineRes, JSON_UNESCAPED_UNICODE)) . "</pre>";
-echo "<pre>LINE (groups): " . htmlspecialchars(json_encode($lineGrp, JSON_UNESCAPED_UNICODE)) . "</pre>";
+echo "<pre>LINE: " . htmlspecialchars(json_encode($lineOut, JSON_UNESCAPED_UNICODE)) . "</pre>";
 ?>

@@ -95,6 +95,7 @@ if (!function_exists('line_get_token')) {
             'QS'  => ['รอเช็คราคา',           '#f59e0b', '🏷️'],
             'WC'  => ['รอคอนเฟิร์ม',          '#2563eb', '💬'],
             'OK'  => ['กำลังซ่อม',            '#8b5cf6', '🔧'],
+            'WP'  => ['รออะไหล่',             '#0ea5e9', '📦'],
             'RW'  => ['งานแก้ / เคลม',        '#ef4444', '🔁'],
             'FN'  => ['ซ่อมเสร็จ (รอรับ)',    '#10b981', '✅'],
             'NCF' => ['ติดต่อไม่ได้ (เสร็จ)',  '#94a3b8', '📵'],
@@ -176,6 +177,81 @@ if (!function_exists('line_get_token')) {
         $ins = $pdo->prepare("INSERT INTO line_pending_links (line_user_id, display_name, code) VALUES (?,?,?)");
         $ins->execute([$userId, $name, $code]);
         return $code;
+    }
+
+    // ── Rich alerts (Flex summary + full detail, split so nothing gets cut) ──
+
+    /** push หลาย message object (สูงสุด 5) → recipient เดียว */
+    function line_push_messages(PDO $pdo, string $to, array $messages, ?string $token = null): array {
+        $token = $token ?? line_get_token($pdo);
+        if (!$token || !$to || !$messages) return ['code' => 0, 'body' => [], 'err' => 'no token/to/messages'];
+        return line_api_post('https://api.line.me/v2/bot/message/push', [
+            'to'       => $to,
+            'messages' => array_slice(array_values($messages), 0, 5),
+        ], $token);
+    }
+
+    /** ตัดข้อความยาวเป็นหลาย text message (กันโดน limit 5000/ข้อความ) — คืน array ของ message object */
+    function line_text_chunks(string $text, int $max = 4800, int $limit = 4): array {
+        $chunks = []; $cur = '';
+        foreach (explode("\n", $text) as $ln) {
+            if ($cur !== '' && (mb_strlen($cur) + mb_strlen($ln) + 1) > $max) { $chunks[] = $cur; $cur = $ln; }
+            else { $cur = ($cur === '') ? $ln : $cur . "\n" . $ln; }
+        }
+        if ($cur !== '') $chunks[] = $cur;
+        return array_map('line_text_msg', array_slice($chunks, 0, $limit));
+    }
+
+    /**
+     * การ์ด Flex สรุปรายงาน (หัวสี + ตัวเลขใหญ่ + รายการ label→value สีขวา)
+     * $rows = [['label'=>'🏷️ รอเช็คราคา','value'=>5,'color'=>'#f59e0b'], ...]
+     */
+    function line_report_flex(string $title, string $meta, string $bigNumber, string $bigLabel, array $rows, string $headerColor = '#06c755'): array {
+        $body = [];
+        foreach ($rows as $r) {
+            $body[] = ['type' => 'box', 'layout' => 'baseline', 'spacing' => 'sm', 'contents' => [
+                ['type' => 'text', 'text' => (string)$r['label'], 'color' => '#1f2937', 'size' => 'sm', 'flex' => 5, 'wrap' => true],
+                ['type' => 'text', 'text' => (string)$r['value'], 'color' => $r['color'] ?? '#1f2937', 'weight' => 'bold', 'size' => 'sm', 'align' => 'end', 'flex' => 1],
+            ]];
+        }
+        if (!$body) $body[] = ['type' => 'text', 'text' => '—', 'color' => '#94a3b8', 'size' => 'sm'];
+
+        $header = [['type' => 'text', 'text' => $title, 'color' => '#ffffff', 'weight' => 'bold', 'size' => 'md', 'wrap' => true]];
+        if ($bigNumber !== '') $header[] = ['type' => 'box', 'layout' => 'baseline', 'margin' => 'sm', 'contents' => [
+            ['type' => 'text', 'text' => $bigNumber, 'color' => '#ffffff', 'weight' => 'bold', 'size' => '3xl', 'flex' => 0],
+            ['type' => 'text', 'text' => $bigLabel, 'color' => '#ffffff', 'size' => 'md', 'margin' => 'sm', 'flex' => 0],
+        ]];
+        if ($meta !== '') $header[] = ['type' => 'text', 'text' => $meta, 'color' => '#ffffff', 'size' => 'xs', 'margin' => 'sm'];
+
+        return [
+            'type' => 'flex',
+            'altText' => trim("$title $bigNumber $bigLabel"),
+            'contents' => [
+                'type' => 'bubble', 'size' => 'mega',
+                'header' => ['type' => 'box', 'layout' => 'vertical', 'backgroundColor' => $headerColor, 'paddingAll' => '16px', 'spacing' => 'none', 'contents' => $header],
+                'body'   => ['type' => 'box', 'layout' => 'vertical', 'spacing' => 'md', 'paddingAll' => '16px', 'contents' => $body],
+            ],
+        ];
+    }
+
+    /** ส่งชุด message (flex+text) ไปหา admin ที่ลงทะเบียน + กลุ่มที่เปิดอยู่ ทีเดียว */
+    function line_alert_send(PDO $pdo, array $messages): array {
+        $out = ['recipients' => 0, 'sent' => 0, 'failed' => 0];
+        $token = line_get_token($pdo);
+        if (!$token) { $out['err'] = 'no token'; return $out; }
+        $recips = [];
+        try {
+            $recips = $pdo->query("SELECT line_user_id FROM admin_users WHERE line_user_id IS NOT NULL AND line_user_id <> ''")->fetchAll(PDO::FETCH_COLUMN);
+        } catch (Exception $e) { $out['err'] = $e->getMessage(); }
+        try {
+            $recips = array_merge($recips, $pdo->query("SELECT group_id FROM line_groups WHERE is_active = 1")->fetchAll(PDO::FETCH_COLUMN));
+        } catch (Exception $e) { /* ตาราง line_groups อาจยังไม่ migrate */ }
+        $out['recipients'] = count($recips);
+        foreach ($recips as $to) {
+            $r = line_push_messages($pdo, (string)$to, $messages, $token);
+            if (($r['code'] ?? 0) === 200) $out['sent']++; else $out['failed']++;
+        }
+        return $out;
     }
 
     // ── Groups ────────────────────────────────────────────────
