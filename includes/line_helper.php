@@ -74,6 +74,41 @@ if (!function_exists('line_get_token')) {
         ], $token);
     }
 
+    /** ส่งหลาย message object (text/flex/…) ด้วย replyToken */
+    function line_reply_messages(PDO $pdo, string $replyToken, array $messages, ?string $token = null): array {
+        $token = $token ?? line_get_token($pdo);
+        if (!$token || !$replyToken || !$messages) return ['code' => 0, 'body' => [], 'err' => 'no token/replyToken/messages'];
+        return line_api_post('https://api.line.me/v2/bot/message/reply', [
+            'replyToken' => $replyToken,
+            'messages'   => array_slice(array_values($messages), 0, 5),
+        ], $token);
+    }
+
+    /** message object แบบ text (plain — ไม่ strip HTML เพราะสร้างเองแล้ว) */
+    function line_text_msg(string $text): array {
+        return ['type' => 'text', 'text' => mb_substr($text, 0, 4900)];
+    }
+
+    /** map สถานะงานซ่อม: code → [label ไทย, สี hex, emoji] (ตรงกับ admin/tracking) */
+    function line_tracking_status(string $code): array {
+        static $map = [
+            'QS'  => ['รอเช็คราคา',           '#f59e0b', '🏷️'],
+            'WC'  => ['รอคอนเฟิร์ม',          '#2563eb', '💬'],
+            'OK'  => ['กำลังซ่อม',            '#8b5cf6', '🔧'],
+            'RW'  => ['งานแก้ / เคลม',        '#ef4444', '🔁'],
+            'FN'  => ['ซ่อมเสร็จ (รอรับ)',    '#10b981', '✅'],
+            'NCF' => ['ติดต่อไม่ได้ (เสร็จ)',  '#94a3b8', '📵'],
+            'NCS' => ['ติดต่อไม่ได้ (เสนอ)',   '#94a3b8', '📵'],
+            'XX'  => ['ยกเลิก (รอรับคืน)',    '#ef4444', '❌'],
+            'DV'  => ['ส่งมอบแล้ว',           '#475569', '📦'],
+            'RT'  => ['ยกเลิก (คืนแล้ว)',     '#475569', '↩️'],
+        ];
+        $c = strtoupper(trim($code));
+        return isset($map[$c])
+            ? ['code' => $c, 'label' => $map[$c][0], 'color' => $map[$c][1], 'emoji' => $map[$c][2]]
+            : ['code' => $c, 'label' => ($c ?: '-'), 'color' => '#94a3b8', 'emoji' => '•'];
+    }
+
     /**
      * ส่งหา admin ที่ลงทะเบียน LINE ทุกคน แบบ 1:1 (สำหรับ cron แจ้งเตือน)
      * คืน ['recipients'=>n,'sent'=>n,'failed'=>n]

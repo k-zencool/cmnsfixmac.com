@@ -85,7 +85,7 @@ foreach ($update['events'] as $ev) {
                 "❌ คุณยังไม่มีสิทธิ์ใช้คำสั่ง — ทักบอทตรงๆ (แชท 1:1) เพื่อลงทะเบียนก่อน", $token);
             continue;
         }
-        line_reply($pdo, $replyToken, line_handle_command($pdo, $admin, $text), $token);
+        line_reply_messages($pdo, $replyToken, line_handle_command($pdo, $admin, $text), $token);
         continue;
     }
 
@@ -100,42 +100,98 @@ foreach ($update['events'] as $ev) {
             "แอดมินจะอนุมัติให้ในระบบหลังบ้าน", $token);
         continue;
     }
-    line_reply($pdo, $replyToken, line_handle_command($pdo, $admin, $text), $token);
+    line_reply_messages($pdo, $replyToken, line_handle_command($pdo, $admin, $text), $token);
 }
 
 echo 'ok';
 
 
 /**
- * ประมวลคำสั่งพื้นฐาน — เช็คสถานะงานซ่อม
+ * ประมวลคำสั่ง — คืน array ของ LINE message object (text / flex)
  */
-function line_handle_command(PDO $pdo, array $admin, string $text): string {
+function line_handle_command(PDO $pdo, array $admin, string $text): array {
     $name = !empty($admin['line_display_name']) ? $admin['line_display_name'] : $admin['username'];
     $cmd  = mb_strtolower(trim($text));
 
     if ($cmd === '/help' || $cmd === 'help' || $cmd === 'เมนู') {
-        return "📋 คำสั่งที่ใช้ได้:\n" .
-               "/today — งานค้างในร้านตอนนี้\n" .
-               "/status <เลขงาน> — เช็คสถานะงาน";
+        return [line_text_msg(
+            "📋 คำสั่งที่ใช้ได้\n\n" .
+            "🔎 /status <เลขงาน>\n     ดูรายละเอียดงานซ่อม\n\n" .
+            "📦 /today\n     สรุปงานค้างในร้าน แยกตามสถานะ"
+        )];
     }
 
     if (mb_strpos($cmd, '/status') === 0) {
         $tk = trim(mb_substr($text, 7));
-        if ($tk === '') return "พิมพ์: /status <เลขงาน>";
-        $s = $pdo->prepare("SELECT ticket_number, customer_name, device_model, status FROM tracking WHERE ticket_number = ? LIMIT 1");
+        if ($tk === '') return [line_text_msg("พิมพ์: /status <เลขงาน>\nเช่น /status 6812-001")];
+        $s = $pdo->prepare("SELECT * FROM tracking WHERE ticket_number = ? LIMIT 1");
         $s->execute([$tk]);
         $j = $s->fetch(PDO::FETCH_ASSOC);
-        if (!$j) return "❌ ไม่พบงาน {$tk}";
-        return "🧾 งาน {$j['ticket_number']}\n" .
-               "ลูกค้า: {$j['customer_name']}\n" .
-               "เครื่อง: {$j['device_model']}\n" .
-               "สถานะ: {$j['status']}";
+        if (!$j) return [line_text_msg("❌ ไม่พบงานเลขที่ {$tk}")];
+        return [line_job_flex($j)];
     }
 
     if ($cmd === '/today' || $cmd === 'today') {
-        $n = (int)$pdo->query("SELECT COUNT(*) FROM tracking WHERE status NOT IN ('DV','RT')")->fetchColumn();
-        return "📦 งานค้างในร้าน: {$n} งาน\nพิมพ์ /status <เลขงาน> เพื่อดูรายตัว";
+        $rows  = $pdo->query("SELECT status, COUNT(*) c FROM tracking WHERE status NOT IN ('DV','RT') GROUP BY status")->fetchAll(PDO::FETCH_ASSOC);
+        $total = array_sum(array_column($rows, 'c'));
+        $order = ['QS' => 0, 'WC' => 1, 'OK' => 2, 'RW' => 3, 'FN' => 4, 'XX' => 5, 'NCF' => 6, 'NCS' => 7];
+        usort($rows, fn($a, $b) => ($order[$a['status']] ?? 99) <=> ($order[$b['status']] ?? 99));
+        $body = "📦 งานค้างในร้าน: {$total} งาน";
+        foreach ($rows as $r) {
+            $st = line_tracking_status($r['status']);
+            $body .= "\n{$st['emoji']} {$st['label']}: {$r['c']}";
+        }
+        $body .= "\n\nพิมพ์ /status <เลขงาน> เพื่อดูรายละเอียด";
+        return [line_text_msg($body)];
     }
 
-    return "สวัสดี {$name} 👋\nพิมพ์ /help เพื่อดูคำสั่ง";
+    return [line_text_msg("สวัสดี {$name} 👋\nพิมพ์ /help เพื่อดูคำสั่ง")];
+}
+
+/** สร้าง Flex Message การ์ดงานซ่อม 1 ใบ */
+function line_job_flex(array $j): array {
+    $st   = line_tracking_status($j['status'] ?? '');
+    $rows = [];
+    $add  = function (string $label, $val) use (&$rows) {
+        $val = trim(line_html_to_text((string)$val));   // problem_details ฯลฯ เป็น HTML จาก editor
+        if ($val === '' || $val === '0000-00-00') return;
+        $rows[] = ['type' => 'box', 'layout' => 'baseline', 'spacing' => 'sm', 'contents' => [
+            ['type' => 'text', 'text' => $label, 'color' => '#94a3b8', 'size' => 'sm', 'flex' => 2],
+            ['type' => 'text', 'text' => mb_substr($val, 0, 300), 'wrap' => true, 'color' => '#1f2937', 'size' => 'sm', 'flex' => 5],
+        ]];
+    };
+
+    $device = trim(($j['device_type'] ?? '') . ' ' . ($j['device_model'] ?? '') . ' ' . ($j['device_series'] ?? ''));
+    $cost   = ($j['estimated_cost'] ?? '') !== '' && $j['estimated_cost'] !== null && (float)$j['estimated_cost'] > 0
+              ? '฿' . number_format((float)$j['estimated_cost']) : '';
+
+    $add('ลูกค้า',   $j['customer_name'] ?? '');
+    $add('เบอร์',    $j['customer_phone'] ?? '');
+    $add('เครื่อง',  $device);
+    $add('อาการ',    $j['problem_details'] ?? '');
+    $add('อุปกรณ์',  $j['accessories'] ?? '');
+    $add('ค่าซ่อม',  $cost);
+    $add('นัดหมาย',  $j['appointment_date'] ?? '');
+    $add('รับเครื่อง', $j['pickup_date'] ?? '');
+    $add('โน้ตช่าง', $j['technician_note'] ?? '');
+
+    return [
+        'type'    => 'flex',
+        'altText' => '🧾 งาน ' . ($j['ticket_number'] ?? '') . ' — ' . $st['label'],
+        'contents' => [
+            'type' => 'bubble',
+            'size' => 'mega',
+            'header' => [
+                'type' => 'box', 'layout' => 'vertical', 'backgroundColor' => $st['color'],
+                'paddingAll' => '16px', 'spacing' => 'xs', 'contents' => [
+                    ['type' => 'text', 'text' => '🧾 ' . ($j['ticket_number'] ?? '-'), 'color' => '#ffffff', 'weight' => 'bold', 'size' => 'lg'],
+                    ['type' => 'text', 'text' => $st['emoji'] . ' ' . $st['label'], 'color' => '#ffffff', 'size' => 'sm'],
+                ],
+            ],
+            'body' => [
+                'type' => 'box', 'layout' => 'vertical', 'spacing' => 'md', 'paddingAll' => '16px',
+                'contents' => $rows ?: [['type' => 'text', 'text' => 'ไม่มีรายละเอียด', 'color' => '#94a3b8', 'size' => 'sm']],
+            ],
+        ],
+    ];
 }
