@@ -4,6 +4,14 @@
 // 1. การตั้งค่าเบื้องต้น
 date_default_timezone_set('Asia/Bangkok');
 require_once __DIR__ . '/../../includes/db.php';
+
+// ── กันยิง URL มั่ว: อนุญาตเฉพาะรันผ่าน CLI (cron) หรือแนบ ?key=<CRON_KEY> ที่ถูกต้อง ──
+$cron_key = $_ENV['CRON_KEY'] ?? '';
+if (PHP_SAPI !== 'cli' && !($cron_key !== '' && hash_equals($cron_key, (string)($_GET['key'] ?? '')))) {
+    http_response_code(403);
+    exit('forbidden');
+}
+
 require_once __DIR__ . '/telegram_helper.php';
 
 $report_date = date('d/m/Y');
