@@ -112,10 +112,12 @@ $res = sendTelegram($msg);
 
 // 8.1 ส่งเข้า LINE คู่กัน (1:1 หา admin ที่ลงทะเบียนเท่านั้น) — ข้ามเงียบถ้ายังไม่ตั้ง token
 require_once __DIR__ . '/../../includes/line_helper.php';
-$lineRes = sendLineToAdmins($pdo, $msg);
+$lineRes  = sendLineToAdmins($pdo, $msg);
+$lineGrp  = sendLineToGroups($pdo, $msg);   // + เข้ากลุ่มที่บอทอยู่
 
 // แสดงผลลัพธ์บนหน้าเว็บ (กรณีรัน Manual เพื่อเช็คสถานะ)
 echo "<h3>✅ Morning Report Sent (Official)</h3>";
 echo "<pre>Telegram: " . htmlspecialchars($res) . "</pre>";
-echo "<pre>LINE: " . htmlspecialchars(json_encode($lineRes, JSON_UNESCAPED_UNICODE)) . "</pre>";
+echo "<pre>LINE (1:1): " . htmlspecialchars(json_encode($lineRes, JSON_UNESCAPED_UNICODE)) . "</pre>";
+echo "<pre>LINE (groups): " . htmlspecialchars(json_encode($lineGrp, JSON_UNESCAPED_UNICODE)) . "</pre>";
 ?>

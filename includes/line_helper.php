@@ -143,4 +143,54 @@ if (!function_exists('line_get_token')) {
         return $code;
     }
 
+    // ── Groups ────────────────────────────────────────────────
+
+    /** ชื่อกลุ่มจาก LINE (GET /v2/bot/group/{id}/summary) — ต้องเปิดสิทธิ์ให้บอทเข้ากลุ่มก่อน */
+    function line_group_summary(PDO $pdo, string $groupId, ?string $token = null): array {
+        $token = $token ?? line_get_token($pdo);
+        if (!$token || !$groupId) return ['code' => 0, 'body' => [], 'err' => 'no token/group'];
+        return line_api_get('https://api.line.me/v2/bot/group/' . rawurlencode($groupId) . '/summary', $token);
+    }
+
+    /** บันทึก/เปิดใช้งานกลุ่ม (idempotent) — เรียกตอน bot ถูกเชิญเข้ากลุ่ม */
+    function line_register_group(PDO $pdo, string $groupId, ?string $name = null, ?string $addedBy = null): void {
+        $pdo->prepare("
+            INSERT INTO line_groups (group_id, group_name, added_by, is_active)
+            VALUES (?, ?, ?, 1)
+            ON DUPLICATE KEY UPDATE
+                group_name = COALESCE(VALUES(group_name), group_name),
+                is_active  = 1,
+                updated_at = NOW()
+        ")->execute([$groupId, $name, $addedBy]);
+    }
+
+    /** ปิดใช้งานกลุ่ม (ตอน bot ถูกเตะออก / leave) — ไม่ลบประวัติ */
+    function line_deactivate_group(PDO $pdo, string $groupId): void {
+        $pdo->prepare("UPDATE line_groups SET is_active = 0, updated_at = NOW() WHERE group_id = ?")
+            ->execute([$groupId]);
+    }
+
+    /** สั่งให้บอทออกจากกลุ่ม (POST /leave) */
+    function line_leave_group(PDO $pdo, string $groupId, ?string $token = null): array {
+        $token = $token ?? line_get_token($pdo);
+        if (!$token || !$groupId) return ['code' => 0, 'body' => [], 'err' => 'no token/group'];
+        return line_api_post('https://api.line.me/v2/bot/group/' . rawurlencode($groupId) . '/leave', [], $token);
+    }
+
+    /** push แจ้งเตือนเข้าทุกกลุ่มที่เปิดใช้งาน (คู่กับ sendLineToAdmins) */
+    function sendLineToGroups(PDO $pdo, string $text): array {
+        $out   = ['recipients' => 0, 'sent' => 0, 'failed' => 0];
+        $token = line_get_token($pdo);
+        if (!$token) { $out['err'] = 'no token'; return $out; }
+        try {
+            $ids = $pdo->query("SELECT group_id FROM line_groups WHERE is_active = 1")->fetchAll(PDO::FETCH_COLUMN);
+        } catch (Exception $e) { $out['err'] = $e->getMessage(); return $out; }
+        $out['recipients'] = count($ids);
+        foreach ($ids as $gid) {
+            $r = line_push($pdo, (string)$gid, $text, $token);
+            if (($r['code'] ?? 0) === 200) $out['sent']++; else $out['failed']++;
+        }
+        return $out;
+    }
+
 } // function_exists guard

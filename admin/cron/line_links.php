@@ -48,6 +48,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ->execute([$admin_id]);
             $flash = 'ปลดการเชื่อมแล้ว';
         }
+    } elseif ($action === 'group_toggle') {
+        $gid = (int)($_POST['group_id'] ?? 0);
+        if ($gid) {
+            $pdo->prepare("UPDATE line_groups SET is_active = 1 - is_active, updated_at = NOW() WHERE id=?")->execute([$gid]);
+            $flash = 'อัปเดตการแจ้งเตือนกลุ่มแล้ว';
+        }
+    } elseif ($action === 'group_leave') {
+        $gid = (int)($_POST['group_id'] ?? 0);
+        if ($gid) {
+            $g = $pdo->prepare("SELECT group_id FROM line_groups WHERE id=?");
+            $g->execute([$gid]);
+            $grp = $g->fetch(PDO::FETCH_ASSOC);
+            if ($grp) {
+                line_leave_group($pdo, $grp['group_id']);   // สั่งบอทออกจากกลุ่ม
+                $pdo->prepare("DELETE FROM line_groups WHERE id=?")->execute([$gid]);
+                $flash = 'บอทออกจากกลุ่มแล้ว';
+            }
+        }
     }
     header("Location: line_links.php?ok=" . rawurlencode($flash));
     exit;
@@ -56,6 +74,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $pending = $pdo->query("SELECT * FROM line_pending_links ORDER BY created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
 $linked  = $pdo->query("SELECT id, username, role, line_user_id, line_display_name, line_linked_at FROM admin_users WHERE line_user_id IS NOT NULL ORDER BY line_linked_at DESC")->fetchAll(PDO::FETCH_ASSOC);
 $admins  = $pdo->query("SELECT id, username, role FROM admin_users ORDER BY username")->fetchAll(PDO::FETCH_ASSOC);
+try {
+    $groups = $pdo->query("SELECT * FROM line_groups ORDER BY is_active DESC, created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) {
+    $groups = null; // ตาราง line_groups ยังไม่ได้ migrate บน prod
+}
 
 $pageTitle = "เชื่อม LINE พนักงาน";
 include __DIR__ . '/../templates/header_admin.php';
@@ -110,6 +133,40 @@ include __DIR__ . '/../templates/header_admin.php';
                     <input type="hidden" name="action" value="unlink">
                     <input type="hidden" name="admin_id" value="<?= (int)$l['id'] ?>">
                     <button type="submit" class="cmns-btn cmns-btn-secondary" style="padding:6px 14px; color:#ef4444;">ปลด</button>
+                </form>
+            </div>
+        <?php endforeach; endif; ?>
+    </div>
+
+    <!-- กลุ่มที่บอทอยู่ -->
+    <div style="background:var(--bg-surface); border:1px solid var(--border); border-radius:14px; padding:20px;">
+        <h3 style="margin:0 0 6px; font-size:1rem; display:flex; align-items:center; gap:8px;">
+            <span class="material-symbols-rounded" style="color:#06c755;">groups</span>
+            กลุ่มที่บอทอยู่ (<?= is_array($groups) ? count($groups) : 0 ?>)
+        </h3>
+        <p style="margin:0 0 14px; font-size:.8rem; color:var(--text-muted);">
+            บอทจะ push แจ้งเตือนงานเข้ากลุ่มที่ <b>เปิด</b> อยู่ · เชิญบอทเข้ากลุ่มใน LINE เพื่อเพิ่มกลุ่มอัตโนมัติ
+        </p>
+        <?php if ($groups === null): ?>
+            <div style="color:#dc2626; font-size:.85rem;">⚠️ ยังไม่ได้สร้างตาราง <code>line_groups</code> บน DB (รัน migration_line_groups.sql ก่อน)</div>
+        <?php elseif (empty($groups)): ?>
+            <div style="color:var(--text-muted); font-size:.88rem;">ยังไม่มีกลุ่ม — เชิญบอทเข้ากลุ่ม LINE แล้วรีเฟรชหน้านี้</div>
+        <?php else: foreach ($groups as $g): ?>
+            <div style="display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); flex-wrap:wrap;">
+                <span style="font-weight:700;"><?= htmlspecialchars($g['group_name'] ?: 'กลุ่มไม่มีชื่อ') ?></span>
+                <span style="font-size:.72rem; padding:2px 8px; border-radius:20px; <?= $g['is_active'] ? 'background:rgba(6,199,85,.15);color:#06c755;' : 'background:rgba(148,163,184,.2);color:var(--text-muted);' ?>">
+                    <?= $g['is_active'] ? 'แจ้งเตือน: เปิด' : 'ปิด' ?>
+                </span>
+                <span style="font-size:.72rem; color:var(--text-muted); flex:1; min-width:140px; word-break:break-all;"><?= htmlspecialchars($g['group_id']) ?></span>
+                <form method="POST" style="display:inline;">
+                    <input type="hidden" name="action" value="group_toggle">
+                    <input type="hidden" name="group_id" value="<?= (int)$g['id'] ?>">
+                    <button type="submit" class="cmns-btn cmns-btn-secondary" style="padding:6px 12px;"><?= $g['is_active'] ? 'ปิดแจ้งเตือน' : 'เปิดแจ้งเตือน' ?></button>
+                </form>
+                <form method="POST" style="display:inline;" onsubmit="return confirm('ให้บอทออกจากกลุ่มนี้?');">
+                    <input type="hidden" name="action" value="group_leave">
+                    <input type="hidden" name="group_id" value="<?= (int)$g['id'] ?>">
+                    <button type="submit" class="cmns-btn cmns-btn-secondary" style="padding:6px 12px; color:#ef4444;">ออกจากกลุ่ม</button>
                 </form>
             </div>
         <?php endforeach; endif; ?>
