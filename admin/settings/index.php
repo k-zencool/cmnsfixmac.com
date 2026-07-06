@@ -48,6 +48,13 @@ $cards = [
 
 if ($role === 'super_admin') {
     $cards[] = [
+        'icon'  => 'notifications_active',
+        'title' => 'จัดการการแจ้งเตือน',
+        'desc'  => 'เปิด/ปิด LINE + Telegram, รอบเช้า-เย็น, ผู้รับ และทดสอบส่ง',
+        'href'  => '/admin/settings/notifications.php',
+        'color' => '#0ea5e9',
+    ];
+    $cards[] = [
         'icon'  => 'manage_accounts',
         'title' => 'จัดการผู้ใช้งาน',
         'desc'  => 'เพิ่ม/แก้ไขแอดมินและกำหนดสิทธิ์การเข้าถึง',
