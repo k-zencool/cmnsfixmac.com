@@ -1,6 +1,6 @@
 <?php
 /**
- * admin/cron/line_hook.php — LINE Messaging API webhook (คู่กับ bot_hook.php ของ Telegram)
+ * admin/cron/line_hook.php — LINE Messaging API webhook
  *
  * ตั้ง Webhook URL นี้ใน LINE Developers console:
  *   https://<โดเมน>/admin/cron/line_hook.php

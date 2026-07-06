@@ -50,7 +50,7 @@ if ($role === 'super_admin') {
     $cards[] = [
         'icon'  => 'notifications_active',
         'title' => 'จัดการการแจ้งเตือน',
-        'desc'  => 'เปิด/ปิด LINE + Telegram, รอบเช้า-เย็น, ผู้รับ และทดสอบส่ง',
+        'desc'  => 'เปิด/ปิด LINE, รอบเช้า-เย็น, จัดการผู้รับ และทดสอบส่ง',
         'href'  => '/admin/settings/notifications.php',
         'color' => '#0ea5e9',
     ];

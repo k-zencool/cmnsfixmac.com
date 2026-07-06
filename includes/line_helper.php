@@ -1,8 +1,7 @@
 <?php
 /**
- * includes/line_helper.php — LINE Messaging API helper (คู่กับ telegram_helper.php)
+ * includes/line_helper.php — LINE Messaging API helper
  *
- * รันคู่ Telegram ได้: alert เรียก sendLineToAdmins() ต่อท้าย sendTelegram().
  * ความปลอดภัย: ส่งได้เฉพาะ line_user_id ที่อยู่ใน whitelist (admin_users) แบบ 1:1
  * → คนนอกที่แอด OA มาเฉยๆ จะไม่มีทางได้รับข้อมูลร้าน.
  *
