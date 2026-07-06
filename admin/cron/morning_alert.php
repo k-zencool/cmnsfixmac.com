@@ -120,7 +120,7 @@ $res = sendTelegram($msg);
 
 // 8.1 ส่งเข้า LINE คู่กัน (1:1 หา admin ที่ลงทะเบียนเท่านั้น) — ข้ามเงียบถ้ายังไม่ตั้ง token
 require_once __DIR__ . '/../../includes/line_helper.php';
-// LINE: การ์ด Flex สรุป + รายละเอียดเต็ม (เนื้อเดียวกับ Telegram, แบ่งหลายข้อความไม่ให้โดนตัด)
+// LINE: การ์ด Flex สรุปใบเดียว (นับแยกตามสถานะ) — ดูรายละเอียดพิมพ์ /today เอา
 $lineRows = [];
 foreach ($order_show as $st) {
     if (!empty($grouped[$st])) {
@@ -128,10 +128,9 @@ foreach ($order_show as $st) {
         $lineRows[] = ['label' => $m['emoji'] . ' ' . $m['label'], 'value' => count($grouped[$st]), 'color' => $m['color']];
     }
 }
-$lineMsgs = array_merge(
-    [line_report_flex('🔔 รายงานเช้า', "📅 $report_date  ⏰ $report_time น.", (string)count($all_jobs), 'รายการ', $lineRows, '#0ea5e9')],
-    line_text_chunks(line_html_to_text($msg), 4800, 4)
-);
+$lineMsgs = [
+    line_report_flex('🔔 รายงานเช้า', "📅 $report_date  ⏰ $report_time น.", (string)count($all_jobs), 'รายการ', $lineRows, '#0ea5e9'),
+];
 $lineOut = line_alert_send($pdo, $lineMsgs);
 
 // แสดงผลลัพธ์บนหน้าเว็บ (กรณีรัน Manual เพื่อเช็คสถานะ)
