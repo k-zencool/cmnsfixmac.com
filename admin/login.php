@@ -47,14 +47,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['username'])) {
   <title>Administrator Login | CMNS FixMac</title>
   <link rel="shortcut icon" href="/assets/img/favicon1.png" />
 
-  <!-- PWA: allow install / standalone launch straight from the login screen -->
-  <link rel="manifest" href="/admin/manifest.webmanifest">
-  <meta name="theme-color" content="#0a0a0a">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="CMNS Admin">
-  <link rel="apple-touch-icon" sizes="180x180" href="/assets/img/pwa/icon-180.png">
+  <?php include __DIR__ . '/templates/pwa_head.php'; ?>
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
