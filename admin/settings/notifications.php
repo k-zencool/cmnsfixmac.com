@@ -60,15 +60,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $r = sendTelegram("🔔 <b>ทดสอบ Notification Center</b>\nข้อความนี้ยิงจากหน้า admin — ถ้าเห็นแปลว่า Telegram พร้อมใช้งาน ✅");
         $decoded = json_decode((string)$r, true);
         $ok = is_array($decoded) && !empty($decoded['ok']);
-        $test = ['ch' => 'telegram', 'ok' => $ok,
+        $test = ['label' => 'TELEGRAM', 'ok' => $ok,
                  'detail' => $ok ? 'ส่งเข้า chat สำเร็จ' : ('ล้มเหลว: ' . mb_strimwidth((string)$r, 0, 200, '...'))];
 
     } elseif ($action === 'test_line') {
         $out = line_alert_send($pdo, [line_text_msg("🔔 ทดสอบ Notification Center — ถ้าเห็นข้อความนี้แปลว่า LINE พร้อมใช้งาน ✅")]);
         $ok = ($out['sent'] ?? 0) > 0;
-        $test = ['ch' => 'line', 'ok' => $ok,
+        $test = ['label' => 'LINE', 'ok' => $ok,
                  'detail' => "ผู้รับ {$out['recipients']} · ส่งสำเร็จ {$out['sent']} · ล้มเหลว {$out['failed']}"
                              . (isset($out['err']) ? " · {$out['err']}" : '')];
+
+    } elseif ($action === 'test_morning' || $action === 'test_evening') {
+        // ยิงรายงานงานซ่อมจริง (เช้า/เย็น) เดี๋ยวนี้ — เคารพสวิตช์ที่ตั้งไว้ (ช่องปิด = ข้าม)
+        $which  = $action === 'test_morning' ? 'morning' : 'evening';
+        $script = __DIR__ . "/../cron/{$which}_alert.php";
+        // ผ่าน guard ของ cron แบบ authorized (หน้านี้ super_admin แล้ว): เซ็ต key ตรงกันชั่วคราว
+        $prev_key = $_ENV['CRON_KEY'] ?? null;
+        $_ENV['CRON_KEY'] = '__internal_test__';
+        $_GET['key']      = '__internal_test__';
+        $res = '(skipped)'; $lineOut = ['skipped' => true];
+        ob_start();
+        include $script;              // สร้าง+ส่งรายงาน แล้วเซ็ต $res (Telegram) + $lineOut (LINE)
+        ob_end_clean();               // ทิ้ง HTML ที่ cron echo
+        if ($prev_key === null) unset($_ENV['CRON_KEY']); else $_ENV['CRON_KEY'] = $prev_key;
+
+        $tg_dec = json_decode((string)$res, true);
+        $tg_txt = ($res === '(skipped)') ? 'Telegram: ปิด/ข้าม'
+                : ((is_array($tg_dec) && !empty($tg_dec['ok'])) ? 'Telegram: ส่งแล้ว ✔' : 'Telegram: ล้มเหลว');
+        $ln_txt = isset($lineOut['skipped']) ? 'LINE: ปิด/ข้าม'
+                : "LINE: ส่ง {$lineOut['sent']}/{$lineOut['recipients']}" . (isset($lineOut['err']) ? " ({$lineOut['err']})" : '');
+        $sent_any = (strpos($tg_txt, 'ส่งแล้ว') !== false) || (($lineOut['sent'] ?? 0) > 0);
+        $test = ['label' => $which === 'morning' ? 'รายงานเช้า' : 'รายงานเย็น',
+                 'ok' => $sent_any, 'detail' => "$tg_txt · $ln_txt"];
     }
 }
 
@@ -117,7 +140,7 @@ include '../templates/header_admin.php';
 
     <?php if ($test !== null): ?>
     <div class="ln-flash <?= $test['ok'] ? 'ok' : 'err' ?>">
-        <?= $test['ok'] ? '✅' : '❌' ?> ทดสอบ <?= strtoupper($test['ch']) ?> —
+        <?= $test['ok'] ? '✅' : '❌' ?> ทดสอบ <?= htmlspecialchars($test['label'] ?? '') ?> —
         <?= htmlspecialchars($test['detail']) ?>
     </div>
     <?php endif; ?>
@@ -154,6 +177,26 @@ include '../templates/header_admin.php';
             <span class="material-symbols-rounded" style="font-size:16px;">save</span> บันทึกสวิตช์
         </button>
     </form>
+
+    <!-- 1.5) ยิงรายงานจริงทดสอบ -->
+    <div class="ln-card">
+        <div class="ln-label">ทดสอบยิงรายงานงานซ่อม (ของจริง เดี๋ยวนี้)</div>
+        <p class="ln-hint" style="margin:0 0 14px;">ยิงรายงานเหมือน cron รอบเช้า/เย็น ไปยังผู้รับจริงทันที — <b>เคารพสวิตช์ด้านบน</b> (ช่องที่ปิดจะข้าม)</p>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+            <form method="POST" style="margin:0;">
+                <input type="hidden" name="action" value="test_morning">
+                <button type="submit" class="cmns-btn cmns-btn-primary" onclick="return confirm('ยิงรายงานเช้าไปผู้รับจริงทั้งหมดเลยนะ?');">
+                    <span class="material-symbols-rounded" style="font-size:16px;">wb_sunny</span> ยิงรายงานเช้า
+                </button>
+            </form>
+            <form method="POST" style="margin:0;">
+                <input type="hidden" name="action" value="test_evening">
+                <button type="submit" class="cmns-btn cmns-btn-primary" onclick="return confirm('ยิงรายงานเย็นไปผู้รับจริงทั้งหมดเลยนะ?');">
+                    <span class="material-symbols-rounded" style="font-size:16px;">nightlight</span> ยิงรายงานเย็น
+                </button>
+            </form>
+        </div>
+    </div>
 
     <!-- 2) Telegram -->
     <div class="ln-card">
