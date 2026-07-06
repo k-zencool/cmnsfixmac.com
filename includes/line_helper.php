@@ -203,33 +203,50 @@ if (!function_exists('line_get_token')) {
     }
 
     /**
-     * การ์ด Flex สรุปรายงาน (หัวสี + ตัวเลขใหญ่ + รายการ label→value สีขวา)
-     * $rows = [['label'=>'🏷️ รอเช็คราคา','value'=>5,'color'=>'#f59e0b'], ...]
+     * การ์ด Flex สรุปรายงาน — สไตล์ Apple minimal (พื้นขาว, ไม่มีอิโมจิ, จุดสีแทนไอคอนสถานะ,
+     * เส้นคั่นบาง, ตัวเลขใหญ่, footer แบรนด์). $headerColor ใช้เป็น accent tab บนสุด.
+     * $rows = [['label'=>'รอเช็คราคา','value'=>5,'color'=>'#f59e0b'], ...]
      */
-    function line_report_flex(string $title, string $meta, string $bigNumber, string $bigLabel, array $rows, string $headerColor = '#06c755'): array {
-        $body = [];
+    function line_report_flex(string $title, string $meta, string $bigNumber, string $bigLabel, array $rows, string $headerColor = '#0ea5e9'): array {
+        $ink = '#1d1d1f'; $sub = '#6e6e73'; $muted = '#86868b'; $line = '#ececee';
+
+        // รายการสถานะ: จุดสี + label + ตัวเลข คั่นด้วยเส้น hairline
+        $list = []; $first = true;
         foreach ($rows as $r) {
-            $body[] = ['type' => 'box', 'layout' => 'baseline', 'spacing' => 'sm', 'contents' => [
-                ['type' => 'text', 'text' => (string)$r['label'], 'color' => '#1f2937', 'size' => 'sm', 'flex' => 5, 'wrap' => true],
-                ['type' => 'text', 'text' => (string)$r['value'], 'color' => $r['color'] ?? '#1f2937', 'weight' => 'bold', 'size' => 'sm', 'align' => 'end', 'flex' => 1],
+            if (!$first) $list[] = ['type' => 'separator', 'margin' => 'md', 'color' => $line];
+            $first = false;
+            $list[] = ['type' => 'box', 'layout' => 'horizontal', 'alignItems' => 'center', 'spacing' => 'md', 'margin' => 'md', 'contents' => [
+                ['type' => 'box', 'width' => '9px', 'height' => '9px', 'cornerRadius' => '5px', 'backgroundColor' => $r['color'] ?? '#c7c7cc', 'flex' => 0, 'contents' => [['type' => 'filler']]],
+                ['type' => 'text', 'text' => (string)$r['label'], 'color' => $ink, 'size' => 'sm', 'flex' => 1, 'gravity' => 'center', 'wrap' => true],
+                ['type' => 'text', 'text' => (string)$r['value'], 'color' => $ink, 'weight' => 'bold', 'size' => 'sm', 'align' => 'end', 'flex' => 0, 'gravity' => 'center'],
             ]];
         }
-        if (!$body) $body[] = ['type' => 'text', 'text' => '—', 'color' => '#94a3b8', 'size' => 'sm'];
+        if (!$list) $list[] = ['type' => 'text', 'text' => '—', 'color' => $muted, 'size' => 'sm', 'margin' => 'md'];
 
-        $header = [['type' => 'text', 'text' => $title, 'color' => '#ffffff', 'weight' => 'bold', 'size' => 'md', 'wrap' => true]];
-        if ($bigNumber !== '') $header[] = ['type' => 'box', 'layout' => 'baseline', 'margin' => 'sm', 'contents' => [
-            ['type' => 'text', 'text' => $bigNumber, 'color' => '#ffffff', 'weight' => 'bold', 'size' => '3xl', 'flex' => 0],
-            ['type' => 'text', 'text' => $bigLabel, 'color' => '#ffffff', 'size' => 'md', 'margin' => 'sm', 'flex' => 0],
+        $body = [];
+        // accent tab บนสุด (แถบสีสั้นๆ)
+        $body[] = ['type' => 'box', 'layout' => 'vertical', 'width' => '36px', 'height' => '4px', 'cornerRadius' => '2px', 'backgroundColor' => $headerColor, 'contents' => [['type' => 'filler']]];
+        // หัวข้อ
+        $body[] = ['type' => 'text', 'text' => $title, 'color' => $ink, 'weight' => 'bold', 'size' => 'md', 'margin' => 'lg'];
+        // ตัวเลขใหญ่
+        if ($bigNumber !== '') $body[] = ['type' => 'box', 'layout' => 'baseline', 'margin' => 'md', 'contents' => [
+            ['type' => 'text', 'text' => $bigNumber, 'color' => $ink, 'weight' => 'bold', 'size' => '4xl', 'flex' => 0],
+            ['type' => 'text', 'text' => $bigLabel, 'color' => $sub, 'size' => 'sm', 'margin' => 'md', 'flex' => 0],
         ]];
-        if ($meta !== '') $header[] = ['type' => 'text', 'text' => $meta, 'color' => '#ffffff', 'size' => 'xs', 'margin' => 'sm'];
+        if ($meta !== '') $body[] = ['type' => 'text', 'text' => $meta, 'color' => $muted, 'size' => 'xs', 'margin' => 'sm'];
+        // เส้นคั่นก่อนรายการ
+        $body[] = ['type' => 'separator', 'margin' => 'xl', 'color' => $line];
+        $body = array_merge($body, $list);
+        // footer แบรนด์
+        $body[] = ['type' => 'separator', 'margin' => 'xl', 'color' => $line];
+        $body[] = ['type' => 'text', 'text' => 'CMNS FixMac', 'color' => '#b0b0b5', 'size' => 'xs', 'align' => 'center', 'margin' => 'lg'];
 
         return [
             'type' => 'flex',
             'altText' => trim("$title $bigNumber $bigLabel"),
             'contents' => [
                 'type' => 'bubble', 'size' => 'mega',
-                'header' => ['type' => 'box', 'layout' => 'vertical', 'backgroundColor' => $headerColor, 'paddingAll' => '16px', 'spacing' => 'none', 'contents' => $header],
-                'body'   => ['type' => 'box', 'layout' => 'vertical', 'spacing' => 'md', 'paddingAll' => '16px', 'contents' => $body],
+                'body' => ['type' => 'box', 'layout' => 'vertical', 'paddingAll' => '20px', 'spacing' => 'none', 'backgroundColor' => '#ffffff', 'contents' => $body],
             ],
         ];
     }

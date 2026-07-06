@@ -153,13 +153,13 @@ if ($round_on && notif_bool($pdo, 'notify_telegram_enabled', true)) {
 // 7.1 ส่งเข้า LINE คู่กัน (การ์ด Flex สรุป) — ถ้าเปิดช่อง LINE + เปิดรอบเย็น
 require_once __DIR__ . '/../../includes/line_helper.php';
 // LINE: การ์ด Flex สรุปใบเดียว (นับแยกตามสถานะ) — ดูรายละเอียดพิมพ์ /today เอา
-$lineRows = [['label' => '📥 งานรับเข้าใหม่', 'value' => $count_new, 'color' => '#2563eb']];
+$lineRows = [['label' => 'งานรับเข้าใหม่', 'value' => $count_new, 'color' => '#2563eb']];
 foreach ($grouped_moved as $st => $list) {
     $m = line_tracking_status($st);
-    $lineRows[] = ['label' => $m['emoji'] . ' ' . $m['label'], 'value' => count($list), 'color' => $m['color']];
+    $lineRows[] = ['label' => $m['label'], 'value' => count($list), 'color' => $m['color']];
 }
 $lineMsgs = [
-    line_report_flex('🔔 รายงานเย็น', "📅 $report_date  ⏰ $report_time น.", (string)$count_new, 'รับเข้าใหม่', $lineRows, '#334155'),
+    line_report_flex('รายงานเย็น', "$report_date · $report_time น.", (string)$count_new, 'รับเข้าใหม่', $lineRows, '#334155'),
 ];
 $lineOut = ['skipped' => true];
 if ($round_on && notif_bool($pdo, 'notify_line_enabled', true)) {

@@ -132,11 +132,11 @@ $lineRows = [];
 foreach ($order_show as $st) {
     if (!empty($grouped[$st])) {
         $m = line_tracking_status($st);
-        $lineRows[] = ['label' => $m['emoji'] . ' ' . $m['label'], 'value' => count($grouped[$st]), 'color' => $m['color']];
+        $lineRows[] = ['label' => $m['label'], 'value' => count($grouped[$st]), 'color' => $m['color']];
     }
 }
 $lineMsgs = [
-    line_report_flex('🔔 รายงานเช้า', "📅 $report_date  ⏰ $report_time น.", (string)count($all_jobs), 'รายการ', $lineRows, '#0ea5e9'),
+    line_report_flex('รายงานเช้า', "$report_date · $report_time น.", (string)count($all_jobs), 'รายการ', $lineRows, '#0ea5e9'),
 ];
 $lineOut = ['skipped' => true];
 if ($round_on && notif_bool($pdo, 'notify_line_enabled', true)) {
