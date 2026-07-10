@@ -39,6 +39,8 @@ if (empty($statusFilter)) {
     if ($group === 'active') $statusFilter = ['QS','WC','OK','RW'];
     elseif ($group === 'done')  $statusFilter = ['FN'];
 }
+// Overdue isn't a status list — it's an appointment-past-due condition (see query builder)
+$overdueFilter = ($group === 'overdue' && empty($_GET['status']));
 
 [$per, $page, $offset] = get_pager();
 
@@ -84,6 +86,9 @@ if (!empty($statusFilter)) {
     $in = [];
     foreach ($statusFilter as $i => $s) { $k = ":s{$i}"; $in[] = $k; $params[$k] = $s; }
     $where[] = "status IN (" . implode(',', $in) . ")";
+}
+if ($overdueFilter) {
+    $where[] = "status NOT IN ('DV','RT','NCF','NCS') AND appointment_date IS NOT NULL AND appointment_date < CURDATE()";
 }
 if ($dfrom) { $where[] = "DATE(created_at) >= :df"; $params[':df'] = $dfrom; }
 if ($dto)   { $where[] = "DATE(created_at) <= :dt"; $params[':dt'] = $dto; }
@@ -157,14 +162,14 @@ include __DIR__ . '/../templates/header_admin.php';
             <div class="stat-icon" style="background:#f0fdf4;"><span class="material-symbols-rounded" style="color:#10b981;">check_circle</span></div>
             <div><div class="stat-val"><?= number_format($stats['done_count']) ?></div><div class="stat-lbl">ซ่อมเสร็จ รอรับ</div></div>
         </a>
-        <div class="stat-card">
+        <a href="index.php?group=overdue" class="stat-card">
             <div class="stat-icon" style="background:#fef2f2;"><span class="material-symbols-rounded" style="color:#ef4444;">warning</span></div>
             <div><div class="stat-val"><?= number_format($stats['overdue_count']) ?></div><div class="stat-lbl">เกินกำหนดนัด</div></div>
-        </div>
-        <div class="stat-card">
+        </a>
+        <a href="index.php?date_from=<?= date('Y-m-01') ?>&date_to=<?= date('Y-m-t') ?>" class="stat-card">
             <div class="stat-icon" style="background:#fffbeb;"><span class="material-symbols-rounded" style="color:#f59e0b;">calendar_month</span></div>
             <div><div class="stat-val"><?= number_format($stats['this_month']) ?></div><div class="stat-lbl">เปิดงานเดือนนี้</div></div>
-        </div>
+        </a>
     </div>
 
     <!-- ── Filter Bar ── -->
@@ -249,6 +254,10 @@ include __DIR__ . '/../templates/header_admin.php';
             <span class="material-symbols-rounded" style="font-size:14px; vertical-align:middle;">check_circle</span>
             ซ่อมเสร็จ รอรับ
         </a>
+        <a href="<?= $tabBase ?>group=overdue" class="log-tab <?= $group === 'overdue' && !$isManualStatus ? 'active-out' : '' ?>">
+            <span class="material-symbols-rounded" style="font-size:14px; vertical-align:middle;">warning</span>
+            เกินกำหนดนัด
+        </a>
     </div>
 
     <!-- ── Table ── -->
@@ -262,12 +271,12 @@ include __DIR__ . '/../templates/header_admin.php';
                         <th>ลูกค้า</th>
                         <th style="text-align:center; width:170px;">อุปกรณ์</th>
                         <th class="col-snpass" style="width:130px;">S/N &amp; Pass</th>
-                        <th>อาการเสีย</th>
+                        <th class="col-problem">อาการเสีย</th>
                         <th class="col-appt" style="width:90px;">กำหนดนัด</th>
                         <th class="col-timeleft" style="width:100px;">เหลือเวลา</th>
                         <th class="col-price" style="width:88px; text-align:right;">ราคา</th>
                         <th style="width:155px; text-align:center;">สถานะ</th>
-                        <th style="width:110px; text-align:center;">จัดการ</th>
+                        <th class="col-actions" style="width:110px; text-align:center;">จัดการ</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -292,6 +301,9 @@ include __DIR__ . '/../templates/header_admin.php';
                             $timeText  = '—';
                             $timeClass = '';
 
+                            // Soft row tint by status (only these three); overdue/today still override
+                            $stTint = ['QS' => 'tr-st-qs', 'OK' => 'tr-st-ok', 'FN' => 'tr-st-fn'][$stCode] ?? '';
+
                             if ($isDone) {
                                 $rowClass = 'tr-done';
                             } elseif (!empty($row['appointment_date'])) {
@@ -303,7 +315,7 @@ include __DIR__ . '/../templates/header_admin.php';
                                 else                 { $timeText = 'เกิน ' . number_format(abs($days)) . ' วัน'; $timeClass = 'time-danger'; $rowClass = 'tr-overdue'; }
                             }
                         ?>
-                        <tr class="<?= $rowClass ?>" id="trk-row-<?= $row['id'] ?>">
+                        <tr class="<?= trim($rowClass . ' ' . $stTint) ?>" id="trk-row-<?= $row['id'] ?>">
 
                             <td>
                                 <a href="edit.php?id=<?= $row['id'] ?>" class="job-link" onclick="showLoader()">
@@ -346,7 +358,7 @@ include __DIR__ . '/../templates/header_admin.php';
                                 </div>
                             </td>
 
-                            <td>
+                            <td class="col-problem">
                                 <span style="font-size:12px; color:#ef4444; max-width:200px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:inline-block; vertical-align:bottom;"
                                       title="<?= h($cleanP) ?>">
                                     <?= h($cleanP) ?>
@@ -371,7 +383,7 @@ include __DIR__ . '/../templates/header_admin.php';
                                 </div>
                             </td>
 
-                            <td style="text-align:center;">
+                            <td class="col-actions" style="text-align:center;">
                                 <div style="display:flex; justify-content:center; gap:5px;">
                                     <a href="edit.php?id=<?= $row['id'] ?>" class="t-btn t-edit"
                                        title="แก้ไข" onclick="showLoader()">

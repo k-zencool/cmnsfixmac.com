@@ -73,6 +73,15 @@ a.stat-card:hover { border-color: var(--primary); transform: translateY(-2px); b
 [data-theme="dark"] .tr-overdue td { background: rgba(239,68,68,.09) !important; }
 [data-theme="dark"] .tr-today  td  { background: rgba(245,158,11,.08) !important; }
 
+/* Soft row tint by status — รอเช็คราคา / กำลังซ่อม / ซ่อมเสร็จ
+   (no !important, so tr-overdue / tr-today still win) */
+.tr-st-qs td { background: rgba(245,158,11,.06); }   /* amber  — รอเช็คราคา */
+.tr-st-ok td { background: rgba(139,92,246,.06); }   /* purple — กำลังซ่อม */
+.tr-st-fn td { background: rgba(16,185,129,.06); }   /* green  — ซ่อมเสร็จ */
+[data-theme="dark"] .tr-st-qs td { background: rgba(245,158,11,.10); }
+[data-theme="dark"] .tr-st-ok td { background: rgba(139,92,246,.13); }
+[data-theme="dark"] .tr-st-fn td { background: rgba(16,185,129,.10); }
+
 /* ── Action Buttons ── */
 .t-btn {
     width: 30px; height: 30px;
@@ -305,6 +314,13 @@ a.stat-card:hover { border-color: var(--primary); transform: translateY(-2px); b
     .cmns-action-buttons { flex-wrap: wrap; }
     .log-stats { grid-template-columns: repeat(2,1fr) !important; }
 }
+
+/* Phone: drop problem + actions too — show only Job / ลูกค้า / อุปกรณ์ / สถานะ */
+@media (max-width: 600px) {
+    .log-table .col-problem,
+    .log-table .col-actions { display: none; }
+}
+
 @media (max-width: 480px) {
     .log-stats { grid-template-columns: 1fr !important; }
 }
