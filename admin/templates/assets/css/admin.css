@@ -306,6 +306,10 @@ body {
 }
 .toggle-btn:hover, .mobile-toggle-btn:hover { background: var(--bg-surface-alt); color: var(--text-main); }
 
+/* Browser-style history controls (back / forward / refresh) */
+.nav-history-controls { display: flex; align-items: center; gap: 2px; }
+.nav-hist-btn:active { transform: scale(0.9); }
+
 /* ---------------------------------------------------------
    5. CONTENT & GAP FIX
 --------------------------------------------------------- */
@@ -409,6 +413,8 @@ body {
     .close-btn         { display: flex; }
     .toggle-btn        { display: none; }
     .theme-btn         { display: flex !important; }
+    .nav-hist-btn      { display: flex !important; }  /* keep history controls on mobile */
+    .nav-hist-fwd      { display: none !important; }  /* except forward — save width */
     .overlay {
         position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 998;
         display: none; opacity: 0; transition: opacity 0.3s;

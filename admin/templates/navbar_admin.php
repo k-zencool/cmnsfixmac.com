@@ -43,6 +43,20 @@ $firstChar = strtoupper(mb_substr($adminName, 0, 1));
         <button class="mobile-toggle-btn" onclick="toggleSidebarMobile()">
             <span class="material-symbols-rounded">menu</span>
         </button>
+
+        <!-- Browser-style history controls (back / forward / refresh) -->
+        <div class="nav-history-controls">
+            <button type="button" class="toggle-btn nav-hist-btn" onclick="history.back()" title="ย้อนกลับ" aria-label="ย้อนกลับ">
+                <span class="material-symbols-rounded">arrow_back</span>
+            </button>
+            <button type="button" class="toggle-btn nav-hist-btn nav-hist-fwd" onclick="history.forward()" title="ไปหน้าถัดไป" aria-label="ไปหน้าถัดไป">
+                <span class="material-symbols-rounded">arrow_forward</span>
+            </button>
+            <button type="button" class="toggle-btn nav-hist-btn" onclick="location.reload()" title="รีเฟรช" aria-label="รีเฟรช">
+                <span class="material-symbols-rounded">refresh</span>
+            </button>
+        </div>
+
         <h2 class="page-title"><?= isset($pageTitle) ? htmlspecialchars($pageTitle) : 'Dashboard' ?></h2>
     </div>
 
