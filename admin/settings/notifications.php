@@ -42,6 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         notif_set($pdo, 'notify_morning_enabled', isset($_POST['morning']) ? '1' : '0');
         notif_set($pdo, 'notify_evening_enabled', isset($_POST['evening']) ? '1' : '0');
         notif_set($pdo, 'notify_line_enabled',    isset($_POST['line_on']) ? '1' : '0');
+        notif_set($pdo, 'notify_jobs_enabled',    isset($_POST['jobs_on']) ? '1' : '0');
         $flash = 'บันทึกสวิตช์แจ้งเตือนแล้ว';
 
     } elseif ($action === 'save_line') {
@@ -184,8 +185,13 @@ include '../templates/header_admin.php';
                 <span class="nc-sw"></span>
                 <span>รอบ <b>เย็น</b> (19:00)</span>
             </label>
+            <label class="nc-toggle">
+                <input type="checkbox" name="jobs_on" <?= $on('notify_jobs_enabled') ? 'checked' : '' ?>>
+                <span class="nc-sw"></span>
+                <span><b>งานซ่อม</b> (เปิดงาน/แก้ไข ทันที)</span>
+            </label>
         </div>
-        <p class="ln-hint" style="margin:12px 0 14px;">ต้องเปิดทั้ง <b>รอบ</b> (เช้า/เย็น) และ <b>ช่อง LINE</b> ถึงจะส่งแจ้งเตือน</p>
+        <p class="ln-hint" style="margin:12px 0 14px;">ต้องเปิด <b>ช่อง LINE</b> คู่กับสวิตช์ของแต่ละอย่าง (รอบเช้า/เย็น หรือ งานซ่อม) ถึงจะส่งแจ้งเตือน</p>
         <button type="submit" class="cmns-btn cmns-btn-primary">
             <span class="material-symbols-rounded" style="font-size:16px;">save</span> บันทึกสวิตช์
         </button>

@@ -247,6 +247,66 @@ if (!function_exists('line_get_token')) {
         ];
     }
 
+    /**
+     * การ์ดแจ้งเตือนงานซ่อมรายใบ (เปิดงานใหม่ / แก้ไขงาน) — สไตล์ Apple minimal
+     * เดียวกับ line_report_flex ใช้เฉพาะ primitive มาตรฐานที่ LINE ไม่ reject
+     * $rows = [['label'=>'ลูกค้า','value'=>'สมชาย','color'=>optional,'bold'=>optional], ...]
+     * $editUrl ต้องเป็น https เท่านั้นถึงจะแนบปุ่ม (LINE reject uri ที่ไม่ใช่ https)
+     */
+    function line_job_flex(string $title, string $ticket, string $meta, array $rows, string $editUrl = '', string $accent = '#0ea5e9'): array {
+        $ink = '#1d1d1f'; $sub = '#6e6e73'; $muted = '#86868b';
+
+        $body = [];
+        $body[] = ['type' => 'text', 'text' => $title, 'color' => $accent, 'weight' => 'bold', 'size' => 'sm'];
+        $body[] = ['type' => 'text', 'text' => $ticket, 'color' => $ink, 'weight' => 'bold', 'size' => '3xl', 'margin' => 'sm'];
+        if ($meta !== '') $body[] = ['type' => 'text', 'text' => $meta, 'color' => $muted, 'size' => 'xs', 'margin' => 'sm', 'wrap' => true];
+        $body[] = ['type' => 'separator', 'margin' => 'xl'];
+
+        $i = 0;
+        foreach ($rows as $r) {
+            $body[] = ['type' => 'box', 'layout' => 'baseline', 'spacing' => 'md', 'margin' => ($i === 0 ? 'lg' : 'md'), 'contents' => [
+                ['type' => 'text', 'text' => (string)$r['label'], 'color' => $sub, 'size' => 'xs', 'flex' => 2],
+                ['type' => 'text', 'text' => (string)$r['value'], 'color' => $r['color'] ?? $ink,
+                 'size' => 'sm', 'flex' => 5, 'wrap' => true,
+                 'weight' => !empty($r['bold']) ? 'bold' : 'regular'],
+            ]];
+            $i++;
+        }
+        if ($i === 0) $body[] = ['type' => 'text', 'text' => '—', 'color' => $muted, 'size' => 'sm', 'margin' => 'lg'];
+
+        $body[] = ['type' => 'separator', 'margin' => 'xl'];
+        $body[] = ['type' => 'text', 'text' => 'CMNS FixMac', 'color' => '#b0b0b5', 'size' => 'xs', 'align' => 'center', 'margin' => 'lg'];
+
+        $bubble = [
+            'type' => 'bubble', 'size' => 'mega',
+            'body' => ['type' => 'box', 'layout' => 'vertical', 'paddingAll' => '20px', 'contents' => $body],
+        ];
+        // ปุ่มลิงก์เข้าหน้า edit — เฉพาะ https (LINE ไม่รับ http)
+        if ($editUrl !== '' && strpos($editUrl, 'https://') === 0) {
+            $bubble['footer'] = ['type' => 'box', 'layout' => 'vertical', 'paddingAll' => '12px', 'contents' => [
+                ['type' => 'button', 'style' => 'primary', 'height' => 'sm', 'color' => $accent,
+                 'action' => ['type' => 'uri', 'label' => 'เปิดหน้างานซ่อม', 'uri' => $editUrl]],
+            ]];
+        }
+
+        return ['type' => 'flex', 'altText' => trim("$title $ticket"), 'contents' => $bubble];
+    }
+
+    /**
+     * ยิงการ์ดงานซ่อมถ้าสวิตช์เปิด (LINE channel + jobs toggle ใน Notification Center)
+     * fail-safe: พังเงียบ ไม่มีทาง block การบันทึกงาน
+     */
+    function line_job_notify(PDO $pdo, array $flexMsg): array {
+        try {
+            require_once __DIR__ . '/notify_settings.php';
+            if (!notif_bool($pdo, 'notify_line_enabled', true))  return ['skipped' => 'line off'];
+            if (!notif_bool($pdo, 'notify_jobs_enabled', true))  return ['skipped' => 'jobs off'];
+            return line_alert_send($pdo, [$flexMsg]);
+        } catch (Throwable $e) {
+            return ['err' => $e->getMessage()];
+        }
+    }
+
     /** ส่งชุด message (flex+text) ไปหา admin ที่ลงทะเบียน + กลุ่มที่เปิดอยู่ ทีเดียว */
     function line_alert_send(PDO $pdo, array $messages): array {
         $out = ['recipients' => 0, 'sent' => 0, 'failed' => 0];

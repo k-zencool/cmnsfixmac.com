@@ -160,6 +160,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $serial, $pass, $prob_db, $note_db, $accs_db,
                         $cost, $app_date, $pickup_date, $status, $job_date, $admin_id
                     ]);
+                    $newId = (int)$pdo->lastInsertId();
+
+                    // ── LINE alert: การ์ดเปิดงานใหม่ (fail-safe — พังเงียบ ไม่ block การบันทึก) ──
+                    try {
+                        require_once __DIR__ . '/../../includes/line_helper.php';
+                        $stMeta = line_tracking_status($status);
+                        $rows = [
+                            ['label' => 'ลูกค้า',  'value' => $cust_name],
+                            ['label' => 'โทร',     'value' => $cust_phone],
+                            ['label' => 'เครื่อง', 'value' => trim("$type $series $model_code")],
+                        ];
+                        if ($prob_db !== '') $rows[] = ['label' => 'อาการ', 'value' => mb_strimwidth(trim(strip_tags($prob_db)), 0, 80, '…')];
+                        if ($cost > 0)       $rows[] = ['label' => 'ราคา',  'value' => '฿' . number_format($cost)];
+                        if ($app_date)       $rows[] = ['label' => 'นัด',   'value' => date('d/m/Y', strtotime($app_date))];
+                        $rows[] = ['label' => 'สถานะ', 'value' => $stMeta['label'], 'color' => $stMeta['color'], 'bold' => true];
+
+                        $editUrl = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'cmnsfixmac.com') . '/admin/tracking/edit.php?id=' . $newId;
+                        line_job_notify($pdo, line_job_flex(
+                            'เปิดงานซ่อมใหม่', $ticket, date('d/m/Y H:i') . ' น.', $rows, $editUrl, '#10b981'
+                        ));
+                    } catch (Throwable $e) { /* ignore */ }
+
                     $_SESSION['success'] = "เปิดงาน $ticket เรียบร้อย";
                     header("Location: index.php");
                     exit;

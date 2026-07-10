@@ -222,6 +222,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]);
             }
 
+            // ── LINE alert: การ์ดอัปเดตงาน (เฉพาะมีการเปลี่ยนแปลงจริง; fail-safe) ──
+            if (!empty($diff)) {
+                try {
+                    require_once __DIR__ . '/../../includes/line_helper.php';
+
+                    $fmtVal = function ($key, $v) {
+                        if ($v === null || $v === '') return '—';
+                        if ($key === 'status')          return line_tracking_status($v)['label'];
+                        if ($key === 'estimated_cost')  return '฿' . number_format((float)$v);
+                        if (in_array($key, ['appointment_date', 'pickup_date'], true)) return date('d/m/y', strtotime($v));
+                        return mb_strimwidth(trim(strip_tags((string)$v)), 0, 30, '…');
+                    };
+
+                    $rows = [
+                        ['label' => 'ลูกค้า',  'value' => $cust_name],
+                        ['label' => 'เครื่อง', 'value' => trim("$type $model_code")],
+                    ];
+                    // สถานะขึ้นก่อนถ้าเปลี่ยน — ตัวหนา + สีของสถานะใหม่
+                    if (isset($diff['status'])) {
+                        $stMeta = line_tracking_status($status);
+                        $rows[] = ['label' => 'สถานะ',
+                                   'value' => $fmtVal('status', $job['status']) . ' → ' . $stMeta['label'],
+                                   'color' => $stMeta['color'], 'bold' => true];
+                    }
+                    // ที่เหลือ (จำกัด 5 รายการ กันการ์ดยาว)
+                    $n = 0;
+                    foreach ($diff as $key => $d) {
+                        if ($key === 'status') continue;
+                        if (++$n > 5) break;
+                        $rows[] = ['label' => $d['label'],
+                                   'value' => $fmtVal($key, $d['from']) . ' → ' . $fmtVal($key, $d['to'])];
+                    }
+
+                    $editUrl = 'https://' . ($_SERVER['HTTP_HOST'] ?? 'cmnsfixmac.com') . '/admin/tracking/edit.php?id=' . $id;
+                    line_job_notify($pdo, line_job_flex(
+                        'อัปเดตงานซ่อม', $ticket,
+                        'โดย ' . ($admin_name ?: '—') . ' · ' . date('d/m/Y H:i') . ' น.',
+                        $rows, $editUrl, '#0ea5e9'
+                    ));
+                } catch (Throwable $e) { /* ignore */ }
+            }
+
             $_SESSION['success'] = "บันทึกแก้ไขงาน $ticket เรียบร้อย";
             header("Location: index.php");
             exit;
