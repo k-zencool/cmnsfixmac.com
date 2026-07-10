@@ -1,0 +1,393 @@
+/* =========================================================
+   Create Repair Job — v3 redesign
+   Path: admin/tracking/assets/css/create-v3.css
+   Mobile-first, theme-token based (light/dark automatic)
+   ========================================================= */
+
+.cr3-wrap { width: 100%; padding-bottom: 28px; }
+
+/* tighter side gutters — same treatment as tracking index */
+.content-padding { padding-left: 14px !important; padding-right: 14px !important; }
+.cmns-wrapper    { padding-left: 4px; padding-right: 4px; }
+
+/* ── Top bar ── */
+.cr3-topbar { margin-bottom: 18px; }
+.cr3-title {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 1.45rem; font-weight: 800; color: var(--primary);
+    margin: 10px 0 0;
+}
+.cr3-title .material-symbols-rounded { font-size: 30px; }
+
+/* ── Alert ── */
+.cr3-alert {
+    display: flex; align-items: center; gap: 8px;
+    background: rgba(239,68,68,.1); border: 1px solid rgba(239,68,68,.3);
+    color: #dc2626; padding: 12px 16px; border-radius: 12px;
+    margin-bottom: 18px; font-weight: 600; font-size: 14px;
+}
+.cr3-alert .material-symbols-rounded { font-size: 18px; }
+
+/* ── Layout ── */
+.cr3-form { display: flex; flex-direction: column; gap: 16px; }
+.cr3-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.cr3-aside { display: none; }
+
+/* wide desktop: quick-guide panel on the right, form fills the rest.
+   Aside stretches to the form's full height; recent-jobs card absorbs
+   the extra with its "view all" link pinned to the bottom. */
+@media (min-width: 1600px) {
+    .cr3-form {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 360px;
+        gap: 20px;
+        align-items: stretch;
+    }
+    .cr3-aside { display: flex; }
+    .cr3-recent { flex: 1; display: flex; flex-direction: column; }
+    .cr3-recent-all { margin-top: auto; }
+}
+.cr3-cols { display: grid; grid-template-columns: 1fr; gap: 16px; }
+.cr3-col  { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+@media (min-width: 1024px) {
+    .cr3-cols { grid-template-columns: 1.15fr 1fr; }
+
+    /* equal column bottoms: last card of each column stretches to fill,
+       its last field (e.g. symptoms textarea) absorbs the extra height */
+    .cr3-col > .cr3-card:last-child { display: flex; flex-direction: column; flex: 1; }
+    .cr3-col > .cr3-card:last-child .cr3-body { flex: 1; }
+    .cr3-col > .cr3-card:last-child .cr3-body > .cr3-field:last-child { flex: 1; }
+    .cr3-col > .cr3-card:last-child .cr3-body > .cr3-field:last-child .cr3-textarea { flex: 1; }
+}
+
+/* ── Cards ── */
+.cr3-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,.05);
+}
+[data-theme="dark"] .cr3-card { box-shadow: 0 2px 10px rgba(0,0,0,.25); }
+
+/* ── Card headers: colored icon tile + subtitle + step badge ── */
+.cr3-hd {
+    display: flex; align-items: center; gap: 12px;
+    padding: 14px 18px 13px;
+    border-bottom: 1px solid var(--border);
+}
+.cr3-hd-ico {
+    width: 38px; height: 38px; border-radius: 11px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px !important; flex-shrink: 0;
+}
+.cr3-hd-txt { flex: 1; min-width: 0; }
+.cr3-hd-title { font-size: 14.5px; font-weight: 800; color: var(--text-main); line-height: 1.2; }
+.cr3-hd-sub   { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+.cr3-step {
+    width: 24px; height: 24px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; font-weight: 800;
+    background: var(--bg-surface-alt); color: var(--text-muted);
+    border: 1.5px solid var(--border); flex-shrink: 0;
+}
+
+/* accent palettes (icon tile tint + card top glow) */
+.cr3-hd-blue   .cr3-hd-ico { background: rgba(59,130,246,.12);  color: #3b82f6; }
+.cr3-hd-violet .cr3-hd-ico { background: rgba(139,92,246,.12);  color: #8b5cf6; }
+.cr3-hd-red    .cr3-hd-ico { background: rgba(239,68,68,.12);   color: #ef4444; }
+.cr3-hd-teal   .cr3-hd-ico { background: rgba(20,184,166,.12);  color: #14b8a6; }
+.cr3-hd-amber  .cr3-hd-ico { background: rgba(245,158,11,.14);  color: #f59e0b; }
+
+.cr3-hd-blue   .cr3-step { background: rgba(59,130,246,.10); color: #3b82f6; border-color: rgba(59,130,246,.35); }
+.cr3-hd-violet .cr3-step { background: rgba(139,92,246,.10); color: #8b5cf6; border-color: rgba(139,92,246,.35); }
+.cr3-hd-red    .cr3-step { background: rgba(239,68,68,.10);  color: #ef4444; border-color: rgba(239,68,68,.35); }
+.cr3-hd-teal   .cr3-step { background: rgba(20,184,166,.10); color: #14b8a6; border-color: rgba(20,184,166,.35); }
+.cr3-hd-amber  .cr3-step { background: rgba(245,158,11,.10); color: #f59e0b; border-color: rgba(245,158,11,.35); }
+
+/* subtle top accent strip per card */
+.cr3-card { position: relative; }
+.cr3-card:has(.cr3-hd-blue)::before,
+.cr3-card:has(.cr3-hd-violet)::before,
+.cr3-card:has(.cr3-hd-red)::before,
+.cr3-card:has(.cr3-hd-teal)::before,
+.cr3-card:has(.cr3-hd-amber)::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+}
+.cr3-card:has(.cr3-hd-blue)::before   { background: linear-gradient(90deg, #3b82f6, transparent 70%); }
+.cr3-card:has(.cr3-hd-violet)::before { background: linear-gradient(90deg, #8b5cf6, transparent 70%); }
+.cr3-card:has(.cr3-hd-red)::before    { background: linear-gradient(90deg, #ef4444, transparent 70%); }
+.cr3-card:has(.cr3-hd-teal)::before   { background: linear-gradient(90deg, #14b8a6, transparent 70%); }
+.cr3-card:has(.cr3-hd-amber)::before  { background: linear-gradient(90deg, #f59e0b, transparent 70%); }
+
+.cr3-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
+
+/* ── Job slip: gradient ticket-stub look ── */
+.cr3-job {
+    background:
+        radial-gradient(circle at 100% 0%, rgba(37,99,235,.10), transparent 55%),
+        linear-gradient(135deg, rgba(37,99,235,.06), transparent 45%),
+        var(--bg-surface);
+    border-color: rgba(37,99,235,.30);
+}
+.cr3-job-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin: 14px 18px 0;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: var(--primary); color: #fff;
+    font-size: 11px; font-weight: 800; letter-spacing: .8px;
+}
+.cr3-job-badge .material-symbols-rounded { font-size: 14px; }
+.cr3-job-grid {
+    display: grid; grid-template-columns: 1fr; gap: 14px;
+    padding: 12px 18px 16px;
+}
+@media (min-width: 640px) { .cr3-job-grid { grid-template-columns: auto 1fr 1fr; } }
+
+/* logo in front of the job number */
+.cr3-job-logo { display: flex; align-items: center; justify-content: center; padding-right: 6px; }
+.cr3-job-logo img { height: 58px; width: auto; display: block; }
+[data-theme="dark"] .cr3-job-logo img {
+    filter:
+        drop-shadow(0 0 10px rgba(255,255,255,.55))
+        drop-shadow(0 0 3px rgba(255,255,255,.85));
+}
+.cr3-input-ticket {
+    font-family: 'Courier New', monospace;
+    font-weight: 800; font-size: 18px !important;
+    letter-spacing: 1px; color: var(--primary);
+}
+.cr3-hint { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+/* ── Fields ── */
+.cr3-field { display: flex; flex-direction: column; min-width: 0; }
+.cr3-grid2 { display: grid; grid-template-columns: 1fr; gap: 14px; }
+@media (min-width: 640px) { .cr3-grid2 { grid-template-columns: 1fr 1fr; } }
+
+.cr3-label {
+    font-size: 12px; font-weight: 700; color: var(--text-muted);
+    margin-bottom: 6px; letter-spacing: .2px;
+}
+.cr3-req { color: #ef4444; }
+.cr3-label-danger { color: #dc2626; }
+
+.cr3-input {
+    width: 100%;
+    padding: 11px 13px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    background: var(--bg-surface-alt);
+    color: var(--text-main);
+    font-size: 15px; font-family: 'Sarabun', sans-serif;
+    outline: none;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+}
+.cr3-input:focus {
+    border-color: var(--primary);
+    background: var(--bg-surface);
+    box-shadow: 0 0 0 3px rgba(37,99,235,.12);
+}
+/* iOS Safari: date/datetime inputs keep an intrinsic width and blow out
+   of their grid cell — force them to behave like normal block inputs */
+.cr3-input[type="date"],
+.cr3-input[type="datetime-local"] {
+    -webkit-appearance: none;
+    appearance: none;
+    display: block;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    min-height: 46px;   /* appearance:none collapses height when empty */
+}
+.cr3-input::-webkit-date-and-time-value { text-align: left; }
+
+.cr3-input-danger { border-color: rgba(239,68,68,.45); }
+.cr3-input-danger:focus { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,.12); }
+.cr3-input-sm { margin-top: 10px; padding: 9px 12px; font-size: 14px; }
+.cr3-textarea { resize: none; min-height: 44px; line-height: 1.6; }
+
+/* iOS: inputs below 16px trigger zoom-on-focus */
+@media (max-width: 767px) {
+    .cr3-input { font-size: 16px; }
+}
+
+/* ── Chips: equal-width selectable tiles (formal checklist look) ── */
+.cr3-chips {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+    gap: 8px;
+}
+.cr3-chip { position: relative; display: flex; }
+.cr3-chip input {
+    position: absolute; opacity: 0; pointer-events: none;
+}
+.cr3-chip span {
+    display: flex; align-items: center; gap: 8px;
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    background: var(--bg-surface-alt);
+    color: var(--text-main);
+    font-size: 13px; font-weight: 600;
+    cursor: pointer; user-select: none;
+    transition: all .15s;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cr3-chip span:hover { border-color: var(--text-muted); }
+.cr3-chip-ico {
+    font-size: 18px !important;
+    color: var(--text-muted);
+    flex-shrink: 0;
+    transition: color .15s;
+    font-style: normal;
+}
+.cr3-chip input:checked + span .cr3-chip-ico { color: inherit; }
+.cr3-chip input:checked + span {
+    background: rgba(37,99,235,.10);
+    border-color: var(--primary);
+    color: var(--primary);
+}
+.cr3-chip input:focus-visible + span { box-shadow: 0 0 0 3px rgba(37,99,235,.2); }
+
+/* red chips — symptoms */
+.cr3-chip-red input:checked + span {
+    background: rgba(239,68,68,.10);
+    border-color: #ef4444; color: #dc2626;
+}
+[data-theme="dark"] .cr3-chip-red input:checked + span { color: #f87171; }
+
+/* amber chips — device condition */
+.cr3-chip-amber input:checked + span {
+    background: rgba(245,158,11,.12);
+    border-color: #f59e0b; color: #b45309;
+}
+[data-theme="dark"] .cr3-chip-amber input:checked + span { color: #fbbf24; }
+
+/* status chips with color dot */
+.cr3-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+
+/* ── Money input ── */
+.cr3-money { position: relative; }
+.cr3-money-sign {
+    position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+    font-weight: 800; color: var(--text-muted); font-size: 15px; pointer-events: none;
+}
+.cr3-money .cr3-input { padding-left: 32px; font-weight: 700; }
+
+/* ── Quick-day buttons ── */
+.cr3-quickdays { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.cr3-qd {
+    padding: 8px 13px;
+    border-radius: 999px;
+    border: 1.5px solid var(--border);
+    background: var(--bg-surface-alt);
+    color: var(--text-main);
+    font-size: 13px; font-weight: 700; font-family: 'Sarabun', sans-serif;
+    cursor: pointer; transition: all .15s;
+}
+.cr3-qd:hover { border-color: var(--primary); color: var(--primary); background: rgba(37,99,235,.07); }
+.cr3-qd:active { transform: scale(.95); }
+.cr3-qd-input { width: 76px; padding: 8px 10px; text-align: center; font-size: 14px; }
+
+/* ── Sticky action bar ── */
+.cr3-actionbar {
+    position: sticky; bottom: 12px; z-index: 50;
+    display: flex; justify-content: flex-end; gap: 10px;
+    padding: 12px 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 8px 30px rgba(0,0,0,.14);
+}
+[data-theme="dark"] .cr3-actionbar { box-shadow: 0 8px 30px rgba(0,0,0,.45); }
+
+.cr3-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    padding: 11px 22px;
+    border-radius: 10px;
+    font-size: 14px; font-weight: 700; font-family: 'Sarabun', sans-serif;
+    cursor: pointer; text-decoration: none;
+    border: 1.5px solid transparent;
+    transition: all .15s;
+}
+.cr3-btn .material-symbols-rounded { font-size: 18px; }
+.cr3-btn-ghost {
+    background: var(--bg-surface-alt); color: var(--text-main);
+    border-color: var(--border);
+}
+.cr3-btn-ghost:hover { border-color: var(--text-muted); }
+.cr3-btn-save {
+    background: linear-gradient(135deg, #2563eb, #4f8ef7); color: #fff;
+    box-shadow: 0 4px 14px rgba(37,99,235,.35);
+}
+.cr3-btn-save:hover { filter: brightness(1.08); transform: translateY(-1px); }
+.cr3-btn-save:active { transform: scale(.97); }
+
+/* phone: full-width buttons for fat thumbs */
+@media (max-width: 640px) {
+    .cr3-actionbar { bottom: 8px; }
+    .cr3-btn { flex: 1; padding: 13px 10px; }
+}
+
+/* ── Quick guide (aside) ── */
+.cr3-guide-steps {
+    list-style: none; margin: 0; padding: 0;
+    display: flex; flex-direction: column; gap: 13px;
+    counter-reset: step;
+}
+.cr3-guide-steps li { display: flex; gap: 11px; align-items: flex-start; }
+.cr3-guide-steps li i {
+    width: 10px; height: 10px; border-radius: 50%;
+    margin-top: 5px; flex-shrink: 0;
+}
+.cr3-guide-steps li b {
+    display: block; font-size: 13px; font-weight: 800; color: var(--text-main);
+}
+.cr3-guide-steps li span {
+    display: block; font-size: 12px; color: var(--text-muted);
+    line-height: 1.5; margin-top: 1px;
+}
+.cr3-guide-div { height: 1px; background: var(--border); margin: 2px 0; }
+.cr3-guide-tips { display: flex; flex-direction: column; gap: 10px; }
+.cr3-tip {
+    display: flex; gap: 9px; align-items: flex-start;
+    font-size: 12px; color: var(--text-muted); line-height: 1.5;
+}
+.cr3-tip .material-symbols-rounded {
+    font-size: 16px; color: var(--primary); flex-shrink: 0; margin-top: 1px;
+}
+
+/* ── Recent jobs (aside) ── */
+.cr3-aside { flex-direction: column; gap: 16px; }
+.cr3-recent-list { display: flex; flex-direction: column; }
+.cr3-recent-row {
+    display: flex; align-items: center; gap: 9px;
+    padding: 10px 18px;
+    text-decoration: none;
+    border-bottom: 1px solid var(--border);
+    transition: background .12s;
+}
+.cr3-recent-row:hover { background: var(--bg-surface-alt); }
+.cr3-recent-no {
+    font-family: 'Courier New', monospace;
+    font-size: 12.5px; font-weight: 800;
+    color: var(--primary); flex-shrink: 0;
+}
+.cr3-recent-name {
+    flex: 1; min-width: 0;
+    font-size: 12.5px; color: var(--text-main);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.cr3-recent-date { font-size: 11px; color: var(--text-muted); flex-shrink: 0; }
+.cr3-recent-all {
+    display: flex; align-items: center; justify-content: center; gap: 5px;
+    padding: 11px;
+    font-size: 12.5px; font-weight: 700;
+    color: var(--primary); text-decoration: none;
+    transition: background .12s;
+}
+.cr3-recent-all:hover { background: var(--bg-surface-alt); }
+.cr3-recent-all .material-symbols-rounded { font-size: 15px; }
