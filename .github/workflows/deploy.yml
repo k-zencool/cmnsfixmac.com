@@ -16,6 +16,14 @@ jobs:
         with:
           php-version: '7.4'   # MUST match the production host PHP version
 
+      - name: Lint all PHP on 7.4 (block deploy on PHP 8-only syntax)
+        run: |
+          ERRORS=0
+          while IFS= read -r f; do
+            php -l "$f" > /dev/null || ERRORS=1
+          done < <(find . -name "*.php" -not -path "./vendor/*" -not -path "./BackUp/*")
+          exit $ERRORS
+
       - name: Install Composer deps (no dev)
         run: composer install --no-dev --optimize-autoloader --no-interaction
 
