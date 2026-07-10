@@ -1,6 +1,6 @@
 <?php
 /********************************************************************
- * admin/tracking/edit.php  –  Edit Repair Job
+ * admin/tracking/edit.php  –  Edit Repair Job (v3 redesign)
  ********************************************************************/
 
 session_start();
@@ -26,21 +26,65 @@ $wStmt = $pdo->prepare("SELECT id, warranty_no, end_date, status FROM warranties
 $wStmt->execute([$id]);
 $linkedWarranties = $wStmt->fetchAll(PDO::FETCH_ASSOC);
 
-$deviceList = ['iPhone','iPad','MacBook','iMac','Notebook','PC','Mac mini','Mac Studio','Mac Pro','Apple Watch','AirPods','Apple TV','Other'];
-$accsList   = ['ตัวเครื่อง','Adapter','สายชาร์จ','กระเป๋า','Soft Case','กล่อง','Mouse','Keyboard'];
-$stateList  = ['ปกติ/สวย','รอยขีดข่วน','รอยบุบ/ตก','น็อตหาย','เคยแกะซ่อม','แบตบวม','โดนน้ำ','เครื่องประกอบไม่สมบูรณ์'];
-$sympsList  = ['ไฟเข้าเปิดไม่ติด','ไฟไม่เข้าเปิดไม่ติด','จอแตก/เสีย','แบตเสื่อม','คีย์บอร์ดเสีย','Trackpadเสีย','Wifi/BT เสีย','ลงโปรแกรม','ชาร์จไม่เข้า','windows/os'];
+/* value => material icon (values unchanged — saved to DB as-is) */
+$deviceList = [
+    'iPhone'      => 'phone_iphone',
+    'iPad'        => 'tablet_mac',
+    'MacBook'     => 'laptop_mac',
+    'iMac'        => 'desktop_mac',
+    'Notebook'    => 'laptop_windows',
+    'PC'          => 'computer',
+    'Mac mini'    => 'dns',
+    'Mac Studio'  => 'device_hub',
+    'Mac Pro'     => 'memory',
+    'Apple Watch' => 'watch',
+    'AirPods'     => 'headphones',
+    'Apple TV'    => 'tv',
+    'Other'       => 'more_horiz',
+];
+$accsList = [
+    'ตัวเครื่อง' => 'devices',
+    'Adapter'    => 'power',
+    'สายชาร์จ'   => 'cable',
+    'กระเป๋า'    => 'business_center',
+    'Soft Case'  => 'cases',
+    'กล่อง'      => 'inventory_2',
+    'Mouse'      => 'mouse',
+    'Keyboard'   => 'keyboard',
+];
+$stateList = [
+    'ปกติ/สวย'                => 'verified',
+    'รอยขีดข่วน'              => 'draw',
+    'รอยบุบ/ตก'               => 'warning',
+    'น็อตหาย'                 => 'construction',
+    'เคยแกะซ่อม'              => 'home_repair_service',
+    'แบตบวม'                  => 'battery_alert',
+    'โดนน้ำ'                  => 'water_drop',
+    'เครื่องประกอบไม่สมบูรณ์' => 'rule',
+];
+$sympsList = [
+    'ไฟเข้าเปิดไม่ติด'   => 'power',
+    'ไฟไม่เข้าเปิดไม่ติด' => 'power_off',
+    'จอแตก/เสีย'         => 'broken_image',
+    'แบตเสื่อม'          => 'battery_alert',
+    'คีย์บอร์ดเสีย'      => 'keyboard',
+    'Trackpadเสีย'       => 'touch_app',
+    'Wifi/BT เสีย'       => 'wifi_off',
+    'ลงโปรแกรม'          => 'install_desktop',
+    'ชาร์จไม่เข้า'        => 'bolt',
+    'windows/os'         => 'desktop_windows',
+];
 $statusList = [
-    'QS'  => 'รอเช็คราคา',
-    'WC'  => 'รอคอนเฟิร์ม',
-    'OK'  => 'กำลังซ่อม',
-    'RW'  => 'งานแก้/เคลม',
-    'FN'  => 'ซ่อมเสร็จ (รอรับ)',
-    'DV'  => 'ส่งมอบแล้ว',
-    'NCF' => 'ติดต่อไม่ได้ (เสร็จ)',
-    'NCS' => 'ติดต่อไม่ได้ (เสนอ)',
-    'XX'  => 'ยกเลิก',
-    'RT'  => 'รับคืนแล้ว',
+    'QS'  => ['รอเช็คราคา',          '#f59e0b'],
+    'WC'  => ['รอคอนเฟิร์ม',         '#3b82f6'],
+    'OK'  => ['กำลังซ่อม',           '#8b5cf6'],
+    'RW'  => ['งานแก้/เคลม',         '#ef4444'],
+    'FN'  => ['ซ่อมเสร็จ (รอรับ)',   '#10b981'],
+    'DV'  => ['ส่งมอบแล้ว',          '#6b7280'],
+    'NCF' => ['ติดต่อไม่ได้ (เสร็จ)', '#6b7280'],
+    'NCS' => ['ติดต่อไม่ได้ (เสนอ)',  '#6b7280'],
+    'XX'  => ['ยกเลิก',              '#ef4444'],
+    'RT'  => ['รับคืนแล้ว',          '#6b7280'],
 ];
 
 function getCheckedItems($s) {
@@ -52,13 +96,26 @@ function getOtherText($s, $list) {
 }
 
 $savedAccs  = getCheckedItems($job['accessories'] ?? '');
-$otherAccs  = getOtherText($job['accessories'] ?? '', $accsList);
+$otherAccs  = getOtherText($job['accessories'] ?? '', array_keys($accsList));
+
 $savedSymps = [];
 $detailText = $job['problem_details'];
 if (preg_match('/^\[(.*?)\](.*)/s', $job['problem_details'], $m)) {
     $savedSymps = array_map('trim', explode(',', $m[1]));
     $detailText = trim($m[2]);
 }
+// legacy rows were written by CKEditor — flatten the HTML into plain text
+$detailText = trim(strip_tags(preg_replace('/<\/(p|div|li)>|<br\s*\/?>/i', "\n", $detailText)));
+
+// parse technician_note back into state chips + clean note
+// formats in DB: "สภาพ: a, b | Note: xxx" (create) or "สภาพ: a, b | xxx" (edit)
+$savedStates = [];
+$noteText    = $job['technician_note'] ?? '';
+if (preg_match('/^สภาพ:\s*([^|]*)(?:\|\s*(?:Note:\s*)?(.*))?$/su', $noteText, $m)) {
+    $savedStates = array_map('trim', explode(',', $m[1]));
+    $noteText    = trim($m[2] ?? '');
+}
+$otherState = implode(', ', array_diff(array_filter($savedStates), array_keys($stateList)));
 
 /* ── UPDATE ── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -85,6 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $accs_db = implode(', ', array_filter($accs_arr));
 
         $state_arr  = $_POST['state'] ?? [];
+        if (!empty($_POST['state_other'])) $state_arr[] = trim($_POST['state_other']);
         $state_str  = $state_arr ? "สภาพ: " . implode(', ', array_filter($state_arr)) : "";
         $note_input = trim($_POST['technician_note'] ?? '');
         $note_db    = $state_str ? $state_str . " | " . $note_input : $note_input;
@@ -95,7 +153,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $prob_db     = $prob_header . $prob_detail;
 
         $cost        = (float)($_POST['estimated_cost']  ?? 0);
-        $status      = $_POST['status']           ?? 'QS';
+        $status      = array_key_exists($_POST['status'] ?? '', $statusList) ? $_POST['status'] : 'QS';
         $app_date    = !empty($_POST['appointment_date']) ? $_POST['appointment_date'] : null;
         $pickup_date = !empty($_POST['pickup_date'])      ? $_POST['pickup_date']      : null;
         $updated_by  = $_SESSION['user_id'] ?? $_SESSION['admin_id'] ?? $_SESSION['id'] ?? null;
@@ -174,389 +232,442 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 /* ── Prepare date values ── */
-$appVal    = $job['appointment_date'] ? date('Y-m-d\TH:i', strtotime($job['appointment_date'])) : '';
-$pickupVal = !empty($job['pickup_date'])      ? date('Y-m-d\TH:i', strtotime($job['pickup_date']))      : '';
+$appVal    = $job['appointment_date'] ? date('Y-m-d', strtotime($job['appointment_date'])) : '';
+$pickupVal = !empty($job['pickup_date']) ? date('Y-m-d\TH:i', strtotime($job['pickup_date'])) : '';
+
+/* ── Edit history for this job (aside panel, desktop only) ── */
+$histRows = [];
+try {
+    $hStmt = $pdo->prepare("
+        SELECT admin_name, status_old, status_new, diff_json, changed_at
+        FROM tracking_history WHERE tracking_id = ?
+        ORDER BY id DESC LIMIT 12
+    ");
+    $hStmt->execute([$id]);
+    $histRows = $hStmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (PDOException $e) { /* aside only — ignore */ }
 
 require_once __DIR__ . '/../templates/header_admin.php';
 ?>
 
 <link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time() ?>">
 <link rel="stylesheet" href="../templates/assets/css/modal.css?v=1">
-<link rel="stylesheet" href="assets/css/create-style.css?v=<?= time() ?>">
-<link rel="stylesheet" href="assets/css/tracking-index.css?v=<?= time() ?>">
+<link rel="stylesheet" href="assets/css/create-v3.css?v=<?= time() ?>">
 
-<!-- ── Page Header ── -->
-<div style="margin-bottom:16px;">
-    <a href="index.php" class="cmns-back-link">
-        <span class="material-symbols-rounded">arrow_back</span> TRACKING
-    </a>
-</div>
-<div class="cmns-header-bar" style="margin-bottom:20px;">
-    <div>
-        <h1 class="cmns-page-title" style="color:var(--primary);">
-            <span class="material-symbols-rounded" style="font-size:28px;">edit_document</span>
-            แก้ไขงานซ่อม
-        </h1>
-        <p style="color:var(--text-muted); margin-top:5px; font-size:13px;">
-            <code style="background:var(--bg-surface-alt,#f1f5f9); padding:2px 8px; border-radius:6px; font-weight:700;"><?= h($job['ticket_number']) ?></code>
-            &nbsp;·&nbsp; <?= h($job['customer_name']) ?>
-            &nbsp;·&nbsp; <?= h($job['customer_phone']) ?>
-        </p>
+<div class="cr3-wrap">
+
+    <!-- ── Page header ── -->
+    <div class="cr3-topbar">
+        <a href="index.php" class="cmns-back-link">
+            <span class="material-symbols-rounded">arrow_back</span> TRACKING
+        </a>
+        <div class="cr3e-titlebar">
+            <h1 class="cr3-title">
+                <span class="material-symbols-rounded">edit_document</span> แก้ไขงานซ่อม
+                <code class="cr3e-jobcode"><?= h($job['ticket_number']) ?></code>
+            </h1>
+            <p class="cr3e-subline"><?= h($job['customer_name']) ?> · <?= h($job['customer_phone']) ?></p>
+        </div>
     </div>
-    <div class="cmns-action-buttons">
-        <button type="button" id="btnToggleLock" onclick="toggleFormLock()"
-                class="cmns-btn cmns-btn-secondary">
-            <span class="material-symbols-rounded" id="lockIcon">lock</span>
-            <span id="lockLabel">ปลดล็อกแก้ไข</span>
-        </button>
-        <button type="submit" form="editForm" id="btnSave"
-                class="cmns-btn cmns-btn-primary" disabled style="opacity:.45; cursor:not-allowed;">
-            <span class="material-symbols-rounded">save</span> บันทึกการแก้ไข
-        </button>
+
+    <?php if ($errorMsg): ?>
+    <div class="cr3-alert">
+        <span class="material-symbols-rounded">error</span>
+        <?= h($errorMsg) ?>
     </div>
-</div>
+    <?php endif; ?>
 
-<?php if ($errorMsg): ?>
-<div style="background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.3); color:#dc2626; padding:12px 16px; border-radius:10px; margin-bottom:20px; font-weight:600; display:flex; align-items:center; gap:8px; font-size:14px;">
-    <span class="material-symbols-rounded" style="font-size:18px;">error</span>
-    <?= h($errorMsg) ?>
-</div>
-<?php endif; ?>
+    <form method="post" id="editForm" class="cr3-form">
+      <div class="cr3-main">
 
-<form method="post" id="editForm">
-    <input type="hidden" name="id" value="<?= $id ?>">
-
-    <div class="form-wrapper">
-
-        <div class="header-scroll-wrapper">
-            <div class="paper-header">
-                <div class="ph-logo"><img src="/assets/img/Logo1.png" alt="CMNS Logo"></div>
-                <div class="ph-center">
-                    <h1 class="ph-title">ซ่อม Mac เชียงใหม่ By CMNS</h1>
-                    <div class="ph-subtitle">Apple Product Repair Center</div>
-                    <div class="ph-address">482 ม.8 วรุณนิเวศน์ ต.แม่เหียะ อ.เมือง จ.เชียงใหม่ 50100</div>
-                    <div class="ph-contact"><span><span class="material-symbols-rounded">call</span> 084-151-1684</span></div>
+        <!-- ── Job slip: no. + received date ── -->
+        <section class="cr3-card cr3-job">
+            <div class="cr3-job-badge">
+                <span class="material-symbols-rounded">receipt_long</span> ใบรับซ่อม · JOB SLIP
+            </div>
+            <div class="cr3-job-grid">
+                <div class="cr3-job-logo">
+                    <img src="/assets/img/Logo1.png" alt="CMNS FixMac">
                 </div>
-                <div class="ph-box">
-                    <div class="ph-box-title">เลขที่ซ่อม | Job No.</div>
-                    <div class="ph-box-row">
-                        <label>No.</label>
-                        <input type="text" name="ticket_number" class="input-line-dashed" required value="<?= h($job['ticket_number']) ?>">
-                    </div>
-                    <div class="ph-box-row">
-                        <label>Date.</label>
-                        <input type="datetime-local" name="job_date" class="input-line-dashed" required
-                               value="<?= date('Y-m-d\TH:i', strtotime($job['created_at'])) ?>">
-                    </div>
+                <div class="cr3-field">
+                    <label class="cr3-label" for="ticketInput">เลขที่ซ่อม (Job No.) <b class="cr3-req">*</b></label>
+                    <input type="text" name="ticket_number" id="ticketInput" class="cr3-input cr3-input-ticket"
+                           value="<?= h($job['ticket_number']) ?>" required>
+                </div>
+                <div class="cr3-field">
+                    <label class="cr3-label" for="jobDate">วันที่รับเครื่อง</label>
+                    <input type="datetime-local" name="job_date" id="jobDate" class="cr3-input"
+                           value="<?= date('Y-m-d\TH:i', strtotime($job['created_at'])) ?>" required>
                 </div>
             </div>
-        </div>
+        </section>
 
-        <div class="form-body form-body-v2">
-            <div class="v2-layout-clean">
+        <div class="cr3-cols">
+            <div class="cr3-col">
 
                 <!-- ── Customer ── -->
-                <section class="v2-card v2-card--main">
-                    <header class="v2-card__hd"><span class="material-symbols-rounded">person</span> ข้อมูลลูกค้า (Customer)</header>
-                    <div class="v2-pad">
-                        <div class="v2-row v2-row--two">
-                            <div class="v2-field">
-                                <label class="v2-label">ชื่อลูกค้า *</label>
-                                <input type="text" name="customer_name" class="v2-input" required value="<?= h($job['customer_name']) ?>">
+                <section class="cr3-card">
+                    <header class="cr3-hd cr3-hd-blue">
+                        <span class="cr3-hd-ico material-symbols-rounded">person</span>
+                        <div class="cr3-hd-txt">
+                            <div class="cr3-hd-title">ข้อมูลลูกค้า</div>
+                            <div class="cr3-hd-sub">ชื่อและเบอร์ติดต่อกลับ</div>
+                        </div>
+                        <span class="cr3-step">1</span>
+                    </header>
+                    <div class="cr3-body">
+                        <div class="cr3-grid2">
+                            <div class="cr3-field">
+                                <label class="cr3-label">ชื่อลูกค้า <b class="cr3-req">*</b></label>
+                                <input type="text" name="customer_name" class="cr3-input" value="<?= h($job['customer_name']) ?>" required>
                             </div>
-                            <div class="v2-field">
-                                <label class="v2-label">เบอร์โทรศัพท์ *</label>
-                                <input type="tel" name="customer_phone" class="v2-input" required value="<?= h($job['customer_phone']) ?>">
+                            <div class="cr3-field">
+                                <label class="cr3-label">เบอร์โทรศัพท์ <b class="cr3-req">*</b></label>
+                                <input type="tel" name="customer_phone" inputmode="tel" class="cr3-input"
+                                       value="<?= h($job['customer_phone']) ?>" required>
                             </div>
                         </div>
                     </div>
                 </section>
 
-                <div class="v2-row2-clean">
-
-                    <!-- ── Device + Price + Status ── -->
-                    <section class="v2-card v2-card--main">
-                        <header class="v2-card__hd"><span class="material-symbols-rounded">devices</span> ข้อมูลอุปกรณ์ + ราคา + สถานะ</header>
-                        <div class="v2-pad">
-
-                            <div class="v2-block">
-                                <div class="v2-block__hd">อุปกรณ์</div>
-                                <div class="v2-row v2-row--two">
-                                    <div class="v2-field">
-                                        <label class="v2-label">ประเภทเครื่อง</label>
-                                        <select name="device_type" class="v2-input" required>
-                                            <option value="" disabled>-- เลือก --</option>
-                                            <?php foreach ($deviceList as $prod): ?>
-                                                <option value="<?= h($prod) ?>" <?= $job['device_type'] == $prod ? 'selected' : '' ?>><?= h($prod) ?></option>
-                                            <?php endforeach; ?>
-                                        </select>
-                                    </div>
-                                    <div class="v2-field">
-                                        <label class="v2-label">Model Code (รุ่น) *</label>
-                                        <input type="text" name="device_model" class="v2-input" required value="<?= h($job['device_model']) ?>">
-                                    </div>
-                                </div>
-                                <div class="v2-row v2-row--two">
-                                    <div class="v2-field">
-                                        <label class="v2-label">Series / Year</label>
-                                        <input type="text" name="device_series" class="v2-input" value="<?= h($job['device_series'] ?? '') ?>">
-                                    </div>
-                                    <div class="v2-field">
-                                        <label class="v2-label">Serial No.</label>
-                                        <input type="text" name="serial_number" class="v2-input" value="<?= h($job['serial_number']) ?>">
-                                    </div>
-                                </div>
-                                <div class="v2-row v2-row--two">
-                                    <div class="v2-field">
-                                        <label class="v2-label v2-label--danger">Password</label>
-                                        <input type="text" name="device_password" class="v2-input v2-input--danger" value="<?= h($job['device_password']) ?>">
-                                    </div>
-                                    <div class="v2-field">
-                                        <label class="v2-label">หมายเหตุราคา</label>
-                                        <input type="text" name="price_note" class="v2-input" placeholder="Note เพิ่มเติม">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="v2-block v2-block--price">
-                                <div class="v2-block__hd">ราคา</div>
-                                <div class="v2-price-grid">
-                                    <div class="v2-field">
-                                        <label class="v2-label">ราคาประเมิน (บาท)</label>
-                                        <input type="number" name="estimated_cost" class="v2-input v2-input--price" value="<?= (float)$job['estimated_cost'] ?>">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="v2-divider"></div>
-
-                            <!-- ── Dates ── -->
-                            <div class="v2-block">
-                                <div class="v2-block__hd">
-                                    <span class="material-symbols-rounded" style="font-size:18px; vertical-align:-3px; margin-right:4px;">event</span>
-                                    นัดรับ / แจ้งผล
-                                </div>
-                                <div class="v2-row v2-row--two">
-                                    <div class="v2-field">
-                                        <label class="v2-label">อีก (วัน)</label>
-                                        <input type="number" id="daysToFinish" class="v2-input" placeholder="0" min="0" oninput="calcWorkDate()">
-                                    </div>
-                                    <div class="v2-field">
-                                        <label class="v2-label">วันที่นัดหมาย (แจ้งผล)</label>
-                                        <input type="datetime-local" name="appointment_date" id="appDateInput"
-                                               class="v2-input" value="<?= $appVal ?>" oninput="calcDaysFromDate()">
-                                    </div>
-                                </div>
-                                <div class="v2-row" style="grid-template-columns:1fr; margin-top:4px;">
-                                    <div class="v2-field">
-                                        <label class="v2-label" style="display:flex; align-items:center; gap:5px;">
-                                            <span class="material-symbols-rounded" style="font-size:15px; color:#10b981;">check_circle</span>
-                                            วันที่ลูกค้ารับเครื่องคืน
-                                        </label>
-                                        <input type="datetime-local" name="pickup_date" class="v2-input"
-                                               value="<?= $pickupVal ?>" style="border-color:#a7f3d0;">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="v2-divider"></div>
-
-                            <!-- ── Status ── -->
-                            <div class="v2-block">
-                                <div class="v2-block__hd">
-                                    <span class="material-symbols-rounded" style="font-size:18px; vertical-align:-3px; margin-right:4px;">flag</span>
-                                    สถานะงาน (Job Status)
-                                </div>
-                                <div class="v2-checkgrid" style="grid-template-columns:repeat(5,1fr); gap:10px;">
-                                    <?php foreach ($statusList as $code => $label): ?>
-                                        <label class="v2-check">
-                                            <input type="radio" name="status" value="<?= $code ?>" <?= $job['status'] == $code ? 'checked' : '' ?>>
-                                            <span style="font-size:.85rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;"><?= h($label) ?></span>
-                                        </label>
-                                    <?php endforeach; ?>
-                                </div>
-                            </div>
-
+                <!-- ── Device ── -->
+                <section class="cr3-card">
+                    <header class="cr3-hd cr3-hd-violet">
+                        <span class="cr3-hd-ico material-symbols-rounded">devices</span>
+                        <div class="cr3-hd-txt">
+                            <div class="cr3-hd-title">ข้อมูลอุปกรณ์</div>
+                            <div class="cr3-hd-sub">ประเภท รุ่น Serial และรหัสเครื่อง</div>
                         </div>
-                    </section>
+                        <span class="cr3-step">2</span>
+                    </header>
+                    <div class="cr3-body">
 
-                    <!-- ── Checklist ── -->
-                    <section class="v2-card v2-card--main">
-                        <header class="v2-card__hd"><span class="material-symbols-rounded">fact_check</span> ตรวจรับเครื่อง (Checklist)</header>
-                        <div class="v2-pad">
-
-                            <div class="v2-block">
-                                <div class="v2-block__hd">สิ่งที่นำมา (Accessories)</div>
-                                <div class="v2-checkgrid v2-checkgrid--tight">
-                                    <?php foreach ($accsList as $i): $ii = h($i); $chk = in_array($i, $savedAccs) ? 'checked' : ''; ?>
-                                        <label class="v2-check"><input type="checkbox" name="items[]" value="<?= $ii ?>" <?= $chk ?>> <span><?= $ii ?></span></label>
-                                    <?php endforeach; ?>
-                                </div>
-                                <input type="text" name="items_other" class="v2-input v2-input--sm" placeholder="อื่นๆ..." value="<?= h($otherAccs) ?>">
+                        <div class="cr3-field">
+                            <label class="cr3-label">ประเภทเครื่อง</label>
+                            <div class="cr3-chips">
+                                <?php $first = true; foreach ($deviceList as $prod => $ico): $pp = h($prod); ?>
+                                <label class="cr3-chip">
+                                    <input type="radio" name="device_type" value="<?= $pp ?>"
+                                           <?= $job['device_type'] === $prod ? 'checked' : '' ?> <?= $first ? 'required' : '' ?>>
+                                    <span><i class="material-symbols-rounded cr3-chip-ico"><?= $ico ?></i><?= $pp ?></span>
+                                </label>
+                                <?php $first = false; endforeach; ?>
                             </div>
-
-                            <div class="v2-divider"></div>
-
-                            <div class="v2-block">
-                                <div class="v2-block__hd">สภาพเครื่อง / หมายเหตุช่าง</div>
-                                <div class="v2-checkgrid v2-checkgrid--tight" style="margin-bottom:10px;">
-                                    <?php foreach ($stateList as $s): $ss = h($s); ?>
-                                        <label class="v2-check"><input type="checkbox" name="state[]" value="<?= $ss ?>"> <span><?= $ss ?></span></label>
-                                    <?php endforeach; ?>
-                                </div>
-                                <textarea name="technician_note" class="v2-input" rows="3"
-                                          placeholder="ระบุสภาพเครื่อง หรือ หมายเหตุเพิ่มเติม..."><?= h($job['technician_note']) ?></textarea>
-                            </div>
-
-                            <div class="v2-divider"></div>
-
-                            <div class="v2-block v2-block--warn">
-                                <div class="v2-block__hd">อาการเสีย (Symptoms) <span class="v2-req">*</span></div>
-                                <div class="v2-checkgrid v2-checkgrid--wide v2-checkgrid--tight">
-                                    <?php foreach ($sympsList as $sy): $syy = h($sy); $chk = in_array($sy, $savedSymps) ? 'checked' : ''; ?>
-                                        <label class="v2-check"><input type="checkbox" name="symptoms[]" value="<?= $syy ?>" <?= $chk ?>> <span><?= $syy ?></span></label>
-                                    <?php endforeach; ?>
-                                </div>
-                                <div class="mb-0 d-flex flex-column flex-grow-1" style="margin-top:10px;">
-                                    <label class="v2-label fw-bold">
-                                        <span class="material-symbols-rounded" style="font-size:18px; color:#6b7280; vertical-align:-4px; margin-right:6px;">edit_note</span>
-                                        รายละเอียดอาการเสีย
-                                    </label>
-                                    <textarea name="problem_details" id="editorSymptoms"><?= h($detailText) ?></textarea>
-                                </div>
-                            </div>
-
                         </div>
-                    </section>
 
-                </div><!-- .v2-row2-clean -->
-            </div><!-- .v2-layout-clean -->
-        </div><!-- .form-body -->
+                        <div class="cr3-grid2">
+                            <div class="cr3-field">
+                                <label class="cr3-label">Model Code (รุ่น) <b class="cr3-req">*</b></label>
+                                <input type="text" name="device_model" class="cr3-input" value="<?= h($job['device_model']) ?>" required>
+                            </div>
+                            <div class="cr3-field">
+                                <label class="cr3-label">Series / Year</label>
+                                <input type="text" name="device_series" class="cr3-input" value="<?= h($job['device_series'] ?? '') ?>" placeholder="เช่น Pro M1 2020">
+                            </div>
+                        </div>
+                        <div class="cr3-grid2">
+                            <div class="cr3-field">
+                                <label class="cr3-label">Serial No.</label>
+                                <input type="text" name="serial_number" class="cr3-input" value="<?= h($job['serial_number']) ?>" placeholder="S/N">
+                            </div>
+                            <div class="cr3-field">
+                                <label class="cr3-label cr3-label-danger">Password (รหัสเครื่อง)</label>
+                                <input type="text" name="device_password" class="cr3-input cr3-input-danger"
+                                       value="<?= h($job['device_password']) ?>" placeholder="จำเป็นต้องขอเพื่อเทสเครื่อง">
+                            </div>
+                        </div>
 
-        <!-- ── Footer Actions ── -->
-        <div class="footer-actions" style="justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                    </div>
+                </section>
 
-            <!-- ใบประกันที่ผูกกับงานนี้ -->
-            <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                <!-- ── Symptoms ── -->
+                <section class="cr3-card">
+                    <header class="cr3-hd cr3-hd-red">
+                        <span class="cr3-hd-ico material-symbols-rounded">report</span>
+                        <div class="cr3-hd-txt">
+                            <div class="cr3-hd-title">อาการเสีย</div>
+                            <div class="cr3-hd-sub">เลือกอาการ + รายละเอียดเพิ่มเติม</div>
+                        </div>
+                        <span class="cr3-step">3</span>
+                    </header>
+                    <div class="cr3-body">
+                        <div class="cr3-chips">
+                            <?php foreach ($sympsList as $sy => $ico): $syy = h($sy); ?>
+                            <label class="cr3-chip cr3-chip-red">
+                                <input type="checkbox" name="symptoms[]" value="<?= $syy ?>" <?= in_array($sy, $savedSymps, true) ? 'checked' : '' ?>>
+                                <span><i class="material-symbols-rounded cr3-chip-ico"><?= $ico ?></i><?= $syy ?></span>
+                            </label>
+                            <?php endforeach; ?>
+                        </div>
+                        <div class="cr3-field" style="margin-top:12px;">
+                            <label class="cr3-label">รายละเอียดอาการเสีย</label>
+                            <textarea name="problem_details" class="cr3-input cr3-textarea" rows="3"
+                                      placeholder="อธิบายอาการเพิ่มเติม..."><?= h($detailText) ?></textarea>
+                        </div>
+                    </div>
+                </section>
+
+            </div>
+            <div class="cr3-col">
+
+                <!-- ── Check-in checklist ── -->
+                <section class="cr3-card">
+                    <header class="cr3-hd cr3-hd-teal">
+                        <span class="cr3-hd-ico material-symbols-rounded">fact_check</span>
+                        <div class="cr3-hd-txt">
+                            <div class="cr3-hd-title">ตรวจรับเครื่อง</div>
+                            <div class="cr3-hd-sub">ของที่นำมา สภาพเครื่อง หมายเหตุ</div>
+                        </div>
+                        <span class="cr3-step">4</span>
+                    </header>
+                    <div class="cr3-body">
+
+                        <div class="cr3-field">
+                            <label class="cr3-label">สิ่งที่นำมา (Accessories)</label>
+                            <div class="cr3-chips">
+                                <?php foreach ($accsList as $it => $ico): $ii = h($it); ?>
+                                <label class="cr3-chip">
+                                    <input type="checkbox" name="items[]" value="<?= $ii ?>" <?= in_array($it, $savedAccs, true) ? 'checked' : '' ?>>
+                                    <span><i class="material-symbols-rounded cr3-chip-ico"><?= $ico ?></i><?= $ii ?></span>
+                                </label>
+                                <?php endforeach; ?>
+                            </div>
+                            <input type="text" name="items_other" class="cr3-input cr3-input-sm" value="<?= h($otherAccs) ?>" placeholder="อื่นๆ...">
+                        </div>
+
+                        <div class="cr3-field">
+                            <label class="cr3-label">สภาพเครื่อง</label>
+                            <div class="cr3-chips">
+                                <?php foreach ($stateList as $s => $ico): $ss = h($s); ?>
+                                <label class="cr3-chip cr3-chip-amber">
+                                    <input type="checkbox" name="state[]" value="<?= $ss ?>" <?= in_array($s, $savedStates, true) ? 'checked' : '' ?>>
+                                    <span><i class="material-symbols-rounded cr3-chip-ico"><?= $ico ?></i><?= $ss ?></span>
+                                </label>
+                                <?php endforeach; ?>
+                            </div>
+                            <input type="text" name="state_other" class="cr3-input cr3-input-sm" value="<?= h($otherState) ?>" placeholder="สภาพอื่นๆ...">
+                        </div>
+
+                        <div class="cr3-field">
+                            <label class="cr3-label">หมายเหตุช่าง</label>
+                            <textarea name="technician_note" class="cr3-input cr3-textarea" rows="2"
+                                      placeholder="หมายเหตุเพิ่มเติม..."><?= h($noteText) ?></textarea>
+                        </div>
+
+                    </div>
+                </section>
+
+                <!-- ── Price / appointment / status ── -->
+                <section class="cr3-card">
+                    <header class="cr3-hd cr3-hd-amber">
+                        <span class="cr3-hd-ico material-symbols-rounded">payments</span>
+                        <div class="cr3-hd-txt">
+                            <div class="cr3-hd-title">ราคา · นัดหมาย · สถานะ</div>
+                            <div class="cr3-hd-sub">ประเมินราคา วันนัด และสถานะงาน</div>
+                        </div>
+                        <span class="cr3-step">5</span>
+                    </header>
+                    <div class="cr3-body">
+
+                        <div class="cr3-grid2">
+                            <div class="cr3-field">
+                                <label class="cr3-label">ราคาประเมิน (บาท)</label>
+                                <div class="cr3-money">
+                                    <span class="cr3-money-sign">฿</span>
+                                    <input type="number" name="estimated_cost" class="cr3-input" value="<?= (float)$job['estimated_cost'] ?>" min="0" step="any" inputmode="numeric">
+                                </div>
+                            </div>
+                            <div class="cr3-field">
+                                <label class="cr3-label">วันที่นัดหมาย (แจ้งผล)</label>
+                                <input type="date" name="appointment_date" id="appDateInput" class="cr3-input"
+                                       value="<?= $appVal ?>" oninput="calcDaysFromDate()">
+                            </div>
+                        </div>
+
+                        <div class="cr3-field">
+                            <label class="cr3-label">นัดอีกกี่วัน (ข้ามวันอาทิตย์)</label>
+                            <div class="cr3-quickdays">
+                                <?php foreach ([1, 2, 3, 5, 7] as $d): ?>
+                                <button type="button" class="cr3-qd" onclick="setDays(<?= $d ?>)">+<?= $d ?> วัน</button>
+                                <?php endforeach; ?>
+                                <input type="number" id="daysToFinish" class="cr3-input cr3-qd-input" placeholder="วัน" min="0" oninput="calcWorkDate()">
+                            </div>
+                        </div>
+
+                        <div class="cr3-field">
+                            <label class="cr3-label" style="color:#059669;">วันที่ลูกค้ารับเครื่องคืน (ถ้ารับแล้ว)</label>
+                            <input type="datetime-local" name="pickup_date" class="cr3-input" value="<?= $pickupVal ?>">
+                        </div>
+
+                        <div class="cr3-field">
+                            <label class="cr3-label">สถานะงาน</label>
+                            <div class="cr3-chips">
+                                <?php foreach ($statusList as $code => [$label, $color]): ?>
+                                <label class="cr3-chip cr3-chip-status">
+                                    <input type="radio" name="status" value="<?= $code ?>" <?= $job['status'] === $code ? 'checked' : '' ?>>
+                                    <span><i class="cr3-dot" style="background:<?= $color ?>;"></i><?= h($label) ?></span>
+                                </label>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+
+                    </div>
+                </section>
+
+            </div>
+        </div>
+
+        <!-- ── Sticky action bar ── -->
+        <div class="cr3-actionbar cr3e-actionbar">
+            <div class="cr3e-bar-left">
                 <?php foreach ($linkedWarranties as $lw):
-                    $wCls = $lw['status'] === 'active' ? 'color:#059669;background:rgba(16,185,129,.1);border-color:rgba(16,185,129,.3);'
-                          : ($lw['status'] === 'voided' ? 'color:#dc2626;background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.2);'
-                          : 'color:var(--text-muted);background:var(--bg-surface-alt);border-color:var(--border);');
+                    $wCls  = $lw['status'] === 'active' ? 'cr3e-wty-active' : ($lw['status'] === 'voided' ? 'cr3e-wty-voided' : 'cr3e-wty-other');
                     $wIcon = $lw['status'] === 'active' ? 'verified' : ($lw['status'] === 'voided' ? 'block' : 'schedule');
                 ?>
-                <a href="../warranty/view.php?id=<?= $lw['id'] ?>" target="_blank"
-                   class="cmns-btn" style="<?= $wCls ?> border:1px solid; font-size:0.82rem; padding:6px 12px;">
-                    <span class="material-symbols-rounded" style="font-size:15px;"><?= $wIcon ?></span>
+                <a href="../warranty/view.php?id=<?= $lw['id'] ?>" target="_blank" class="cr3e-wty <?= $wCls ?>">
+                    <span class="material-symbols-rounded"><?= $wIcon ?></span>
                     <?= h($lw['warranty_no']) ?>
-                    <span style="opacity:.65; font-size:0.75rem;">(หมด <?= date('d/m/y', strtotime($lw['end_date'])) ?>)</span>
+                    <small>(หมด <?= date('d/m/y', strtotime($lw['end_date'])) ?>)</small>
                 </a>
                 <?php endforeach; ?>
+                <button type="button" onclick="openWarrantyModal()" class="cr3-btn cr3e-btn-warranty">
+                    <span class="material-symbols-rounded">verified_user</span> ออกใบประกัน
+                </button>
             </div>
+            <div class="cr3e-bar-right">
+                <a href="index.php" class="cr3-btn cr3-btn-ghost">
+                    <span class="material-symbols-rounded">close</span> ยกเลิก
+                </a>
+                <button type="button" id="btnToggleLock" onclick="toggleFormLock()" class="cr3-btn cr3-btn-ghost">
+                    <span class="material-symbols-rounded" id="lockIcon">lock</span>
+                    <span id="lockLabel">ปลดล็อกแก้ไข</span>
+                </button>
+                <button type="submit" id="btnSave" class="cr3-btn cr3-btn-save" disabled
+                        onclick="if(document.getElementById('editForm').checkValidity()) showLoader()">
+                    <span class="material-symbols-rounded">save</span> บันทึกการแก้ไข
+                </button>
+            </div>
+        </div>
 
-            <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap;">
-            <a href="index.php" class="cmns-btn cmns-btn-secondary">
-                <span class="material-symbols-rounded">close</span> ยกเลิก
+      </div><!-- /.cr3-main -->
+
+      <!-- ── Edit history (wide desktop only) ── -->
+      <aside class="cr3-aside">
+        <div class="cr3-card">
+            <header class="cr3-hd">
+                <span class="cr3-hd-ico material-symbols-rounded" style="background:rgba(37,99,235,.10); color:var(--primary);">info</span>
+                <div class="cr3-hd-txt">
+                    <div class="cr3-hd-title">ข้อมูลงาน</div>
+                    <div class="cr3-hd-sub"><?= h($job['ticket_number']) ?></div>
+                </div>
+            </header>
+            <div class="cr3-body">
+                <div class="cr3-tip"><span class="material-symbols-rounded">event</span> เปิดงาน <?= date('d/m/Y H:i', strtotime($job['created_at'])) ?></div>
+                <?php if (!empty($job['updated_at'])): ?>
+                <div class="cr3-tip"><span class="material-symbols-rounded">update</span> แก้ไขล่าสุด <?= date('d/m/Y H:i', strtotime($job['updated_at'])) ?></div>
+                <?php endif; ?>
+                <div class="cr3-tip"><span class="material-symbols-rounded">lock</span> ฟอร์มถูกล็อกไว้ — กด "ปลดล็อกแก้ไข" ก่อนแก้ข้อมูล</div>
+            </div>
+        </div>
+
+        <div class="cr3-card cr3-recent">
+            <header class="cr3-hd">
+                <span class="cr3-hd-ico material-symbols-rounded" style="background:rgba(20,184,166,.10); color:#14b8a6;">history</span>
+                <div class="cr3-hd-txt">
+                    <div class="cr3-hd-title">ประวัติการแก้ไข</div>
+                    <div class="cr3-hd-sub">งานนี้ถูกแก้ <?= count($histRows) ?><?= count($histRows) >= 12 ? '+' : '' ?> ครั้ง</div>
+                </div>
+            </header>
+            <div class="cr3-recent-list">
+                <?php if (!$histRows): ?>
+                    <div class="cr3e-hist-empty">ยังไม่มีการแก้ไข</div>
+                <?php endif; ?>
+                <?php foreach ($histRows as $hr):
+                    $stChanged = ($hr['status_old'] ?? '') !== ($hr['status_new'] ?? '');
+                    $nDiff = count(json_decode($hr['diff_json'] ?? '[]', true) ?: []);
+                ?>
+                <div class="cr3-recent-row">
+                    <span class="cr3-recent-no"><?= date('d/m H:i', strtotime($hr['changed_at'])) ?></span>
+                    <span class="cr3-recent-name">
+                        <?= h($hr['admin_name'] ?: '—') ?>
+                        <?php if ($stChanged): ?>
+                            · <?= h($hr['status_old']) ?> → <b style="color:<?= $statusList[$hr['status_new']][1] ?? 'inherit' ?>;"><?= h($hr['status_new']) ?></b>
+                        <?php endif; ?>
+                    </span>
+                    <span class="cr3-recent-date"><?= $nDiff ?> จุด</span>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <a href="history.php" class="cr3-recent-all" onclick="showLoader()">
+                ประวัติทั้งหมด <span class="material-symbols-rounded">arrow_forward</span>
             </a>
-            <button type="button" onclick="openWarrantyModal()"
-               class="cmns-btn" style="background:rgba(245,158,11,.12);color:#b45309;border:1px solid rgba(245,158,11,.4);">
-                <span class="material-symbols-rounded">verified_user</span> ออกใบประกัน
-            </button>
-            <button type="submit" id="btnSaveFooter" class="cmns-btn cmns-btn-primary"
-                    disabled style="opacity:.45; cursor:not-allowed;">
-                <span class="material-symbols-rounded">save</span> บันทึกการแก้ไข
-            </button>
-            </div><!-- right actions -->
-        </div><!-- footer-actions -->
+        </div>
+      </aside>
 
-    </div><!-- .form-wrapper -->
-</form>
+    </form>
+</div>
 
-<script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
 <script>
-let myEditor;
+/* ── Lock / unlock editing ── */
 let isLocked = true;
 
 function setFormState(locked) {
     isLocked = locked;
 
-    // ── Header button ──
-    const btn   = document.getElementById('btnToggleLock');
     const icon  = document.getElementById('lockIcon');
     const label = document.getElementById('lockLabel');
+    const btn   = document.getElementById('btnToggleLock');
+    icon.textContent  = locked ? 'lock' : 'lock_open';
+    label.textContent = locked ? 'ปลดล็อกแก้ไข' : 'ล็อกการแก้ไข';
+    btn.classList.toggle('cr3e-unlocked', !locked);
 
-    if (locked) {
-        icon.textContent  = 'lock';
-        label.textContent = 'ปลดล็อกแก้ไข';
-        btn.style.borderColor = '';
-        btn.style.color       = '';
-    } else {
-        icon.textContent  = 'lock_open';
-        label.textContent = 'ล็อกการแก้ไข';
-        btn.style.borderColor = '#ef4444';
-        btn.style.color       = '#ef4444';
-    }
+    const save = document.getElementById('btnSave');
+    save.disabled = locked;
 
-    // ── Save buttons ──
-    ['btnSave','btnSaveFooter'].forEach(bid => {
-        const el = document.getElementById(bid);
-        if (!el) return;
-        el.disabled          = locked;
-        el.style.opacity     = locked ? '.45' : '1';
-        el.style.cursor      = locked ? 'not-allowed' : 'pointer';
-    });
+    document.querySelectorAll('#editForm input:not([type="hidden"]), #editForm textarea, #editForm .cr3-qd')
+        .forEach(el => { el.disabled = locked; });
 
-    // ── Form inputs ──
-    document.querySelectorAll('#editForm input:not([type="hidden"]), #editForm select, #editForm textarea')
-        .forEach(el => { if (el.id !== 'editorSymptoms') el.disabled = locked; });
-
-    // ── CKEditor ──
-    if (myEditor) {
-        locked ? myEditor.enableReadOnlyMode('lock') : myEditor.disableReadOnlyMode('lock');
-    }
+    document.getElementById('editForm').classList.toggle('cr3e-locked', locked);
 }
-
 function toggleFormLock() { setFormState(!isLocked); }
 
+/* ── Appointment day calculator (skips Sundays — shop closed) ── */
+function setDays(n) {
+    const el = document.getElementById('daysToFinish');
+    el.value = n;
+    calcWorkDate();
+}
 function calcWorkDate() {
-    const dInput = document.getElementById('daysToFinish');
-    const tInput = document.getElementById('appDateInput');
-    const days   = parseInt(dInput?.value ?? '', 10);
-    if (isNaN(days) || days < 0 || !tInput) return;
+    const daysInput   = document.getElementById('daysToFinish');
+    const targetInput = document.getElementById('appDateInput');
+    const daysToAdd   = parseInt(daysInput?.value ?? '', 10);
+    if (isNaN(daysToAdd) || daysToAdd < 0 || !targetInput) return;
     const d = new Date(); let added = 0;
-    while (added < days) { d.setDate(d.getDate() + 1); if (d.getDay() !== 0) added++; }
-    updateDateInput(tInput, d);
+    while (added < daysToAdd) { d.setDate(d.getDate() + 1); if (d.getDay() !== 0) added++; }
+    const pad = n => String(n).padStart(2, '0');
+    targetInput.value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 function calcDaysFromDate() {
-    const dInput = document.getElementById('daysToFinish');
-    const tInput = document.getElementById('appDateInput');
-    if (!tInput?.value || !dInput) return;
-    const target = new Date(tInput.value);
-    const today  = new Date();
-    target.setHours(0,0,0,0); today.setHours(0,0,0,0);
-    if (target < today) { dInput.value = 0; return; }
+    const daysInput   = document.getElementById('daysToFinish');
+    const targetInput = document.getElementById('appDateInput');
+    if (!targetInput?.value || !daysInput) return;
+    const target = new Date(targetInput.value);
+    const today  = new Date(); target.setHours(0,0,0,0); today.setHours(0,0,0,0);
+    if (target < today) { daysInput.value = 0; return; }
     let count = 0; const tmp = new Date(today);
     while (tmp < target) { tmp.setDate(tmp.getDate() + 1); if (tmp.getDay() !== 0) count++; }
-    dInput.value = count;
+    daysInput.value = count;
 }
-function updateDateInput(input, date) {
-    const pad = n => String(n).padStart(2,'0');
-    input.value = `${date.getFullYear()}-${pad(date.getMonth()+1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-}
+
+/* ── Auto-grow textareas ── */
+document.querySelectorAll('.cr3-textarea').forEach(t => {
+    const grow = () => { t.style.height = 'auto'; t.style.height = (t.scrollHeight + 2) + 'px'; };
+    t.addEventListener('input', grow); grow();
+});
 
 window.addEventListener('load', function() {
     calcDaysFromDate();
-    const el = document.querySelector('#editorSymptoms');
-    if (el && typeof ClassicEditor !== 'undefined') {
-        ClassicEditor.create(el, {
-            toolbar: ['undo','redo','|','heading','|','bold','italic','link','bulletedList','numberedList','|','removeFormat'],
-            shouldNotGroupWhenFull: true
-        }).then(editor => {
-            myEditor = editor;
-            setFormState(true);
-        }).catch(console.error);
-    } else {
-        setFormState(true);
-    }
+    setFormState(true);
 });
 </script>
 
