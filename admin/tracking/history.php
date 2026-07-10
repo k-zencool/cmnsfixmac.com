@@ -102,6 +102,19 @@ $stmt->execute();
 $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 $totalCount = $total;
 
+/* ── Stats (top cards) ── */
+$hStats = ['total' => 0, 'today_cnt' => 0, 'week_cnt' => 0, 'st_cnt' => 0];
+try {
+    $hStats = $pdo->query("
+        SELECT
+            COUNT(*) AS total,
+            COALESCE(SUM(DATE(changed_at) = CURDATE()), 0)              AS today_cnt,
+            COALESCE(SUM(changed_at >= NOW() - INTERVAL 7 DAY), 0)      AS week_cnt,
+            COALESCE(SUM(status_old <> status_new), 0)                  AS st_cnt
+        FROM tracking_history
+    ")->fetch(PDO::FETCH_ASSOC);
+} catch (PDOException $e) { /* cards only — ignore */ }
+
 /* ── Labels for diff fields ── */
 $fieldLabels = [
     'status'           => 'สถานะ',
@@ -182,6 +195,26 @@ require_once __DIR__ . '/../templates/header_admin.php';
         </div>
     </div>
 
+    <!-- ── Stat Cards (shop-style, same as tracking index) ── -->
+    <div class="trk-stats" style="margin-bottom:24px;">
+        <a href="history.php?date_from=<?= date('Y-m-d') ?>&date_to=<?= date('Y-m-d') ?>" class="stat-card">
+            <div class="stat-icon" style="background:#eff6ff;"><span class="material-symbols-rounded" style="color:#3b82f6;">edit_note</span></div>
+            <div><div class="stat-val"><?= number_format($hStats['today_cnt']) ?></div><div class="stat-lbl">แก้ไขวันนี้</div></div>
+        </a>
+        <a href="history.php?date_from=<?= date('Y-m-d', strtotime('-6 days')) ?>&date_to=<?= date('Y-m-d') ?>" class="stat-card">
+            <div class="stat-icon" style="background:#f0fdf4;"><span class="material-symbols-rounded" style="color:#10b981;">date_range</span></div>
+            <div><div class="stat-val"><?= number_format($hStats['week_cnt']) ?></div><div class="stat-lbl">7 วันล่าสุด</div></div>
+        </a>
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#f5f3ff;"><span class="material-symbols-rounded" style="color:#8b5cf6;">flag</span></div>
+            <div><div class="stat-val"><?= number_format($hStats['st_cnt']) ?></div><div class="stat-lbl">เปลี่ยนสถานะ</div></div>
+        </div>
+        <a href="history.php" class="stat-card">
+            <div class="stat-icon" style="background:#fffbeb;"><span class="material-symbols-rounded" style="color:#f59e0b;">history</span></div>
+            <div><div class="stat-val"><?= number_format($hStats['total']) ?></div><div class="stat-lbl">ทั้งหมด</div></div>
+        </a>
+    </div>
+
     <!-- ── Filter Bar ── -->
     <form method="GET" action="history.php">
         <div class="log-filter-bar">
@@ -246,11 +279,11 @@ require_once __DIR__ . '/../templates/header_admin.php';
                         <th style="width:90px;">เวลา</th>
                         <th style="width:110px;">Job No.</th>
                         <th style="width:160px;">ลูกค้า</th>
-                        <th style="width:150px;">อุปกรณ์</th>
+                        <th class="hcol-dev" style="width:150px;">อุปกรณ์</th>
                         <th>การเปลี่ยนแปลง</th>
-                        <th style="width:110px; text-align:center;">สถานะใหม่</th>
-                        <th style="width:100px; text-align:center;">ผู้แก้ไข</th>
-                        <th style="width:46px;"></th>
+                        <th class="hcol-status" style="width:110px; text-align:center;">สถานะใหม่</th>
+                        <th class="hcol-editor" style="width:100px; text-align:center;">ผู้แก้ไข</th>
+                        <th class="hcol-arrow" style="width:46px;"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -290,12 +323,20 @@ require_once __DIR__ . '/../templates/header_admin.php';
                     <tr>
                         <td style="font-family:monospace; font-size:12px; color:var(--text-muted); white-space:nowrap;">
                             <?= date('H:i', $ts) ?>
+                            <?php if (!empty($row['admin_name'])): ?>
+                            <!-- folded on ≤1200px: editor -->
+                            <div class="trk-fold trk-fold-sub" style="font-family:'Sarabun',sans-serif;"><?= h($row['admin_name']) ?></div>
+                            <?php endif; ?>
                         </td>
 
                         <td>
                             <a href="edit.php?id=<?= $row['tracking_id'] ?>" class="job-link" onclick="showLoader()">
                                 <?= h($row['ticket_number']) ?>
                             </a>
+                            <?php if ($stNew): ?>
+                            <!-- folded on ≤600px: new status -->
+                            <div class="trk-fold-600 trk-fold-sub"><span class="st-mini <?= $stNew['class'] ?>"><?= h($stNew['label']) ?></span></div>
+                            <?php endif; ?>
                         </td>
 
                         <td>
@@ -303,9 +344,11 @@ require_once __DIR__ . '/../templates/header_admin.php';
                                 <?= h($row['customer_name']) ?>
                             </div>
                             <div style="font-size:11px; color:var(--text-muted);"><?= h($row['customer_phone']) ?></div>
+                            <!-- folded on ≤1200px: device -->
+                            <div class="trk-fold trk-fold-sub" style="color:var(--text-muted);"><?= h($row['device_type']) ?> · <?= h($row['device_model']) ?></div>
                         </td>
 
-                        <td>
+                        <td class="hcol-dev">
                             <div style="font-size:13px; font-weight:600; color:var(--text-main);">
                                 <?= h($row['device_type']) ?>
                             </div>
@@ -358,7 +401,7 @@ require_once __DIR__ . '/../templates/header_admin.php';
                         </td>
 
                         <!-- ── New status ── -->
-                        <td style="text-align:center;">
+                        <td class="hcol-status" style="text-align:center;">
                             <?php if ($stNew): ?>
                                 <span class="status-badge <?= $stNew['class'] ?>"><?= h($stNew['label']) ?></span>
                             <?php else: ?>
@@ -367,7 +410,7 @@ require_once __DIR__ . '/../templates/header_admin.php';
                         </td>
 
                         <!-- ── Editor ── -->
-                        <td style="text-align:center;">
+                        <td class="hcol-editor" style="text-align:center;">
                             <?php if (!empty($row['admin_name'])): ?>
                                 <span style="font-size:12px; font-weight:600; color:var(--text-main);"><?= h($row['admin_name']) ?></span>
                             <?php else: ?>
@@ -375,7 +418,7 @@ require_once __DIR__ . '/../templates/header_admin.php';
                             <?php endif; ?>
                         </td>
 
-                        <td style="text-align:center;">
+                        <td class="hcol-arrow" style="text-align:center;">
                             <a href="edit.php?id=<?= $row['tracking_id'] ?>" class="t-btn t-edit" title="ดู/แก้ไข" onclick="showLoader()">
                                 <span class="material-symbols-rounded">chevron_right</span>
                             </a>

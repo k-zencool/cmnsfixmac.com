@@ -429,6 +429,18 @@ a.stat-card:hover { border-color: var(--primary); transform: translateY(-2px); b
     .log-table .col-actions { display: none; }
 }
 
+/* ── History page: same column-folding treatment ── */
+.trk-fold-600 { display: none; }
+@media (max-width: 1200px) {
+    .log-table .hcol-dev,
+    .log-table .hcol-editor { display: none; }
+}
+@media (max-width: 600px) {
+    .log-table .hcol-status,
+    .log-table .hcol-arrow { display: none; }
+    .trk-fold-600 { display: block; }
+}
+
 @media (max-width: 480px) {
     .log-stats { grid-template-columns: 1fr !important; }
 }
