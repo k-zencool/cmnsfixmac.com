@@ -15,6 +15,16 @@ $pageTitle = "Repair History";
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 function getv($k, $d = null){ return isset($_GET[$k]) ? trim($_GET[$k]) : $d; }
 
+function get_pager(): array {
+    $per  = max(5, min(200, (int)getv('per', 20)));
+    $page = max(1, (int)getv('page', 1));
+    return [$per, $page, ($page - 1) * $per];
+}
+function page_url(int $i): string {
+    $q = $_GET; $q['page'] = max(1, $i);
+    return '?' . http_build_query($q);
+}
+
 function th_date_label($strDate) {
     if (!$strDate) return '-';
     $ts     = strtotime($strDate);
@@ -58,6 +68,22 @@ if ($dTo)   { $where[] = "DATE(h.changed_at) <= :dt"; $params[':dt'] = $dTo; }
 
 $whereSql = "WHERE " . implode(" AND ", $where);
 
+[$per, $page, $offset] = get_pager();
+
+// Count
+$stmtCnt = $pdo->prepare("
+    SELECT COUNT(*)
+    FROM tracking_history h
+    JOIN tracking t ON h.tracking_id = t.id
+    $whereSql
+");
+$stmtCnt->execute($params);
+$total = (int)($stmtCnt->fetchColumn() ?: 0);
+
+$pages = max(1, (int)ceil($total / $per));
+if ($page > $pages) { $page = $pages; $offset = ($page - 1) * $per; }
+
+// Fetch
 $stmt = $pdo->prepare("
     SELECT
         h.*,
@@ -67,11 +93,14 @@ $stmt = $pdo->prepare("
     JOIN tracking t ON h.tracking_id = t.id
     $whereSql
     ORDER BY h.changed_at DESC
-    LIMIT 300
+    LIMIT :lim OFFSET :off
 ");
-$stmt->execute($params);
+foreach ($params as $k => $v) $stmt->bindValue($k, $v);
+$stmt->bindValue(':lim', $per, PDO::PARAM_INT);
+$stmt->bindValue(':off', $offset, PDO::PARAM_INT);
+$stmt->execute();
 $logs = $stmt->fetchAll(PDO::FETCH_ASSOC);
-$totalCount = count($logs);
+$totalCount = $total;
 
 /* ── Labels for diff fields ── */
 $fieldLabels = [
@@ -356,6 +385,44 @@ require_once __DIR__ . '/../templates/header_admin.php';
                 </tbody>
             </table>
         </div>
+
+        <!-- Pagination -->
+        <div class="log-pagination">
+            <div>
+                แสดง <b><?= number_format(min($total, $offset + 1)) ?>–<?= number_format(min($total, $offset + $per)) ?></b>
+                จาก <b><?= number_format($total) ?></b> รายการ
+                &nbsp;·&nbsp; หน้า <?= $page ?> / <?= $pages ?>
+            </div>
+            <div class="page-btns">
+                <a href="<?= $page > 1 ? page_url($page - 1) : '#' ?>"
+                   class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>"
+                   onclick="if(<?= (int)($page > 1) ?>) showLoader()">
+                    <span class="material-symbols-rounded" style="font-size:16px;">chevron_left</span>
+                </a>
+
+                <?php
+                $start = max(1, $page - 2);
+                $end   = min($pages, $start + 4);
+                for ($p = $start; $p <= $end; $p++):
+                ?>
+                    <a href="<?= page_url($p) ?>" class="page-btn <?= $p === $page ? 'active' : '' ?>"
+                       onclick="showLoader()"><?= $p ?></a>
+                <?php endfor; ?>
+
+                <a href="<?= $page < $pages ? page_url($page + 1) : '#' ?>"
+                   class="page-btn <?= $page >= $pages ? 'disabled' : '' ?>"
+                   onclick="if(<?= (int)($page < $pages) ?>) showLoader()">
+                    <span class="material-symbols-rounded" style="font-size:16px;">chevron_right</span>
+                </a>
+
+                <select onchange="goPerPage(this)"
+                    style="padding:6px 10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-surface); color:var(--text-main); font-size:13px; outline:none; cursor:pointer; font-family:'Sarabun',sans-serif;">
+                    <?php foreach ([20, 50, 100] as $pp): ?>
+                        <option value="<?= $pp ?>" <?= $per === $pp ? 'selected' : '' ?>><?= $pp ?>/หน้า</option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        </div>
     </div>
 
 </div><!-- .cmns-wrapper -->
@@ -371,6 +438,13 @@ window.addEventListener('pageshow', () => {
     const el = document.getElementById('global-loader');
     if (el) el.style.display = 'none';
 });
+function goPerPage(sel) {
+    showLoader();
+    const u = new URL(location.href);
+    u.searchParams.set('per', sel.value);
+    u.searchParams.set('page', '1');
+    location = u.toString();
+}
 function toggleHFilter(e) {
     e.stopPropagation();
     const menu = document.getElementById('hFilterMenu');
