@@ -147,27 +147,23 @@ include __DIR__ . '/../templates/header_admin.php';
         </div>
     </div>
 
-    <!-- ── Stat Cards ── -->
-    <div class="log-stats" style="margin-bottom:24px;">
-        <a href="index.php?group=active" class="log-stat-card stat-accent-blue" style="text-decoration:none;">
-            <span class="stat-label">กำลังดำเนินการ</span>
-            <span class="stat-value"><?= number_format($stats['active_count']) ?></span>
-            <span class="stat-sub">QS · WC · OK · RW</span>
+    <!-- ── Stat Cards (shop-style: icon + value + label) ── -->
+    <div class="trk-stats" style="margin-bottom:24px;">
+        <a href="index.php?group=active" class="stat-card">
+            <div class="stat-icon" style="background:#eff6ff;"><span class="material-symbols-rounded" style="color:#3b82f6;">pending_actions</span></div>
+            <div><div class="stat-val"><?= number_format($stats['active_count']) ?></div><div class="stat-lbl">กำลังดำเนินการ</div></div>
         </a>
-        <a href="index.php?group=done" class="log-stat-card stat-accent-green" style="text-decoration:none;">
-            <span class="stat-label">ซ่อมเสร็จ รอรับ</span>
-            <span class="stat-value"><?= number_format($stats['done_count']) ?></span>
-            <span class="stat-sub">สถานะ FN</span>
+        <a href="index.php?group=done" class="stat-card">
+            <div class="stat-icon" style="background:#f0fdf4;"><span class="material-symbols-rounded" style="color:#10b981;">check_circle</span></div>
+            <div><div class="stat-val"><?= number_format($stats['done_count']) ?></div><div class="stat-lbl">ซ่อมเสร็จ รอรับ</div></div>
         </a>
-        <div class="log-stat-card stat-accent-red">
-            <span class="stat-label">เกินกำหนดนัด</span>
-            <span class="stat-value"><?= number_format($stats['overdue_count']) ?></span>
-            <span class="stat-sub">นัดผ่านมาแล้ว</span>
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#fef2f2;"><span class="material-symbols-rounded" style="color:#ef4444;">warning</span></div>
+            <div><div class="stat-val"><?= number_format($stats['overdue_count']) ?></div><div class="stat-lbl">เกินกำหนดนัด</div></div>
         </div>
-        <div class="log-stat-card stat-accent-yellow">
-            <span class="stat-label">เปิดงานเดือนนี้</span>
-            <span class="stat-value"><?= number_format($stats['this_month']) ?></span>
-            <span class="stat-sub"><?= date('M Y') ?></span>
+        <div class="stat-card">
+            <div class="stat-icon" style="background:#fffbeb;"><span class="material-symbols-rounded" style="color:#f59e0b;">calendar_month</span></div>
+            <div><div class="stat-val"><?= number_format($stats['this_month']) ?></div><div class="stat-lbl">เปิดงานเดือนนี้</div></div>
         </div>
     </div>
 
@@ -262,14 +258,14 @@ include __DIR__ . '/../templates/header_admin.php';
                 <thead>
                     <tr>
                         <th style="width:110px;">Job No.</th>
-                        <th style="width:85px;">วันที่รับ</th>
+                        <th class="col-datein" style="width:85px;">วันที่รับ</th>
                         <th>ลูกค้า</th>
                         <th style="text-align:center; width:170px;">อุปกรณ์</th>
-                        <th style="width:130px;">S/N &amp; Pass</th>
+                        <th class="col-snpass" style="width:130px;">S/N &amp; Pass</th>
                         <th>อาการเสีย</th>
-                        <th style="width:90px;">กำหนดนัด</th>
-                        <th style="width:100px;">เหลือเวลา</th>
-                        <th style="width:88px; text-align:right;">ราคา</th>
+                        <th class="col-appt" style="width:90px;">กำหนดนัด</th>
+                        <th class="col-timeleft" style="width:100px;">เหลือเวลา</th>
+                        <th class="col-price" style="width:88px; text-align:right;">ราคา</th>
                         <th style="width:155px; text-align:center;">สถานะ</th>
                         <th style="width:110px; text-align:center;">จัดการ</th>
                     </tr>
@@ -313,9 +309,11 @@ include __DIR__ . '/../templates/header_admin.php';
                                 <a href="edit.php?id=<?= $row['id'] ?>" class="job-link" onclick="showLoader()">
                                     <?= h($row['ticket_number']) ?>
                                 </a>
+                                <!-- folded on ≤1200px: received date -->
+                                <div class="trk-fold trk-fold-sub" style="color:var(--text-muted);">รับ <?= $dateIn ?></div>
                             </td>
 
-                            <td style="font-size:12px; color:var(--text-muted); white-space:nowrap;"><?= $dateIn ?></td>
+                            <td class="col-datein" style="font-size:12px; color:var(--text-muted); white-space:nowrap;"><?= $dateIn ?></td>
 
                             <td>
                                 <div style="font-weight:600; font-size:13px; color:var(--text-main);">
@@ -332,9 +330,14 @@ include __DIR__ . '/../templates/header_admin.php';
                                     <span style="font-weight:400; color:var(--text-muted);"><?= h($row['device_series'] ?? '') ?></span>
                                 </div>
                                 <div style="font-size:11px; color:var(--text-muted); margin-top:2px;"><?= h($row['device_model']) ?></div>
+                                <!-- folded on ≤1200px: S/N & Pass -->
+                                <div class="trk-fold trk-fold-sub" style="font-family:monospace; text-align:center; margin-top:4px;">
+                                    <span style="color:var(--text-muted);">SN: <?= h($row['serial_number'] ?: '—') ?></span><br>
+                                    <span style="color:#dc2626; font-weight:700;">Pass: <?= h($row['device_password'] ?: '—') ?></span>
+                                </div>
                             </td>
 
-                            <td>
+                            <td class="col-snpass">
                                 <div style="font-family:monospace; font-size:11px; color:var(--text-muted);">
                                     SN: <?= h($row['serial_number'] ?: '—') ?>
                                 </div>
@@ -350,24 +353,26 @@ include __DIR__ . '/../templates/header_admin.php';
                                 </span>
                             </td>
 
-                            <td style="font-size:12px; color:var(--text-muted); white-space:nowrap;"><?= $dateApp ?></td>
+                            <td class="col-appt" style="font-size:12px; color:var(--text-muted); white-space:nowrap;"><?= $dateApp ?></td>
 
-                            <td><span class="<?= $timeClass ?>"><?= $timeText ?></span></td>
+                            <td class="col-timeleft"><span class="<?= $timeClass ?>"><?= $timeText ?></span></td>
 
-                            <td style="text-align:right; font-weight:700; font-size:13px;">
+                            <td class="col-price" style="text-align:right; font-weight:700; font-size:13px;">
                                 <?= number_format($row['estimated_cost']) ?>
                             </td>
 
                             <td style="text-align:center;">
                                 <span class="status-badge <?= $stData['class'] ?>"><?= h($stData['label']) ?></span>
+                                <!-- folded on ≤1200px: price + appointment + time-left -->
+                                <div class="trk-fold trk-fold-sub" style="margin-top:6px;">
+                                    <div style="font-weight:700; color:var(--text-main);">฿<?= number_format($row['estimated_cost']) ?></div>
+                                    <div style="color:var(--text-muted);">นัด <?= $dateApp ?></div>
+                                    <div><span class="<?= $timeClass ?>"><?= $timeText ?></span></div>
+                                </div>
                             </td>
 
                             <td style="text-align:center;">
                                 <div style="display:flex; justify-content:center; gap:5px;">
-                                    <a href="print_job.php?id=<?= $row['id'] ?>" target="_blank"
-                                       class="t-btn t-print" title="พิมพ์ใบรับซ่อม">
-                                        <span class="material-symbols-rounded">print</span>
-                                    </a>
                                     <a href="edit.php?id=<?= $row['id'] ?>" class="t-btn t-edit"
                                        title="แก้ไข" onclick="showLoader()">
                                         <span class="material-symbols-rounded">edit</span>

@@ -3,6 +3,38 @@
    Path: admin/tracking/assets/css/tracking-index.css
    ========================================================= */
 
+/* ── Tighter side gutters: use more screen width (this page only) ── */
+.content-padding { padding-left: 14px !important; padding-right: 14px !important; }
+.cmns-wrapper    { padding-left: 4px; padding-right: 4px; }
+
+/* ── Stat cards — shop-management style (icon + value + label) ── */
+.trk-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
+.stat-card {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px 18px;
+    display: flex; align-items: center; gap: 14px;
+    text-decoration: none; color: inherit;
+    transition: border-color .15s, transform .15s, box-shadow .15s;
+}
+a.stat-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.08); }
+[data-theme="dark"] a.stat-card:hover { box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+.stat-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.stat-icon .material-symbols-rounded { font-size: 20px; }
+.stat-val { font-size: 22px; font-weight: 800; color: var(--text-main); line-height: 1; }
+.stat-lbl { font-size: 11px; color: var(--text-muted); margin-top: 3px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+@media (max-width: 900px) { .trk-stats { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { .trk-stats { grid-template-columns: 1fr; } }
+
+/* ── Table — shop-management style: clean transparent header, tighter rows ── */
+.log-table th {
+    background: var(--bg-surface);
+    padding: 10px 12px;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: .4px;
+    border-bottom: 1px solid var(--border);
+}
+.log-table td { padding: 11px 12px; }
+
 /* ── Status Badges ── */
 .status-badge {
     display: inline-flex; align-items: center; justify-content: center;
@@ -52,7 +84,6 @@
 }
 .t-btn .material-symbols-rounded { font-size: 16px; line-height: 1; }
 .t-btn:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(0,0,0,.1); }
-.t-print:hover { color: var(--text-main); border-color: var(--text-muted); }
 .t-edit:hover  { color: var(--primary); background: rgba(37,99,235,.07); border-color: var(--primary); }
 .t-del:hover   { color: #ef4444; background: rgba(239,68,68,.07); border-color: #ef4444; }
 
@@ -244,7 +275,32 @@
     color: var(--primary) !important;
 }
 
+/* ── Folded sub-lines: hidden on desktop, shown when columns collapse ── */
+.trk-fold { display: none; }
+.trk-fold-sub { font-size: 11px; line-height: 1.55; margin-top: 3px; }
+
 /* ── Responsive ── */
+
+/* Tablet / iPad (both orientations): merge low-priority columns into
+   their neighbours so the table fits without horizontal scroll.
+   Desktop ≥1200px is left untouched (full 11-column table). */
+@media (max-width: 1200px) {
+    .log-card > div[style*="overflow-x"] { overflow-x: visible; }
+
+    /* collapse these columns — their data is folded into Job / อุปกรณ์ / สถานะ */
+    .log-table .col-datein,
+    .log-table .col-snpass,
+    .log-table .col-appt,
+    .log-table .col-timeleft,
+    .log-table .col-price { display: none; }
+
+    .trk-fold { display: block; }
+
+    /* tighter cell padding to reclaim width */
+    .log-table th, .log-table td { padding-left: 9px; padding-right: 9px; }
+    .status-badge { min-width: 0; }
+}
+
 @media (max-width: 768px) {
     .cmns-action-buttons { flex-wrap: wrap; }
     .log-stats { grid-template-columns: repeat(2,1fr) !important; }
