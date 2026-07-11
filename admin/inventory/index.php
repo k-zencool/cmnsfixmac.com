@@ -5,7 +5,7 @@ require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/_helpers.php';
 require_login();
 
-$pageTitle = "Inventory Dashboard";
+$pageTitle = "คลังอะไหล่";
 include '../templates/header_admin.php';
 
 // 1. Get Type from URL
@@ -13,11 +13,11 @@ $current_type = isset($_GET['type']) ? $_GET['type'] : 'all';
 
 // Setup Header UI
 $header_map = [
-    'all'     => ['title' => 'ALL INVENTORY',            'icon' => 'inventory_2',  'color' => 'var(--primary)'],
-    'new'     => ['title' => 'NEW PARTS (STOCK)',        'icon' => 'new_releases', 'color' => '#10b981'],
-    'used'    => ['title' => 'USED PARTS (GOOD/TEST)',   'icon' => 'build',        'color' => '#f59e0b'],
-    'machine' => ['title' => 'MACHINE / SALVAGE',        'icon' => 'memory',       'color' => '#8b5cf6'],
-    'sale'    => ['title' => 'SALE ITEMS (OFFER)',       'icon' => 'sell',         'color' => '#ef4444']
+    'all'     => ['title' => 'คลังอะไหล่ทั้งหมด',          'icon' => 'inventory_2',  'color' => 'var(--primary)'],
+    'new'     => ['title' => 'อะไหล่ใหม่ (สต็อก)',         'icon' => 'new_releases', 'color' => '#10b981'],
+    'used'    => ['title' => 'อะไหล่มือสอง (ถอดเครื่อง)',  'icon' => 'build',        'color' => '#f59e0b'],
+    'machine' => ['title' => 'เครื่อง / ซากแยกอะไหล่',     'icon' => 'memory',       'color' => '#8b5cf6'],
+    'sale'    => ['title' => 'เครื่องพร้อมขาย',            'icon' => 'sell',         'color' => '#ef4444']
 ];
 
 $header = $header_map[$current_type] ?? $header_map['all'];
@@ -119,19 +119,19 @@ foreach ($root_categories as $key => $cat) {
                 <?= $header_title ?>
             </h1>
             <p style="color: var(--text-muted); margin-top: 5px; font-size: 14px;">
-                Total <b><?= number_format($total_items) ?></b> items in this section
+                ทั้งหมด <b><?= number_format($total_items) ?></b> รายการในหมวดนี้
             </p>
         </div>
         <div class="cmns-action-buttons">
             <a href="logs.php" class="cmns-btn cmns-btn-secondary">
-                <span class="material-symbols-rounded">receipt_long</span> LOGS
+                <span class="material-symbols-rounded">receipt_long</span> ประวัติสต็อก
             </a>
             <a href="categories.php" class="cmns-btn cmns-btn-secondary">
-                <span class="material-symbols-rounded">account_tree</span> CATEGORIES
+                <span class="material-symbols-rounded">account_tree</span> หมวดหมู่
             </a>
             <?php if (can('parts.manage')): ?>
             <button onclick="openAddModal()" class="cmns-btn cmns-btn-primary">
-                <span class="material-symbols-rounded">add_circle</span> ADD ITEM
+                <span class="material-symbols-rounded">add_circle</span> เพิ่มสินค้า
             </button>
             <?php endif; ?>
         </div>
@@ -173,17 +173,17 @@ foreach ($root_categories as $key => $cat) {
 
     <div class="cmns-controls-bar">
         <div class="cmns-tabs">
-            <a href="index.php?type=all"     class="cmns-tab <?= $current_type == 'all'     ? 'active-all'     : '' ?>"><span class="material-symbols-rounded">apps</span> ALL</a>
-            <a href="index.php?type=new"     class="cmns-tab <?= $current_type == 'new'     ? 'active-new'     : '' ?>"><span class="material-symbols-rounded">new_releases</span> NEW</a>
-            <a href="index.php?type=used"    class="cmns-tab <?= $current_type == 'used'    ? 'active-used'    : '' ?>"><span class="material-symbols-rounded">build</span> USED</a>
-            <a href="index.php?type=machine" class="cmns-tab <?= $current_type == 'machine' ? 'active-machine' : '' ?>"><span class="material-symbols-rounded">memory</span> MACHINE</a>
-            <a href="index.php?type=sale"    class="cmns-tab <?= $current_type == 'sale'    ? 'active-sale'    : '' ?>"><span class="material-symbols-rounded">sell</span> SALE</a>
+            <a href="index.php?type=all"     class="cmns-tab <?= $current_type == 'all'     ? 'active-all'     : '' ?>"><span class="material-symbols-rounded">apps</span> ทั้งหมด</a>
+            <a href="index.php?type=new"     class="cmns-tab <?= $current_type == 'new'     ? 'active-new'     : '' ?>"><span class="material-symbols-rounded">new_releases</span> ของใหม่</a>
+            <a href="index.php?type=used"    class="cmns-tab <?= $current_type == 'used'    ? 'active-used'    : '' ?>"><span class="material-symbols-rounded">build</span> มือสอง</a>
+            <a href="index.php?type=machine" class="cmns-tab <?= $current_type == 'machine' ? 'active-machine' : '' ?>"><span class="material-symbols-rounded">memory</span> เครื่อง/ซาก</a>
+            <a href="index.php?type=sale"    class="cmns-tab <?= $current_type == 'sale'    ? 'active-sale'    : '' ?>"><span class="material-symbols-rounded">sell</span> ขาย</a>
         </div>
         <div class="cmns-view-toggle">
-            <button onclick="setViewMode('grid')" id="btn-view-grid" class="cmns-view-btn" title="Grid View">
+            <button onclick="setViewMode('grid')" id="btn-view-grid" class="cmns-view-btn" title="มุมมองตาราง">
                 <span class="material-symbols-rounded">grid_view</span>
             </button>
-            <button onclick="setViewMode('list')" id="btn-view-list" class="cmns-view-btn" title="List View">
+            <button onclick="setViewMode('list')" id="btn-view-list" class="cmns-view-btn" title="มุมมองรายการ">
                 <span class="material-symbols-rounded">view_list</span>
             </button>
         </div>
@@ -199,11 +199,11 @@ foreach ($root_categories as $key => $cat) {
 
         <?php if ($current_type == 'all'): ?>
         <div class="cmns-filter-group">
-            <button class="cmns-filter-btn" data-filter="new" onclick="toggleFilter(this)">NEW</button>
-            <button class="cmns-filter-btn" data-filter="used" onclick="toggleFilter(this)">USED</button>
-            <button class="cmns-filter-btn" data-filter="machine" onclick="toggleFilter(this)">MACHINE</button>
-            <button class="cmns-filter-btn" data-filter="sale" onclick="toggleFilter(this)">SALE</button>
-            <button class="cmns-filter-btn" data-filter="empty" onclick="toggleFilter(this)">EMPTY</button>
+            <button class="cmns-filter-btn" data-filter="new" onclick="toggleFilter(this)">ของใหม่</button>
+            <button class="cmns-filter-btn" data-filter="used" onclick="toggleFilter(this)">มือสอง</button>
+            <button class="cmns-filter-btn" data-filter="machine" onclick="toggleFilter(this)">เครื่อง/ซาก</button>
+            <button class="cmns-filter-btn" data-filter="sale" onclick="toggleFilter(this)">ขาย</button>
+            <button class="cmns-filter-btn" data-filter="empty" onclick="toggleFilter(this)">ว่าง</button>
         </div>
         <?php endif; ?>
     </div>
@@ -227,11 +227,11 @@ foreach ($root_categories as $key => $cat) {
                 
                 <div class="cmns-stats-container">
                     <?php 
-                        if(($current_type == 'all' || $current_type == 'new') && $s['new'] > 0) echo '<span class="cmns-stat-badge stat-new">NEW: '.$s['new'].'</span>';
-                        if(($current_type == 'all' || $current_type == 'used') && $s['used'] > 0) echo '<span class="cmns-stat-badge stat-used">USED: '.$s['used'].'</span>';
-                        if(($current_type == 'all' || $current_type == 'machine') && $s['machine'] > 0) echo '<span class="cmns-stat-badge stat-machine">MACH: '.$s['machine'].'</span>';
-                        if(($current_type == 'all' || $current_type == 'sale') && $s['sale'] > 0) echo '<span class="cmns-stat-badge stat-sale">SALE: '.$s['sale'].'</span>';
-                        if($total_q == 0) echo '<span class="cmns-stat-badge stat-empty">EMPTY</span>';
+                        if(($current_type == 'all' || $current_type == 'new') && $s['new'] > 0) echo '<span class="cmns-stat-badge stat-new">ใหม่ '.$s['new'].'</span>';
+                        if(($current_type == 'all' || $current_type == 'used') && $s['used'] > 0) echo '<span class="cmns-stat-badge stat-used">มือสอง '.$s['used'].'</span>';
+                        if(($current_type == 'all' || $current_type == 'machine') && $s['machine'] > 0) echo '<span class="cmns-stat-badge stat-machine">เครื่อง '.$s['machine'].'</span>';
+                        if(($current_type == 'all' || $current_type == 'sale') && $s['sale'] > 0) echo '<span class="cmns-stat-badge stat-sale">ขาย '.$s['sale'].'</span>';
+                        if($total_q == 0) echo '<span class="cmns-stat-badge stat-empty">ว่าง</span>';
                     ?>
                 </div>
             </a>
