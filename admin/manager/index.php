@@ -15,8 +15,10 @@ require_perms(['manager.center']);
 
 require_once __DIR__ . '/_status.php';
 
-list($group, $st, $jobs) = mgr_fetch_stuck_jobs($pdo, $STATUS);
+list($group, $st, $dev, $jobs) = mgr_fetch_stuck_jobs($pdo, $STATUS);
 $group_codes = array_keys(array_filter($STATUS, function ($m) use ($group) { return $m['group'] === $group; }));
+$device_counts = mgr_device_counts($pdo, $STATUS, $group, $st);
+$dev_qs = $dev !== '' ? '&dev=' . urlencode($dev) : '';
 
 // ── นับต่อ status (ทั้งสองกลุ่ม สำหรับ chips) ──
 $all_codes = array_keys($STATUS);
@@ -49,6 +51,15 @@ include '../templates/header_admin.php';
 .mgr-chip.active { border-width:1.5px; }
 .mgr-chip .dot { width:8px; height:8px; border-radius:50%; }
 .mgr-chip .n { font-weight:800; color:var(--text-main); }
+
+.mgr-dev-sel {
+    padding:7px 30px 7px 14px; border-radius:20px;
+    font-family:inherit; font-size:12.5px; font-weight:700;
+    background:var(--bg-surface); border:1px solid var(--border); color:var(--text-main);
+    cursor:pointer; appearance:none;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 10px center;
+}
 
 .mgr-card {
     background:var(--bg-surface); border:1px solid var(--border);
@@ -104,7 +115,7 @@ include '../templates/header_admin.php';
             <a href="../tracking/" class="cmns-btn cmns-btn-secondary">
                 <span class="material-symbols-rounded">build</span> TRACKING
             </a>
-            <a href="print.php?group=<?= $group ?><?= $st !== '' ? '&st=' . $st : '' ?>" target="_blank" class="cmns-btn cmns-btn-primary">
+            <a href="print.php?group=<?= $group ?><?= $st !== '' ? '&st=' . $st : '' ?><?= $dev_qs ?>" target="_blank" class="cmns-btn cmns-btn-primary">
                 <span class="material-symbols-rounded">print</span> พิมพ์ TODO
             </a>
         </div>
@@ -112,10 +123,10 @@ include '../templates/header_admin.php';
 
     <!-- group tabs -->
     <div class="cmns-tabs" style="margin-bottom:14px;">
-        <a href="?group=todo" class="cmns-tab <?= $group === 'todo' && $st === '' ? 'active-all' : '' ?>">
+        <a href="?group=todo<?= $dev_qs ?>" class="cmns-tab <?= $group === 'todo' && $st === '' ? 'active-all' : '' ?>">
             <span class="material-symbols-rounded">engineering</span> ร้านต้องทำ (<?= $cnt_todo ?>)
         </a>
-        <a href="?group=waiting" class="cmns-tab <?= $group === 'waiting' && $st === '' ? 'active-all' : '' ?>">
+        <a href="?group=waiting<?= $dev_qs ?>" class="cmns-tab <?= $group === 'waiting' && $st === '' ? 'active-all' : '' ?>">
             <span class="material-symbols-rounded">hail</span> รอลูกค้ามารับ (<?= $cnt_waiting ?>)
         </a>
     </div>
@@ -123,14 +134,25 @@ include '../templates/header_admin.php';
     <!-- status chips ของกลุ่มที่เลือก -->
     <div class="mgr-chips">
         <?php foreach ($group_codes as $code): $m = $STATUS[$code]; $c = (int)($counts[$code] ?? 0); ?>
-        <a href="?group=<?= $group ?>&st=<?= $code ?>"
+        <a href="?group=<?= $group ?>&st=<?= $code ?><?= $dev_qs ?>"
            class="mgr-chip <?= $st === $code ? 'active' : '' ?>"
            <?= $st === $code ? 'style="border-color:' . $m['color'] . '; color:' . $m['color'] . ';"' : '' ?>>
             <span class="dot" style="background:<?= $m['color'] ?>;"></span>
             <?= $m['label'] ?> <span class="n"><?= $c ?></span>
         </a>
         <?php endforeach; ?>
-        <?php if ($st !== ''): ?>
+
+        <!-- filter ประเภทเครื่อง -->
+        <select class="mgr-dev-sel" onchange="location.href=this.value">
+            <option value="?group=<?= $group ?><?= $st !== '' ? '&st=' . $st : '' ?>">ทุกประเภทเครื่อง</option>
+            <?php foreach ($device_counts as $d => $c): ?>
+            <option value="?group=<?= $group ?><?= $st !== '' ? '&st=' . $st : '' ?>&dev=<?= urlencode($d) ?>" <?= $dev === $d ? 'selected' : '' ?>>
+                <?= htmlspecialchars($d) ?> (<?= $c ?>)
+            </option>
+            <?php endforeach; ?>
+        </select>
+
+        <?php if ($st !== '' || $dev !== ''): ?>
         <a href="?group=<?= $group ?>" class="mgr-chip">✕ ล้าง filter</a>
         <?php endif; ?>
     </div>

@@ -11,7 +11,7 @@ require_once __DIR__ . '/_status.php';
 require_login();
 require_perms(['manager.center']);
 
-list($group, $st, $jobs) = mgr_fetch_stuck_jobs($pdo, $STATUS);
+list($group, $st, $dev, $jobs) = mgr_fetch_stuck_jobs($pdo, $STATUS);
 
 // จัดกลุ่มตาม status เพื่อพิมพ์เป็น section
 $sections = [];
@@ -19,6 +19,7 @@ foreach ($jobs as $j) $sections[$j['status']][] = $j;
 
 $group_label = $group === 'todo' ? 'ร้านต้องทำ' : 'รอลูกค้ามารับ';
 $title = $st !== '' ? ($STATUS[$st]['label'] ?? $st) : $group_label;
+if ($dev !== '') $title .= ' · ' . $dev;
 $printed_by = $_SESSION['admin_username'] ?? '-';
 ?>
 <!DOCTYPE html>
