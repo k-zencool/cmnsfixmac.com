@@ -7,6 +7,7 @@
 session_start();
 require_once '../../includes/db.php';
 require_once '../../includes/manager_lib.php';
+require_once __DIR__ . '/../../includes/auth.php';
 
 if (!isset($_SESSION['admin_id'])) {
     http_response_code(403);

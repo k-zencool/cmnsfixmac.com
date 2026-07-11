@@ -4,6 +4,7 @@ session_start();
 require_once '../../includes/db.php';
 require_once __DIR__ . '/../../includes/image_lib.php';
 require_once __DIR__ . '/../../includes/manager_lib.php';
+require_once __DIR__ . '/../../includes/auth.php';
 
 if (!isset($_SESSION['admin_id']) || $_SERVER['REQUEST_METHOD'] !== 'POST') {
     header("Location: index.php"); exit();

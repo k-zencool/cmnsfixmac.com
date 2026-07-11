@@ -7,11 +7,8 @@
 
 session_start();
 require_once '../../includes/db.php';
-
-if (!isset($_SESSION['admin_id'])) {
-    header("Location: ../login.php");
-    exit();
-}
+require_once __DIR__ . '/../../includes/auth.php';
+require_login();
 
 /* ── Filters ── */
 $filter_action  = $_GET['action']  ?? 'all';   // all | IN | OUT

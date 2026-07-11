@@ -1,11 +1,8 @@
 <?php
 session_start();
 require_once '../../includes/db.php';
-
-if (!isset($_SESSION['admin_id'])) {
-    header("Location: ../login.php");
-    exit();
-}
+require_once __DIR__ . '/../../includes/auth.php';
+require_login();
 
 // Hard-delete privilege: ONLY super_admin with id = 1. ห้ามผูกกับ role string — ล็อกที่ id ตรงๆ
 // ซ่อนตอนสวมมุมมองยศอื่น (view-as) เพื่อให้ preview เหมือนยศนั้นจริงๆ

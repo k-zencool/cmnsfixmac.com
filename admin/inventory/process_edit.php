@@ -3,6 +3,7 @@ session_start();
 require_once '../../includes/db.php';
 require_once __DIR__ . '/../../includes/image_lib.php';
 require_once __DIR__ . '/../../includes/manager_lib.php';
+require_once __DIR__ . '/../../includes/auth.php';
 
 if (!isset($_SESSION['admin_id'])) {
     header("Location: ../login.php");
@@ -11,6 +12,7 @@ if (!isset($_SESSION['admin_id'])) {
 
 // AJAX: ดึงข้อมูล item สำหรับฟอร์มแก้ไข
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['action']) && $_GET['action'] === 'get_item') {
+    require_perms_json(['parts.manage']); // ข้อมูลรวม cost — จำกัดสิทธิ์เดียวกับคนที่เปิด edit modal ได้
     header('Content-Type: application/json');
     $id = (int)($_GET['id'] ?? 0);
     $stmt = $pdo->prepare("

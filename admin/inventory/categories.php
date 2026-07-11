@@ -1,11 +1,8 @@
 <?php
 session_start();
 require_once '../../includes/db.php';
-
-if (!isset($_SESSION['admin_id'])) {
-    header("Location: ../login.php");
-    exit();
-}
+require_once __DIR__ . '/../../includes/auth.php';
+require_login();
 
 $pageTitle = "จัดการโครงสร้างคลังอะไหล่";
 include '../templates/header_admin.php';
