@@ -41,8 +41,19 @@ include '../templates/header_admin.php';
 <link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time(); ?>">
 <link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= time(); ?>">
 <style>
-/* ── ระยะขอบเท่าหน้า tracking ── */
-.content-padding { padding: 14px 14px 30px !important; }
+/* ── ระยะขอบเท่าหน้า tracking เป๊ะ (tracking-index.css:7-8) ── */
+.content-padding { padding-left: 14px !important; padding-right: 14px !important; }
+.cmns-wrapper    { padding-left: 4px; padding-right: 4px; }
+
+/* ── ตารางความแน่นเดียวกับ tracking (tracking-index.css:30-37) ── */
+.log-table th {
+    background: var(--bg-surface);
+    padding: 10px 12px;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: .4px;
+    border-bottom: 1px solid var(--border);
+}
+.log-table td { padding: 11px 12px; }
 
 /* ── status chips ── */
 .mgr-chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; align-items:center; }
