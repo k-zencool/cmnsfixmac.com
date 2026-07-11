@@ -1,3 +1,10 @@
+function switchEditTab(name) {
+    ['details', 'stock'].forEach(t => {
+        document.getElementById(`edit-tab-${t}`).classList.toggle('active', t === name);
+        document.getElementById(`edit-tab-btn-${t}`).classList.toggle('active', t === name);
+    });
+}
+
 function openEditModal(id) {
     const modal = document.getElementById('modal-edit');
     const form  = document.getElementById('form-edit-item');
@@ -6,11 +13,16 @@ function openEditModal(id) {
     document.body.style.overflow = 'hidden';
     form.style.display = 'none';
     loading.style.display = 'block';
+    switchEditTab('details');
 
     fetch(`process_edit.php?action=get_item&id=${id}`)
-        .then(r => r.json())
+        .then(r => {
+            if (r.status === 403) throw new Error('no-perm');
+            if (!r.ok) throw new Error('http-' + r.status);
+            return r.json();
+        })
         .then(item => {
-            if (!item) { alert('ไม่พบข้อมูล'); closeEditModal(); return; }
+            if (!item || item.ok === false) { alert('ไม่พบข้อมูล'); closeEditModal(); return; }
 
             document.getElementById('edit-id').value         = item.id;
             document.getElementById('edit-name').value       = item.name || '';
@@ -50,7 +62,14 @@ function openEditModal(id) {
             loading.style.display = 'none';
             form.style.display = 'block';
         })
-        .catch(() => { alert('โหลดข้อมูลล้มเหลว'); closeEditModal(); });
+        .catch(err => {
+            const noPerm = err && err.message === 'no-perm';
+            const msg = noPerm ? 'ไม่มีสิทธิ์แก้ไขสินค้า (parts.manage)' : 'โหลดข้อมูลล้มเหลว';
+            if (typeof Swal !== 'undefined') {
+                Swal.fire({ icon: 'error', title: msg, toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
+            } else { alert(msg); }
+            closeEditModal();
+        });
 }
 
 function applyStatusOptions(type, totalQty, currentStatus) {
@@ -126,16 +145,17 @@ function toggleEditTypeFields() {
     try { item = JSON.parse(form.dataset.item || '{}'); } catch(e) {}
     let html = '';
 
-    if (type === 'new') {
-        const curQty = parseInt(item.total_qty) || 0;
-        html = `
-            <div><label class="cmns-label">เลขพาร์ท (Part No.)</label><input type="text" name="part_number" class="cmns-input" value="${esc(item.part_number)}" placeholder="เช่น 661-123"></div>
-            <div><label class="cmns-label">รุ่นรองรับ (Model)</label><input type="text" name="compatible_models" class="cmns-input" value="${esc(item.compatible_models)}" placeholder="เช่น A2337"></div>
-            <div>
-                <label class="cmns-label" style="color:#f59e0b;">เตือนของหมด (Min Qty)</label>
-                <input type="number" name="min_qty" class="cmns-input" value="${item.min_qty || 1}" min="0">
-            </div>
-            <div>
+    // ── Stock tab: adjust block (เฉพาะ new) + โชว์ tab เฉพาะ type ที่มี lot ──
+    const adjBlock  = document.getElementById('edit-adjust-block');
+    const stockBtn  = document.getElementById('edit-tab-btn-stock');
+    const hasStock  = (type === 'new' || type === 'used');
+    if (stockBtn) stockBtn.style.display = hasStock ? '' : 'none';
+    if (!hasStock) switchEditTab('details');
+
+    if (adjBlock) {
+        if (type === 'new') {
+            const curQty = parseInt(item.total_qty) || 0;
+            adjBlock.innerHTML = `
                 <label class="cmns-label" style="display:flex;justify-content:space-between;">
                     <span>ปรับสต็อก (Adjust)</span>
                     <span style="color:var(--text-muted);font-weight:400;">ปัจจุบัน: <b style="color:var(--text-main);">${curQty}</b></span>
@@ -153,7 +173,19 @@ function toggleEditTypeFields() {
                            class="cmns-input" style="flex:1; opacity:.35; pointer-events:none;"
                            oninput="updateAdjPreview(${curQty})">
                 </div>
-                <div id="adj-preview" style="font-size:11px;color:var(--text-muted);margin-top:4px;min-height:16px;"></div>
+                <div id="adj-preview" style="font-size:11px;color:var(--text-muted);margin-top:4px;min-height:16px;"></div>`;
+        } else {
+            adjBlock.innerHTML = '';
+        }
+    }
+
+    if (type === 'new') {
+        html = `
+            <div><label class="cmns-label">เลขพาร์ท (Part No.)</label><input type="text" name="part_number" class="cmns-input" value="${esc(item.part_number)}" placeholder="เช่น 661-123"></div>
+            <div><label class="cmns-label">รุ่นรองรับ (Model)</label><input type="text" name="compatible_models" class="cmns-input" value="${esc(item.compatible_models)}" placeholder="เช่น A2337"></div>
+            <div>
+                <label class="cmns-label" style="color:#f59e0b;">เตือนของหมด (Min Qty)</label>
+                <input type="number" name="min_qty" class="cmns-input" value="${item.min_qty || 1}" min="0">
             </div>
         `;
     } else if (type === 'used') {
@@ -255,43 +287,8 @@ function previewEditImage(input) {
 function closeEditModal() {
     const modal = document.getElementById('modal-edit');
     if (modal) { modal.classList.remove('show'); document.body.style.overflow = 'auto'; }
-    // reset restock section
+    // reset restock inputs (ว่าง = backend ไม่เติม lot)
     const rs = document.getElementById('restock-section');
-    const btn = document.getElementById('btn-toggle-restock');
-    if (rs)  { rs.style.display = 'none'; rs.querySelectorAll('input').forEach(i => { if(i.name !== 'qty_received') i.value = i.defaultValue || ''; else i.value = 1; }); }
-    if (btn) { btn.style.background = 'rgba(16,185,129,.1)'; btn.style.color = '#059669'; }
-    // โชว์ส่วนแก้โปรไฟล์กลับ + คืนหัวข้อ (เผื่อปิดตอนอยู่โหมดเติมสต็อก)
-    ['edit-info-bar', 'edit-profile-block', 'edit-dynamic-fields'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.classList.remove('rs-hidden');
-    });
-    const ttl0 = document.getElementById('edit-modal-title-text');
-    if (ttl0) ttl0.textContent = 'แก้ไขข้อมูลสินค้า';
-}
-
-function toggleRestockSection() {
-    const rs   = document.getElementById('restock-section');
-    const btn  = document.getElementById('btn-toggle-restock');
-    const opening = rs.style.display !== 'block';   // กำลังจะเปิดโหมดเติมสต็อก?
-    rs.style.display = opening ? 'block' : 'none';
-    rs.querySelectorAll('input').forEach(i => i.disabled = !opening);
-
-    // เติมสต็อก = โชว์แค่ส่วนล่าง → ซ่อนส่วนบน (แก้โปรไฟล์)
-    ['edit-info-bar', 'edit-profile-block', 'edit-dynamic-fields'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) el.classList.toggle('rs-hidden', opening);
-    });
-    const ttl = document.getElementById('edit-modal-title-text');
-    if (ttl) ttl.textContent = opening ? 'เติมสต็อก Lot ใหม่' : 'แก้ไขข้อมูลสินค้า';
-
-    btn.classList.toggle('cmns-btn-warranty', !opening);
-    btn.classList.toggle('cmns-btn-primary',  opening);
-    if (opening) {
-        btn.style.background = '#10b981';
-        btn.style.borderColor = '#10b981';
-        document.getElementById('rs-qty').focus();
-    } else {
-        btn.style.background = '';
-        btn.style.borderColor = '';
-    }
+    if (rs) rs.querySelectorAll('input').forEach(i => { i.value = i.defaultValue || ''; });
+    switchEditTab('details');
 }

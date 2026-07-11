@@ -1,4 +1,6 @@
-// 1. ระบบกางแถว
+// 1. ระบบกางแถว (cache fragment ต่อแถว — กางซ้ำไม่ยิง AJAX ใหม่)
+const _lotCache = {};
+
 function toggleLotDetails(id) {
     const detailRow = document.getElementById(`lot-detail-${id}`);
     const contentDiv = document.getElementById(`lot-content-${id}`);
@@ -17,13 +19,23 @@ function toggleLotDetails(id) {
 
     detailRow.style.display = 'table-row';
     mainRow.classList.add('active');
-    
-    contentDiv.innerHTML = '<div style="padding:40px; text-align:center; color:var(--text-muted);"><span class="material-symbols-rounded spin-icon" style="font-size: 24px;">sync</span></div>';
+
+    if (_lotCache[id]) {
+        contentDiv.innerHTML = _lotCache[id];
+        return;
+    }
+
+    contentDiv.innerHTML = '<div class="lot-skeleton"><div class="sk-line"></div><div class="sk-line"></div><div class="sk-line"></div></div>';
 
     fetch(`ajax.php?action=get_lots_inline&item_id=${id}`)
-        .then(res => res.text())
-        .then(data => { contentDiv.innerHTML = data; })
+        .then(res => { if (!res.ok) throw new Error(res.status); return res.text(); })
+        .then(data => { _lotCache[id] = data; contentDiv.innerHTML = data; })
         .catch(err => { contentDiv.innerHTML = '<div style="padding:20px; text-align:center; color:#ef4444;">โหลดข้อมูลไม่สำเร็จ</div>'; });
+}
+
+// เรียกหลัง action ที่แก้ lot (เบิก/เติม/ย้าย) เพื่อให้กางรอบหน้าโหลดสด
+function invalidateLotCache(id) {
+    if (id) { delete _lotCache[id]; } else { Object.keys(_lotCache).forEach(k => delete _lotCache[k]); }
 }
 
 const style = document.createElement('style');

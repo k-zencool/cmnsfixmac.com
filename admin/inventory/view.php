@@ -2,6 +2,7 @@
 session_start();
 require_once '../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/_helpers.php';
 require_login();
 
 // Hard-delete privilege: ONLY super_admin with id = 1. ห้ามผูกกับ role string — ล็อกที่ id ตรงๆ
@@ -18,9 +19,7 @@ $current_status = isset($_GET['status']) ? $_GET['status'] : '';
 $sort = isset($_GET['sort']) ? $_GET['sort'] : 'newest';
 $search = isset($_GET['q']) ? trim($_GET['q']) : '';
 
-$per_page = 20; 
-$page = isset($_GET['page']) && (int)$_GET['page'] > 0 ? (int)$_GET['page'] : 1;
-$offset = ($page - 1) * $per_page;
+list($per_page, $page, $offset) = inv_get_pager();
 
 // ── All-items mode: ไม่ส่ง id มา = ดูรวมทุกหมวด (search จาก index.php ใช้โหมดนี้) ──
 $category = null;
@@ -82,6 +81,47 @@ $stmt_items = $pdo->prepare($sql);
 $stmt_items->execute($params);
 $items = $stmt_items->fetchAll(PDO::FETCH_ASSOC);
 
+// ── Stat cards (ตาม scope filter ปัจจุบัน) ──
+$stmt_stat = $pdo->prepare("
+    SELECT COUNT(DISTINCT i.id) AS item_count,
+           COALESCE(SUM(CASE WHEN i.type IN ('new','used') THEN l.qty_remaining ELSE 0 END), 0) AS on_hand
+    FROM inventory i
+    LEFT JOIN inventory_lots l ON i.id = l.inventory_id
+    WHERE $where_sql");
+$stmt_stat->execute($params);
+$stat = $stmt_stat->fetch(PDO::FETCH_ASSOC);
+
+$stmt_low = $pdo->prepare("
+    SELECT COUNT(*) FROM (
+        SELECT i.id, COALESCE(SUM(l.qty_remaining), 0) AS q, MAX(i.min_qty) AS mq
+        FROM inventory i
+        LEFT JOIN inventory_lots l ON i.id = l.inventory_id
+        WHERE $where_sql AND i.type IN ('new','used')
+        GROUP BY i.id
+        HAVING q <= mq
+    ) t");
+$stmt_low->execute($params);
+$stat_low = (int)$stmt_low->fetchColumn();
+
+$stat_value = null;
+if (can('shop.finance')) {
+    // มูลค่า on-hand ที่ราคาขาย: new/used = qty คงเหลือ × ราคา, machine/sale = ราคาเครื่อง (ยังไม่ SOLD)
+    $stmt_val = $pdo->prepare("
+        SELECT COALESCE(SUM(CASE WHEN i.type IN ('new','used') THEN l.qty_remaining * i.sell_price ELSE 0 END), 0)
+        FROM inventory i
+        LEFT JOIN inventory_lots l ON i.id = l.inventory_id
+        WHERE $where_sql");
+    $stmt_val->execute($params);
+    $stat_value = (float)$stmt_val->fetchColumn();
+
+    $stmt_val2 = $pdo->prepare("
+        SELECT COALESCE(SUM(i.sell_price), 0)
+        FROM inventory i
+        WHERE $where_sql AND i.type IN ('machine','sale') AND i.status != 'SOLD'");
+    $stmt_val2->execute($params);
+    $stat_value += (float)$stmt_val2->fetchColumn();
+}
+
 // categories สำหรับ strip modal
 $_all_cats = $pdo->query("SELECT id, name, parent_id FROM parts_categories ORDER BY name ASC")->fetchAll(PDO::FETCH_ASSOC);
 $main_cats = array_filter($_all_cats, fn($c) => empty($c['parent_id']));
@@ -92,7 +132,7 @@ include '../templates/header_admin.php';
 ?>
 
 <link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time(); ?>">
-<link rel="stylesheet" href="../templates/assets/css/inventory-view.css?v=<?= time(); ?>">
+<link rel="stylesheet" href="assets/css/inventory-v2.css?v=<?= time(); ?>">
 
 <div class="cmns-wrapper">
     
@@ -101,9 +141,45 @@ include '../templates/header_admin.php';
         <a href="<?= $back_link ?>" class="cmns-back-link">
             <span class="material-symbols-rounded">arrow_back</span> BACK
         </a>
+        <?php if (can('parts.manage')): ?>
         <button onclick="openAddModal()" class="cmns-btn cmns-btn-primary" style="border-radius: 10px; padding: 8px 16px;">
             <span class="material-symbols-rounded" style="font-size: 20px;">add</span> ADD ITEM
         </button>
+        <?php endif; ?>
+    </div>
+
+    <!-- ── Stat cards ── -->
+    <div class="inv-stats">
+        <div class="inv-stat-card inv-stat-blue">
+            <div class="inv-stat-icon"><span class="material-symbols-rounded">inventory_2</span></div>
+            <div>
+                <div class="inv-stat-val"><?= number_format($stat['item_count']) ?></div>
+                <div class="inv-stat-lbl">รายการ</div>
+            </div>
+        </div>
+        <div class="inv-stat-card inv-stat-green">
+            <div class="inv-stat-icon"><span class="material-symbols-rounded">deployed_code</span></div>
+            <div>
+                <div class="inv-stat-val"><?= number_format($stat['on_hand']) ?></div>
+                <div class="inv-stat-lbl">ชิ้นในสต็อก</div>
+            </div>
+        </div>
+        <div class="inv-stat-card inv-stat-amber">
+            <div class="inv-stat-icon"><span class="material-symbols-rounded">production_quantity_limits</span></div>
+            <div>
+                <div class="inv-stat-val"><?= number_format($stat_low) ?></div>
+                <div class="inv-stat-lbl">ใกล้หมด / หมด</div>
+            </div>
+        </div>
+        <?php if ($stat_value !== null): ?>
+        <div class="inv-stat-card inv-stat-red">
+            <div class="inv-stat-icon"><span class="material-symbols-rounded">payments</span></div>
+            <div>
+                <div class="inv-stat-val">฿<?= number_format($stat_value) ?></div>
+                <div class="inv-stat-lbl">มูลค่าสต็อก (ราคาขาย)</div>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
 
     <div class="cmns-view-card">
@@ -128,11 +204,7 @@ include '../templates/header_admin.php';
                 <input type="hidden" name="sort" value="<?= $sort ?>">
                 
                 <span class="material-symbols-rounded search-icon">search</span>
-                <input type="text" name="q" value="<?= htmlspecialchars($search) ?>" placeholder="Search items..." class="view-search-input">
-                
-                <button type="button" class="search-filter-btn" title="Advanced Filters" onclick="alert('เดี๋ยวทำ Popup ')">
-                    <span class="material-symbols-rounded">tune</span>
-                </button>
+                <input type="text" name="q" value="<?= htmlspecialchars($search) ?>" placeholder="ค้นหา (ชื่อ, SKU, S/N, Part No., Asset Tag)..." class="view-search-input">
             </form>
         </div>
 
@@ -189,33 +261,33 @@ include '../templates/header_admin.php';
             <table class="cmns-table">
                 <thead<?= $current_type === 'all' ? ' style="display:none;"' : '' ?>>
                     <tr>
-                        <th width="40" style="text-align:center;">#</th>
-                        <th width="60">IMG</th>
+                        <th width="40" class="col-num" style="text-align:center;">#</th>
+                        <th width="60" class="col-img">IMG</th>
                         <?php if($current_type === 'new'): ?>
                             <th>PART NAME / SKU</th>
-                            <th>PART NO.</th>
-                            <th>COMPATIBLE</th>
+                            <th class="col-d1">PART NO.</th>
+                            <th class="col-d2">COMPATIBLE</th>
                         <?php elseif($current_type === 'used'): ?>
                             <th>ITEM NAME / SKU</th>
-                            <th>SERIAL NO.</th>
-                            <th>CONDITION</th>
+                            <th class="col-d1">SERIAL NO.</th>
+                            <th class="col-d2">CONDITION</th>
                         <?php elseif($current_type == 'machine'): ?>
                             <th>MACHINE / ASSET</th>
-                            <th>SPECS</th>
-                            <th>GRADE / COLOR</th>
+                            <th class="col-d1">SPECS</th>
+                            <th class="col-d2">GRADE / COLOR</th>
                         <?php elseif($current_type == 'sale'): ?>
                             <th>DEVICE / ASSET</th>
-                            <th>SPECS</th>
-                            <th>GRADE / WARRANTY / BATTERY</th>
+                            <th class="col-d1">SPECS</th>
+                            <th class="col-d2">GRADE / WARRANTY / BATTERY</th>
                         <?php else: ?>
                             <th>PRODUCT NAME / SKU</th>
-                            <th colspan="2">TYPE / LOCATION</th>
+                            <th colspan="2" class="col-d1">TYPE / LOCATION</th>
                         <?php endif; ?>
                         <?php if(!in_array($current_type, ['machine','sale'])): ?>
                         <th width="60" style="text-align:center;">QTY</th>
                         <?php endif; ?>
                         <th width="130" style="text-align:center;">STATUS / WARRANTY</th>
-                        <th width="100" style="text-align:right;">PRICE</th>
+                        <th width="100" class="col-price" style="text-align:right;">PRICE</th>
                         <th width="<?= $current_type === 'sale' ? '80' : '130' ?>" style="text-align:center;">ACTION</th>
                     </tr>
                 </thead>
@@ -251,29 +323,23 @@ include '../templates/header_admin.php';
                             $prev_type = $it;
                     ?>
                         <tr style="background:<?= $tm['color'] ?>12; border-top:2px solid <?= $tm['color'] ?>33; pointer-events:none;">
-                            <td colspan="2" style="padding:8px 14px;">
+                            <!-- cell เดียว colspan เต็มแถว — ไม่งั้น column folding บนมือถือจะทำให้แถวเบี้ยว -->
+                            <td colspan="9" style="padding:8px 14px;">
                                 <div style="display:flex; align-items:center; gap:7px;">
                                     <span class="material-symbols-rounded" style="font-size:16px; color:<?= $tm['color'] ?>;"><?= $tm['icon'] ?></span>
                                     <span style="font-size:11px; font-weight:900; letter-spacing:1.5px; color:<?= $tm['color'] ?>; text-transform:uppercase;"><?= $tm['label'] ?></span>
+                                    <span style="font-size:10px; font-weight:700; color:<?= $tm['color'] ?>88; margin-left:6px;"><?= implode(' · ', array_filter($tm['cols'])) ?></span>
                                 </div>
                             </td>
-                            <?php $th_s = 'font-size:10px; font-weight:800; color:' . $tm['color'] . '88; text-transform:uppercase; letter-spacing:.8px; padding:8px 6px;'; ?>
-                            <td style="<?= $th_s ?>"><?= $tm['cols'][0] ?? '' ?></td>
-                            <td style="<?= $th_s ?>"><?= $tm['cols'][1] ?? '' ?></td>
-                            <td style="<?= $th_s ?>"><?= $tm['cols'][2] ?? '' ?></td>
-                            <td style="<?= $th_s ?> text-align:center;"><?= $it !== 'machine' ? 'QTY' : '' ?></td>
-                            <td style="<?= $th_s ?> text-align:center;">STATUS</td>
-                            <td style="<?= $th_s ?> text-align:right;">PRICE</td>
-                            <td></td>
                         </tr>
                         <?php endif; ?>
                         <tr class="inventory-row <?= $rowClass ?>"
                             id="row-<?= $item['id'] ?>"
                             onclick="toggleLotDetails(<?= $item['id'] ?>)">
 
-                            <td style="text-align:center; opacity:.45; font-size:11px;"><?= $offset + $idx + 1 ?></td>
+                            <td class="col-num" style="text-align:center; opacity:.45; font-size:11px;"><?= $offset + $idx + 1 ?></td>
 
-                            <td>
+                            <td class="col-img">
                                 <?php if (!empty($item['image'])): ?>
                                     <img src="../../uploads/inventory/<?= htmlspecialchars($item['image']) ?>"
                                          style="width:44px;height:44px;object-fit:cover;border-radius:8px;border:1px solid var(--border);"
@@ -289,11 +355,13 @@ include '../templates/header_admin.php';
                                     <div style="font-size:11px; color:var(--text-muted); margin-top:3px;">
                                         <code style="background:var(--bg-surface-alt); padding:1px 5px; border-radius:4px;"><?= htmlspecialchars($item['sku'] ?: '—') ?></code>
                                     </div>
+                                    <?php if($item['part_number']): ?><div class="fold fold-d">P/N: <?= htmlspecialchars($item['part_number']) ?></div><?php endif; ?>
+                                    <div class="fold fold-price">฿<?= number_format($item['sell_price']) ?></div>
                                 </td>
-                                <td style="font-size:12px; font-family:monospace; color:var(--text-muted);">
+                                <td class="col-d1" style="font-size:12px; font-family:monospace; color:var(--text-muted);">
                                     <?= htmlspecialchars($item['part_number'] ?: '—') ?>
                                 </td>
-                                <td>
+                                <td class="col-d2">
                                     <?php foreach(array_filter(array_map('trim', explode(',', $item['compatible_models'] ?? ''))) as $model): ?>
                                         <span style="display:inline-block; background:rgba(37,99,235,.08); color:var(--primary); border:1px solid rgba(37,99,235,.2); border-radius:6px; padding:1px 7px; font-size:11px; font-weight:700; margin:1px;"><?= htmlspecialchars($model) ?></span>
                                     <?php endforeach; ?>
@@ -320,8 +388,10 @@ include '../templates/header_admin.php';
                                         <?php if($dis_label[0]): ?><span class="material-symbols-rounded" style="font-size:12px;"><?= $dis_label[0] ?></span><?php endif; ?>
                                         <?= $dis_label[2] ?>
                                     </div>
+                                    <div class="fold fold-d"><?= htmlspecialchars(implode(' · ', array_filter([$item['cpu_spec'], $item['ram_spec'], $item['storage_spec'], $item['condition_grade'] ? 'Grade '.$item['condition_grade'] : null]))) ?></div>
+                                    <div class="fold fold-price">฿<?= number_format($item['sell_price']) ?></div>
                                 </td>
-                                <td style="font-size:11px; color:var(--text-muted); line-height:2;">
+                                <td class="col-d1" style="font-size:11px; color:var(--text-muted); line-height:2;">
                                     <?php if($item['cpu_spec']): ?>
                                         <div style="display:flex;align-items:center;gap:4px;"><span class="material-symbols-rounded" style="font-size:13px;">memory</span><?= htmlspecialchars($item['cpu_spec']) ?></div>
                                     <?php endif; ?>
@@ -336,7 +406,7 @@ include '../templates/header_admin.php';
                                     <?php endif; ?>
                                     <?php if(!$item['cpu_spec'] && !$item['ram_spec'] && !$item['storage_spec'] && !$item['gpu_spec']): ?><span style="opacity:.4;">—</span><?php endif; ?>
                                 </td>
-                                <td style="font-size:12px;">
+                                <td class="col-d2" style="font-size:12px;">
                                     <?php if($item['condition_grade']): ?>
                                         <span style="font-size:18px; font-weight:900; color:<?= $grade_color ?>;"><?= htmlspecialchars($item['condition_grade']) ?></span>
                                         <span style="font-size:10px; color:var(--text-muted); display:block;">Grade</span>
@@ -370,14 +440,20 @@ include '../templates/header_admin.php';
                                             <span class="material-symbols-rounded" style="font-size:11px;">palette</span><?= htmlspecialchars($item['color']) ?>
                                         </div>
                                     <?php endif; ?>
+                                    <div class="fold fold-d"><?= htmlspecialchars(implode(' · ', array_filter([
+                                        $item['condition_grade'] ? 'Grade '.$item['condition_grade'] : null,
+                                        $item['cpu_spec'],
+                                        $item['battery_health'] !== null ? 'แบต '.(int)$item['battery_health'].'%' : null,
+                                    ]))) ?></div>
+                                    <div class="fold fold-price">฿<?= number_format($item['sell_price']) ?></div>
                                 </td>
-                                <td style="font-size:11px; color:var(--text-muted); line-height:2;">
+                                <td class="col-d1" style="font-size:11px; color:var(--text-muted); line-height:2;">
                                     <?php if($item['cpu_spec']): ?><div style="display:flex;align-items:center;gap:4px;"><span class="material-symbols-rounded" style="font-size:13px;">memory</span><?= htmlspecialchars($item['cpu_spec']) ?></div><?php endif; ?>
                                     <?php if($item['ram_spec']): ?><div style="display:flex;align-items:center;gap:4px;"><span class="material-symbols-rounded" style="font-size:13px;">storage</span><?= htmlspecialchars($item['ram_spec']) ?></div><?php endif; ?>
                                     <?php if($item['storage_spec']): ?><div style="display:flex;align-items:center;gap:4px;"><span class="material-symbols-rounded" style="font-size:13px;">hard_drive</span><?= htmlspecialchars($item['storage_spec']) ?></div><?php endif; ?>
                                     <?php if(!$item['cpu_spec'] && !$item['ram_spec'] && !$item['storage_spec']): ?><span style="opacity:.4;">—</span><?php endif; ?>
                                 </td>
-                                <td style="font-size:11px; line-height:1.9;">
+                                <td class="col-d2" style="font-size:11px; line-height:1.9;">
                                     <?php if($item['condition_grade']): ?>
                                         <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;">
                                             <span style="font-size:16px;font-weight:900;color:<?= $sale_grade_color ?>;"><?= htmlspecialchars($item['condition_grade']) ?></span>
@@ -412,13 +488,15 @@ include '../templates/header_admin.php';
                                         <code style="background:rgba(245,158,11,.1); color:#f59e0b; border:1px solid rgba(245,158,11,.3); padding:1px 5px; border-radius:4px;"><?= htmlspecialchars($item['sku'] ?: '—') ?></code>
                                         <?php if($item['part_number']): ?><span style="opacity:.5;"><?= htmlspecialchars($item['part_number']) ?></span><?php endif; ?>
                                     </div>
+                                    <div class="fold fold-d"><?= htmlspecialchars(implode(' · ', array_filter([$item['serial_number'], $item['condition_note']]))) ?></div>
+                                    <div class="fold fold-price">฿<?= number_format($item['sell_price']) ?></div>
                                 </td>
-                                <td style="font-size:12px; font-family:monospace; color:var(--text-muted);">
+                                <td class="col-d1" style="font-size:12px; font-family:monospace; color:var(--text-muted);">
                                     <?php if($item['serial_number']): ?>
                                         <code style="background:var(--bg-surface-alt); padding:2px 6px; border-radius:5px; font-size:11px;"><?= htmlspecialchars($item['serial_number']) ?></code>
                                     <?php else: ?><span style="opacity:.4;">—</span><?php endif; ?>
                                 </td>
-                                <td style="font-size:12px; color:var(--text-muted);">
+                                <td class="col-d2" style="font-size:12px; color:var(--text-muted);">
                                     <?= htmlspecialchars($item['condition_note'] ?: '—') ?>
                                     <?php if($item['location']): ?>
                                         <div style="font-size:10px; margin-top:2px; opacity:.55;"><span class="material-symbols-rounded" style="font-size:11px;vertical-align:-2px;">location_on</span> <?= htmlspecialchars($item['location']) ?></div>
@@ -428,8 +506,10 @@ include '../templates/header_admin.php';
                                 <td>
                                     <div style="font-weight:700; font-size:14px;"><?= htmlspecialchars($item['name']) ?></div>
                                     <div style="font-size:11px; color:var(--text-muted);">SKU: <code><?= htmlspecialchars($item['sku'] ?: '-') ?></code></div>
+                                    <div class="fold fold-d"><?= htmlspecialchars(implode(' · ', array_filter([strtoupper($it), $item['location']]))) ?></div>
+                                    <div class="fold fold-price">฿<?= number_format($item['sell_price']) ?></div>
                                 </td>
-                                <td colspan="2" style="font-size:12px; color:var(--text-muted);">
+                                <td colspan="2" class="col-d1" style="font-size:12px; color:var(--text-muted);">
                                     <span style="font-size:10px;font-weight:800;padding:2px 7px;border-radius:5px;background:rgba(245,158,11,.1);color:#f59e0b;border:1px solid rgba(245,158,11,.3);"><?= strtoupper($it) ?></span>
                                     <span style="margin-left:8px;"><?= htmlspecialchars($item['location'] ?: '—') ?></span>
                                 </td>
@@ -465,7 +545,7 @@ include '../templates/header_admin.php';
                             </td>
 
                             <!-- PRICE -->
-                            <td style="text-align:right; font-weight:700; color:var(--primary); font-size:14px;">
+                            <td class="col-price" style="text-align:right; font-weight:700; color:var(--primary); font-size:14px;">
                                 ฿<?= number_format($item['sell_price']) ?>
                             </td>
 
@@ -473,19 +553,24 @@ include '../templates/header_admin.php';
                             <td style="text-align:center;" onclick="event.stopPropagation()">
                                 <div style="display:flex; justify-content:center; gap:4px;">
                                     <?php if($it === 'new'): ?>
+                                        <?php if (can('parts.consume')): ?>
                                         <button class="inv-btn inv-btn-requisition <?= $isOos ? 'disabled' : '' ?>"
                                                 title="เบิกอะไหล่ NEW"
                                                 onclick="<?= $isOos ? '' : "openRequisitionModal({$item['id']},'new')" ?>"
                                                 <?= $isOos ? 'disabled' : '' ?>>
                                             <span class="material-symbols-rounded">output</span>
                                         </button>
+                                        <?php endif; ?>
+                                        <?php if (can('shop.finance')): ?>
                                         <button class="inv-btn inv-btn-to-sale <?= $isOos ? 'disabled' : '' ?>"
                                                 title="ย้ายไป SALE"
                                                 onclick="<?= $isOos ? '' : "openToSaleModal({$item['id']},'new')" ?>"
                                                 <?= $isOos ? 'disabled' : '' ?>>
                                             <span class="material-symbols-rounded">sell</span>
                                         </button>
+                                        <?php endif; ?>
                                     <?php elseif($it === 'used'): ?>
+                                        <?php if (can('parts.consume')): ?>
                                         <button class="inv-btn <?= $isOos ? 'disabled' : '' ?>"
                                                 title="ใช้อะไหล่ USED"
                                                 style="background:rgba(245,158,11,.12); border:1px solid rgba(245,158,11,.35); color:#f59e0b;"
@@ -493,25 +578,33 @@ include '../templates/header_admin.php';
                                                 <?= $isOos ? 'disabled' : '' ?>>
                                             <span class="material-symbols-rounded">build</span>
                                         </button>
+                                        <?php endif; ?>
+                                        <?php if (can('shop.finance')): ?>
                                         <button class="inv-btn inv-btn-to-sale <?= $isOos ? 'disabled' : '' ?>"
                                                 title="ย้ายไป SALE"
                                                 onclick="<?= $isOos ? '' : "openToSaleModal({$item['id']},'used')" ?>"
                                                 <?= $isOos ? 'disabled' : '' ?>>
                                             <span class="material-symbols-rounded">sell</span>
                                         </button>
+                                        <?php endif; ?>
                                     <?php elseif($it === 'machine'): ?>
+                                        <?php if (can('parts.manage')): ?>
                                         <button class="inv-btn"
                                                 title="แยกอะไหล่ → USED"
                                                 style="background:rgba(139,92,246,.12); border:1px solid rgba(139,92,246,.35); color:#8b5cf6;"
                                                 onclick="openStripModal(<?= $item['id'] ?>, '<?= htmlspecialchars(addslashes($item['name'])) ?>', '<?= htmlspecialchars(addslashes($item['asset_tag'] ?? '')) ?>')">
                                             <span class="material-symbols-rounded">content_cut</span>
                                         </button>
+                                        <?php endif; ?>
+                                        <?php if (can('shop.finance')): ?>
                                         <button class="inv-btn inv-btn-to-sale"
                                                 title="ย้ายไป SALE"
                                                 onclick="openToSaleModal(<?= $item['id'] ?>,'machine')">
                                             <span class="material-symbols-rounded">sell</span>
                                         </button>
+                                        <?php endif; ?>
                                     <?php elseif($it === 'sale'): ?>
+                                        <?php if (can('shop.finance')): ?>
                                         <?php if($st === 'PENDING'): ?>
                                             <button class="inv-btn"
                                                     title="Mark READY"
@@ -535,11 +628,14 @@ include '../templates/header_admin.php';
                                                 <span class="material-symbols-rounded">undo</span>
                                             </button>
                                         <?php endif; ?>
+                                        <?php endif; // shop.finance ?>
                                     <?php endif; ?>
+                                    <?php if (can('parts.manage')): ?>
                                     <button class="inv-btn inv-btn-edit" title="แก้ไข"
                                             onclick="openEditModal(<?= $item['id'] ?>)">
                                         <span class="material-symbols-rounded">edit</span>
                                     </button>
+                                    <?php endif; ?>
                                     <?php if ($can_hard_delete): ?>
                                         <button class="inv-btn inv-btn-delete" title="ลบทั้งก้อน (super admin)"
                                                 onclick="confirmHardDelete(<?= $item['id'] ?>, <?= htmlspecialchars(json_encode($item['name']), ENT_QUOTES) ?>)">
@@ -562,92 +658,60 @@ include '../templates/header_admin.php';
     </div>
 
 
-    <?php include 'partials/_modal_requisition.php'; ?>
+    <?php if (can('parts.consume')) include 'partials/_modal_requisition.php'; ?>
+    <?php if (can('parts.manage'))  include 'partials/_modal_strip.php'; ?>
 
-    <?php include 'partials/_modal_strip.php'; ?>
-
-    <div class="cmns-footer-pagination">
-        <div class="pagination-info">Showing <b><?= min($total_items, $offset + 1) ?>-<?= min($total_items, $offset + $per_page) ?></b> of <b><?= number_format($total_items) ?></b> items</div>
-        <div class="pagination-controls">
-            <a href="?id=<?= $category_id ?>&q=<?= $search ?>&type=<?= $current_type ?>&status=<?= $current_status ?>&sort=<?= $sort ?>&page=<?= max(1, $page-1) ?>" class="page-nav-btn <?= $page <= 1 ? 'disabled' : '' ?>"><span class="material-symbols-rounded">chevron_left</span></a>
-            <a href="?id=<?= $category_id ?>&q=<?= $search ?>&type=<?= $current_type ?>&status=<?= $current_status ?>&sort=<?= $sort ?>&page=<?= min($total_pages, $page+1) ?>" class="page-nav-btn <?= $page >= $total_pages ? 'disabled' : '' ?>"><span class="material-symbols-rounded">chevron_right</span></a>
+    <?php $total_pages = max(1, (int)$total_pages); ?>
+    <div class="inv-pagination">
+        <div class="pg-info">
+            แสดง <b><?= number_format(min($total_items, $offset + 1)) ?>-<?= number_format(min($total_items, $offset + $per_page)) ?></b>
+            จาก <b><?= number_format($total_items) ?></b> รายการ
+        </div>
+        <div class="pg-btns">
+            <a href="<?= inv_page_url($page - 1) ?>" class="pg-btn <?= $page <= 1 ? 'disabled' : '' ?>"><span class="material-symbols-rounded">chevron_left</span></a>
+            <?php
+            $w_start = max(1, $page - 2);
+            $w_end   = min($total_pages, $w_start + 4);
+            $w_start = max(1, $w_end - 4);
+            for ($i = $w_start; $i <= $w_end; $i++):
+            ?>
+            <a href="<?= inv_page_url($i) ?>" class="pg-btn <?= $i === $page ? 'active' : '' ?>"><?= $i ?></a>
+            <?php endfor; ?>
+            <a href="<?= inv_page_url($page + 1) ?>" class="pg-btn <?= $page >= $total_pages ? 'disabled' : '' ?>"><span class="material-symbols-rounded">chevron_right</span></a>
+            <select class="pg-per" onchange="location.href=this.value">
+                <?php foreach ([20, 50, 100] as $pp):
+                    $q = $_GET; $q['per'] = $pp; $q['page'] = 1;
+                ?>
+                <option value="?<?= h(http_build_query($q)) ?>" <?= $per_page == $pp ? 'selected' : '' ?>><?= $pp ?>/หน้า</option>
+                <?php endforeach; ?>
+            </select>
         </div>
     </div>
 </div>
 
-<style>
-/* ── Warranty / restock button ── */
-.cmns-btn-warranty {
-    background: rgba(16,185,129,.1);
-    color: #059669;
-    border: 1px solid rgba(16,185,129,.35) !important;
-}
-.cmns-btn-warranty:hover {
-    background: #10b981;
-    color: #fff;
-    border-color: #10b981 !important;
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(16,185,129,.35);
-}
-[data-theme="dark"] .cmns-btn-warranty { background: rgba(16,185,129,.1); color: #34d399; }
-
-/* ── Lot option cards ── */
-.lot-option {
-    display:flex; align-items:center; gap:10px;
-    border:1.5px solid var(--border); border-radius:10px;
-    padding:10px 14px; cursor:pointer; transition:border-color .15s, background .15s;
-}
-.lot-option:has(input:checked) { border-color:#10b981; background:rgba(16,185,129,.06); }
-.lot-option:hover:not(.lot-expired) { border-color:#10b981; }
-.lot-option input[type="radio"] { accent-color:#10b981; width:16px; height:16px; flex-shrink:0; cursor:pointer; }
-.lot-opt-body { display:flex; align-items:center; justify-content:space-between; gap:12px; flex:1; min-width:0; }
-.lot-expired { opacity:.45; cursor:not-allowed; }
-.lot-expired input { cursor:not-allowed; }
-
-/* ── NEW parts action buttons ── */
-.inv-btn {
-    width:32px; height:32px; border-radius:7px; border:1px solid var(--border);
-    background:var(--bg-surface-alt); color:var(--text-muted);
-    display:inline-flex; align-items:center; justify-content:center;
-    cursor:pointer; transition:all .18s; padding:0;
-}
-.inv-btn .material-symbols-rounded { font-size:16px; }
-.inv-btn:hover { transform:translateY(-1px); box-shadow:0 3px 8px rgba(0,0,0,.1); }
-.inv-btn-edit:hover { color:var(--primary); background:rgba(37,99,235,.07); border-color:var(--primary); }
-.inv-btn-requisition:hover { color:#10b981; background:rgba(16,185,129,.07); border-color:#10b981; }
-.inv-btn-requisition.disabled { opacity:.35; cursor:not-allowed; }
-.inv-btn-requisition.disabled:hover { transform:none; box-shadow:none; color:var(--text-muted); background:var(--bg-surface-alt); border-color:var(--border); }
-.inv-btn-to-sale:hover { color:#ef4444; background:rgba(239,68,68,.08); border-color:#ef4444; }
-.inv-btn-to-sale.disabled { opacity:.35; cursor:not-allowed; }
-.inv-btn-to-sale.disabled:hover { transform:none; box-shadow:none; color:var(--text-muted); background:var(--bg-surface-alt); border-color:var(--border); }
-.inv-btn-delete { color:#ef4444; background:rgba(239,68,68,.08); border-color:rgba(239,68,68,.3); }
-.inv-btn-delete:hover { color:#fff; background:#ef4444; border-color:#ef4444; }
-#hd-btn:disabled { opacity:.45; cursor:not-allowed; }
-#hd-input:focus { outline:none; border-color:#ef4444; box-shadow:0 0 0 3px rgba(239,68,68,.12); }
-
-/* ── OOS row ── */
-.row-oos td { opacity:.55; }
-.row-oos:hover td { opacity:.75; }
-.row-dead td { opacity:.5; background: rgba(239,68,68,.04); }
-.row-dead:hover td { opacity:.7; }
-</style>
 <link rel="stylesheet" href="../templates/assets/css/modal.css?v=<?= time(); ?>">
 
-<?php include 'partials/_modal_to_sale.php'; ?>
-<?php include 'partials/_modal_mark_sold.php'; ?>
+<?php if (can('shop.finance')): ?>
+    <?php include 'partials/_modal_to_sale.php'; ?>
+    <?php include 'partials/_modal_mark_sold.php'; ?>
+<?php endif; ?>
 <?php if ($can_hard_delete) include 'partials/_modal_hard_delete.php'; ?>
-<?php include 'modal_add.php'; ?>
-<?php include 'partials/_modal_edit.php'; ?>
+<?php if (can('parts.manage')): ?>
+    <?php include 'modal_add.php'; ?>
+    <?php include 'partials/_modal_edit.php'; ?>
+<?php endif; ?>
 
+<script src="assets/js/inventory-table.js?v=<?= time(); ?>"></script>
+<?php if (can('parts.consume')): ?><script src="assets/js/inventory-requisition.js?v=<?= time(); ?>"></script><?php endif; ?>
+<?php if (can('shop.finance')): ?><script src="assets/js/inventory-sale.js?v=<?= time(); ?>"></script><?php endif; ?>
+<?php if (can('parts.manage')): ?>
 <script>
 // page data for strip-modal JS (sub-category picker)
 const _stripSubCats = <?= json_encode(array_values($sub_cats), JSON_UNESCAPED_UNICODE) ?>;
 </script>
-<script src="assets/js/inventory-table.js?v=<?= time(); ?>"></script>
-<script src="assets/js/inventory-requisition.js?v=<?= time(); ?>"></script>
-<script src="assets/js/inventory-sale.js?v=<?= time(); ?>"></script>
 <script src="assets/js/inventory-edit.js?v=<?= time(); ?>"></script>
 <script src="assets/js/inventory-strip.js?v=<?= time(); ?>"></script>
+<?php endif; ?>
 <?php if ($can_hard_delete): ?><script src="assets/js/inventory-danger.js?v=<?= time(); ?>"></script><?php endif; ?>
 
 <?php include '../templates/footer_admin.php'; ?>
