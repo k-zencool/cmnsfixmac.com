@@ -22,22 +22,28 @@ $per_page = 20;
 $page = isset($_GET['page']) && (int)$_GET['page'] > 0 ? (int)$_GET['page'] : 1;
 $offset = ($page - 1) * $per_page;
 
-$stmt_cat = $pdo->prepare("SELECT * FROM parts_categories WHERE id = ?");
-$stmt_cat->execute([$category_id]);
-$category = $stmt_cat->fetch(PDO::FETCH_ASSOC);
-if (!$category) { die("Category not found!"); }
-
-$stmt_ids = $pdo->prepare("SELECT id FROM parts_categories WHERE parent_id = ? OR id = ?");
-$stmt_ids->execute([$category_id, $category_id]);
-$all_cat_ids = $stmt_ids->fetchAll(PDO::FETCH_COLUMN);
-$ids_string = implode(',', $all_cat_ids);
-
-$stmt_sub = $pdo->prepare("SELECT * FROM parts_categories WHERE parent_id = ? ORDER BY name ASC");
-$stmt_sub->execute([$category_id]);
-$sub_categories = $stmt_sub->fetchAll(PDO::FETCH_ASSOC);
-
-$where = ["i.category_id IN ($ids_string)"];
+// ── All-items mode: ไม่ส่ง id มา = ดูรวมทุกหมวด (search จาก index.php ใช้โหมดนี้) ──
+$category = null;
+$sub_categories = [];
+$where = [];
 $params = [];
+
+if ($category_id > 0) {
+    $stmt_cat = $pdo->prepare("SELECT * FROM parts_categories WHERE id = ?");
+    $stmt_cat->execute([$category_id]);
+    $category = $stmt_cat->fetch(PDO::FETCH_ASSOC);
+    if (!$category) { die("Category not found!"); }
+
+    $stmt_ids = $pdo->prepare("SELECT id FROM parts_categories WHERE parent_id = ? OR id = ?");
+    $stmt_ids->execute([$category_id, $category_id]);
+    $all_cat_ids = $stmt_ids->fetchAll(PDO::FETCH_COLUMN);
+    $ids_string = implode(',', array_map('intval', $all_cat_ids));
+    $where[] = "i.category_id IN ($ids_string)";
+
+    $stmt_sub = $pdo->prepare("SELECT * FROM parts_categories WHERE parent_id = ? ORDER BY name ASC");
+    $stmt_sub->execute([$category_id]);
+    $sub_categories = $stmt_sub->fetchAll(PDO::FETCH_ASSOC);
+}
 if ($current_type !== 'all') { $where[] = "i.type = ?"; $params[] = $current_type; }
 if ($current_status !== '') { $where[] = "i.status = ?"; $params[] = $current_status; }
 
@@ -47,11 +53,11 @@ if ($current_type === 'used') {
 }
 
 if ($search !== '') {
-    $where[] = "(i.name LIKE ? OR i.asset_tag LIKE ? OR i.serial_number LIKE ? OR i.sku LIKE ?)";
+    $where[] = "(i.name LIKE ? OR i.asset_tag LIKE ? OR i.serial_number LIKE ? OR i.sku LIKE ? OR i.part_number LIKE ?)";
     $s = "%$search%";
-    $params = array_merge($params, [$s, $s, $s, $s]);
+    $params = array_merge($params, [$s, $s, $s, $s, $s]);
 }
-$where_sql = implode(" AND ", $where);
+$where_sql = $where ? implode(" AND ", $where) : "1";
 
 $order_map = ['newest'=>'i.created_at DESC','oldest'=>'i.created_at ASC','price_low'=>'i.sell_price ASC','price_high'=>'i.sell_price DESC'];
 $type_order = "FIELD(i.type,'new','used','machine','sale')";
@@ -81,7 +87,7 @@ $_all_cats = $pdo->query("SELECT id, name, parent_id FROM parts_categories ORDER
 $main_cats = array_filter($_all_cats, fn($c) => empty($c['parent_id']));
 $sub_cats  = array_filter($_all_cats, fn($c) => !empty($c['parent_id']));
 
-$pageTitle = "Category: " . htmlspecialchars($category['name']);
+$pageTitle = $category ? "Category: " . htmlspecialchars($category['name']) : "All Inventory";
 include '../templates/header_admin.php';
 ?>
 
@@ -91,7 +97,7 @@ include '../templates/header_admin.php';
 <div class="cmns-wrapper">
     
     <div class="cmns-top-nav" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <?php $back_link = $category['parent_id'] ? "view.php?id={$category['parent_id']}" : "index.php"; ?>
+        <?php $back_link = ($category && $category['parent_id']) ? "view.php?id={$category['parent_id']}" : "index.php"; ?>
         <a href="<?= $back_link ?>" class="cmns-back-link">
             <span class="material-symbols-rounded">arrow_back</span> BACK
         </a>
@@ -104,11 +110,13 @@ include '../templates/header_admin.php';
         
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
             <div style="display: flex; align-items: center; gap: 12px;">
-                <span class="material-symbols-rounded" style="font-size: 36px; color: var(--primary);"><?= htmlspecialchars($category['icon'] ?: 'folder_open') ?></span>
+                <span class="material-symbols-rounded" style="font-size: 36px; color: var(--primary);"><?= htmlspecialchars($category ? ($category['icon'] ?: 'folder_open') : 'inventory_2') ?></span>
                 <div>
-                    <h1 style="margin:0; font-size: 22px; font-weight: 700;"><?= htmlspecialchars($category['name']) ?></h1>
-                    <?php if($category['description']): ?>
+                    <h1 style="margin:0; font-size: 22px; font-weight: 700;"><?= $category ? htmlspecialchars($category['name']) : 'ALL ITEMS' ?></h1>
+                    <?php if($category && $category['description']): ?>
                         <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;"><?= htmlspecialchars($category['description']) ?></div>
+                    <?php elseif(!$category): ?>
+                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">อะไหล่ทุกหมวดหมู่รวมกัน</div>
                     <?php endif; ?>
                 </div>
             </div>
