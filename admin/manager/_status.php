@@ -1,6 +1,6 @@
 <?php
 /********************************************************************
- * admin/manager/_status.php — status map ของบอร์ดงานค้าง
+ * admin/manager/_status.php — status map + query ของบอร์ดงานค้าง
  * ใช้ร่วมกันระหว่าง index.php (บอร์ด) และ print.php (TODO list)
  ********************************************************************/
 
@@ -17,14 +17,15 @@ $STATUS = [
 
 /**
  * ดึงงานค้างตาม filter เดียวกันทั้งบอร์ดและใบพิมพ์
- * filters: ?group=todo|waiting  ?st=QS  ?dev=MacBook
- * @return array [$group, $st, $dev, $jobs]
+ * filters: ?group=todo|waiting  ?st=QS  ?dev=MacBook  ?q=...  (+ ?per / ?page เมื่อ $paged)
+ * $paged = true → แบ่งหน้า (บอร์ด), false → LIMIT 300 (ใบพิมพ์เอาทั้งชุด)
  */
-function mgr_fetch_stuck_jobs(PDO $pdo, array $STATUS): array
+function mgr_fetch_stuck_jobs(PDO $pdo, array $STATUS, bool $paged = false): array
 {
     $group = ($_GET['group'] ?? 'todo') === 'waiting' ? 'waiting' : 'todo';
     $st    = trim($_GET['st'] ?? '');
     $dev   = trim($_GET['dev'] ?? '');
+    $q     = trim($_GET['q'] ?? '');
     if ($st !== '' && !isset($STATUS[$st])) $st = '';
 
     $where  = [];
@@ -37,14 +38,42 @@ function mgr_fetch_stuck_jobs(PDO $pdo, array $STATUS): array
         $where[] = "status IN ('" . implode("','", $codes) . "')";
     }
     if ($dev !== '') { $where[] = "device_type = ?"; $params[] = $dev; }
+    if ($q !== '') {
+        $where[] = "(ticket_number LIKE ? OR customer_name LIKE ? OR customer_phone LIKE ? OR device_model LIKE ? OR device_type LIKE ? OR serial_number LIKE ?)";
+        $kw = "%$q%";
+        array_push($params, $kw, $kw, $kw, $kw, $kw, $kw);
+    }
+    $where_sql = implode(" AND ", $where);
+
+    $per = 20; $page = 1; $total = 0; $pages = 1; $offset = 0;
+    if ($paged) {
+        $per    = max(5, min(200, (int)($_GET['per'] ?? 20)));
+        $page   = max(1, (int)($_GET['page'] ?? 1));
+        $cnt    = $pdo->prepare("SELECT COUNT(*) FROM tracking WHERE $where_sql");
+        $cnt->execute($params);
+        $total  = (int)$cnt->fetchColumn();
+        $pages  = max(1, (int)ceil($total / $per));
+        if ($page > $pages) $page = $pages;
+        $offset = ($page - 1) * $per;
+        $limit_sql = "LIMIT $per OFFSET $offset";
+    } else {
+        $limit_sql = "LIMIT 300";
+    }
 
     $stmt = $pdo->prepare("
         SELECT id, ticket_number, customer_name, customer_phone, device_type, device_model,
                status, appointment_date, created_at, DATEDIFF(NOW(), created_at) AS days_in
-        FROM tracking WHERE " . implode(" AND ", $where) . "
-        ORDER BY created_at ASC LIMIT 300");
+        FROM tracking WHERE $where_sql
+        ORDER BY created_at ASC $limit_sql");
     $stmt->execute($params);
-    return [$group, $st, $dev, $stmt->fetchAll(PDO::FETCH_ASSOC)];
+    $jobs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    if (!$paged) $total = count($jobs);
+
+    return [
+        'group' => $group, 'st' => $st, 'dev' => $dev, 'q' => $q,
+        'jobs'  => $jobs,  'total' => $total,
+        'per'   => $per,   'page' => $page, 'pages' => $pages, 'offset' => $offset,
+    ];
 }
 
 /**
@@ -62,4 +91,16 @@ function mgr_device_counts(PDO $pdo, array $STATUS, string $group, string $st): 
         $stmt = $pdo->query("SELECT device_type, COUNT(*) FROM tracking WHERE status IN ($in) AND device_type IS NOT NULL AND device_type != '' GROUP BY device_type ORDER BY device_type ASC");
     }
     return $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+}
+
+/**
+ * สร้าง URL จาก filter ปัจจุบัน + override (ค่า null/'' = ตัดทิ้ง)
+ */
+function mgr_url(array $set = []): string
+{
+    $qs = array_merge($_GET, $set);
+    foreach ($qs as $k => $v) {
+        if ($v === null || $v === '') unset($qs[$k]);
+    }
+    return '?' . http_build_query($qs);
 }

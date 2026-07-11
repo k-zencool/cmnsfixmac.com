@@ -1,10 +1,9 @@
 <?php
 /********************************************************************
  * admin/manager/index.php
- * งานค้าง — เครื่องที่ยังอยู่ในร้าน เรียงจากค้างนานสุด
+ * งานค้าง — เครื่องที่ยังอยู่ในร้าน เรียงจากค้างนานสุด (layout ตามหน้า tracking)
  *   กลุ่ม "ต้องทำ"   : QS รอเช็คราคา / WC รอคอนเฟิร์ม / OK กำลังซ่อม / RW งานแก้
  *   กลุ่ม "รอลูกค้า" : FN เสร็จรอรับ / XX ยกเลิกรอรับคืน / NCF·NCS ติดต่อไม่ได้
- * (ledger + reverse เดิมถูกถอดออก 2026-07-11 — data ยังเก็บใน manager_actions ผ่าน mgr_log)
  ********************************************************************/
 session_start();
 require_once '../../includes/db.php';
@@ -15,12 +14,15 @@ require_perms(['manager.center']);
 
 require_once __DIR__ . '/_status.php';
 
-list($group, $st, $dev, $jobs) = mgr_fetch_stuck_jobs($pdo, $STATUS);
-$group_codes = array_keys(array_filter($STATUS, function ($m) use ($group) { return $m['group'] === $group; }));
-$device_counts = mgr_device_counts($pdo, $STATUS, $group, $st);
-$dev_qs = $dev !== '' ? '&dev=' . urlencode($dev) : '';
+$F = mgr_fetch_stuck_jobs($pdo, $STATUS, true);
+$group = $F['group']; $st = $F['st']; $dev = $F['dev']; $q = $F['q'];
+$jobs  = $F['jobs'];  $total = $F['total']; $per = $F['per'];
+$page  = $F['page'];  $pages = $F['pages']; $offset = $F['offset'];
 
-// ── นับต่อ status (ทั้งสองกลุ่ม สำหรับ chips) ──
+$group_codes   = array_keys(array_filter($STATUS, function ($m) use ($group) { return $m['group'] === $group; }));
+$device_counts = mgr_device_counts($pdo, $STATUS, $group, $st);
+
+// ── นับต่อ status (chips) ──
 $all_codes = array_keys($STATUS);
 $in_all = "'" . implode("','", $all_codes) . "'";
 $counts = $pdo->query("SELECT status, COUNT(*) c FROM tracking WHERE status IN ($in_all) GROUP BY status")
@@ -37,9 +39,13 @@ include '../templates/header_admin.php';
 ?>
 
 <link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time(); ?>">
+<link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= time(); ?>">
 <style>
-/* ── page-local: บอร์ดงานค้าง ── */
-.mgr-chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+/* ── ระยะขอบเท่าหน้า tracking ── */
+.content-padding { padding: 14px 14px 30px !important; }
+
+/* ── status chips ── */
+.mgr-chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:14px; align-items:center; }
 .mgr-chip {
     display:inline-flex; align-items:center; gap:7px;
     padding:7px 14px; border-radius:20px; text-decoration:none;
@@ -52,37 +58,13 @@ include '../templates/header_admin.php';
 .mgr-chip .dot { width:8px; height:8px; border-radius:50%; }
 .mgr-chip .n { font-weight:800; color:var(--text-main); }
 
-.mgr-dev-sel {
-    padding:7px 30px 7px 14px; border-radius:20px;
-    font-family:inherit; font-size:12.5px; font-weight:700;
-    background:var(--bg-surface); border:1px solid var(--border); color:var(--text-main);
-    cursor:pointer; appearance:none;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
-    background-repeat:no-repeat; background-position:right 10px center;
-}
-
-.mgr-card {
-    background:var(--bg-surface); border:1px solid var(--border);
-    border-radius:16px; padding:20px; overflow-x:auto;
-}
-.mgr-table { width:100%; border-collapse:collapse; font-size:13.5px; }
-.mgr-table th {
-    text-align:left; padding:10px 12px; font-size:11px; letter-spacing:.5px;
-    color:var(--text-muted); text-transform:uppercase; border-bottom:2px solid var(--border);
-    white-space:nowrap;
-}
-.mgr-table td { padding:12px; border-bottom:1px solid var(--border); vertical-align:middle; }
-.mgr-table tr:hover td { background:var(--bg-surface-alt); }
-.mgr-table a.ticket {
-    font-family:'Courier New', monospace; font-weight:800; font-size:13px;
-    color:var(--primary); text-decoration:none;
-}
-.mgr-table a.ticket:hover { text-decoration:underline; }
-
+/* ── table bits ── */
 .mgr-st {
     display:inline-flex; align-items:center; gap:6px;
     padding:3px 10px; border-radius:20px; font-size:11px; font-weight:800; white-space:nowrap;
 }
+.mgr-ticket { font-family:'Courier New', monospace; font-weight:800; font-size:13px; color:var(--primary); text-decoration:none; white-space:nowrap; }
+.mgr-ticket:hover { text-decoration:underline; }
 .days-badge {
     display:inline-block; min-width:52px; text-align:center;
     padding:5px 10px; border-radius:9px; font-size:15px; font-weight:800;
@@ -92,10 +74,50 @@ include '../templates/header_admin.php';
 .days-late  { background:rgba(239,68,68,.1);   color:#ef4444; }
 .appt-late  { color:#ef4444; font-weight:700; }
 
+/* ── icon buttons (ตาม trk-icon-btn ของ tracking) ── */
+.mgr-icon-btn {
+    width:42px; height:42px; border-radius:10px; border:1px solid var(--border);
+    background:var(--primary); color:#fff; cursor:pointer;
+    display:inline-flex; align-items:center; justify-content:center; text-decoration:none;
+    transition:all .15s;
+}
+.mgr-icon-btn:hover { transform:translateY(-1px); box-shadow:0 4px 12px rgba(37,99,235,.3); }
+.mgr-icon-btn.reset { background:var(--bg-surface); color:var(--text-muted); }
+.mgr-icon-btn.reset:hover { color:#ef4444; border-color:#ef4444; box-shadow:none; }
+
+/* ── print modal ── */
+.mgr-modal {
+    display:none; position:fixed; inset:0; z-index:9999;
+    background:rgba(0,0,0,.5); backdrop-filter:blur(6px);
+    align-items:center; justify-content:center; padding:20px;
+    opacity:0; transition:opacity .2s ease;
+}
+.mgr-modal.show { display:flex; opacity:1; }
+.mgr-modal-box {
+    background:var(--bg-surface); border:1px solid var(--border); border-radius:16px;
+    width:100%; max-width:860px; height:88vh;
+    display:flex; flex-direction:column; overflow:hidden;
+    box-shadow:0 20px 40px rgba(0,0,0,.25);
+    transform:translateY(16px) scale(.97); transition:transform .2s ease;
+}
+.mgr-modal.show .mgr-modal-box { transform:translateY(0) scale(1); }
+.mgr-modal-head {
+    display:flex; justify-content:space-between; align-items:center;
+    padding:14px 20px; border-bottom:1px solid var(--border); flex-shrink:0;
+}
+.mgr-modal-head h3 { margin:0; font-size:16px; font-weight:800; color:var(--text-main); display:flex; align-items:center; gap:8px; }
+.mgr-modal-close { background:transparent; border:none; color:var(--text-muted); cursor:pointer; padding:6px; border-radius:8px; display:flex; }
+.mgr-modal-close:hover { background:var(--bg-surface-alt); color:#ef4444; }
+#print-frame { flex:1; width:100%; border:none; background:#fff; }
+.mgr-modal-foot {
+    display:flex; justify-content:flex-end; gap:10px;
+    padding:12px 20px; border-top:1px solid var(--border); background:var(--bg-surface-alt); flex-shrink:0;
+}
+
 @media (max-width: 768px) {
-    .mgr-card { padding:12px; border-radius:12px; }
-    .mgr-table th, .mgr-table td { padding:9px 8px; }
     .col-appt, .col-recv { display:none; }
+    .mgr-modal { padding:8px; }
+    .mgr-modal-box { height:94vh; }
 }
 </style>
 
@@ -115,109 +137,211 @@ include '../templates/header_admin.php';
             <a href="../tracking/" class="cmns-btn cmns-btn-secondary">
                 <span class="material-symbols-rounded">build</span> TRACKING
             </a>
-            <a href="print.php?group=<?= $group ?><?= $st !== '' ? '&st=' . $st : '' ?><?= $dev_qs ?>" target="_blank" class="cmns-btn cmns-btn-primary">
+            <button type="button" onclick="openPrintModal()" class="cmns-btn cmns-btn-primary">
                 <span class="material-symbols-rounded">print</span> พิมพ์ TODO
-            </a>
+            </button>
         </div>
     </div>
 
-    <!-- group tabs -->
-    <div class="cmns-tabs" style="margin-bottom:14px;">
-        <a href="?group=todo<?= $dev_qs ?>" class="cmns-tab <?= $group === 'todo' && $st === '' ? 'active-all' : '' ?>">
+    <!-- ── Filter bar (pattern เดียวกับ tracking) ── -->
+    <form method="GET" action="index.php">
+        <input type="hidden" name="group" value="<?= $group ?>">
+        <?php if ($st !== ''): ?><input type="hidden" name="st" value="<?= htmlspecialchars($st) ?>"><?php endif; ?>
+        <?php if ($per !== 20): ?><input type="hidden" name="per" value="<?= $per ?>"><?php endif; ?>
+        <div class="log-filter-bar">
+            <div class="log-filter-group" style="flex:1; min-width:220px;">
+                <label>ค้นหา</label>
+                <div class="log-search-wrap">
+                    <span class="material-symbols-rounded search-icon">search</span>
+                    <input type="text" name="q" value="<?= htmlspecialchars($q) ?>" placeholder="Job / ชื่อ / เบอร์ / รุ่น / S/N">
+                </div>
+            </div>
+
+            <div class="log-filter-group">
+                <label>ประเภทเครื่อง</label>
+                <select name="dev">
+                    <option value="">ทุกประเภท</option>
+                    <?php foreach ($device_counts as $d => $c): ?>
+                    <option value="<?= htmlspecialchars($d) ?>" <?= $dev === $d ? 'selected' : '' ?>><?= htmlspecialchars($d) ?> (<?= $c ?>)</option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+
+            <button type="submit" class="mgr-icon-btn" title="ค้นหา" style="align-self:flex-end;">
+                <span class="material-symbols-rounded">search</span>
+            </button>
+
+            <?php if ($q !== '' || $dev !== '' || $st !== ''): ?>
+            <a href="index.php?group=<?= $group ?>" class="mgr-icon-btn reset" title="ล้างค่าทั้งหมด" style="align-self:flex-end;">
+                <span class="material-symbols-rounded">close</span>
+            </a>
+            <?php endif; ?>
+        </div>
+    </form>
+
+    <!-- ── Group Tabs ── -->
+    <div class="log-tabs">
+        <a href="<?= mgr_url(['group' => 'todo', 'st' => null, 'page' => null]) ?>" class="log-tab <?= $group === 'todo' ? 'active-all' : '' ?>">
             <span class="material-symbols-rounded">engineering</span> ร้านต้องทำ (<?= $cnt_todo ?>)
         </a>
-        <a href="?group=waiting<?= $dev_qs ?>" class="cmns-tab <?= $group === 'waiting' && $st === '' ? 'active-all' : '' ?>">
+        <a href="<?= mgr_url(['group' => 'waiting', 'st' => null, 'page' => null]) ?>" class="log-tab <?= $group === 'waiting' ? 'active-all' : '' ?>">
             <span class="material-symbols-rounded">hail</span> รอลูกค้ามารับ (<?= $cnt_waiting ?>)
         </a>
     </div>
 
-    <!-- status chips ของกลุ่มที่เลือก -->
+    <!-- ── Status chips ── -->
     <div class="mgr-chips">
         <?php foreach ($group_codes as $code): $m = $STATUS[$code]; $c = (int)($counts[$code] ?? 0); ?>
-        <a href="?group=<?= $group ?>&st=<?= $code ?><?= $dev_qs ?>"
+        <a href="<?= mgr_url(['st' => $st === $code ? null : $code, 'page' => null]) ?>"
            class="mgr-chip <?= $st === $code ? 'active' : '' ?>"
            <?= $st === $code ? 'style="border-color:' . $m['color'] . '; color:' . $m['color'] . ';"' : '' ?>>
             <span class="dot" style="background:<?= $m['color'] ?>;"></span>
             <?= $m['label'] ?> <span class="n"><?= $c ?></span>
         </a>
         <?php endforeach; ?>
-
-        <!-- filter ประเภทเครื่อง -->
-        <select class="mgr-dev-sel" onchange="location.href=this.value">
-            <option value="?group=<?= $group ?><?= $st !== '' ? '&st=' . $st : '' ?>">ทุกประเภทเครื่อง</option>
-            <?php foreach ($device_counts as $d => $c): ?>
-            <option value="?group=<?= $group ?><?= $st !== '' ? '&st=' . $st : '' ?>&dev=<?= urlencode($d) ?>" <?= $dev === $d ? 'selected' : '' ?>>
-                <?= htmlspecialchars($d) ?> (<?= $c ?>)
-            </option>
-            <?php endforeach; ?>
-        </select>
-
-        <?php if ($st !== '' || $dev !== ''): ?>
-        <a href="?group=<?= $group ?>" class="mgr-chip">✕ ล้าง filter</a>
-        <?php endif; ?>
     </div>
 
-    <div class="mgr-card">
-        <table class="mgr-table">
-            <thead>
-                <tr>
-                    <th>TICKET</th>
-                    <th>ลูกค้า</th>
-                    <th>เครื่อง</th>
-                    <th>สถานะ</th>
-                    <th class="col-recv">รับเมื่อ</th>
-                    <th class="col-appt">นัดหมาย</th>
-                    <th style="text-align:center;">ค้างมา</th>
-                </tr>
-            </thead>
-            <tbody>
-            <?php if (empty($jobs)): ?>
-                <tr><td colspan="7" style="padding:70px 20px; text-align:center; color:var(--text-muted);">
-                    <span class="material-symbols-rounded" style="font-size:56px; opacity:.15; display:block; margin-bottom:12px;">task_alt</span>
-                    ไม่มีงานค้างในกลุ่มนี้ — เคลียร์เกลี้ยง
-                </td></tr>
-            <?php else: foreach ($jobs as $j):
-                $m    = $STATUS[$j['status']] ?? ['label' => $j['status'], 'color' => '#888'];
-                $days = max(0, (int)$j['days_in']);
-                $dCls = $days <= 3 ? 'days-ok' : ($days <= 7 ? 'days-warn' : 'days-late');
-                $appt = $j['appointment_date'] ? strtotime($j['appointment_date']) : null;
-                $appt_late = $appt && $appt < strtotime('today');
-            ?>
-                <tr>
-                    <td><a class="ticket" href="../tracking/edit.php?id=<?= (int)$j['id'] ?>"><?= htmlspecialchars($j['ticket_number']) ?></a></td>
-                    <td>
-                        <div style="font-weight:700;"><?= htmlspecialchars($j['customer_name']) ?></div>
-                        <?php if ($j['customer_phone']): ?>
-                        <a href="tel:<?= htmlspecialchars($j['customer_phone']) ?>" style="font-size:11.5px; color:var(--text-muted); text-decoration:none;"><?= htmlspecialchars($j['customer_phone']) ?></a>
-                        <?php endif; ?>
-                    </td>
-                    <td style="font-size:12.5px; color:var(--text-muted);">
-                        <?= htmlspecialchars(trim(($j['device_type'] ?: '') . ' ' . ($j['device_model'] ?: '')) ?: '—') ?>
-                    </td>
-                    <td>
-                        <span class="mgr-st" style="background:<?= $m['color'] ?>18; color:<?= $m['color'] ?>; border:1px solid <?= $m['color'] ?>33;">
-                            <?= $m['label'] ?>
-                        </span>
-                    </td>
-                    <td class="col-recv" style="font-size:12.5px; color:var(--text-muted); white-space:nowrap;">
-                        <?= date('d/m/y', strtotime($j['created_at'])) ?>
-                    </td>
-                    <td class="col-appt" style="font-size:12.5px; white-space:nowrap;">
-                        <?php if ($appt): ?>
-                            <span class="<?= $appt_late ? 'appt-late' : '' ?>" style="<?= $appt_late ? '' : 'color:var(--text-muted);' ?>">
-                                <?= date('d/m/y', $appt) ?><?= $appt_late ? ' ⚠ เลยนัด' : '' ?>
+    <!-- ── Table ── -->
+    <div class="log-card">
+        <div style="overflow-x:auto;">
+            <table class="log-table">
+                <thead>
+                    <tr>
+                        <th>TICKET</th>
+                        <th>ลูกค้า</th>
+                        <th>เครื่อง</th>
+                        <th>สถานะ</th>
+                        <th class="col-recv">รับเมื่อ</th>
+                        <th class="col-appt">นัดหมาย</th>
+                        <th style="text-align:center;">ค้างมา</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php if (empty($jobs)): ?>
+                    <tr><td colspan="7">
+                        <div class="empty-state" style="padding:60px 20px;">
+                            <span class="material-symbols-rounded" style="font-size:56px; opacity:.15; display:block; margin-bottom:12px;">task_alt</span>
+                            ไม่พบงานค้างตามเงื่อนไขนี้
+                        </div>
+                    </td></tr>
+                <?php else: foreach ($jobs as $j):
+                    $m    = $STATUS[$j['status']] ?? ['label' => $j['status'], 'color' => '#888'];
+                    $days = max(0, (int)$j['days_in']);
+                    $dCls = $days <= 3 ? 'days-ok' : ($days <= 7 ? 'days-warn' : 'days-late');
+                    $appt = $j['appointment_date'] ? strtotime($j['appointment_date']) : null;
+                    $appt_late = $appt && $appt < strtotime('today');
+                ?>
+                    <tr>
+                        <td><a class="mgr-ticket" href="../tracking/edit.php?id=<?= (int)$j['id'] ?>"><?= htmlspecialchars($j['ticket_number']) ?></a></td>
+                        <td>
+                            <div style="font-weight:700;"><?= htmlspecialchars($j['customer_name']) ?></div>
+                            <?php if ($j['customer_phone']): ?>
+                            <a href="tel:<?= htmlspecialchars($j['customer_phone']) ?>" style="font-size:11.5px; color:var(--text-muted); text-decoration:none;"><?= htmlspecialchars($j['customer_phone']) ?></a>
+                            <?php endif; ?>
+                        </td>
+                        <td style="font-size:12.5px; color:var(--text-muted);">
+                            <?= htmlspecialchars(trim(($j['device_type'] ?: '') . ' ' . ($j['device_model'] ?: '')) ?: '—') ?>
+                        </td>
+                        <td>
+                            <span class="mgr-st" style="background:<?= $m['color'] ?>18; color:<?= $m['color'] ?>; border:1px solid <?= $m['color'] ?>33;">
+                                <?= $m['label'] ?>
                             </span>
-                        <?php else: ?><span style="color:var(--text-muted); opacity:.4;">—</span><?php endif; ?>
-                    </td>
-                    <td style="text-align:center;">
-                        <span class="days-badge <?= $dCls ?>"><?= $days ?> วัน</span>
-                    </td>
-                </tr>
-            <?php endforeach; endif; ?>
-            </tbody>
-        </table>
+                        </td>
+                        <td class="col-recv" style="font-size:12.5px; color:var(--text-muted); white-space:nowrap;">
+                            <?= date('d/m/y', strtotime($j['created_at'])) ?>
+                        </td>
+                        <td class="col-appt" style="font-size:12.5px; white-space:nowrap;">
+                            <?php if ($appt): ?>
+                                <span class="<?= $appt_late ? 'appt-late' : '' ?>" style="<?= $appt_late ? '' : 'color:var(--text-muted);' ?>">
+                                    <?= date('d/m/y', $appt) ?><?= $appt_late ? ' ⚠ เลยนัด' : '' ?>
+                                </span>
+                            <?php else: ?><span style="color:var(--text-muted); opacity:.4;">—</span><?php endif; ?>
+                        </td>
+                        <td style="text-align:center;">
+                            <span class="days-badge <?= $dCls ?>"><?= $days ?> วัน</span>
+                        </td>
+                    </tr>
+                <?php endforeach; endif; ?>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- ── Pagination (pattern เดียวกับ tracking) ── -->
+        <div class="log-pagination">
+            <div>
+                แสดง <b><?= number_format(min($total, $offset + 1)) ?>–<?= number_format(min($total, $offset + $per)) ?></b>
+                จาก <b><?= number_format($total) ?></b> รายการ
+                &nbsp;·&nbsp; หน้า <?= $page ?> / <?= $pages ?>
+            </div>
+            <div class="page-btns">
+                <a href="<?= $page > 1 ? mgr_url(['page' => $page - 1]) : '#' ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>">
+                    <span class="material-symbols-rounded" style="font-size:16px;">chevron_left</span>
+                </a>
+                <?php
+                $w_start = max(1, $page - 2);
+                $w_end   = min($pages, $w_start + 4);
+                $w_start = max(1, $w_end - 4);
+                for ($p = $w_start; $p <= $w_end; $p++):
+                ?>
+                <a href="<?= mgr_url(['page' => $p]) ?>" class="page-btn <?= $p === $page ? 'active' : '' ?>"><?= $p ?></a>
+                <?php endfor; ?>
+                <a href="<?= $page < $pages ? mgr_url(['page' => $page + 1]) : '#' ?>" class="page-btn <?= $page >= $pages ? 'disabled' : '' ?>">
+                    <span class="material-symbols-rounded" style="font-size:16px;">chevron_right</span>
+                </a>
+                <select onchange="location.href=this.value"
+                    style="padding:6px 10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-surface); color:var(--text-main); font-size:13px; outline:none; cursor:pointer; font-family:'Sarabun',sans-serif;">
+                    <?php foreach ([20, 50, 100] as $pp): ?>
+                    <option value="<?= mgr_url(['per' => $pp, 'page' => null]) ?>" <?= $per === $pp ? 'selected' : '' ?>><?= $pp ?>/หน้า</option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        </div>
     </div>
 
 </div>
 
+<!-- ── Print Modal (เด้งกลางจอ ไม่เปิดแท็บใหม่) ── -->
+<div id="print-modal" class="mgr-modal" onclick="if(event.target===this) closePrintModal()">
+    <div class="mgr-modal-box">
+        <div class="mgr-modal-head">
+            <h3><span class="material-symbols-rounded" style="color:var(--primary);">print</span> ตัวอย่างใบ TODO งานค้าง</h3>
+            <button type="button" class="mgr-modal-close" onclick="closePrintModal()"><span class="material-symbols-rounded">close</span></button>
+        </div>
+        <iframe id="print-frame" src="about:blank"></iframe>
+        <div class="mgr-modal-foot">
+            <button type="button" class="cmns-btn cmns-btn-secondary" onclick="closePrintModal()">
+                <span class="material-symbols-rounded">close</span> ปิด
+            </button>
+            <button type="button" class="cmns-btn cmns-btn-primary" onclick="doPrintFrame()">
+                <span class="material-symbols-rounded">print</span> พิมพ์
+            </button>
+        </div>
+    </div>
+</div>
+
 <?php include '../templates/footer_admin.php'; ?>
+<script>
+function openPrintModal() {
+    const modal = document.getElementById('print-modal');
+    const frame = document.getElementById('print-frame');
+    // ใบพิมพ์ใช้ filter ชุดเดียวกับบอร์ด (ตัด page/per — พิมพ์ทั้งชุดที่กรอง)
+    const qs = new URLSearchParams(window.location.search);
+    qs.delete('page'); qs.delete('per');
+    qs.set('embed', '1');
+    frame.src = 'print.php?' + qs.toString() + (qs.has('group') ? '' : '&group=todo');
+    modal.style.display = 'flex';
+    requestAnimationFrame(() => modal.classList.add('show'));
+}
+function closePrintModal() {
+    const modal = document.getElementById('print-modal');
+    modal.classList.remove('show');
+    setTimeout(() => { modal.style.display = 'none'; document.getElementById('print-frame').src = 'about:blank'; }, 200);
+}
+function doPrintFrame() {
+    const frame = document.getElementById('print-frame');
+    if (frame.contentWindow) { frame.contentWindow.focus(); frame.contentWindow.print(); }
+}
+document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closePrintModal();
+});
+</script>
