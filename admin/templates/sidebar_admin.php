@@ -160,9 +160,9 @@ $sb_initial = mb_strtoupper(mb_substr($sb_name, 0, 1));
         <?php if (function_exists('can') && can('manager.center')): ?>
         <span class="nav-section">ผู้จัดการ</span>
 
-        <a href="/admin/manager/" title="ศูนย์ควบคุมผู้จัดการ">
-            <span class="material-symbols-rounded">shield_person</span>
-            <span class="link-text">ศูนย์ควบคุม</span>
+        <a href="/admin/manager/" title="งานค้าง — เครื่องที่ยังอยู่ในร้าน">
+            <span class="material-symbols-rounded">pending_actions</span>
+            <span class="link-text">งานค้าง</span>
         </a>
         <?php endif; ?>
 

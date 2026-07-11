@@ -1,209 +1,221 @@
 <?php
 /********************************************************************
  * admin/manager/index.php
- * ศูนย์ควบคุมผู้จัดการ — Manager Control Center
- * เห็นทุก sensitive action ของ staff/admin + ย้อนกลับได้
+ * งานค้าง — เครื่องที่ยังอยู่ในร้าน เรียงจากค้างนานสุด
+ *   กลุ่ม "ต้องทำ"   : QS รอเช็คราคา / WC รอคอนเฟิร์ม / OK กำลังซ่อม / RW งานแก้
+ *   กลุ่ม "รอลูกค้า" : FN เสร็จรอรับ / XX ยกเลิกรอรับคืน / NCF·NCS ติดต่อไม่ได้
+ * (ledger + reverse เดิมถูกถอดออก 2026-07-11 — data ยังเก็บใน manager_actions ผ่าน mgr_log)
  ********************************************************************/
 session_start();
 require_once '../../includes/db.php';
-require_once '../../includes/manager_lib.php';
+require_once '../../includes/auth.php';
 
 require_login();
 require_perms(['manager.center']);
 
-$can_reverse = mgr_can_control();
+$STATUS = [
+    'QS'  => ['label' => 'รอเช็คราคา',           'color' => '#f59e0b', 'group' => 'todo'],
+    'WC'  => ['label' => 'รอคอนเฟิร์ม',          'color' => '#3b82f6', 'group' => 'todo'],
+    'OK'  => ['label' => 'กำลังซ่อม',            'color' => '#8b5cf6', 'group' => 'todo'],
+    'RW'  => ['label' => 'งานแก้ / เคลม',        'color' => '#ef4444', 'group' => 'todo'],
+    'FN'  => ['label' => 'เสร็จ รอรับ',          'color' => '#10b981', 'group' => 'waiting'],
+    'XX'  => ['label' => 'ยกเลิก รอรับคืน',      'color' => '#ef4444', 'group' => 'waiting'],
+    'NCF' => ['label' => 'ติดต่อไม่ได้ (เสร็จ)',  'color' => '#6b7280', 'group' => 'waiting'],
+    'NCS' => ['label' => 'ติดต่อไม่ได้ (เสนอ)',   'color' => '#6b7280', 'group' => 'waiting'],
+];
 
-// ── Filters ──
-$f_type   = trim($_GET['type']   ?? '');
-$f_status = trim($_GET['status'] ?? '');
-$f_q      = trim($_GET['q']      ?? '');
-$page     = max(1, (int)($_GET['page'] ?? 1));
-$per      = 40;
-$offset   = ($page - 1) * $per;
+$group = ($_GET['group'] ?? 'todo') === 'waiting' ? 'waiting' : 'todo';
+$st    = trim($_GET['st'] ?? '');
+if ($st !== '' && !isset($STATUS[$st])) $st = '';
 
-$where  = [];
-$params = [];
-if ($f_type !== '')   { $where[] = 'action_type = ?'; $params[] = $f_type; }
-if ($f_status !== '') { $where[] = 'status = ?';      $params[] = $f_status; }
-if ($f_q !== '') {
-    $where[] = '(summary LIKE ? OR actor_name LIKE ?)';
-    $params[] = "%$f_q%"; $params[] = "%$f_q%";
+$group_codes = array_keys(array_filter($STATUS, function ($m) use ($group) { return $m['group'] === $group; }));
+
+// ── นับต่อ status (ทั้งสองกลุ่ม สำหรับ chips) ──
+$all_codes = array_keys($STATUS);
+$in_all = "'" . implode("','", $all_codes) . "'";
+$counts = $pdo->query("SELECT status, COUNT(*) c FROM tracking WHERE status IN ($in_all) GROUP BY status")
+              ->fetchAll(PDO::FETCH_KEY_PAIR);
+$cnt_todo    = 0;
+$cnt_waiting = 0;
+foreach ($STATUS as $code => $m) {
+    if ($m['group'] === 'todo') $cnt_todo += (int)($counts[$code] ?? 0);
+    else $cnt_waiting += (int)($counts[$code] ?? 0);
 }
-$where_sql = $where ? ('WHERE ' . implode(' AND ', $where)) : '';
 
-// ── KPIs ──
-$kpi = $pdo->query("
-    SELECT
-        COUNT(*)                                                        AS total_all,
-        SUM(action_type IS NOT NULL AND DATE(created_at)=CURDATE())     AS today_cnt,
-        SUM(CASE WHEN DATE(created_at)=CURDATE() THEN amount ELSE 0 END) AS today_amount,
-        SUM(status='active' AND reversible=1)                           AS active_reversible,
-        SUM(status='reversed')                                          AS reversed_cnt
-    FROM manager_actions
-")->fetch(PDO::FETCH_ASSOC);
+// ── รายการงานค้าง — เรียงค้างนานสุดขึ้นก่อน ──
+if ($st !== '') {
+    $stmt = $pdo->prepare("
+        SELECT id, ticket_number, customer_name, customer_phone, device_type, device_model,
+               status, appointment_date, created_at, DATEDIFF(NOW(), created_at) AS days_in
+        FROM tracking WHERE status = ?
+        ORDER BY created_at ASC LIMIT 300");
+    $stmt->execute([$st]);
+} else {
+    $in_group = "'" . implode("','", $group_codes) . "'";
+    $stmt = $pdo->query("
+        SELECT id, ticket_number, customer_name, customer_phone, device_type, device_model,
+               status, appointment_date, created_at, DATEDIFF(NOW(), created_at) AS days_in
+        FROM tracking WHERE status IN ($in_group)
+        ORDER BY created_at ASC LIMIT 300");
+}
+$jobs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// ── Total for pagination ──
-$cnt_stmt = $pdo->prepare("SELECT COUNT(*) FROM manager_actions $where_sql");
-$cnt_stmt->execute($params);
-$total_rows = (int)$cnt_stmt->fetchColumn();
-$total_pages = max(1, (int)ceil($total_rows / $per));
-
-// ── Rows ──
-$rows_stmt = $pdo->prepare("
-    SELECT * FROM manager_actions
-    $where_sql
-    ORDER BY created_at DESC
-    LIMIT $per OFFSET $offset
-");
-$rows_stmt->execute($params);
-$rows = $rows_stmt->fetchAll(PDO::FETCH_ASSOC);
-
-$type_options = ['requisition','price_set','stock_delete','stock_edit','donor_strip','to_sale','sale_status'];
-
-$pageTitle = "ศูนย์ควบคุมผู้จัดการ";
+$pageTitle = "งานค้าง — Manager";
 include '../templates/header_admin.php';
 ?>
 
+<link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time(); ?>">
 <style>
-.mgr-wrap { padding: 4px 2px 40px; }
-.mgr-head { display:flex; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap; }
-.mgr-head h1 { font-size:1.5rem; font-weight:700; color:var(--text-main); margin:0; display:flex; align-items:center; gap:10px; }
-.mgr-head .sub { color:var(--text-muted); font-size:.9rem; }
+/* ── page-local: บอร์ดงานค้าง ── */
+.mgr-chips { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+.mgr-chip {
+    display:inline-flex; align-items:center; gap:7px;
+    padding:7px 14px; border-radius:20px; text-decoration:none;
+    font-size:12.5px; font-weight:700;
+    background:var(--bg-surface); border:1px solid var(--border); color:var(--text-muted);
+    transition:all .15s;
+}
+.mgr-chip:hover { transform:translateY(-1px); }
+.mgr-chip.active { border-width:1.5px; }
+.mgr-chip .dot { width:8px; height:8px; border-radius:50%; }
+.mgr-chip .n { font-weight:800; color:var(--text-main); }
 
-.mgr-kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:14px; margin-bottom:22px; }
-.kpi { background:var(--bg-surface); border:1px solid var(--border); border-radius:16px; padding:16px 18px; }
-.kpi .k-label { font-size:.8rem; color:var(--text-muted); display:flex; align-items:center; gap:6px; }
-.kpi .k-val { font-size:1.6rem; font-weight:700; color:var(--text-main); margin-top:6px; }
-.kpi .k-val small { font-size:.85rem; font-weight:500; color:var(--text-muted); }
+.mgr-card {
+    background:var(--bg-surface); border:1px solid var(--border);
+    border-radius:16px; padding:20px; overflow-x:auto;
+}
+.mgr-table { width:100%; border-collapse:collapse; font-size:13.5px; }
+.mgr-table th {
+    text-align:left; padding:10px 12px; font-size:11px; letter-spacing:.5px;
+    color:var(--text-muted); text-transform:uppercase; border-bottom:2px solid var(--border);
+    white-space:nowrap;
+}
+.mgr-table td { padding:12px; border-bottom:1px solid var(--border); vertical-align:middle; }
+.mgr-table tr:hover td { background:var(--bg-surface-alt); }
+.mgr-table a.ticket {
+    font-family:'Courier New', monospace; font-weight:800; font-size:13px;
+    color:var(--primary); text-decoration:none;
+}
+.mgr-table a.ticket:hover { text-decoration:underline; }
 
-.mgr-filters { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
-.mgr-filters select, .mgr-filters input { background:var(--bg-surface); border:1px solid var(--border); color:var(--text-main); border-radius:10px; padding:9px 12px; font-family:inherit; font-size:.9rem; }
-.mgr-filters button { background:var(--primary); color:#fff; border:none; border-radius:10px; padding:9px 18px; font-weight:600; cursor:pointer; }
-.mgr-filters .reset { background:var(--bg-surface-alt); color:var(--text-muted); text-decoration:none; display:inline-flex; align-items:center; padding:9px 14px; border-radius:10px; border:1px solid var(--border); }
+.mgr-st {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:3px 10px; border-radius:20px; font-size:11px; font-weight:800; white-space:nowrap;
+}
+.days-badge {
+    display:inline-block; min-width:52px; text-align:center;
+    padding:5px 10px; border-radius:9px; font-size:15px; font-weight:800;
+}
+.days-ok    { background:rgba(16,185,129,.1);  color:#10b981; }
+.days-warn  { background:rgba(245,158,11,.12); color:#f59e0b; }
+.days-late  { background:rgba(239,68,68,.1);   color:#ef4444; }
+.appt-late  { color:#ef4444; font-weight:700; }
 
-.mgr-table-wrap { background:var(--bg-surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; }
-.mgr-table { width:100%; border-collapse:collapse; font-size:.9rem; }
-.mgr-table th { text-align:left; padding:12px 14px; color:var(--text-muted); font-weight:600; font-size:.78rem; text-transform:uppercase; letter-spacing:.03em; border-bottom:1px solid var(--border); background:var(--bg-surface-alt); }
-.mgr-table td { padding:13px 14px; border-bottom:1px solid var(--border); color:var(--text-main); vertical-align:middle; }
-.mgr-table tr:last-child td { border-bottom:none; }
-.mgr-table tr.reversed td { opacity:.55; }
-
-.a-badge { display:inline-flex; align-items:center; gap:5px; padding:4px 10px; border-radius:20px; font-size:.78rem; font-weight:600; color:#fff; }
-.a-badge .material-symbols-rounded { font-size:15px; }
-.role-chip { display:inline-block; padding:2px 8px; border-radius:6px; font-size:.72rem; font-weight:600; background:var(--bg-surface-alt); color:var(--text-muted); border:1px solid var(--border); }
-.st-active   { color:#10b981; font-weight:600; }
-.st-reversed { color:#ef4444; font-weight:600; }
-.amt { font-variant-numeric:tabular-nums; font-weight:600; }
-.btn-reverse { background:rgba(239,68,68,.12); color:#ef4444; border:1px solid rgba(239,68,68,.3); border-radius:8px; padding:6px 12px; font-weight:600; font-size:.82rem; cursor:pointer; display:inline-flex; align-items:center; gap:4px; }
-.btn-reverse:hover { background:rgba(239,68,68,.2); }
-.btn-reverse[disabled] { opacity:.4; cursor:not-allowed; }
-.actor-cell small { color:var(--text-muted); display:block; font-size:.75rem; }
-.mgr-empty { padding:50px; text-align:center; color:var(--text-muted); }
-.mgr-pager { display:flex; justify-content:center; gap:6px; margin-top:18px; }
-.mgr-pager a, .mgr-pager span { padding:7px 12px; border-radius:8px; border:1px solid var(--border); color:var(--text-main); text-decoration:none; font-size:.85rem; }
-.mgr-pager .cur { background:var(--primary); color:#fff; border-color:var(--primary); }
+@media (max-width: 768px) {
+    .mgr-card { padding:12px; border-radius:12px; }
+    .mgr-table th, .mgr-table td { padding:9px 8px; }
+    .col-appt, .col-recv { display:none; }
+}
 </style>
 
-<div class="mgr-wrap">
+<div class="cmns-wrapper">
 
-    <div class="mgr-head">
-        <h1><span class="material-symbols-rounded" style="color:var(--primary);">shield_person</span> ศูนย์ควบคุมผู้จัดการ</h1>
-        <span class="sub">ทุกความเคลื่อนไหวด้านสต็อก/การเงินของทีม — ตรวจสอบและย้อนกลับได้</span>
-    </div>
-
-    <div class="mgr-kpis">
-        <div class="kpi">
-            <div class="k-label"><span class="material-symbols-rounded" style="font-size:16px;">bolt</span> วันนี้</div>
-            <div class="k-val"><?= (int)$kpi['today_cnt'] ?> <small>รายการ</small></div>
+    <div class="cmns-header-bar">
+        <div>
+            <h1 class="cmns-page-title">
+                <span class="material-symbols-rounded" style="font-size:32px;">pending_actions</span>
+                งานค้าง
+            </h1>
+            <p style="color:var(--text-muted); margin-top:5px; font-size:14px;">
+                เครื่องที่ยังอยู่ในร้าน เรียงจากค้างนานสุด · เขียว ≤ 3 วัน · เหลือง 4–7 วัน · แดง > 7 วัน
+            </p>
         </div>
-        <div class="kpi">
-            <div class="k-label"><span class="material-symbols-rounded" style="font-size:16px;">payments</span> มูลค่าวันนี้</div>
-            <div class="k-val">฿<?= number_format((float)$kpi['today_amount'], 0) ?></div>
-        </div>
-        <div class="kpi">
-            <div class="k-label"><span class="material-symbols-rounded" style="font-size:16px;">undo</span> ย้อนได้</div>
-            <div class="k-val"><?= (int)$kpi['active_reversible'] ?> <small>รายการ</small></div>
-        </div>
-        <div class="kpi">
-            <div class="k-label"><span class="material-symbols-rounded" style="font-size:16px;">history</span> ถูกย้อนไปแล้ว</div>
-            <div class="k-val"><?= (int)$kpi['reversed_cnt'] ?> <small>รายการ</small></div>
+        <div class="cmns-action-buttons">
+            <a href="../tracking/" class="cmns-btn cmns-btn-secondary">
+                <span class="material-symbols-rounded">build</span> TRACKING
+            </a>
         </div>
     </div>
 
-    <form class="mgr-filters" method="get">
-        <select name="type">
-            <option value="">— ทุกประเภท —</option>
-            <?php foreach ($type_options as $t): $m = mgr_action_meta($t); ?>
-                <option value="<?= $t ?>" <?= $f_type === $t ? 'selected' : '' ?>><?= htmlspecialchars($m['label']) ?></option>
-            <?php endforeach; ?>
-        </select>
-        <select name="status">
-            <option value="">— ทุกสถานะ —</option>
-            <option value="active"   <?= $f_status === 'active'   ? 'selected' : '' ?>>ยังใช้งาน</option>
-            <option value="reversed" <?= $f_status === 'reversed' ? 'selected' : '' ?>>ถูกย้อน</option>
-        </select>
-        <input type="text" name="q" placeholder="ค้นหา รายการ / ชื่อคนทำ" value="<?= htmlspecialchars($f_q) ?>">
-        <button type="submit"><span class="material-symbols-rounded" style="font-size:16px;vertical-align:-3px;">search</span> ค้นหา</button>
-        <a class="reset" href="/admin/manager/">ล้าง</a>
-        <a href="print.php?<?= http_build_query(array_filter(['type'=>$f_type,'status'=>$f_status,'q'=>$f_q])) ?>" target="_blank"
-           style="margin-left:auto;display:inline-flex;align-items:center;gap:6px;background:var(--bg-surface-alt);color:var(--text-main);text-decoration:none;padding:9px 14px;border-radius:10px;border:1px solid var(--border);font-weight:600;">
-            <span class="material-symbols-rounded" style="font-size:16px;">checklist</span> พิมพ์ To-do
+    <!-- group tabs -->
+    <div class="cmns-tabs" style="margin-bottom:14px;">
+        <a href="?group=todo" class="cmns-tab <?= $group === 'todo' && $st === '' ? 'active-all' : '' ?>">
+            <span class="material-symbols-rounded">engineering</span> ร้านต้องทำ (<?= $cnt_todo ?>)
         </a>
-    </form>
+        <a href="?group=waiting" class="cmns-tab <?= $group === 'waiting' && $st === '' ? 'active-all' : '' ?>">
+            <span class="material-symbols-rounded">hail</span> รอลูกค้ามารับ (<?= $cnt_waiting ?>)
+        </a>
+    </div>
 
-    <div class="mgr-table-wrap">
+    <!-- status chips ของกลุ่มที่เลือก -->
+    <div class="mgr-chips">
+        <?php foreach ($group_codes as $code): $m = $STATUS[$code]; $c = (int)($counts[$code] ?? 0); ?>
+        <a href="?group=<?= $group ?>&st=<?= $code ?>"
+           class="mgr-chip <?= $st === $code ? 'active' : '' ?>"
+           <?= $st === $code ? 'style="border-color:' . $m['color'] . '; color:' . $m['color'] . ';"' : '' ?>>
+            <span class="dot" style="background:<?= $m['color'] ?>;"></span>
+            <?= $m['label'] ?> <span class="n"><?= $c ?></span>
+        </a>
+        <?php endforeach; ?>
+        <?php if ($st !== ''): ?>
+        <a href="?group=<?= $group ?>" class="mgr-chip">✕ ล้าง filter</a>
+        <?php endif; ?>
+    </div>
+
+    <div class="mgr-card">
         <table class="mgr-table">
             <thead>
                 <tr>
-                    <th>เวลา</th>
-                    <th>ประเภท</th>
-                    <th>รายการ</th>
-                    <th>คนทำ</th>
-                    <th style="text-align:right;">มูลค่า</th>
+                    <th>TICKET</th>
+                    <th>ลูกค้า</th>
+                    <th>เครื่อง</th>
                     <th>สถานะ</th>
-                    <th></th>
+                    <th class="col-recv">รับเมื่อ</th>
+                    <th class="col-appt">นัดหมาย</th>
+                    <th style="text-align:center;">ค้างมา</th>
                 </tr>
             </thead>
             <tbody>
-            <?php if (!$rows): ?>
-                <tr><td colspan="7" class="mgr-empty">ยังไม่มีความเคลื่อนไหว</td></tr>
-            <?php else: foreach ($rows as $r):
-                $meta = mgr_action_meta($r['action_type']);
-                $is_rev = $r['status'] === 'reversed';
+            <?php if (empty($jobs)): ?>
+                <tr><td colspan="7" style="padding:70px 20px; text-align:center; color:var(--text-muted);">
+                    <span class="material-symbols-rounded" style="font-size:56px; opacity:.15; display:block; margin-bottom:12px;">task_alt</span>
+                    ไม่มีงานค้างในกลุ่มนี้ — เคลียร์เกลี้ยง
+                </td></tr>
+            <?php else: foreach ($jobs as $j):
+                $m    = $STATUS[$j['status']] ?? ['label' => $j['status'], 'color' => '#888'];
+                $days = max(0, (int)$j['days_in']);
+                $dCls = $days <= 3 ? 'days-ok' : ($days <= 7 ? 'days-warn' : 'days-late');
+                $appt = $j['appointment_date'] ? strtotime($j['appointment_date']) : null;
+                $appt_late = $appt && $appt < strtotime('today');
             ?>
-                <tr class="<?= $is_rev ? 'reversed' : '' ?>" data-id="<?= (int)$r['id'] ?>">
-                    <td style="white-space:nowrap; color:var(--text-muted); font-size:.82rem;">
-                        <?= date('d/m/y', strtotime($r['created_at'])) ?><br><?= date('H:i', strtotime($r['created_at'])) ?>
+                <tr>
+                    <td><a class="ticket" href="../tracking/edit.php?id=<?= (int)$j['id'] ?>"><?= htmlspecialchars($j['ticket_number']) ?></a></td>
+                    <td>
+                        <div style="font-weight:700;"><?= htmlspecialchars($j['customer_name']) ?></div>
+                        <?php if ($j['customer_phone']): ?>
+                        <a href="tel:<?= htmlspecialchars($j['customer_phone']) ?>" style="font-size:11.5px; color:var(--text-muted); text-decoration:none;"><?= htmlspecialchars($j['customer_phone']) ?></a>
+                        <?php endif; ?>
+                    </td>
+                    <td style="font-size:12.5px; color:var(--text-muted);">
+                        <?= htmlspecialchars(trim(($j['device_type'] ?: '') . ' ' . ($j['device_model'] ?: '')) ?: '—') ?>
                     </td>
                     <td>
-                        <span class="a-badge" style="background:<?= $meta['color'] ?>;">
-                            <span class="material-symbols-rounded"><?= $meta['icon'] ?></span><?= htmlspecialchars($meta['label']) ?>
+                        <span class="mgr-st" style="background:<?= $m['color'] ?>18; color:<?= $m['color'] ?>; border:1px solid <?= $m['color'] ?>33;">
+                            <?= $m['label'] ?>
                         </span>
                     </td>
-                    <td><?= htmlspecialchars($r['summary']) ?>
-                        <?php if ($is_rev && $r['reverse_note']): ?>
-                            <small style="display:block;color:#ef4444;">↩ <?= htmlspecialchars($r['reverse_note']) ?></small>
-                        <?php endif; ?>
+                    <td class="col-recv" style="font-size:12.5px; color:var(--text-muted); white-space:nowrap;">
+                        <?= date('d/m/y', strtotime($j['created_at'])) ?>
                     </td>
-                    <td class="actor-cell">
-                        <?= htmlspecialchars($r['actor_name'] ?: '—') ?>
-                        <small><span class="role-chip"><?= htmlspecialchars(role_label($r['actor_role'] ?? '')) ?></span></small>
+                    <td class="col-appt" style="font-size:12.5px; white-space:nowrap;">
+                        <?php if ($appt): ?>
+                            <span class="<?= $appt_late ? 'appt-late' : '' ?>" style="<?= $appt_late ? '' : 'color:var(--text-muted);' ?>">
+                                <?= date('d/m/y', $appt) ?><?= $appt_late ? ' ⚠ เลยนัด' : '' ?>
+                            </span>
+                        <?php else: ?><span style="color:var(--text-muted); opacity:.4;">—</span><?php endif; ?>
                     </td>
-                    <td style="text-align:right;" class="amt"><?= $r['amount'] !== null ? '฿' . number_format((float)$r['amount'], 0) : '—' ?></td>
-                    <td>
-                        <?php if ($is_rev): ?>
-                            <span class="st-reversed">ถูกย้อน</span>
-                            <small style="display:block;color:var(--text-muted);"><?= htmlspecialchars($r['reversed_name'] ?: '') ?></small>
-                        <?php else: ?>
-                            <span class="st-active">ใช้งาน</span>
-                        <?php endif; ?>
-                    </td>
-                    <td style="text-align:right;">
-                        <?php if (!$is_rev && $can_reverse && $r['reversible']): ?>
-                            <button class="btn-reverse" onclick="reverseAction(<?= (int)$r['id'] ?>, this)">
-                                <span class="material-symbols-rounded" style="font-size:16px;">undo</span> ย้อน
-                            </button>
-                        <?php endif; ?>
+                    <td style="text-align:center;">
+                        <span class="days-badge <?= $dCls ?>"><?= $days ?> วัน</span>
                     </td>
                 </tr>
             <?php endforeach; endif; ?>
@@ -211,52 +223,6 @@ include '../templates/header_admin.php';
         </table>
     </div>
 
-    <?php if ($total_pages > 1): ?>
-    <div class="mgr-pager">
-        <?php
-        $qs = function($p) use ($f_type, $f_status, $f_q) {
-            return '?' . http_build_query(array_filter(['type'=>$f_type,'status'=>$f_status,'q'=>$f_q,'page'=>$p]));
-        };
-        for ($p = 1; $p <= $total_pages; $p++):
-            if ($p == $page): ?>
-                <span class="cur"><?= $p ?></span>
-            <?php else: ?>
-                <a href="<?= $qs($p) ?>"><?= $p ?></a>
-            <?php endif;
-        endfor; ?>
-    </div>
-    <?php endif; ?>
-
 </div>
-
-<script>
-function reverseAction(id, btn) {
-    Swal.fire({
-        title: 'ย้อนรายการนี้?',
-        text: 'ระบบจะคืนสต็อก/ยกเลิกผลของรายการนี้',
-        icon: 'warning',
-        input: 'text',
-        inputPlaceholder: 'เหตุผล (ไม่บังคับ)',
-        showCancelButton: true,
-        confirmButtonText: 'ย้อนกลับ',
-        cancelButtonText: 'ยกเลิก',
-        confirmButtonColor: '#ef4444',
-    }).then((res) => {
-        if (!res.isConfirmed) return;
-        btn.disabled = true;
-        const fd = new FormData();
-        fd.append('action_id', id);
-        fd.append('note', res.value || '');
-        fetch('/admin/manager/process_reverse.php', { method: 'POST', body: fd })
-            .then(r => r.json())
-            .then(d => {
-                Swal.fire({ icon: d.ok ? 'success' : 'error', title: d.msg, timer: d.ok ? 1400 : undefined, showConfirmButton: !d.ok });
-                if (d.ok) setTimeout(() => location.reload(), 1200);
-                else btn.disabled = false;
-            })
-            .catch(() => { Swal.fire('ผิดพลาด', 'เชื่อมต่อไม่ได้', 'error'); btn.disabled = false; });
-    });
-}
-</script>
 
 <?php include '../templates/footer_admin.php'; ?>
