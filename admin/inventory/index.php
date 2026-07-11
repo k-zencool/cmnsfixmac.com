@@ -2,6 +2,7 @@
 session_start();
 require_once '../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/_helpers.php';
 require_login();
 
 $pageTitle = "Inventory Dashboard";
@@ -28,13 +29,48 @@ $header_color = $header['color'];
 $stmt = $pdo->query("SELECT * FROM parts_categories WHERE parent_id IS NULL ORDER BY name ASC");
 $root_categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// 3. Get Total Items Count
-if ($current_type == 'all') {
-    $total_items = $pdo->query("SELECT COUNT(*) FROM inventory")->fetchColumn();
-} else {
-    $stmt_total = $pdo->prepare("SELECT COUNT(*) FROM inventory WHERE type = ?");
-    $stmt_total->execute([$current_type]);
-    $total_items = $stmt_total->fetchColumn();
+// 3. Stat cards (ตาม type tab ที่เลือก)
+$tw = $current_type !== 'all' ? "i.type = ?" : "1";
+$tp = $current_type !== 'all' ? [$current_type] : [];
+
+$stmt_stat = $pdo->prepare("
+    SELECT COUNT(DISTINCT i.id) AS item_count,
+           COALESCE(SUM(CASE WHEN i.type IN ('new','used') THEN l.qty_remaining ELSE 0 END), 0) AS on_hand
+    FROM inventory i
+    LEFT JOIN inventory_lots l ON i.id = l.inventory_id
+    WHERE $tw");
+$stmt_stat->execute($tp);
+$stat = $stmt_stat->fetch(PDO::FETCH_ASSOC);
+$total_items = $stat['item_count'];
+
+$stmt_low = $pdo->prepare("
+    SELECT COUNT(*) FROM (
+        SELECT i.id, COALESCE(SUM(l.qty_remaining), 0) AS q, MAX(i.min_qty) AS mq
+        FROM inventory i
+        LEFT JOIN inventory_lots l ON i.id = l.inventory_id
+        WHERE $tw AND i.type IN ('new','used')
+        GROUP BY i.id
+        HAVING q <= mq
+    ) t");
+$stmt_low->execute($tp);
+$stat_low = (int)$stmt_low->fetchColumn();
+
+$stat_value = null;
+if (can('shop.finance')) {
+    $stmt_val = $pdo->prepare("
+        SELECT COALESCE(SUM(CASE WHEN i.type IN ('new','used') THEN l.qty_remaining * i.sell_price ELSE 0 END), 0)
+        FROM inventory i
+        LEFT JOIN inventory_lots l ON i.id = l.inventory_id
+        WHERE $tw");
+    $stmt_val->execute($tp);
+    $stat_value = (float)$stmt_val->fetchColumn();
+
+    $stmt_val2 = $pdo->prepare("
+        SELECT COALESCE(SUM(i.sell_price), 0)
+        FROM inventory i
+        WHERE $tw AND i.type IN ('machine','sale') AND i.status != 'SOLD'");
+    $stmt_val2->execute($tp);
+    $stat_value += (float)$stmt_val2->fetchColumn();
 }
 
 // 4. Fetch Stats for each Folder (ดึงจากตาราง Lots แทน)
@@ -71,7 +107,7 @@ foreach ($root_categories as $key => $cat) {
 ?>
 
 <link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time(); ?>">
-<link rel="stylesheet" href="../templates/assets/css/inventory-view.css?v=<?= time(); ?>">
+<link rel="stylesheet" href="assets/css/inventory-v2.css?v=<?= time(); ?>">
 <link rel="stylesheet" href="../templates/assets/css/modal.css?v=<?= time(); ?>">
 
 <div class="cmns-wrapper" style="--active-theme-color: <?= $header_color ?>;">
@@ -93,10 +129,46 @@ foreach ($root_categories as $key => $cat) {
             <a href="categories.php" class="cmns-btn cmns-btn-secondary">
                 <span class="material-symbols-rounded">account_tree</span> CATEGORIES
             </a>
+            <?php if (can('parts.manage')): ?>
             <button onclick="openAddModal()" class="cmns-btn cmns-btn-primary">
                 <span class="material-symbols-rounded">add_circle</span> ADD ITEM
             </button>
+            <?php endif; ?>
         </div>
+    </div>
+
+    <!-- ── Stat cards ── -->
+    <div class="inv-stats">
+        <div class="inv-stat-card inv-stat-blue">
+            <div class="inv-stat-icon"><span class="material-symbols-rounded">inventory_2</span></div>
+            <div>
+                <div class="inv-stat-val"><?= number_format($stat['item_count']) ?></div>
+                <div class="inv-stat-lbl">รายการ</div>
+            </div>
+        </div>
+        <div class="inv-stat-card inv-stat-green">
+            <div class="inv-stat-icon"><span class="material-symbols-rounded">deployed_code</span></div>
+            <div>
+                <div class="inv-stat-val"><?= number_format($stat['on_hand']) ?></div>
+                <div class="inv-stat-lbl">ชิ้นในสต็อก</div>
+            </div>
+        </div>
+        <div class="inv-stat-card inv-stat-amber">
+            <div class="inv-stat-icon"><span class="material-symbols-rounded">production_quantity_limits</span></div>
+            <div>
+                <div class="inv-stat-val"><?= number_format($stat_low) ?></div>
+                <div class="inv-stat-lbl">ใกล้หมด / หมด</div>
+            </div>
+        </div>
+        <?php if ($stat_value !== null): ?>
+        <div class="inv-stat-card inv-stat-red">
+            <div class="inv-stat-icon"><span class="material-symbols-rounded">payments</span></div>
+            <div>
+                <div class="inv-stat-val">฿<?= number_format($stat_value) ?></div>
+                <div class="inv-stat-lbl">มูลค่าสต็อก (ราคาขาย)</div>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
 
     <div class="cmns-controls-bar">
@@ -211,5 +283,5 @@ function toggleFilter(btn) {
 
 </script>
 
-<?php include 'modal_add.php'; ?>
+<?php if (can('parts.manage')) include 'modal_add.php'; ?>
 <?php include '../templates/footer_admin.php'; ?>

@@ -136,7 +136,7 @@ include '../templates/header_admin.php';
 ?>
 
 <link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time() ?>">
-<link rel="stylesheet" href="../templates/assets/css/inventory-view.css?v=<?= time() ?>">
+<link rel="stylesheet" href="assets/css/inventory-v2.css?v=<?= time() ?>">
 <link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= time() ?>">
 
 <div class="cmns-wrapper log-wrapper">
@@ -160,9 +160,11 @@ include '../templates/header_admin.php';
             </p>
         </div>
         <div class="cmns-action-buttons">
+            <?php if (can('parts.manage')): ?>
             <button onclick="openAddModal()" class="cmns-btn cmns-btn-primary">
                 <span class="material-symbols-rounded">add_circle</span> เติมสต็อก
             </button>
+            <?php endif; ?>
         </div>
     </div>
 
@@ -483,6 +485,6 @@ include '../templates/header_admin.php';
 $current_type = 'new'; // default mode ใน modal
 ?>
 <link rel="stylesheet" href="../templates/assets/css/modal.css?v=<?= time() ?>">
-<?php include 'modal_add.php'; ?>
+<?php if (can('parts.manage')) include 'modal_add.php'; ?>
 
 <?php include '../templates/footer_admin.php'; ?>
