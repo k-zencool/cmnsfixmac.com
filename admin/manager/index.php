@@ -45,6 +45,9 @@ include '../templates/header_admin.php';
 .content-padding { padding-left: 14px !important; padding-right: 14px !important; }
 .cmns-wrapper    { padding-left: 4px; padding-right: 4px; }
 
+/* ── กันไอคอนแว่นทับ placeholder — fix เดียวกับ tracking-index.css:267 ── */
+.log-filter-bar .log-search-wrap input[type="text"] { padding-left: 42px !important; }
+
 /* ── ตารางความแน่นเดียวกับ tracking (tracking-index.css:30-37) ── */
 .log-table th {
     background: var(--bg-surface);
