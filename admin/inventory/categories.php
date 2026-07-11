@@ -7,9 +7,14 @@ require_login();
 $pageTitle = "จัดการโครงสร้างคลังอะไหล่";
 include '../templates/header_admin.php';
 
+$can_manage = can('parts.manage');
+
 // ดึงหมวดหมู่ทั้งหมดทำ Tree View
 $stmt = $pdo->query("SELECT * FROM parts_categories ORDER BY parent_id ASC, name ASC");
 $all_cats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// จำนวน item ต่อหมวด (นับตรงหมวด ไม่รวมลูก)
+$cat_counts = $pdo->query("SELECT category_id, COUNT(*) FROM inventory GROUP BY category_id")->fetchAll(PDO::FETCH_KEY_PAIR);
 
 $tree = [];
 foreach ($all_cats as $cat) {
@@ -23,7 +28,7 @@ foreach ($all_cats as $cat) {
 ?>
 
 <link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time(); ?>">
-<link rel="stylesheet" href="../templates/assets/css/categories-ui.css?v=<?= time(); ?>">
+<link rel="stylesheet" href="assets/css/inventory-categories.css?v=<?= time(); ?>">
 
 <div class="cmns-wrapper">
     <div style="margin-bottom: 20px;">
@@ -39,9 +44,11 @@ foreach ($all_cats as $cat) {
                 <h3>
                     <span class="material-symbols-rounded" style="color:var(--primary);">account_tree</span> โครงสร้างคลัง
                 </h3>
+                <?php if ($can_manage): ?>
                 <button onclick="resetToAddNew()" class="cmns-btn cmns-btn-primary" style="padding: 6px 12px; font-size:12px; border-radius:8px;">
                     <span class="material-symbols-rounded" style="font-size: 16px;">add</span> เพิ่มใหม่
                 </button>
+                <?php endif; ?>
             </div>
 
             <div class="cmns-tree-list">
@@ -56,6 +63,7 @@ foreach ($all_cats as $cat) {
 
                             <span class="material-symbols-rounded" style="color: var(--primary);"><?= htmlspecialchars($parent['icon'] ?: 'folder') ?></span>
                             <span style="flex-grow: 1;"><?= htmlspecialchars($parent['name']) ?></span>
+                            <?php if (!empty($cat_counts[$parent['id']])): ?><span class="cat-count"><?= number_format($cat_counts[$parent['id']]) ?></span><?php endif; ?>
                         </div>
 
                         <?php if (!empty($parent['children'])): ?>
@@ -64,7 +72,8 @@ foreach ($all_cats as $cat) {
                                     <div class="cmns-tree-item" id="cat-item-<?= $child['id'] ?>" onclick='selectCat(<?= htmlspecialchars(json_encode($child), ENT_QUOTES, 'UTF-8') ?>)'>
                                         <span class="material-symbols-rounded" style="font-size: 18px; color: var(--text-muted);">subdirectory_arrow_right</span>
                                         <span class="material-symbols-rounded" style="font-size: 18px; color: var(--primary);"><?= htmlspecialchars($child['icon'] ?: 'folder') ?></span>
-                                        <span><?= htmlspecialchars($child['name']) ?></span>
+                                        <span style="flex-grow: 1;"><?= htmlspecialchars($child['name']) ?></span>
+                                        <?php if (!empty($cat_counts[$child['id']])): ?><span class="cat-count"><?= number_format($cat_counts[$child['id']]) ?></span><?php endif; ?>
                                     </div>
                                 <?php endforeach; ?>
                             </div>
@@ -79,7 +88,11 @@ foreach ($all_cats as $cat) {
                 <div class="cmns-editor-placeholder" style="text-align: center; color: var(--text-muted);">
                     <span class="material-symbols-rounded" style="font-size: 80px; color:var(--primary); opacity: 0.2; margin-bottom:10px;">category</span>
                     <h2 style="margin:0 0 10px 0; color:var(--text-main);">จัดการโครงสร้างตู้</h2>
+                    <?php if ($can_manage): ?>
                     <p style="margin:0; font-size:14px;">คลิกเลือกโฟลเดอร์ทางซ้ายมือ เพื่อดูข้อมูล แก้ไข หรือลบทิ้ง<br>หรือกดปุ่ม <b>"เพิ่มใหม่"</b> เพื่อสร้างหมวดหมู่หลัก</p>
+                    <?php else: ?>
+                    <p style="margin:0; font-size:14px;">คลิกเลือกโฟลเดอร์ทางซ้ายมือ เพื่อดูรายละเอียดหมวดหมู่</p>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -88,6 +101,8 @@ foreach ($all_cats as $cat) {
 </div>
 
 <script>
+const CAN_MANAGE = <?= $can_manage ? 'true' : 'false' ?>;
+
 // ฟังก์ชัน ย่อ/ขยาย โฟลเดอร์
 function toggleFolder(event, childListId, iconElement) {
     event.stopPropagation(); 
@@ -113,6 +128,21 @@ function selectCat(data) {
     document.getElementById('cat-item-' + data.id).classList.add('active');
 
     const panel = document.getElementById('editor-panel');
+
+    // role ที่ไม่มี parts.manage — ดูได้อย่างเดียว
+    if (!CAN_MANAGE) {
+        panel.innerHTML = `
+            <div style="text-align: center;">
+                <span class="material-symbols-rounded" style="font-size:50px; color:var(--primary);">${escapeHtml(data.icon) || 'folder'}</span>
+                <h2 style="color:var(--text-main); margin: 10px 0 5px 0;">${escapeHtml(data.name)}</h2>
+                <div style="background:var(--bg-surface-alt); display:inline-block; padding:4px 12px; border-radius:20px; font-size:11px; font-weight:800; color:var(--text-muted); margin-bottom:12px;">
+                    CAT-ID: #${data.id}
+                </div>
+                <p style="margin:0; font-size:14px; color:var(--text-muted);">${escapeHtml(data.description) || 'ไม่มีคำอธิบาย'}</p>
+                <p style="margin-top:18px; font-size:12px; color:var(--text-muted); opacity:.6;">ต้องมีสิทธิ์ parts.manage จึงจะแก้ไขได้</p>
+            </div>`;
+        return;
+    }
     panel.innerHTML = `
         <div style="text-align: center; margin-bottom:25px;">
             <span class="material-symbols-rounded" style="font-size:50px; color:var(--primary);">${escapeHtml(data.icon) || 'folder'}</span>
@@ -214,9 +244,23 @@ function resetToAddNew() {
 
 // ฟังก์ชันลบ
 function confirmDelete(id, name) {
-    if (confirm(`มึงแน่ใจนะว่าจะลบโฟลเดอร์ "${name}"? \nถ้าลบแล้วของข้างในแม่งปลิวหมดนะสัส! เอาจริงดิ?`)) {
-        window.location.href = `category_action.php?delete=${id}`;
+    if (typeof Swal === 'undefined') {
+        if (confirm(`มึงแน่ใจนะว่าจะลบโฟลเดอร์ "${name}"? \nถ้าลบแล้วของข้างในแม่งปลิวหมดนะสัส! เอาจริงดิ?`)) {
+            window.location.href = `category_action.php?delete=${id}`;
+        }
+        return;
     }
+    Swal.fire({
+        icon: 'warning',
+        title: `ลบโฟลเดอร์ "${name}"?`,
+        text: 'ของข้างในจะหลุดจากหมวดหมู่ — กู้คืนไม่ได้',
+        showCancelButton: true,
+        confirmButtonText: 'ลบเลย',
+        cancelButtonText: 'ยกเลิก',
+        confirmButtonColor: '#ef4444'
+    }).then(r => {
+        if (r.isConfirmed) window.location.href = `category_action.php?delete=${id}`;
+    });
 }
 </script>
 

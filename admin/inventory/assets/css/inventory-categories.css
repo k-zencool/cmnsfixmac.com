@@ -135,3 +135,19 @@ textarea.cmns-input {
         min-height: auto;
     }
 }
+/* ── item count badge ต่อหมวด (เพิ่มตอน revamp 2026-07) ── */
+.cat-count {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--text-muted);
+    background: var(--bg-surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 1px 8px;
+    flex-shrink: 0;
+}
+.cmns-tree-item.active .cat-count {
+    background: rgba(37, 99, 235, .1);
+    color: var(--primary);
+    border-color: rgba(37, 99, 235, .3);
+}
