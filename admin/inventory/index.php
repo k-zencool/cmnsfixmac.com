@@ -396,7 +396,7 @@ function toggleLotDetails(id) {
     mainRow.classList.add('active');
     contentDiv.innerHTML = '<div style="padding:40px; text-align:center; color:var(--text-muted);"><span class="material-symbols-rounded" style="animation:spin 1s linear infinite; font-size:24px;">sync</span></div>';
 
-    fetch(`view.php?action=get_lots_inline&item_id=${id}`)
+    fetch(`ajax.php?action=get_lots_inline&item_id=${id}`)
         .then(res => res.text())
         .then(data => { contentDiv.innerHTML = data; })
         .catch(() => { contentDiv.innerHTML = '<div style="padding:20px; text-align:center; color:#ef4444;">โหลดข้อมูลไม่สำเร็จ</div>'; });
@@ -407,5 +407,10 @@ document.head.appendChild(_spinStyle);
 </script>
 
 <?php include 'modal_add.php'; ?>
-<?php if ($search !== '') include '_action_modals.php'; // เบิก/แก้ไข modals — โหลดเฉพาะตอนค้นหา ?>
+<?php if ($search !== ''): // เบิก/แก้ไข modals — โหลดเฉพาะตอนค้นหา ?>
+    <?php include 'partials/_modal_requisition.php'; ?>
+    <?php include 'partials/_modal_edit.php'; ?>
+    <script src="assets/js/inventory-requisition.js?v=<?= time(); ?>"></script>
+    <script src="assets/js/inventory-edit.js?v=<?= time(); ?>"></script>
+<?php endif; ?>
 <?php include '../templates/footer_admin.php'; ?>
