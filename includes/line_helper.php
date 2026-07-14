@@ -110,17 +110,28 @@ if (!function_exists('line_get_token')) {
     }
 
     /**
-     * ส่งหา admin ที่ลงทะเบียน LINE ทุกคน แบบ 1:1 (สำหรับ cron แจ้งเตือน)
+     * line_user_id ของ admin ที่เปิดรับแจ้งเตือน (line_notify_enabled = 1)
+     * fallback: ถ้าคอลัมน์ยังไม่ migrate → ส่งหาทุกคนที่ link ไว้ (พฤติกรรมเดิม)
+     */
+    function line_admin_recipients(PDO $pdo): array {
+        $base = "SELECT line_user_id FROM admin_users WHERE line_user_id IS NOT NULL AND line_user_id <> ''";
+        try {
+            return $pdo->query($base . " AND line_notify_enabled = 1")->fetchAll(PDO::FETCH_COLUMN);
+        } catch (Exception $e) {
+            try { return $pdo->query($base)->fetchAll(PDO::FETCH_COLUMN); }
+            catch (Exception $e2) { return []; }
+        }
+    }
+
+    /**
+     * ส่งหา admin ที่ลงทะเบียน LINE + เปิดรับแจ้งเตือน แบบ 1:1 (สำหรับ cron แจ้งเตือน)
      * คืน ['recipients'=>n,'sent'=>n,'failed'=>n]
      */
     function sendLineToAdmins(PDO $pdo, string $text): array {
         $out   = ['recipients' => 0, 'sent' => 0, 'failed' => 0];
         $token = line_get_token($pdo);
         if (!$token) { $out['err'] = 'LINE token ยังไม่ได้ตั้งค่า'; return $out; }
-        try {
-            $ids = $pdo->query("SELECT line_user_id FROM admin_users WHERE line_user_id IS NOT NULL AND line_user_id <> ''")
-                       ->fetchAll(PDO::FETCH_COLUMN);
-        } catch (Exception $e) { $out['err'] = $e->getMessage(); return $out; }
+        $ids = line_admin_recipients($pdo);
         $out['recipients'] = count($ids);
         foreach ($ids as $uid) {
             $r = line_push($pdo, (string)$uid, $text, $token);
@@ -159,6 +170,28 @@ if (!function_exists('line_get_token')) {
         $token = $token ?? line_get_token($pdo);
         if (!$token) return ['code' => 0, 'body' => [], 'err' => 'no token'];
         return line_api_get('https://api.line.me/v2/bot/info', $token);
+    }
+
+    /**
+     * โควต้า push รายเดือน — GET /message/quota (เพดาน) + /message/quota/consumption (ใช้ไปแล้ว)
+     * สอง endpoint นี้ไม่กินโควต้า · คืน ['ok'=>bool,'limited'=>bool,'limit'=>n,'used'=>n,'err'=>?]
+     */
+    function line_quota_status(PDO $pdo, ?string $token = null): array {
+        $token = $token ?? line_get_token($pdo);
+        if (!$token) return ['ok' => false, 'err' => 'no token'];
+        $q = line_api_get('https://api.line.me/v2/bot/message/quota', $token);
+        $c = line_api_get('https://api.line.me/v2/bot/message/quota/consumption', $token);
+        if (($q['code'] ?? 0) !== 200 || ($c['code'] ?? 0) !== 200) {
+            $bad = (($q['code'] ?? 0) !== 200) ? $q : $c;
+            return ['ok' => false, 'err' => 'HTTP ' . ($bad['code'] ?? 0) . ' '
+                . (string)($bad['body']['message'] ?? $bad['err'] ?? '')];
+        }
+        return [
+            'ok'      => true,
+            'limited' => (($q['body']['type'] ?? '') === 'limited'),
+            'limit'   => (int)($q['body']['value'] ?? 0),
+            'used'    => (int)($c['body']['totalUsage'] ?? 0),
+        ];
     }
 
     /** รหัสสั้น 6 หลัก (ตัดตัวอักษรกำกวม O/0/I/1) สำหรับลงทะเบียน */
@@ -312,10 +345,7 @@ if (!function_exists('line_get_token')) {
         $out = ['recipients' => 0, 'sent' => 0, 'failed' => 0];
         $token = line_get_token($pdo);
         if (!$token) { $out['err'] = 'no token'; return $out; }
-        $recips = [];
-        try {
-            $recips = $pdo->query("SELECT line_user_id FROM admin_users WHERE line_user_id IS NOT NULL AND line_user_id <> ''")->fetchAll(PDO::FETCH_COLUMN);
-        } catch (Exception $e) { $out['err'] = $e->getMessage(); }
+        $recips = line_admin_recipients($pdo);
         try {
             $recips = array_merge($recips, $pdo->query("SELECT group_id FROM line_groups WHERE is_active = 1")->fetchAll(PDO::FETCH_COLUMN));
         } catch (Exception $e) { /* ตาราง line_groups อาจยังไม่ migrate */ }

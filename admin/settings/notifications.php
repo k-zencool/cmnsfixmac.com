@@ -78,6 +78,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $flash = 'อัปเดตสถานะกลุ่มแล้ว';
         }
 
+    } elseif ($action === 'toggle_admin') {
+        $aid = (int)($_POST['admin_id'] ?? 0);
+        if ($aid > 0) {
+            try {
+                $pdo->prepare("UPDATE admin_users SET line_notify_enabled = 1 - line_notify_enabled WHERE id = ?")->execute([$aid]);
+                $flash = 'อัปเดตผู้รับแล้ว';
+            } catch (Throwable $e) {
+                $flash = 'ยังไม่ได้รัน migration_line_notify_per_recipient.sql บนฐานข้อมูลนี้';
+                $flash_type = 'err';
+            }
+        }
+
     } elseif ($action === 'test_line') {
         $out = line_alert_send($pdo, [line_text_msg("ทดสอบ Notification Center — ถ้าเห็นข้อความนี้แปลว่า LINE พร้อมใช้งาน")]);
         $ok = ($out['sent'] ?? 0) > 0;
@@ -121,9 +133,17 @@ $webhook_url = 'https://' . $host . '/admin/cron/line_hook.php';
 $groups = [];
 try { $groups = $pdo->query("SELECT group_id, group_name, is_active FROM line_groups ORDER BY created_at ASC")->fetchAll(PDO::FETCH_ASSOC); } catch (Throwable $e) {}
 
-$admins = $pdo->query("SELECT username, role, line_user_id FROM admin_users ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
+// line_notify_enabled อาจยังไม่ migrate (deploy ถึงก่อนรัน SQL) → fallback ทุกคนรับ
+try {
+    $admins = $pdo->query("SELECT id, username, role, line_user_id, line_notify_enabled FROM admin_users ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {
+    $admins = $pdo->query("SELECT id, username, role, line_user_id, 1 AS line_notify_enabled FROM admin_users ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
+}
 $line_linked   = count(array_filter($admins, fn($a) => !empty($a['line_user_id'])));
 $active_groups = count(array_filter($groups, fn($x) => (int)$x['is_active'] === 1));
+
+// โควต้า push เดือนนี้ (2 GET calls — ไม่กินโควต้า)
+$quota = $line_ready ? line_quota_status($pdo) : ['ok' => false, 'err' => 'no token'];
 
 $pageTitle = 'การแจ้งเตือน & LINE';
 include '../templates/header_admin.php';
@@ -235,6 +255,35 @@ include '../templates/header_admin.php';
             </a>
         </div>
 
+        <!-- โควต้า push เดือนนี้ -->
+        <?php if ($quota['ok']):
+            $q_limit = !empty($quota['limited']) ? (int)$quota['limit'] : 0;
+            $q_used  = (int)$quota['used'];
+            $q_pct   = $q_limit > 0 ? min(100, (int)round($q_used / $q_limit * 100)) : 0;
+            $q_color = $q_pct >= 90 ? '#dc2626' : ($q_pct >= 70 ? '#f59e0b' : '#06c755');
+        ?>
+        <div class="nc-quota">
+            <div class="nc-quota-head">
+                <span>โควต้าข้อความเดือนนี้</span>
+                <b style="<?= $q_pct >= 90 ? 'color:#dc2626;' : '' ?>">
+                    <?= number_format($q_used) ?><?= $q_limit ? ' / ' . number_format($q_limit) : '' ?>
+                </b>
+            </div>
+            <?php if ($q_limit): ?>
+            <div class="nc-quota-bar"><span style="width:<?= $q_pct ?>%;background:<?= $q_color ?>;"></span></div>
+            <?php if ($q_used >= $q_limit): ?>
+            <p class="ln-hint" style="color:#dc2626;margin:8px 0 0;">โควต้าเต็มแล้ว — LINE จะส่งไม่ได้ (429) จนกว่าจะรีเซ็ตวันที่ 1 ของเดือนหน้า</p>
+            <?php endif; ?>
+            <?php else: ?>
+            <p class="ln-hint" style="margin:0;">แพลนนี้ไม่จำกัดจำนวนข้อความ</p>
+            <?php endif; ?>
+        </div>
+        <?php elseif ($line_ready): ?>
+        <div class="nc-quota">
+            <p class="ln-hint" style="margin:0;">ดึงโควต้าไม่สำเร็จ — <?= htmlspecialchars($quota['err'] ?? '') ?></p>
+        </div>
+        <?php endif; ?>
+
         <!-- กลุ่มที่รับ alert -->
         <div class="ln-sub">กลุ่มที่รับแจ้งเตือน (<?= $active_groups ?> เปิดใช้งาน)</div>
         <?php if (!$groups): ?>
@@ -253,17 +302,28 @@ include '../templates/header_admin.php';
             </div>
         <?php endforeach; endif; ?>
 
-        <!-- admin ที่ link 1:1 -->
+        <!-- admin ที่ link 1:1 — กด pill เพื่อเปิด/ปิดรับรายคน -->
         <div class="ln-sub" style="margin-top:16px;">Admin ที่เชื่อม LINE (<?= $line_linked ?> จาก <?= count($admins) ?> คน)</div>
         <div class="nc-admins">
             <?php foreach ($admins as $a): ?>
             <div class="nc-admin">
                 <span><?= htmlspecialchars($a['username']) ?> <small class="ln-hint"><?= htmlspecialchars($a['role']) ?></small></span>
-                <span class="nc-chip <?= !empty($a['line_user_id']) ? 'on' : '' ?>">LINE</span>
+                <?php if (!empty($a['line_user_id'])): ?>
+                <form method="POST" style="margin:0;">
+                    <input type="hidden" name="action" value="toggle_admin">
+                    <input type="hidden" name="admin_id" value="<?= (int)$a['id'] ?>">
+                    <button type="submit" class="nc-pill <?= (int)$a['line_notify_enabled'] ? 'on' : 'off' ?>">
+                        <?= (int)$a['line_notify_enabled'] ? 'รับอยู่' : 'ปิดรับ' ?>
+                    </button>
+                </form>
+                <?php else: ?>
+                <span class="nc-chip">ไม่ได้เชื่อม</span>
+                <?php endif; ?>
             </div>
             <?php endforeach; ?>
         </div>
-        <p class="ln-hint" style="margin-top:8px;">admin เชื่อมบัญชีเองผ่านบอท LINE (พิมพ์ในแชทบอทเพื่อขอรหัสลงทะเบียน) ·
+        <p class="ln-hint" style="margin-top:8px;">กดปุ่มเพื่อเปิด/ปิดรับแจ้งเตือนรายคน (มีผลทั้งรายงานเช้า-เย็นและการ์ดงานซ่อม) ·
+            admin เชื่อมบัญชีเองผ่านบอท LINE ·
             <a href="/admin/cron/line_links.php" style="color:var(--primary);">จัดการการเชื่อม</a>
         </p>
 
@@ -367,6 +427,11 @@ include '../templates/header_admin.php';
 .nc-line-status { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; font-size:.88rem; margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--border); }
 .nc-ok  { color:#059669; font-size:.78rem; }
 .nc-bad { color:#dc2626; font-size:.78rem; }
+
+.nc-quota { margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--border); }
+.nc-quota-head { display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:.85rem; color:var(--text-main); margin-bottom:8px; }
+.nc-quota-bar { height:8px; border-radius:99px; background:var(--border); overflow:hidden; }
+.nc-quota-bar span { display:block; height:100%; border-radius:99px; transition:width .3s ease; }
 
 .nc-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px dashed var(--border); font-size:.88rem; }
 .nc-pill { border:none; cursor:pointer; font-size:.76rem; font-weight:700; padding:5px 14px; border-radius:99px; font-family:inherit; }
