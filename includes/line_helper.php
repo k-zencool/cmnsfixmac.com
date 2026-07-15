@@ -10,22 +10,30 @@
 
 if (!function_exists('line_get_token')) {
 
-    /** token จาก chat_platform_config (DB) → fallback .env */
-    function line_get_token(PDO $pdo): string {
+    /**
+     * token จาก chat_platform_config (DB) → fallback .env
+     * $channel: 'line' = บอทหลัก (การ์ดงานซ่อม + webhook) · 'line_reports' = บอทรายงานเช้า-เย็น
+     * channel อื่นที่ยังไม่ตั้ง token จะ fallback มาใช้บอทหลักอัตโนมัติ (ระบบเดินต่อได้เสมอ)
+     */
+    function line_get_token(PDO $pdo, string $channel = 'line'): string {
         try {
-            $s = $pdo->query("SELECT access_token FROM chat_platform_config WHERE platform='line'");
-            $t = $s ? $s->fetchColumn() : '';
+            $s = $pdo->prepare("SELECT access_token FROM chat_platform_config WHERE platform = ?");
+            $s->execute([$channel]);
+            $t = $s->fetchColumn();
             if ($t) return (string)$t;
+            if ($channel !== 'line') return line_get_token($pdo, 'line');
         } catch (Exception $e) { /* ignore */ }
         return (string)($_ENV['LINE_CHANNEL_ACCESS_TOKEN'] ?? '');
     }
 
-    /** channel secret (ใช้ verify webhook signature) */
-    function line_get_secret(PDO $pdo): string {
+    /** channel secret (ใช้ verify webhook signature) — fallback แบบเดียวกับ line_get_token */
+    function line_get_secret(PDO $pdo, string $channel = 'line'): string {
         try {
-            $s = $pdo->query("SELECT secret_key FROM chat_platform_config WHERE platform='line'");
-            $t = $s ? $s->fetchColumn() : '';
+            $s = $pdo->prepare("SELECT secret_key FROM chat_platform_config WHERE platform = ?");
+            $s->execute([$channel]);
+            $t = $s->fetchColumn();
             if ($t) return (string)$t;
+            if ($channel !== 'line') return line_get_secret($pdo, 'line');
         } catch (Exception $e) { /* ignore */ }
         return (string)($_ENV['LINE_CHANNEL_SECRET'] ?? '');
     }
@@ -341,9 +349,9 @@ if (!function_exists('line_get_token')) {
     }
 
     /** ส่งชุด message (flex+text) ไปหา admin ที่ลงทะเบียน + กลุ่มที่เปิดอยู่ ทีเดียว */
-    function line_alert_send(PDO $pdo, array $messages): array {
+    function line_alert_send(PDO $pdo, array $messages, string $channel = 'line'): array {
         $out = ['recipients' => 0, 'sent' => 0, 'failed' => 0];
-        $token = line_get_token($pdo);
+        $token = line_get_token($pdo, $channel);
         if (!$token) { $out['err'] = 'no token'; return $out; }
         $recips = line_admin_recipients($pdo);
         try {

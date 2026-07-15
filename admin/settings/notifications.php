@@ -23,10 +23,11 @@ if (($_SESSION['admin_role'] ?? '') !== 'super_admin') {
     exit();
 }
 
-/** อ่าน config LINE ปัจจุบัน */
-function line_cfg_load(PDO $pdo): array {
-    $r = $pdo->query("SELECT page_name, access_token, secret_key FROM chat_platform_config WHERE platform='line'")
-             ->fetch(PDO::FETCH_ASSOC);
+/** อ่าน config LINE ปัจจุบัน — 'line' = บอทหลัก · 'line_reports' = บอทรายงานเช้า-เย็น */
+function line_cfg_load(PDO $pdo, string $platform = 'line'): array {
+    $s = $pdo->prepare("SELECT page_name, access_token, secret_key FROM chat_platform_config WHERE platform = ?");
+    $s->execute([$platform]);
+    $r = $s->fetch(PDO::FETCH_ASSOC);
     return $r ?: ['page_name' => '', 'access_token' => '', 'secret_key' => ''];
 }
 
@@ -71,30 +72,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === '1') {
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
+    // channel ที่ฟอร์ม config ส่งมา: 'line' (บอทหลัก) หรือ 'line_reports' (บอทรายงาน)
+    $channel = in_array($_POST['channel'] ?? '', ['line', 'line_reports'], true) ? $_POST['channel'] : 'line';
+
     if ($action === 'save_line') {
-        // บันทึก token/secret ของ LINE Messaging API
+        // บันทึก token/secret ของ LINE Messaging API (ตาม channel)
         $page_name = trim($_POST['page_name'] ?? '');
         $token     = trim($_POST['access_token'] ?? '');
         $secret    = trim($_POST['secret_key'] ?? '');
-        if ($token === '' || $secret === '') {
+        if ($channel === 'line_reports' && $token === '' && $secret === '') {
+            // เว้นว่างทั้งคู่ = ปิดบอทรายงาน กลับไปใช้บอทหลักส่งรายงาน
+            $pdo->prepare("DELETE FROM chat_platform_config WHERE platform = 'line_reports'")->execute();
+            $flash = 'ปิดบอทรายงานแล้ว — รายงานเช้า-เย็นจะส่งผ่านบอทหลักตามเดิม';
+        } elseif ($token === '' || $secret === '') {
             $flash = 'กรุณากรอกทั้ง Channel access token และ Channel secret';
             $flash_type = 'err';
         } else {
-            $pdo->prepare("
-                INSERT INTO chat_platform_config (platform, page_name, access_token, secret_key, updated_at)
-                VALUES ('line', ?, ?, ?, NOW())
-                ON DUPLICATE KEY UPDATE
-                    page_name = VALUES(page_name),
-                    access_token = VALUES(access_token),
-                    secret_key = VALUES(secret_key),
-                    updated_at = NOW()
-            ")->execute([$page_name, $token, $secret]);
-            $flash = 'บันทึก token/secret แล้ว — กด "ทดสอบการเชื่อมต่อ" เพื่อยืนยันว่าถูกต้อง';
+            try {
+                $pdo->prepare("
+                    INSERT INTO chat_platform_config (platform, page_name, access_token, secret_key, updated_at)
+                    VALUES (?, ?, ?, ?, NOW())
+                    ON DUPLICATE KEY UPDATE
+                        page_name = VALUES(page_name),
+                        access_token = VALUES(access_token),
+                        secret_key = VALUES(secret_key),
+                        updated_at = NOW()
+                ")->execute([$channel, $page_name, $token, $secret]);
+                $flash = 'บันทึก token/secret แล้ว — กด "ทดสอบการเชื่อมต่อ" เพื่อยืนยันว่าถูกต้อง';
+            } catch (Throwable $e) {
+                // platform ยังเป็น ENUM เดิม (ยังไม่รัน migration) → insert 'line_reports' จะพัง
+                $flash = ($channel === 'line_reports')
+                       ? 'ยังไม่ได้รัน migration_line_reports_channel.sql บนฐานข้อมูลนี้'
+                       : 'บันทึกไม่สำเร็จ: ' . $e->getMessage();
+                $flash_type = 'err';
+            }
         }
 
     } elseif ($action === 'test_conn') {
-        // ทดสอบการเชื่อมต่อ LINE API ด้วย token ที่บันทึกไว้
-        $cfg  = line_cfg_load($pdo);
+        // ทดสอบการเชื่อมต่อ LINE API ด้วย token ที่บันทึกไว้ (ตาม channel)
+        $cfg  = line_cfg_load($pdo, $channel);
         $conn = line_bot_info($pdo, $cfg['access_token']);
 
     } elseif ($action === 'test_line') {
@@ -134,6 +150,10 @@ $on = function(string $k) use ($set) { return !array_key_exists($k, $set) || $se
 $line_cfg   = line_cfg_load($pdo);
 $line_ready = !empty($line_cfg['access_token']);
 
+// บอทรายงาน (ตัวที่ 2 — แยกโควต้า) : ไม่ตั้ง = รายงานออกบอทหลัก
+$rep_cfg   = line_cfg_load($pdo, 'line_reports');
+$rep_ready = !empty($rep_cfg['access_token']);
+
 $host        = $_SERVER['HTTP_HOST'];
 $webhook_url = 'https://' . $host . '/admin/cron/line_hook.php';
 
@@ -148,8 +168,10 @@ try {
 }
 $line_linked = count(array_filter($admins, fn($a) => !empty($a['line_user_id'])));
 
-// โควต้า push เดือนนี้ (2 GET calls — ไม่กินโควต้า)
-$quota = $line_ready ? line_quota_status($pdo) : ['ok' => false, 'err' => 'no token'];
+// โควต้า push เดือนนี้ (GET calls — ไม่กินโควต้า) : บอทหลัก + บอทรายงาน (ถ้าตั้งไว้)
+$quotas = [];
+if ($line_ready) $quotas['บอทหลัก'] = line_quota_status($pdo, $line_cfg['access_token']);
+if ($rep_ready)  $quotas['บอทรายงาน'] = line_quota_status($pdo, $rep_cfg['access_token']);
 
 $pageTitle = 'การแจ้งเตือน & LINE';
 include '../templates/header_admin.php';
@@ -257,32 +279,34 @@ include '../templates/header_admin.php';
             </a>
         </div>
 
-        <!-- โควต้า push เดือนนี้ -->
-        <?php if ($quota['ok']):
-            $q_limit = !empty($quota['limited']) ? (int)$quota['limit'] : 0;
-            $q_used  = (int)$quota['used'];
-            $q_pct   = $q_limit > 0 ? min(100, (int)round($q_used / $q_limit * 100)) : 0;
-            $q_color = $q_pct >= 90 ? '#dc2626' : ($q_pct >= 70 ? '#f59e0b' : '#06c755');
-        ?>
+        <!-- โควต้า push เดือนนี้ — แถบละบอท (บอทหลัก + บอทรายงานถ้าตั้งไว้) -->
+        <?php if ($quotas): ?>
         <div class="nc-quota">
-            <div class="nc-quota-head">
-                <span>โควต้าข้อความเดือนนี้</span>
-                <b style="<?= $q_pct >= 90 ? 'color:#dc2626;' : '' ?>">
-                    <?= number_format($q_used) ?><?= $q_limit ? ' / ' . number_format($q_limit) : '' ?>
-                </b>
-            </div>
-            <?php if ($q_limit): ?>
-            <div class="nc-quota-bar"><span style="width:<?= $q_pct ?>%;background:<?= $q_color ?>;"></span></div>
-            <?php if ($q_used >= $q_limit): ?>
-            <p class="ln-hint" style="color:#dc2626;margin:8px 0 0;">โควต้าเต็มแล้ว — LINE จะส่งไม่ได้ (429) จนกว่าจะรีเซ็ตวันที่ 1 ของเดือนหน้า</p>
-            <?php endif; ?>
-            <?php else: ?>
-            <p class="ln-hint" style="margin:0;">แพลนนี้ไม่จำกัดจำนวนข้อความ</p>
-            <?php endif; ?>
-        </div>
-        <?php elseif ($line_ready): ?>
-        <div class="nc-quota">
-            <p class="ln-hint" style="margin:0;">ดึงโควต้าไม่สำเร็จ — <?= htmlspecialchars($quota['err'] ?? '') ?></p>
+            <?php $qi = 0; foreach ($quotas as $q_label => $q): $qi++; ?>
+                <?php if ($q['ok']):
+                    $q_limit = !empty($q['limited']) ? (int)$q['limit'] : 0;
+                    $q_used  = (int)$q['used'];
+                    $q_pct   = $q_limit > 0 ? min(100, (int)round($q_used / $q_limit * 100)) : 0;
+                    $q_color = $q_pct >= 90 ? '#dc2626' : ($q_pct >= 70 ? '#f59e0b' : '#06c755');
+                ?>
+                <div class="nc-quota-head" <?= $qi > 1 ? 'style="margin-top:12px;"' : '' ?>>
+                    <span>โควต้าเดือนนี้ · <b><?= htmlspecialchars($q_label) ?></b></span>
+                    <b style="<?= $q_pct >= 90 ? 'color:#dc2626;' : '' ?>">
+                        <?= number_format($q_used) ?><?= $q_limit ? ' / ' . number_format($q_limit) : '' ?>
+                    </b>
+                </div>
+                <?php if ($q_limit): ?>
+                <div class="nc-quota-bar"><span style="width:<?= $q_pct ?>%;background:<?= $q_color ?>;"></span></div>
+                <?php if ($q_used >= $q_limit): ?>
+                <p class="ln-hint" style="color:#dc2626;margin:8px 0 0;"><?= htmlspecialchars($q_label) ?>โควต้าเต็มแล้ว — LINE จะส่งไม่ได้ (429) จนกว่าจะรีเซ็ตวันที่ 1 ของเดือนหน้า</p>
+                <?php endif; ?>
+                <?php else: ?>
+                <p class="ln-hint" style="margin:0;">แพลนนี้ไม่จำกัดจำนวนข้อความ</p>
+                <?php endif; ?>
+                <?php else: ?>
+                <p class="ln-hint" style="margin:<?= $qi > 1 ? '12px' : '0' ?> 0 0;"><?= htmlspecialchars($q_label) ?>: ดึงโควต้าไม่สำเร็จ — <?= htmlspecialchars($q['err'] ?? '') ?></p>
+                <?php endif; ?>
+            <?php endforeach; ?>
         </div>
         <?php endif; ?>
 
@@ -338,7 +362,7 @@ include '../templates/header_admin.php';
     <!-- 3) LINE Messaging API config -->
     <div class="ln-card" id="line-config" style="scroll-margin-top:80px;">
         <div class="ln-label" style="display:flex;align-items:center;gap:8px;">
-            <span class="material-symbols-rounded" style="color:#06c755;">key</span> ตั้งค่า LINE Messaging API
+            <span class="material-symbols-rounded" style="color:#06c755;">key</span> บอทหลัก — การ์ดงานซ่อม + ตอบแชต
         </div>
 
         <!-- Webhook URL -->
@@ -354,6 +378,7 @@ include '../templates/header_admin.php';
 
         <!-- Config form -->
         <form method="POST">
+            <input type="hidden" name="channel" value="line">
             <div class="ln-field">
                 <label>ชื่อ Channel / OA (ไว้จำ)</label>
                 <input type="text" name="page_name" value="<?= htmlspecialchars($line_cfg['page_name']) ?>" placeholder="เช่น API Test">
@@ -376,6 +401,46 @@ include '../templates/header_admin.php';
             </p>
 
             <div class="nc-btn-row nc-config-btns">
+                <button type="submit" name="action" value="save_line" class="cmns-btn cmns-btn-primary">
+                    <span class="material-symbols-rounded" style="font-size:16px;">save</span> บันทึก token/secret
+                </button>
+                <button type="submit" name="action" value="test_conn" class="cmns-btn cmns-btn-secondary">
+                    <span class="material-symbols-rounded" style="font-size:16px;">wifi_tethering</span> ทดสอบการเชื่อมต่อ
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <!-- 4) บอทรายงาน (ตัวที่ 2 — แยกโควต้าจากบอทหลัก) -->
+    <div class="ln-card" id="line-reports-config">
+        <div class="ln-label" style="display:flex;align-items:center;gap:8px;">
+            <span class="material-symbols-rounded" style="color:#06c755;">smart_toy</span> บอทรายงานเช้า-เย็น
+            <span class="nc-badge <?= $rep_ready ? 'on' : 'off' ?>"><?= $rep_ready ? 'ใช้งานอยู่' : 'ยังไม่ตั้ง' ?></span>
+        </div>
+
+        <p class="ln-hint" style="line-height:1.6;margin:0 0 14px;">
+            OA ตัวที่ 2 สำหรับรายงานเช้า-เย็นโดยเฉพาะ — <b>แยกโควต้า</b>จากบอทหลัก
+            (สร้าง channel ใหม่ใต้ <b>provider เดิม</b>ใน LINE Developers เพื่อให้ userId เดิมใช้ได้เลย) ·
+            ไม่ต้องตั้ง webhook · ทุกคน/ทุกกลุ่มที่รับรายงานต้อง<b>แอดบอทตัวนี้เป็นเพื่อน / เชิญเข้ากลุ่ม</b>ด้วย ·
+            เว้นว่างทั้งคู่แล้วบันทึก = ปิด กลับไปใช้บอทหลัก
+        </p>
+
+        <form method="POST">
+            <input type="hidden" name="channel" value="line_reports">
+            <div class="ln-field">
+                <label>ชื่อ Channel / OA (ไว้จำ)</label>
+                <input type="text" name="page_name" value="<?= htmlspecialchars($rep_cfg['page_name']) ?>" placeholder="เช่น CMNS Reports">
+            </div>
+            <div class="ln-field">
+                <label>Channel access token (long-lived)</label>
+                <textarea name="access_token" rows="3" placeholder="วาง token จากแท็บ Messaging API"><?= htmlspecialchars($rep_cfg['access_token']) ?></textarea>
+            </div>
+            <div class="ln-field">
+                <label>Channel secret</label>
+                <input type="text" name="secret_key" value="<?= htmlspecialchars($rep_cfg['secret_key']) ?>" placeholder="32 ตัวอักษร">
+            </div>
+
+            <div class="nc-btn-row">
                 <button type="submit" name="action" value="save_line" class="cmns-btn cmns-btn-primary">
                     <span class="material-symbols-rounded" style="font-size:16px;">save</span> บันทึก token/secret
                 </button>

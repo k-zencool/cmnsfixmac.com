@@ -48,9 +48,10 @@ $lineMsgs = [
 ];
 
 // ส่งถ้าเปิดรอบเช้า + เปิดช่อง LINE (Notification Center)
+// channel 'line_reports' = บอทรายงานแยกโควต้า — ยังไม่ตั้ง token จะ fallback ไปบอทหลักเอง
 $lineOut = ['skipped' => true];
 if (notif_bool($pdo, 'notify_morning_enabled', true) && notif_bool($pdo, 'notify_line_enabled', true)) {
-    $lineOut = line_alert_send($pdo, $lineMsgs);
+    $lineOut = line_alert_send($pdo, $lineMsgs, 'line_reports');
 }
 
 echo "<h3>Morning Report</h3>";
