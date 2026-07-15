@@ -35,17 +35,43 @@ $flash_type = 'ok';
 $test = null;      // ['label'=>..., 'ok'=>bool, 'detail'=>string] — ผลทดสอบยิงแจ้งเตือน
 $conn = null;      // ผลทดสอบการเชื่อมต่อ LINE API (line_bot_info)
 
+// ── AJAX: สวิตช์ auto-save (สวิตช์รวม / กลุ่ม / รายคน) — ไม่มีปุ่มบันทึก ──
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === '1') {
+    header('Content-Type: application/json; charset=utf-8');
+    $action = $_POST['action'] ?? '';
+    $val    = ($_POST['val'] ?? '') === '1' ? 1 : 0;
+    try {
+        if ($action === 'toggle_setting') {
+            $allowed = ['notify_line_enabled', 'notify_morning_enabled', 'notify_evening_enabled', 'notify_jobs_enabled'];
+            $key = $_POST['key'] ?? '';
+            if (!in_array($key, $allowed, true)) throw new Exception('key ไม่ถูกต้อง');
+            notif_set($pdo, $key, (string)$val);
+        } elseif ($action === 'toggle_group') {
+            $gid = $_POST['group_id'] ?? '';
+            if ($gid === '') throw new Exception('ไม่พบกลุ่ม');
+            $pdo->prepare("UPDATE line_groups SET is_active = ? WHERE group_id = ?")->execute([$val, $gid]);
+        } elseif ($action === 'toggle_admin') {
+            $aid = (int)($_POST['admin_id'] ?? 0);
+            if ($aid <= 0) throw new Exception('ไม่พบ admin');
+            $pdo->prepare("UPDATE admin_users SET line_notify_enabled = ? WHERE id = ?")->execute([$val, $aid]);
+        } else {
+            throw new Exception('action ไม่ถูกต้อง');
+        }
+        echo json_encode(['ok' => true]);
+    } catch (Throwable $e) {
+        http_response_code(422);
+        $msg = (strpos($e->getMessage(), 'line_notify_enabled') !== false)
+             ? 'ยังไม่ได้รัน migration_line_notify_per_recipient.sql บนฐานข้อมูลนี้'
+             : $e->getMessage();
+        echo json_encode(['ok' => false, 'err' => $msg]);
+    }
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
-    if ($action === 'save_toggles') {
-        notif_set($pdo, 'notify_morning_enabled', isset($_POST['morning']) ? '1' : '0');
-        notif_set($pdo, 'notify_evening_enabled', isset($_POST['evening']) ? '1' : '0');
-        notif_set($pdo, 'notify_line_enabled',    isset($_POST['line_on']) ? '1' : '0');
-        notif_set($pdo, 'notify_jobs_enabled',    isset($_POST['jobs_on']) ? '1' : '0');
-        $flash = 'บันทึกสวิตช์แจ้งเตือนแล้ว';
-
-    } elseif ($action === 'save_line') {
+    if ($action === 'save_line') {
         // บันทึก token/secret ของ LINE Messaging API
         $page_name = trim($_POST['page_name'] ?? '');
         $token     = trim($_POST['access_token'] ?? '');
@@ -70,25 +96,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // ทดสอบการเชื่อมต่อ LINE API ด้วย token ที่บันทึกไว้
         $cfg  = line_cfg_load($pdo);
         $conn = line_bot_info($pdo, $cfg['access_token']);
-
-    } elseif ($action === 'toggle_group') {
-        $gid = $_POST['group_id'] ?? '';
-        if ($gid !== '') {
-            $pdo->prepare("UPDATE line_groups SET is_active = 1 - is_active WHERE group_id = ?")->execute([$gid]);
-            $flash = 'อัปเดตสถานะกลุ่มแล้ว';
-        }
-
-    } elseif ($action === 'toggle_admin') {
-        $aid = (int)($_POST['admin_id'] ?? 0);
-        if ($aid > 0) {
-            try {
-                $pdo->prepare("UPDATE admin_users SET line_notify_enabled = 1 - line_notify_enabled WHERE id = ?")->execute([$aid]);
-                $flash = 'อัปเดตผู้รับแล้ว';
-            } catch (Throwable $e) {
-                $flash = 'ยังไม่ได้รัน migration_line_notify_per_recipient.sql บนฐานข้อมูลนี้';
-                $flash_type = 'err';
-            }
-        }
 
     } elseif ($action === 'test_line') {
         $out = line_alert_send($pdo, [line_text_msg("ทดสอบ Notification Center — ถ้าเห็นข้อความนี้แปลว่า LINE พร้อมใช้งาน")]);
@@ -139,8 +146,7 @@ try {
 } catch (Throwable $e) {
     $admins = $pdo->query("SELECT id, username, role, line_user_id, 1 AS line_notify_enabled FROM admin_users ORDER BY id ASC")->fetchAll(PDO::FETCH_ASSOC);
 }
-$line_linked   = count(array_filter($admins, fn($a) => !empty($a['line_user_id'])));
-$active_groups = count(array_filter($groups, fn($x) => (int)$x['is_active'] === 1));
+$line_linked = count(array_filter($admins, fn($a) => !empty($a['line_user_id'])));
 
 // โควต้า push เดือนนี้ (2 GET calls — ไม่กินโควต้า)
 $quota = $line_ready ? line_quota_status($pdo) : ['ok' => false, 'err' => 'no token'];
@@ -184,38 +190,34 @@ include '../templates/header_admin.php';
 
     <div class="nc-cards">
     <div class="nc-col">
-    <!-- 1) สวิตช์รวม -->
-    <form method="POST" class="ln-card">
-        <input type="hidden" name="action" value="save_toggles">
-        <div class="ln-label">สวิตช์การแจ้งเตือน</div>
+    <!-- 1) สวิตช์รวม — auto-save ตอนกด ไม่มีปุ่มบันทึก -->
+    <div class="ln-card">
+        <div class="ln-label">สวิตช์การแจ้งเตือน <span class="ln-hint" style="font-weight:400;">บันทึกอัตโนมัติ</span></div>
 
         <div class="nc-toggle-grid">
             <label class="nc-toggle">
-                <input type="checkbox" name="line_on" <?= $on('notify_line_enabled') ? 'checked' : '' ?>>
+                <input type="checkbox" class="nc-auto" data-action="toggle_setting" data-key="notify_line_enabled" <?= $on('notify_line_enabled') ? 'checked' : '' ?>>
                 <span class="nc-sw"></span>
                 <span>ช่อง <b>LINE</b></span>
             </label>
             <label class="nc-toggle">
-                <input type="checkbox" name="morning" <?= $on('notify_morning_enabled') ? 'checked' : '' ?>>
+                <input type="checkbox" class="nc-auto" data-action="toggle_setting" data-key="notify_morning_enabled" <?= $on('notify_morning_enabled') ? 'checked' : '' ?>>
                 <span class="nc-sw"></span>
                 <span>รอบ <b>เช้า</b> (07:00)</span>
             </label>
             <label class="nc-toggle">
-                <input type="checkbox" name="evening" <?= $on('notify_evening_enabled') ? 'checked' : '' ?>>
+                <input type="checkbox" class="nc-auto" data-action="toggle_setting" data-key="notify_evening_enabled" <?= $on('notify_evening_enabled') ? 'checked' : '' ?>>
                 <span class="nc-sw"></span>
                 <span>รอบ <b>เย็น</b> (19:00)</span>
             </label>
             <label class="nc-toggle">
-                <input type="checkbox" name="jobs_on" <?= $on('notify_jobs_enabled') ? 'checked' : '' ?>>
+                <input type="checkbox" class="nc-auto" data-action="toggle_setting" data-key="notify_jobs_enabled" <?= $on('notify_jobs_enabled') ? 'checked' : '' ?>>
                 <span class="nc-sw"></span>
                 <span><b>งานซ่อม</b> (เปิดงาน/แก้ไข ทันที)</span>
             </label>
         </div>
-        <p class="ln-hint" style="margin:12px 0 14px;">ต้องเปิด <b>ช่อง LINE</b> คู่กับสวิตช์ของแต่ละอย่าง (รอบเช้า/เย็น หรือ งานซ่อม) ถึงจะส่งแจ้งเตือน</p>
-        <button type="submit" class="cmns-btn cmns-btn-primary">
-            <span class="material-symbols-rounded" style="font-size:16px;">save</span> บันทึกสวิตช์
-        </button>
-    </form>
+        <p class="ln-hint" style="margin:12px 0 0;">ต้องเปิด <b>ช่อง LINE</b> คู่กับสวิตช์ของแต่ละอย่าง (รอบเช้า/เย็น หรือ งานซ่อม) ถึงจะส่งแจ้งเตือน</p>
+    </div>
 
     <!-- 1.5) ยิงรายงานจริงทดสอบ -->
     <div class="ln-card">
@@ -241,7 +243,7 @@ include '../templates/header_admin.php';
     <div class="ln-card">
         <div class="ln-label" style="display:flex;align-items:center;gap:8px;">
             <span class="material-symbols-rounded" style="color:#06c755;">chat</span> LINE
-            <span class="nc-badge <?= $on('notify_line_enabled') ? 'on' : 'off' ?>">
+            <span id="line-badge" class="nc-badge <?= $on('notify_line_enabled') ? 'on' : 'off' ?>">
                 <?= $on('notify_line_enabled') ? 'เปิด' : 'ปิด' ?>
             </span>
         </div>
@@ -284,45 +286,41 @@ include '../templates/header_admin.php';
         </div>
         <?php endif; ?>
 
-        <!-- กลุ่มที่รับ alert -->
-        <div class="ln-sub">กลุ่มที่รับแจ้งเตือน (<?= $active_groups ?> เปิดใช้งาน)</div>
+        <!-- กลุ่มที่รับ alert — สวิตช์ auto-save -->
+        <div class="ln-sub">กลุ่มที่รับแจ้งเตือน</div>
         <?php if (!$groups): ?>
             <p class="ln-hint">ยังไม่มีกลุ่ม — เชิญบอทเข้ากลุ่ม LINE แล้วมันจะโผล่ที่นี่</p>
         <?php else: foreach ($groups as $gr): ?>
             <div class="nc-row">
                 <span><span class="material-symbols-rounded" style="font-size:18px;vertical-align:-3px;">group</span>
                     <?= htmlspecialchars($gr['group_name'] ?: $gr['group_id']) ?></span>
-                <form method="POST" style="margin:0;">
-                    <input type="hidden" name="action" value="toggle_group">
-                    <input type="hidden" name="group_id" value="<?= htmlspecialchars($gr['group_id']) ?>">
-                    <button type="submit" class="nc-pill <?= (int)$gr['is_active'] ? 'on' : 'off' ?>">
-                        <?= (int)$gr['is_active'] ? 'รับอยู่' : 'ปิดรับ' ?>
-                    </button>
-                </form>
+                <label class="nc-toggle" style="margin:0;">
+                    <input type="checkbox" class="nc-auto" data-action="toggle_group"
+                           data-group="<?= htmlspecialchars($gr['group_id']) ?>" <?= (int)$gr['is_active'] ? 'checked' : '' ?>>
+                    <span class="nc-sw"></span>
+                </label>
             </div>
         <?php endforeach; endif; ?>
 
-        <!-- admin ที่ link 1:1 — กด pill เพื่อเปิด/ปิดรับรายคน -->
+        <!-- admin ที่ link 1:1 — สวิตช์เปิด/ปิดรับรายคน auto-save -->
         <div class="ln-sub" style="margin-top:16px;">Admin ที่เชื่อม LINE (<?= $line_linked ?> จาก <?= count($admins) ?> คน)</div>
         <div class="nc-admins">
             <?php foreach ($admins as $a): ?>
             <div class="nc-admin">
                 <span><?= htmlspecialchars($a['username']) ?> <small class="ln-hint"><?= htmlspecialchars($a['role']) ?></small></span>
                 <?php if (!empty($a['line_user_id'])): ?>
-                <form method="POST" style="margin:0;">
-                    <input type="hidden" name="action" value="toggle_admin">
-                    <input type="hidden" name="admin_id" value="<?= (int)$a['id'] ?>">
-                    <button type="submit" class="nc-pill <?= (int)$a['line_notify_enabled'] ? 'on' : 'off' ?>">
-                        <?= (int)$a['line_notify_enabled'] ? 'รับอยู่' : 'ปิดรับ' ?>
-                    </button>
-                </form>
+                <label class="nc-toggle" style="margin:0;">
+                    <input type="checkbox" class="nc-auto" data-action="toggle_admin"
+                           data-admin="<?= (int)$a['id'] ?>" <?= (int)$a['line_notify_enabled'] ? 'checked' : '' ?>>
+                    <span class="nc-sw"></span>
+                </label>
                 <?php else: ?>
                 <span class="nc-chip">ไม่ได้เชื่อม</span>
                 <?php endif; ?>
             </div>
             <?php endforeach; ?>
         </div>
-        <p class="ln-hint" style="margin-top:8px;">กดปุ่มเพื่อเปิด/ปิดรับแจ้งเตือนรายคน (มีผลทั้งรายงานเช้า-เย็นและการ์ดงานซ่อม) ·
+        <p class="ln-hint" style="margin-top:8px;">สวิตช์มีผลทั้งรายงานเช้า-เย็นและการ์ดงานซ่อม ·
             admin เชื่อมบัญชีเองผ่านบอท LINE ·
             <a href="/admin/cron/line_links.php" style="color:var(--primary);">จัดการการเชื่อม</a>
         </p>
@@ -434,9 +432,15 @@ include '../templates/header_admin.php';
 .nc-quota-bar span { display:block; height:100%; border-radius:99px; transition:width .3s ease; }
 
 .nc-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px dashed var(--border); font-size:.88rem; }
-.nc-pill { border:none; cursor:pointer; font-size:.76rem; font-weight:700; padding:5px 14px; border-radius:99px; font-family:inherit; }
-.nc-pill.on  { background:rgba(16,185,129,.14); color:#059669; }
-.nc-pill.off { background:rgba(148,163,184,.18); color:var(--text-muted); }
+
+/* toast ยืนยัน auto-save (มุมล่างกลางจอ โผล่แป๊บเดียว) */
+#nc-toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(8px);
+    background:#1d1d1f; color:#fff; padding:9px 18px; border-radius:99px;
+    font-size:.82rem; font-weight:600; opacity:0; pointer-events:none;
+    transition:opacity .2s ease, transform .2s ease; z-index:999; white-space:nowrap; max-width:90vw;
+    overflow:hidden; text-overflow:ellipsis; }
+#nc-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+#nc-toast.err { background:#dc2626; }
 
 .nc-admins { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:8px; }
 .nc-admin { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 12px; background:var(--bg-surface-alt,rgba(0,0,0,.03)); border-radius:9px; font-size:.85rem; }
@@ -530,6 +534,50 @@ include '../templates/header_admin.php';
 </style>
 
 <script>
+// ── สวิตช์ auto-save: ยิง POST ทันทีตอนกด · fail = ดีดสวิตช์กลับ + toast แดง ──
+(function(){
+    let toastTimer;
+    function toast(msg, err){
+        let t = document.getElementById('nc-toast');
+        if (!t) { t = document.createElement('div'); t.id = 'nc-toast'; document.body.appendChild(t); }
+        t.textContent = msg;
+        t.className = err ? 'err' : '';
+        requestAnimationFrame(() => t.classList.add('show'));
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => t.classList.remove('show'), err ? 3200 : 1400);
+    }
+    function updateLineBadge(on){
+        const b = document.getElementById('line-badge');
+        if (!b) return;
+        b.className = 'nc-badge ' + (on ? 'on' : 'off');
+        b.textContent = on ? 'เปิด' : 'ปิด';
+    }
+    document.querySelectorAll('.nc-auto').forEach(cb => {
+        cb.addEventListener('change', () => {
+            const fd = new FormData();
+            fd.append('ajax', '1');
+            fd.append('action', cb.dataset.action);
+            fd.append('val', cb.checked ? '1' : '0');
+            if (cb.dataset.key)   fd.append('key', cb.dataset.key);
+            if (cb.dataset.group) fd.append('group_id', cb.dataset.group);
+            if (cb.dataset.admin) fd.append('admin_id', cb.dataset.admin);
+            cb.disabled = true;
+            fetch(location.pathname, { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(j => {
+                    if (!j.ok) throw new Error(j.err || 'บันทึกไม่สำเร็จ');
+                    toast(cb.checked ? 'เปิดแล้ว' : 'ปิดแล้ว');
+                    if (cb.dataset.key === 'notify_line_enabled') updateLineBadge(cb.checked);
+                })
+                .catch(e => {
+                    cb.checked = !cb.checked; // ดีดกลับสถานะเดิม
+                    toast(e.message || 'บันทึกไม่สำเร็จ', true);
+                })
+                .finally(() => { cb.disabled = false; });
+        });
+    });
+})();
+
 function cp(){
     const el = document.getElementById('wh');
     el.select(); el.setSelectionRange(0,99999);
