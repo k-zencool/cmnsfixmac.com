@@ -151,7 +151,10 @@ include '../templates/header_admin.php';
             <a href="../tracking/" class="cmns-btn cmns-btn-secondary">
                 <span class="material-symbols-rounded">build</span> TRACKING
             </a>
-            <button type="button" onclick="openPrintModal()" class="cmns-btn cmns-btn-primary">
+            <button type="button" onclick="openPrintModal('stock')" class="cmns-btn cmns-btn-secondary">
+                <span class="material-symbols-rounded">fact_check</span> เช็คสต็อก
+            </button>
+            <button type="button" onclick="openPrintModal('todo')" class="cmns-btn cmns-btn-primary">
                 <span class="material-symbols-rounded">print</span> พิมพ์ TODO
             </button>
         </div>
@@ -318,7 +321,7 @@ include '../templates/header_admin.php';
 <div id="print-modal" class="mgr-modal" onclick="if(event.target===this) closePrintModal()">
     <div class="mgr-modal-box">
         <div class="mgr-modal-head">
-            <h3><span class="material-symbols-rounded" style="color:var(--primary);">print</span> ตัวอย่างใบ TODO งานค้าง</h3>
+            <h3><span class="material-symbols-rounded" style="color:var(--primary);">print</span> <span id="print-modal-title">ตัวอย่างใบ TODO งานค้าง</span></h3>
             <button type="button" class="mgr-modal-close" onclick="closePrintModal()"><span class="material-symbols-rounded">close</span></button>
         </div>
         <iframe id="print-frame" src="about:blank"></iframe>
@@ -335,14 +338,22 @@ include '../templates/header_admin.php';
 
 <?php include '../templates/footer_admin.php'; ?>
 <script>
-function openPrintModal() {
+function openPrintModal(mode) {
     const modal = document.getElementById('print-modal');
     const frame = document.getElementById('print-frame');
-    // ใบพิมพ์ใช้ filter ชุดเดียวกับบอร์ด (ตัด page/per — พิมพ์ทั้งชุดที่กรอง)
-    const qs = new URLSearchParams(window.location.search);
-    qs.delete('page'); qs.delete('per');
-    qs.set('embed', '1');
-    frame.src = 'print.php?' + qs.toString() + (qs.has('group') ? '' : '&group=todo');
+    const title = document.getElementById('print-modal-title');
+    if (mode === 'stock') {
+        // ใบเช็คสต็อก — เลือกหมวด/ประเภทได้จาก dropdown ในใบเอง
+        title.textContent = 'ตัวอย่างใบเช็คสต็อก';
+        frame.src = 'print_stock.php?embed=1';
+    } else {
+        // ใบ TODO ใช้ filter ชุดเดียวกับบอร์ด (ตัด page/per — พิมพ์ทั้งชุดที่กรอง)
+        title.textContent = 'ตัวอย่างใบ TODO งานค้าง';
+        const qs = new URLSearchParams(window.location.search);
+        qs.delete('page'); qs.delete('per');
+        qs.set('embed', '1');
+        frame.src = 'print.php?' + qs.toString() + (qs.has('group') ? '' : '&group=todo');
+    }
     modal.style.display = 'flex';
     requestAnimationFrame(() => modal.classList.add('show'));
 }
