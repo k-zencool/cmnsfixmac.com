@@ -133,14 +133,20 @@ include __DIR__ . '/../templates/header_admin.php';
     <div class="lk-flash"><?= htmlspecialchars($_GET['ok']) ?></div>
     <?php endif; ?>
 
+    <div class="lk-cols">
+    <div class="lk-col">
     <!-- 1) รออนุมัติ -->
     <div class="lk-card">
         <div class="lk-label">
-            <span class="material-symbols-rounded" style="color:#f59e0b;">how_to_reg</span>
+            <span class="lk-label-icon" style="--c:#f59e0b;"><span class="material-symbols-rounded">how_to_reg</span></span>
             รออนุมัติ <span class="lk-count"><?= count($pending) ?></span>
         </div>
         <?php if (empty($pending)): ?>
-            <p class="lk-hint">ยังไม่มีคนทักบอทมารอลงทะเบียน — ให้พนักงานแอดบอทหลักแล้วทักอะไรก็ได้ รหัสจะโผล่ที่นี่</p>
+            <div class="lk-empty">
+                <span class="material-symbols-rounded">person_search</span>
+                <b>ยังไม่มีคนรอลงทะเบียน</b>
+                <span>ให้พนักงานแอดบอทหลักแล้วทักอะไรก็ได้ — รหัส 6 หลักจะโผล่ที่นี่</span>
+            </div>
         <?php else: foreach ($pending as $p): ?>
             <div class="lk-row">
                 <div class="lk-main">
@@ -173,11 +179,15 @@ include __DIR__ . '/../templates/header_admin.php';
     <!-- 2) เชื่อมแล้ว -->
     <div class="lk-card">
         <div class="lk-label">
-            <span class="material-symbols-rounded" style="color:#10b981;">link</span>
+            <span class="lk-label-icon" style="--c:#10b981;"><span class="material-symbols-rounded">link</span></span>
             Admin ที่เชื่อมแล้ว <span class="lk-count"><?= count($linked) ?></span>
         </div>
         <?php if (empty($linked)): ?>
-            <p class="lk-hint">ยังไม่มีพนักงานเชื่อม LINE</p>
+            <div class="lk-empty">
+                <span class="material-symbols-rounded">link_off</span>
+                <b>ยังไม่มีพนักงานเชื่อม LINE</b>
+                <span>อนุมัติจากรายการ "รออนุมัติ" ด้านบน แล้วรายชื่อจะมาอยู่ที่นี่</span>
+            </div>
         <?php else: foreach ($linked as $l): ?>
             <div class="lk-row">
                 <div class="lk-main">
@@ -200,22 +210,29 @@ include __DIR__ . '/../templates/header_admin.php';
         <p class="lk-hint" style="margin:10px 0 0;">เปิด/ปิดว่าใครรับแจ้งเตือนจากบอทไหน ไปที่
             <a href="/admin/settings/notifications.php" style="color:var(--primary);">หน้าการแจ้งเตือน</a></p>
     </div>
+    </div><!-- /.lk-col ซ้าย -->
 
+    <div class="lk-col">
     <!-- 3) กลุ่มทั้งหมด -->
     <div class="lk-card">
         <div class="lk-label">
-            <span class="material-symbols-rounded" style="color:#06c755;">groups</span>
+            <span class="lk-label-icon" style="--c:#06c755;"><span class="material-symbols-rounded">groups</span></span>
             กลุ่มของบอท <span class="lk-count"><?= $groups_active ?> เปิด / <?= is_array($groups) ? count($groups) : 0 ?> ทั้งหมด</span>
         </div>
+        <?php if (!empty($groups)): ?>
         <p class="lk-hint" style="margin:0 0 6px;">
-            เชิญบอทเข้ากลุ่ม LINE แล้วกลุ่มจะโผล่ที่นี่อัตโนมัติ · สวิตช์บันทึกทันที ·
-            <b>บอทรายงานต้องถูกเชิญเข้ากลุ่มเองด้วย</b> (ระบบเช็คให้ไม่ได้ — บอทรายงานไม่มี webhook)
+            สวิตช์บันทึกทันที · <b>บอทรายงานต้องถูกเชิญเข้ากลุ่มเองด้วย</b> (ระบบเช็คให้ไม่ได้ — บอทรายงานไม่มี webhook)
         </p>
+        <?php endif; ?>
 
         <?php if ($groups === null): ?>
             <p class="lk-hint" style="color:#dc2626;">⚠️ ยังไม่ได้สร้างตาราง <code>line_groups</code> บน DB (รัน migration_line_groups.sql ก่อน)</p>
         <?php elseif (empty($groups)): ?>
-            <p class="lk-hint">ยังไม่มีกลุ่ม — เชิญบอทเข้ากลุ่ม LINE แล้วรีเฟรชหน้านี้</p>
+            <div class="lk-empty">
+                <span class="material-symbols-rounded">group_add</span>
+                <b>ยังไม่มีกลุ่ม</b>
+                <span>เชิญบอทหลักเข้ากลุ่ม LINE แล้วกลุ่มจะโผล่ที่นี่อัตโนมัติ</span>
+            </div>
         <?php else: foreach ($groups as $g): $active = (int)$g['is_active'] === 1; ?>
             <div class="lk-group <?= $active ? '' : 'off' ?>">
                 <div class="lk-group-head">
@@ -258,12 +275,40 @@ include __DIR__ . '/../templates/header_admin.php';
             </div>
         <?php endforeach; endif; ?>
     </div>
+    </div><!-- /.lk-col ขวา -->
+    </div><!-- /.lk-cols -->
 </div>
 
 <style>
-.lk-wrapper { max-width:860px; margin:0 auto; padding:24px 16px; display:flex; flex-direction:column; gap:16px; }
+.lk-wrapper { max-width:1180px; margin:0 auto; padding:24px 16px; display:flex; flex-direction:column; gap:16px; }
+
+/* 2 คอลัมน์บนจอกว้าง (ซ้าย: รออนุมัติ+admin · ขวา: กลุ่ม) — มือถือซ้อนตามปกติ */
+.lk-cols { display:flex; flex-direction:column; gap:16px; }
+.lk-col { display:flex; flex-direction:column; gap:16px; min-width:0; }
+@media (min-width:1024px) {
+    .lk-cols { flex-direction:row; align-items:flex-start; gap:18px; }
+    .lk-col { flex:1; }
+}
 .lk-card { background:var(--bg-surface); border:1px solid var(--border); border-radius:14px; padding:20px 22px; box-shadow:var(--shadow); }
-.lk-label { display:flex; align-items:center; gap:8px; font-size:.95rem; font-weight:700; color:var(--text-main); margin-bottom:12px; }
+.lk-label { display:flex; align-items:center; gap:10px; font-size:.95rem; font-weight:700; color:var(--text-main); margin-bottom:12px; }
+.lk-label-icon { flex:0 0 32px; width:32px; height:32px; border-radius:9px; display:flex; align-items:center; justify-content:center;
+    background:color-mix(in srgb, var(--c) 12%, transparent); color:var(--c); }
+.lk-label-icon .material-symbols-rounded { font-size:19px; }
+
+/* empty state — ไอคอนใหญ่กลางการ์ด ไม่ใช่ข้อความห้อยบรรทัดเดียว */
+.lk-empty { display:flex; flex-direction:column; align-items:center; gap:4px; text-align:center; padding:26px 12px 18px; }
+.lk-empty .material-symbols-rounded { font-size:40px; color:var(--text-muted); opacity:.45; margin-bottom:4px; }
+.lk-empty b { font-size:.9rem; color:var(--text-main); font-weight:700; }
+.lk-empty span:last-child { font-size:.78rem; color:var(--text-muted); line-height:1.6; max-width:420px; }
+
+/* ปุ่มกลับ — มาตรฐานเดียวกับหน้าการแจ้งเตือน */
+.cmns-back-link { display:inline-flex; align-items:center; gap:6px; color:var(--text-muted);
+    text-decoration:none; font-size:13px; font-weight:800; padding:4px 8px; background:transparent;
+    border:none; letter-spacing:.5px; transition:all .2s cubic-bezier(.4,0,.2,1); }
+.cmns-back-link .material-symbols-rounded { font-size:18px; transition:transform .2s ease; }
+.cmns-back-link:hover { color:var(--primary); text-shadow:0 0 10px rgba(37,99,235,.3); }
+.cmns-back-link:hover .material-symbols-rounded { transform:translateX(-4px); }
+.cmns-back-link:active { transform:scale(.95); opacity:.7; }
 .lk-count { font-size:.72rem; font-weight:700; padding:2px 10px; border-radius:99px; background:rgba(148,163,184,.16); color:var(--text-muted); }
 .lk-hint { font-size:.78rem; font-weight:400; color:var(--text-muted); margin:0; line-height:1.6; }
 .lk-flash { background:rgba(16,185,129,.1); color:#059669; border:1px solid rgba(16,185,129,.25); padding:11px 16px; border-radius:10px; font-size:.88rem; font-weight:600; }
