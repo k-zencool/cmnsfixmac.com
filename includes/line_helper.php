@@ -117,16 +117,39 @@ if (!function_exists('line_get_token')) {
             : ['code' => $c, 'label' => ($c ?: '-'), 'color' => '#94a3b8', 'emoji' => '•'];
     }
 
+    /** duty → channel token: jobs = บอทหลัก ('line') · reports = บอทรายงาน ('line_reports') */
+    function line_duty_channel(string $duty): string {
+        return $duty === 'reports' ? 'line_reports' : 'line';
+    }
+
     /**
-     * line_user_id ของ admin ที่เปิดรับแจ้งเตือน (line_notify_enabled = 1)
-     * fallback: ถ้าคอลัมน์ยังไม่ migrate → ส่งหาทุกคนที่ link ไว้ (พฤติกรรมเดิม)
+     * line_user_id ของ admin ที่เปิดรับแจ้งเตือนของ duty นั้น (jobs = การ์ดงานซ่อม · reports = รายงานเช้า-เย็น)
+     * fallback ตามลำดับ: คอลัมน์ per-duty → line_notify_enabled เดิม → ทุกคนที่ link (schema เก่าสุด)
      */
-    function line_admin_recipients(PDO $pdo): array {
+    function line_admin_recipients(PDO $pdo, string $duty = 'jobs'): array {
+        $col  = $duty === 'reports' ? 'line_notify_reports' : 'line_notify_jobs';
         $base = "SELECT line_user_id FROM admin_users WHERE line_user_id IS NOT NULL AND line_user_id <> ''";
         try {
-            return $pdo->query($base . " AND line_notify_enabled = 1")->fetchAll(PDO::FETCH_COLUMN);
+            return $pdo->query($base . " AND $col = 1")->fetchAll(PDO::FETCH_COLUMN);
         } catch (Exception $e) {
-            try { return $pdo->query($base)->fetchAll(PDO::FETCH_COLUMN); }
+            try { return $pdo->query($base . " AND line_notify_enabled = 1")->fetchAll(PDO::FETCH_COLUMN); }
+            catch (Exception $e2) {
+                try { return $pdo->query($base)->fetchAll(PDO::FETCH_COLUMN); }
+                catch (Exception $e3) { return []; }
+            }
+        }
+    }
+
+    /**
+     * group_id ของกลุ่มที่เปิดรับ duty นั้น (is_active = master switch — บอทโดนเตะ/ออกจากกลุ่ม = 0)
+     * fallback: คอลัมน์ per-duty ยังไม่ migrate → ทุกกลุ่มที่ active (พฤติกรรมเดิม)
+     */
+    function line_group_recipients(PDO $pdo, string $duty = 'jobs'): array {
+        $col = $duty === 'reports' ? 'recv_reports' : 'recv_jobs';
+        try {
+            return $pdo->query("SELECT group_id FROM line_groups WHERE is_active = 1 AND $col = 1")->fetchAll(PDO::FETCH_COLUMN);
+        } catch (Exception $e) {
+            try { return $pdo->query("SELECT group_id FROM line_groups WHERE is_active = 1")->fetchAll(PDO::FETCH_COLUMN); }
             catch (Exception $e2) { return []; }
         }
     }
@@ -342,21 +365,24 @@ if (!function_exists('line_get_token')) {
             require_once __DIR__ . '/notify_settings.php';
             if (!notif_bool($pdo, 'notify_line_enabled', true))  return ['skipped' => 'line off'];
             if (!notif_bool($pdo, 'notify_jobs_enabled', true))  return ['skipped' => 'jobs off'];
-            return line_alert_send($pdo, [$flexMsg]);
+            return line_alert_send($pdo, [$flexMsg], 'jobs');
         } catch (Throwable $e) {
             return ['err' => $e->getMessage()];
         }
     }
 
-    /** ส่งชุด message (flex+text) ไปหา admin ที่ลงทะเบียน + กลุ่มที่เปิดอยู่ ทีเดียว */
-    function line_alert_send(PDO $pdo, array $messages, string $channel = 'line'): array {
+    /**
+     * ส่งชุด message (flex+text) ไปหา admin + กลุ่มที่เปิดรับ duty นั้น ทีเดียว
+     * $duty: 'jobs' = การ์ดงานซ่อม → ออกบอทหลัก · 'reports' = รายงานเช้า-เย็น → ออกบอทรายงาน
+     */
+    function line_alert_send(PDO $pdo, array $messages, string $duty = 'jobs'): array {
+        // เผื่อ caller เก่าส่งชื่อ channel มาแทน duty
+        if ($duty === 'line') $duty = 'jobs';
+        if ($duty === 'line_reports') $duty = 'reports';
         $out = ['recipients' => 0, 'sent' => 0, 'failed' => 0];
-        $token = line_get_token($pdo, $channel);
+        $token = line_get_token($pdo, line_duty_channel($duty));
         if (!$token) { $out['err'] = 'no token'; return $out; }
-        $recips = line_admin_recipients($pdo);
-        try {
-            $recips = array_merge($recips, $pdo->query("SELECT group_id FROM line_groups WHERE is_active = 1")->fetchAll(PDO::FETCH_COLUMN));
-        } catch (Exception $e) { /* ตาราง line_groups อาจยังไม่ migrate */ }
+        $recips = array_merge(line_admin_recipients($pdo, $duty), line_group_recipients($pdo, $duty));
         $out['recipients'] = count($recips);
         foreach ($recips as $to) {
             $r = line_push_messages($pdo, (string)$to, $messages, $token);

@@ -56,7 +56,7 @@ $lineMsgs = [
 // channel 'line_reports' = บอทรายงานแยกโควต้า — ยังไม่ตั้ง token จะ fallback ไปบอทหลักเอง
 $lineOut = ['skipped' => true];
 if (notif_bool($pdo, 'notify_evening_enabled', true) && notif_bool($pdo, 'notify_line_enabled', true)) {
-    $lineOut = line_alert_send($pdo, $lineMsgs, 'line_reports');
+    $lineOut = line_alert_send($pdo, $lineMsgs, 'reports');
 }
 
 echo "<h3>Evening Report</h3>";
