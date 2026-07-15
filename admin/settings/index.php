@@ -20,6 +20,8 @@ $sections = [
     [
         'label' => 'บัญชีของฉัน',
         'desc'  => 'ข้อมูลส่วนตัวและความปลอดภัยของบัญชีคุณ',
+        'icon'  => 'person',
+        'iconc' => '#2563eb',
         'cards' => [
             [
                 'icon'  => 'account_circle',
@@ -40,6 +42,8 @@ $sections = [
     [
         'label' => 'ระบบและข้อมูล',
         'desc'  => 'โครงสร้างข้อมูลหลักของระบบ',
+        'icon'  => 'database',
+        'iconc' => '#8b5cf6',
         'cards' => [
             [
                 'icon'  => 'category',
@@ -55,19 +59,21 @@ $sections = [
 if ($is_super) {
     $sections[] = [
         'label' => 'การเชื่อมต่อและแจ้งเตือน',
-        'desc'  => 'ตั้งค่า LINE Official Account และการแจ้งเตือนอัตโนมัติ',
+        'desc'  => 'บอท LINE 2 ตัว (งานซ่อม + รายงาน) และการแจ้งเตือนอัตโนมัติ',
+        'icon'  => 'notifications_active',
+        'iconc' => '#06c755',
         'cards' => [
             [
                 'icon'  => 'notifications_active',
                 'title' => 'การแจ้งเตือน & LINE',
-                'desc'  => 'ตั้งค่า LINE OA (token/secret/webhook), รอบเช้า-เย็น, ผู้รับ และทดสอบส่ง',
+                'desc'  => 'แผงบอทหลัก/บอทรายงาน: สวิตช์ ผู้รับ โควต้า token และทดสอบส่ง',
                 'href'  => '/admin/settings/notifications.php',
                 'color' => '#06c755',
             ],
             [
                 'icon'  => 'link',
-                'title' => 'เชื่อม LINE พนักงาน',
-                'desc'  => 'อนุมัติพนักงานที่ทักบอท, ปลดการเชื่อม และจัดการกลุ่มที่บอทอยู่',
+                'title' => 'เชื่อม LINE & กลุ่ม',
+                'desc'  => 'อนุมัติพนักงานที่ทักบอท, ปลดการเชื่อม และจัดการกลุ่มของบอท',
                 'href'  => '/admin/cron/line_links.php',
                 'color' => '#0ea5e9',
             ],
@@ -76,6 +82,8 @@ if ($is_super) {
     $sections[] = [
         'label' => 'ผู้ดูแลระบบ',
         'desc'  => 'จัดการสิทธิ์และบัญชีผู้ดูแล',
+        'icon'  => 'shield_person',
+        'iconc' => '#ef4444',
         'cards' => [
             [
                 'icon'  => 'manage_accounts',
@@ -94,25 +102,25 @@ if ($is_super) {
 
     <div class="settings-sections">
     <?php foreach ($sections as $sec): ?>
-    <section class="settings-section">
-        <div class="settings-section-head">
-            <h2><?= htmlspecialchars($sec['label']) ?></h2>
-            <?php if (!empty($sec['desc'])): ?><p><?= htmlspecialchars($sec['desc']) ?></p><?php endif; ?>
+    <section class="lk-card">
+        <div class="lk-label">
+            <span class="material-symbols-rounded" style="color:<?= htmlspecialchars($sec['iconc']) ?>;"><?= htmlspecialchars($sec['icon']) ?></span>
+            <?= htmlspecialchars($sec['label']) ?>
+            <span class="lk-count"><?= count($sec['cards']) ?></span>
         </div>
-        <div class="settings-list">
-            <?php foreach ($sec['cards'] as $c): ?>
-                <a class="settings-row" href="<?= htmlspecialchars($c['href']) ?>">
-                    <span class="settings-row-icon" style="--c: <?= htmlspecialchars($c['color']) ?>;">
-                        <span class="material-symbols-rounded"><?= htmlspecialchars($c['icon']) ?></span>
-                    </span>
-                    <div class="settings-row-body">
-                        <h3><?= htmlspecialchars($c['title']) ?></h3>
-                        <p><?= htmlspecialchars($c['desc']) ?></p>
-                    </div>
-                    <span class="material-symbols-rounded settings-row-arrow">chevron_right</span>
-                </a>
-            <?php endforeach; ?>
-        </div>
+        <?php if (!empty($sec['desc'])): ?><p class="lk-hint" style="margin:-6px 0 8px;"><?= htmlspecialchars($sec['desc']) ?></p><?php endif; ?>
+        <?php foreach ($sec['cards'] as $c): ?>
+            <a class="settings-row" href="<?= htmlspecialchars($c['href']) ?>">
+                <span class="settings-row-icon" style="--c: <?= htmlspecialchars($c['color']) ?>;">
+                    <span class="material-symbols-rounded"><?= htmlspecialchars($c['icon']) ?></span>
+                </span>
+                <div class="settings-row-body">
+                    <h3><?= htmlspecialchars($c['title']) ?></h3>
+                    <p><?= htmlspecialchars($c['desc']) ?></p>
+                </div>
+                <span class="material-symbols-rounded settings-row-arrow">chevron_right</span>
+            </a>
+        <?php endforeach; ?>
     </section>
     <?php endforeach; ?>
     </div>
@@ -122,35 +130,31 @@ if ($is_super) {
 .settings-page { max-width: 1240px; }
 
 /* Page intro */
-.settings-intro { margin: 0 0 24px; font-size: .9rem; color: var(--text-muted); }
+.settings-intro { margin: 0 0 20px; font-size: .9rem; color: var(--text-muted); }
 
 /* Masonry-style columns — fill horizontal space on wide screens */
-.settings-sections { column-gap: 22px; }
+.settings-sections { column-gap: 18px; }
 @media (min-width: 1000px) { .settings-sections { column-count: 2; } }
 
-/* Section */
-.settings-section { margin-bottom: 22px; break-inside: avoid; -webkit-column-break-inside: avoid; }
-.settings-section-head { margin: 0 4px 8px; }
-.settings-section-head h2 {
-    margin: 0; font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
-    color: var(--text-muted);
-}
-.settings-section-head p { margin: 2px 0 0; font-size: .8rem; color: var(--text-muted); opacity: .8; }
+/* การ์ด section — ภาษาเดียวกับหน้าการแจ้งเตือน / เชื่อม LINE (lk-card) */
+.lk-card { background: var(--bg-surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px 22px; box-shadow: var(--shadow); margin-bottom: 18px;
+    break-inside: avoid; -webkit-column-break-inside: avoid; }
+.lk-label { display: flex; align-items: center; gap: 8px; font-size: .95rem; font-weight: 700;
+    color: var(--text-main); margin-bottom: 12px; }
+.lk-count { font-size: .72rem; font-weight: 700; padding: 2px 10px; border-radius: 99px;
+    background: rgba(148,163,184,.16); color: var(--text-muted); }
+.lk-hint { font-size: .78rem; font-weight: 400; color: var(--text-muted); line-height: 1.6; }
 
-/* Grouped list — one bordered container, rows split by dividers */
-.settings-list {
-    background: var(--bg-surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-}
+/* แถวลิงก์ในการ์ด — เส้นคั่น dashed แบบเดียวกับรายชื่อผู้รับ */
 .settings-row {
     display: flex; align-items: center; gap: 14px;
-    padding: 14px 16px; text-decoration: none; color: var(--text-main);
-    border-top: 1px solid var(--border);
+    padding: 13px 0; text-decoration: none; color: var(--text-main);
+    border-bottom: 1px dashed var(--border);
     transition: background .15s ease;
+    border-radius: 8px;
 }
-.settings-row:first-child { border-top: none; }
+.settings-row:last-of-type { border-bottom: none; padding-bottom: 4px; }
 .settings-row:hover { background: var(--bg-surface-alt, rgba(127,127,127,.06)); }
 .settings-row-icon {
     flex: 0 0 34px; width: 34px; height: 34px; border-radius: 9px;
@@ -160,8 +164,8 @@ if ($is_super) {
 }
 .settings-row-icon .material-symbols-rounded { font-size: 20px; }
 .settings-row-body { flex: 1; min-width: 0; }
-.settings-row-body h3 { margin: 0 0 1px; font-size: .93rem; font-weight: 600; }
-.settings-row-body p { margin: 0; font-size: .8rem; color: var(--text-muted); line-height: 1.4;
+.settings-row-body h3 { margin: 0 0 1px; font-size: .9rem; font-weight: 700; }
+.settings-row-body p { margin: 0; font-size: .78rem; color: var(--text-muted); line-height: 1.4;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .settings-row-arrow { flex-shrink: 0; font-size: 20px; color: var(--text-muted); opacity: .55;
     transition: transform .15s ease; }
@@ -169,7 +173,8 @@ if ($is_super) {
 
 @media (max-width: 600px) {
     .settings-page { max-width: 100%; }
-    .settings-row { padding: 13px 14px; gap: 12px; }
+    .lk-card { padding: 16px; border-radius: 12px; }
+    .settings-row { padding: 12px 0; gap: 12px; }
     .settings-row-body p { white-space: normal; }
 }
 </style>
