@@ -91,6 +91,7 @@ foreach ($root_categories as $key => $cat) {
         FROM inventory i
         LEFT JOIN inventory_lots l ON i.id = l.inventory_id
         WHERE i.category_id IN ($ids_in)
+          AND NOT (i.type = 'sale' AND i.status = 'SOLD')
         GROUP BY i.type
     ");
     $stmt_stats->execute();
