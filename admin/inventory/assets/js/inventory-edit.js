@@ -90,11 +90,14 @@ function applyStatusOptions(type, totalQty, currentStatus) {
         const st = currentStatus || 'STOCK';
         sel.value = st; sel.disabled = false;
         const c = SC[st] || '#888';
-        const opts = type === 'used'
+        let opts = type === 'used'
             ? ['GOOD','TEST','DEAD']
             : type === 'new'  ? ['STOCK','OOS']
-            : type === 'machine' ? ['READY','PARTIAL','stripped']
+            : type === 'machine' ? ['READY','PARTIAL','DISCOUNT']
             : ['READY','SOLD','PENDING'];
+        // ข้อมูลเก่าบางตัวมี status นอกชุดตัวเลือกของ type นี้ (เช่นของ legacy) —
+        // ใส่ค่าปัจจุบันเข้าไปด้วยเพื่อไม่ให้ dropdown เด้งไปเลือกตัวอื่นเงียบๆ ตอน save
+        if (st && !opts.includes(st)) opts = [st, ...opts];
         badgeEl.innerHTML =
             `<select onchange="syncStatusSelect(this)" `+
             `style="padding:3px 10px;border-radius:20px;border:1px solid ${c}44;background:${c}18;`+
@@ -189,20 +192,51 @@ function toggleEditTypeFields() {
             </div>
         `;
     } else if (type === 'used') {
+        let machineOpts = '<option value="">-- ไม่ทราบที่มา / ไม่ผูกเครื่องซาก --</option>';
+        (typeof machinesList !== 'undefined' ? machinesList : []).forEach(m => {
+            machineOpts += `<option value="${m.id}" ${String(item.source_machine_id)===String(m.id)?'selected':''}>[${m.asset_tag || 'NO-TAG'}] ${esc(m.name)}</option>`;
+        });
         html = `
+            <div style="grid-column:span 2;">
+                <label class="cmns-label" style="color:#ef4444;"><span class="material-symbols-rounded" style="font-size:16px;vertical-align:middle;">link</span> แกะมาจากเครื่องซากตัวไหน?</label>
+                <select name="source_machine_id" class="cmns-input" style="border-color:#ef4444;">${machineOpts}</select>
+            </div>
+            <div><label class="cmns-label">Serial Number</label><input type="text" name="serial_number" class="cmns-input" value="${esc(item.serial_number)}" placeholder="S/N ของชิ้นส่วน"></div>
             <div><label class="cmns-label">เลขพาร์ท (Part No.)</label><input type="text" name="part_number" class="cmns-input" value="${esc(item.part_number)}"></div>
             <div><label class="cmns-label">Min Qty</label><input type="number" name="min_qty" class="cmns-input" value="${item.min_qty || 1}" min="0"></div>
+            <div style="grid-column:span 2;">
+                <label class="cmns-label">หมายเหตุสภาพ (Condition Note)</label>
+                <input type="text" name="condition_note" class="cmns-input" value="${esc(item.condition_note)}" placeholder="เช่น มีรอยขีดข่วนเล็กน้อย, ทดสอบจอแล้วปกติ...">
+            </div>
         `;
     } else if (type === 'machine') {
+        const mGradeOpts = ['A','B','C','D'].map(g =>
+            `<option value="${g}" ${item.condition_grade===g?'selected':''}>${g}</option>`).join('');
         html = `
             <div><label class="cmns-label">รหัสเครื่อง (Asset Tag)</label><input type="text" name="asset_tag" class="cmns-input" value="${esc(item.asset_tag)}"></div>
             <div><label class="cmns-label">Serial Number</label><input type="text" name="serial_number" class="cmns-input" value="${esc(item.serial_number)}"></div>
+            <div><label class="cmns-label">สี (Color)</label><input type="text" name="color" class="cmns-input" value="${esc(item.color)}" placeholder="เช่น Space Gray, Silver, Midnight"></div>
+            <div>
+                <label class="cmns-label" style="color:#8b5cf6;">เกรดสภาพ (Grade)</label>
+                <select name="condition_grade" class="cmns-input" style="border-color:#8b5cf6;font-weight:700;">
+                    <option value="">-- เลือกเกรด --</option>
+                    ${mGradeOpts}
+                </select>
+            </div>
             <div style="grid-column:span 2;"><label class="cmns-label" style="color:#10b981;">สถานะการแยกอะไหล่</label>
                 <select name="disassembly_status" class="cmns-input" style="border-color:#10b981;">
                     <option value="intact" ${item.disassembly_status=='intact'?'selected':''}>ยังไม่แกะ</option>
                     <option value="partially_stripped" ${item.disassembly_status=='partially_stripped'?'selected':''}>แกะไปบางส่วน</option>
                     <option value="stripped" ${item.disassembly_status=='stripped'?'selected':''}>แกะหมดแล้ว</option>
                 </select>
+            </div>
+            <div><label class="cmns-label">CPU / Chip</label><input type="text" name="cpu_spec" class="cmns-input" value="${esc(item.cpu_spec)}" placeholder="เช่น Apple M1, Intel Core i7"></div>
+            <div><label class="cmns-label">RAM</label><input type="text" name="ram_spec" class="cmns-input" value="${esc(item.ram_spec)}" placeholder="เช่น 16GB LPDDR5"></div>
+            <div><label class="cmns-label">Storage</label><input type="text" name="storage_spec" class="cmns-input" value="${esc(item.storage_spec)}" placeholder="เช่น 512GB SSD"></div>
+            <div><label class="cmns-label">GPU</label><input type="text" name="gpu_spec" class="cmns-input" value="${esc(item.gpu_spec)}" placeholder="เช่น 8-core GPU, Radeon Pro 5500M"></div>
+            <div style="grid-column:span 2;">
+                <label class="cmns-label">รายละเอียดเพิ่มเติม / ตำหนิ</label>
+                <textarea name="condition_note" class="cmns-input" rows="2" style="resize:vertical;" placeholder="เช่น จอมีรอยขีดข่วน, แบตพอง, หลุดมาจากงานซ่อม...">${esc(item.condition_note)}</textarea>
             </div>
         `;
     } else if (type === 'sale') {

@@ -21,6 +21,7 @@
                 <option value="GOOD">GOOD</option><option value="TEST">TEST</option><option value="DEAD">DEAD</option>
                 <option value="READY">READY</option><option value="PARTIAL">PARTIAL</option>
                 <option value="DISCOUNT">DISCOUNT</option>
+                <option value="SOLD">SOLD</option><option value="PENDING">PENDING</option>
             </select>
 
             <!-- ── Tabs: Details / Stock ── -->

@@ -65,6 +65,7 @@ try {
     $min_qty            = (int)($_POST['min_qty'] ?? 1);
     $asset_tag          = trim($_POST['asset_tag'] ?? '');
     $serial_number      = trim($_POST['serial_number'] ?? '');
+    $source_machine_id  = !empty($_POST['source_machine_id']) ? (int)$_POST['source_machine_id'] : null;
     $condition_note     = trim($_POST['condition_note'] ?? '');
     $disassembly_status = $_POST['disassembly_status'] ?? $existing['disassembly_status'];
     $sell_price         = (float)($_POST['sell_price'] ?? $existing['sell_price']);
@@ -102,7 +103,7 @@ try {
     $pdo->prepare("UPDATE inventory SET
         name = ?, sku = ?, category_id = ?, type = ?, status = ?,
         part_number = ?, compatible_models = ?, location = ?, min_qty = ?,
-        asset_tag = ?, serial_number = ?, condition_note = ?,
+        asset_tag = ?, serial_number = ?, source_machine_id = ?, condition_note = ?,
         disassembly_status = ?, sell_price = ?, image = ?,
         color = ?, condition_grade = ?, cpu_spec = ?, ram_spec = ?, storage_spec = ?, gpu_spec = ?,
         apple_warranty_date = ?, store_warranty_days = ?, battery_health = ?, battery_cycles = ?
@@ -110,7 +111,7 @@ try {
         ->execute([
             $name, $sku, $category_id, $type, $status,
             $part_number ?: null, $compatible_models ?: null, $location ?: null, $min_qty,
-            $asset_tag ?: null, $serial_number ?: null, $condition_note ?: null,
+            $asset_tag ?: null, $serial_number ?: null, $source_machine_id, $condition_note ?: null,
             $disassembly_status, $sell_price, $image_filename,
             $color ?: null, $condition_grade ?: null,
             $cpu_spec ?: null, $ram_spec ?: null, $storage_spec ?: null, $gpu_spec ?: null,
