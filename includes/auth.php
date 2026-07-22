@@ -18,6 +18,50 @@ function require_login(): void
         header('Location: /admin/login.php'); // แก้ path ให้ตรงระบบมึง
         exit;
     }
+    touch_admin_session();
+}
+
+/**
+ * ========== Session tracking (online status / force-logout) ==========
+ * เรียกจาก require_login() ทุกครั้ง — ต้องเบาที่สุด เพราะรันทุกหน้า admin
+ * throttle การเขียน DB ไว้ที่ ~60 วิ/session (เก็บ timestamp ไว้ใน $_SESSION เอง
+ * ไม่ต้อง query ทุก request) และ fail-open เสมอ ถ้ายังไม่ได้รัน migration
+ * หรือ query พังด้วยเหตุผลอะไรก็ตาม ต้องไม่ทำให้ระบบ login พังทั้งระบบ
+ */
+function touch_admin_session(): void
+{
+    if (empty($_SESSION['admin_id']) || session_id() === '') return;
+
+    global $pdo;
+    if (!isset($pdo)) return;
+
+    $now = time();
+    if (!empty($_SESSION['_sess_touch']) && ($now - $_SESSION['_sess_touch']) < 60) return;
+
+    try {
+        $hash = hash('sha256', session_id());
+        $stmt = $pdo->prepare("SELECT revoked_at FROM admin_sessions WHERE session_hash = ? LIMIT 1");
+        $stmt->execute([$hash]);
+        $sess = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($sess && $sess['revoked_at'] !== null) {
+            // ถูกบังคับออกจากระบบจากที่อื่น (kill_session.php) — เตะออกตอนนี้เลย
+            session_unset();
+            session_destroy();
+            header('Location: /admin/login.php?kicked=1');
+            exit;
+        }
+
+        if ($sess) {
+            $pdo->prepare("UPDATE admin_sessions SET last_seen_at = NOW() WHERE session_hash = ?")->execute([$hash]);
+        }
+        // ไม่เจอ row เลย (ยังไม่รัน migration, หรือ session เก่าก่อนฟีเจอร์นี้) — ปล่อยผ่าน ไม่ทำอะไร
+
+        $_SESSION['_sess_touch'] = $now;
+    } catch (Throwable $e) {
+        error_log('touch_admin_session: ' . $e->getMessage());
+        // กลืน error ทิ้ง — ห้ามให้ session tracking พังทั้งระบบ admin
+    }
 }
 
 /**

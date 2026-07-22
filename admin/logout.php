@@ -2,6 +2,19 @@
 // admin/logout.php
 
 session_start();
+
+// ปิด session row ใน admin_sessions ด้วย (ถ้ามี) ก่อนทำลาย session จริง
+if (!empty($_SESSION['admin_id']) && session_id() !== '') {
+    try {
+        require_once __DIR__ . '/../includes/db.php';
+        $pdo->prepare("UPDATE admin_sessions SET revoked_at = NOW() WHERE session_hash = ?")
+            ->execute([hash('sha256', session_id())]);
+    } catch (Throwable $e) {
+        error_log('logout admin_sessions revoke failed: ' . $e->getMessage());
+        // กลืน error ทิ้ง — logout ต้องสำเร็จเสมอไม่ว่า DB จะเป็นยังไง
+    }
+}
+
 // ล้าง Session ทั้งหมดทิ้ง (Logout จริงๆ)
 session_unset();
 session_destroy();

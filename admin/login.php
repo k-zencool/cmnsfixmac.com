@@ -1,6 +1,7 @@
 <?php
 session_start();
 include_once realpath(__DIR__ . '/../includes/db.php');
+require_once __DIR__ . '/../includes/ua_parser.php';
 
 if (isset($_SESSION['admin_logged_in'])) {
   header("Location: dashboard/");
@@ -8,6 +9,9 @@ if (isset($_SESSION['admin_logged_in'])) {
 }
 
 $error = '';
+if (isset($_GET['kicked'])) {
+    $error = 'คุณถูกออกจากระบบจากอุปกรณ์อื่น กรุณาเข้าสู่ระบบใหม่';
+}
 
 // เพิ่ม sleep(1) หลอกๆ หน่อย ให้เห็นหลอดโหลดสัก 1 วิ (ถ้าเซิร์ฟเร็วมันจะแวบเดียว)
 // ถ้าเอาไปใช้จริงแล้วรำคาญ ลบบรรทัด sleep(1) ทิ้งได้เลย
@@ -21,13 +25,30 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['username'])) {
       $stmt->execute([$username]);
       $admin = $stmt->fetch();
       
-      if ($admin && password_verify($password, $admin['password'])) {
+      if ($admin && password_verify($password, $admin['password']) && (($admin['is_active'] ?? 1) == 1)) {
         session_regenerate_id(true);
         $_SESSION['admin_logged_in'] = true;
         $_SESSION['admin_username'] = $admin['username'];
         $_SESSION['admin_id'] = $admin['id'];
-        $_SESSION['admin_role'] = $admin['role']; 
+        $_SESSION['admin_role'] = $admin['role'];
         $_SESSION['LAST_ACTIVE'] = time();
+
+        // บันทึก session สำหรับหน้า admin/user/ (ออนไลน์ตอนนี้ / อุปกรณ์ / บังคับออกจากระบบ)
+        // กัน error ไว้ เผื่อยังไม่ได้รัน migration_admin_sessions.sql — ต้องไม่บล็อกการ login
+        try {
+            $ua = mb_substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 250);
+            $pdo->prepare("INSERT INTO admin_sessions (admin_id, session_hash, ip, user_agent, device_label) VALUES (?, ?, ?, ?, ?)")
+                ->execute([
+                    $admin['id'],
+                    hash('sha256', session_id()),
+                    $_SERVER['REMOTE_ADDR'] ?? null,
+                    $ua,
+                    parse_device_label($ua),
+                ]);
+        } catch (Throwable $e) {
+            error_log('admin_sessions insert failed: ' . $e->getMessage());
+        }
+
         header("Location: dashboard/");
         exit();
       } else {
