@@ -300,11 +300,16 @@ function confirmRevertSale(inventoryId, itemName) {
         Swal.fire({
             icon: 'warning',
             title: 'คืนของที่เดิม?',
-            html: `<b>${_escH(itemName)}</b><br><span style="font-size:13px;color:#888;">จะถูกย้ายกลับไปยังประเภทเดิม (NEW/USED/MACHINE)</span>`,
+            html: `<b>${_escH(itemName)}</b><br><span style="font-size:13px;">จะถูกย้ายกลับไปยังประเภทเดิม (NEW/USED/MACHINE)</span>`,
             showCancelButton: true,
             confirmButtonText: 'คืนเลย',
             cancelButtonText: 'ยกเลิก',
-            confirmButtonColor: '#f59e0b',
+            buttonsStyling: false,
+            customClass: {
+                popup: 'cmns-swal-popup',
+                confirmButton: 'cmns-swal-btn cmns-swal-btn-confirm cmns-swal-btn-warning',
+                cancelButton: 'cmns-swal-btn cmns-swal-btn-cancel',
+            },
         }).then(result => { if (result.isConfirmed) _doRevertSale(inventoryId); });
     } else {
         if (confirm(`คืน "${itemName}" กลับที่เดิม?`)) _doRevertSale(inventoryId);

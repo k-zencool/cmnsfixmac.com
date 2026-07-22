@@ -1,0 +1,60 @@
+/* =========================================================
+   Inventory Index (folder browser) — page-scoped layout/responsive
+   Path: admin/inventory/assets/css/inventory-index.css
+   โหลดหลัง inventory-v2.css เสมอ — ไฟล์นี้จูนเฉพาะหน้า index.php
+   ========================================================= */
+
+/* ขอบซ้าย/ขวาย้ายไปอยู่ inventory-v2.css แล้ว (ใช้ร่วมกับ view.php ด้วย — ปัญหาซ้อนขอบเดียวกัน) */
+
+/* ── Search row: input-wrap + explicit search button ── */
+.cmns-search-form-row {
+    display: flex; align-items: center; gap: 8px;
+    flex: 1; min-width: 250px;
+}
+.cmns-search-form-row .cmns-search-input-wrap { flex: 1; min-width: 0; }
+
+@media (max-width: 480px) {
+    .cmns-search-bar { flex-direction: column; align-items: stretch; }
+    .cmns-search-form-row { min-width: 0; }
+}
+
+/* ── Header action buttons: บีบเป็นเต็มแถวตอนจอแคบ แทนที่จะเบียดกันเป็นแถวเดียว ── */
+@media (max-width: 480px) {
+    .cmns-header-bar { flex-direction: column; align-items: stretch; }
+    .cmns-action-buttons { flex-direction: column; }
+    .cmns-action-buttons .cmns-btn { justify-content: center; width: 100%; }
+}
+
+/* ── Tabs: ยอมให้ตกบรรทัดเสมอ — ทุกแท็บต้องเห็นครบ ห้ามมีอะไรถูกซ่อน/บังไว้หลังการ scroll ที่มองไม่เห็น
+   (เคยลองทำ horizontal-scroll ซ่อน scrollbar แล้วแท็บสุดท้ายไปชนปุ่ม grid/list พอดี ดูเหมือนโดนทับ —
+   ตัดออก ใช้วิธี wrap เต็มบรรทัดแทน รับประกันว่าเห็นครบทุกแท็บเสมอ ไม่ต้องเดา) */
+@media (max-width: 768px) {
+    .cmns-controls-bar { flex-wrap: wrap; row-gap: 12px; }
+    .cmns-tabs { flex: 1 1 100%; flex-wrap: wrap; order: 1; }
+    .cmns-view-toggle { order: 2; margin-left: auto; }
+}
+@media (max-width: 480px) {
+    .cmns-tab { padding: 7px 12px; font-size: 13px; }
+}
+
+/* ── Folder grid: ขนาดการ์ดค่อยๆ ลดลงแทนกระโดดจาก desktop ไปคอลัมน์เดียว ── */
+@media (max-width: 1024px) {
+    .cmns-container.view-grid { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 18px; }
+    .cmns-folder-card { padding: 28px 18px; min-height: 180px; }
+    .cmns-folder-icon { font-size: 52px; }
+}
+@media (max-width: 480px) {
+    .cmns-container.view-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
+    .cmns-folder-card { padding: 20px 12px; min-height: 150px; }
+    .cmns-folder-icon { font-size: 42px; margin-bottom: 10px; }
+    .cmns-folder-name { font-size: 15px; margin-bottom: 10px; }
+    .cmns-stats-container { gap: 4px; }
+    .cmns-stat-badge { font-size: 10px; padding: 3px 7px; }
+}
+
+/* ── List view on mobile: ให้การ์ดยุบข้อมูลลงบรรทัดแทนล้นแนวนอน ── */
+@media (max-width: 480px) {
+    .cmns-container.view-list .cmns-folder-card { padding: 14px 16px; flex-wrap: wrap; }
+    .cmns-container.view-list .cmns-folder-icon { font-size: 32px; margin-right: 14px; }
+    .cmns-container.view-list .cmns-stats-container { width: 100%; justify-content: flex-start; margin-top: 8px; }
+}

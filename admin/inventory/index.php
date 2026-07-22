@@ -13,11 +13,11 @@ $current_type = isset($_GET['type']) ? $_GET['type'] : 'all';
 
 // Setup Header UI
 $header_map = [
-    'all'     => ['title' => 'คลังอะไหล่ทั้งหมด',          'icon' => 'inventory_2',  'color' => 'var(--primary)'],
-    'new'     => ['title' => 'อะไหล่ใหม่ (สต็อก)',         'icon' => 'new_releases', 'color' => '#10b981'],
-    'used'    => ['title' => 'อะไหล่มือสอง (ถอดเครื่อง)',  'icon' => 'build',        'color' => '#f59e0b'],
-    'machine' => ['title' => 'เครื่อง / ซากแยกอะไหล่',     'icon' => 'memory',       'color' => '#8b5cf6'],
-    'sale'    => ['title' => 'เครื่องพร้อมขาย',            'icon' => 'sell',         'color' => '#ef4444']
+    'all'     => ['title' => 'INVENTORY / ALL ITEMS',   'icon' => 'inventory_2',  'color' => 'var(--primary)'],
+    'new'     => ['title' => 'INVENTORY / NEW STOCK',   'icon' => 'new_releases', 'color' => '#10b981'],
+    'used'    => ['title' => 'INVENTORY / USED PARTS',  'icon' => 'build',        'color' => '#f59e0b'],
+    'machine' => ['title' => 'INVENTORY / MACHINES',    'icon' => 'memory',       'color' => '#8b5cf6'],
+    'sale'    => ['title' => 'INVENTORY / FOR SALE',    'icon' => 'sell',         'color' => '#ef4444']
 ];
 
 $header = $header_map[$current_type] ?? $header_map['all'];
@@ -108,6 +108,7 @@ foreach ($root_categories as $key => $cat) {
 
 <link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time(); ?>">
 <link rel="stylesheet" href="assets/css/inventory-v2.css?v=<?= time(); ?>">
+<link rel="stylesheet" href="assets/css/inventory-index.css?v=<?= time(); ?>">
 <link rel="stylesheet" href="../templates/assets/css/modal.css?v=<?= time(); ?>">
 
 <div class="cmns-wrapper" style="--active-theme-color: <?= $header_color ?>;">
@@ -190,11 +191,16 @@ foreach ($root_categories as $key => $cat) {
     </div>
 
     <div class="cmns-search-bar">
-        <!-- search ทุกหมวด — ส่งไป view.php (all-items mode) -->
-        <form action="view.php" method="GET" class="cmns-search-input-wrap" style="margin:0;">
+        <!-- search ทุกหมวด — ส่งไป view.php (all-items mode); ไม่ auto-submit ระหว่างพิมพ์ พิมพ์จบแล้วกดปุ่ม/Enter -->
+        <form action="view.php" method="GET" class="cmns-search-form-row">
             <input type="hidden" name="type" value="<?= htmlspecialchars($current_type) ?>">
-            <span class="material-symbols-rounded search-icon">search</span>
-            <input type="text" id="cmns-search" name="q" class="cmns-search-input" placeholder="ค้นหาอะไหล่ทุกหมวด (ชื่อ, SKU, S/N, Part No., Asset Tag) แล้วกด Enter..." autocomplete="off">
+            <div class="cmns-search-input-wrap" style="margin:0;">
+                <span class="material-symbols-rounded search-icon">search</span>
+                <input type="text" id="cmns-search" name="q" class="cmns-search-input" placeholder="ค้นหาอะไหล่ทุกหมวด (ชื่อ, SKU, S/N, Part No., Asset Tag)..." autocomplete="off">
+            </div>
+            <button type="submit" class="inv-icon-btn inv-icon-search" aria-label="ค้นหา" data-tip="ค้นหา">
+                <span class="material-symbols-rounded">search</span>
+            </button>
         </form>
 
         <?php if ($current_type == 'all'): ?>

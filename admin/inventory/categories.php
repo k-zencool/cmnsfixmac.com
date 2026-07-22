@@ -257,7 +257,12 @@ function confirmDelete(id, name) {
         showCancelButton: true,
         confirmButtonText: 'ลบเลย',
         cancelButtonText: 'ยกเลิก',
-        confirmButtonColor: '#ef4444'
+        buttonsStyling: false,
+        customClass: {
+            popup: 'cmns-swal-popup',
+            confirmButton: 'cmns-swal-btn cmns-swal-btn-confirm cmns-swal-btn-danger',
+            cancelButton: 'cmns-swal-btn cmns-swal-btn-cancel',
+        },
     }).then(r => {
         if (r.isConfirmed) window.location.href = `category_action.php?delete=${id}`;
     });

@@ -60,9 +60,10 @@ $where_sql = $where ? implode(" AND ", $where) : "1";
 
 $order_map = ['newest'=>'i.created_at DESC','oldest'=>'i.created_at ASC','price_low'=>'i.sell_price ASC','price_high'=>'i.sell_price DESC'];
 $type_order = "FIELD(i.type,'new','used','machine','sale')";
+$sold_last  = "(i.status = 'SOLD')"; // SALE ที่ขายแล้ว ดันไปท้ายสุดเสมอ ไม่ว่าจะเรียงลำดับแบบไหน
 $order_sql = $current_type === 'all'
-    ? "ORDER BY $type_order, " . ($order_map[$sort] ?? 'i.created_at DESC')
-    : "ORDER BY " . ($order_map[$sort] ?? 'i.created_at DESC');
+    ? "ORDER BY $type_order, $sold_last, " . ($order_map[$sort] ?? 'i.created_at DESC')
+    : "ORDER BY $sold_last, " . ($order_map[$sort] ?? 'i.created_at DESC');
 
 $stmt_count = $pdo->prepare("SELECT COUNT(DISTINCT i.id) FROM inventory i WHERE $where_sql");
 $stmt_count->execute($params);
@@ -132,20 +133,41 @@ include '../templates/header_admin.php';
 ?>
 
 <link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time(); ?>">
+<link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= time(); ?>">
 <link rel="stylesheet" href="assets/css/inventory-v2.css?v=<?= time(); ?>">
 
 <div class="cmns-wrapper">
     
-    <div class="cmns-top-nav" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-        <?php $back_link = ($category && $category['parent_id']) ? "view.php?id={$category['parent_id']}" : "index.php"; ?>
+    <?php $back_link = ($category && $category['parent_id']) ? "view.php?id={$category['parent_id']}" : "index.php"; ?>
+    <div style="margin-bottom:16px;">
         <a href="<?= $back_link ?>" class="cmns-back-link">
             <span class="material-symbols-rounded">arrow_back</span> BACK
         </a>
-        <?php if (can('parts.manage')): ?>
-        <button onclick="openAddModal()" class="cmns-btn cmns-btn-primary" style="border-radius: 10px; padding: 8px 16px;">
-            <span class="material-symbols-rounded" style="font-size: 20px;">add</span> ADD ITEM
-        </button>
-        <?php endif; ?>
+    </div>
+
+    <div class="cmns-header-bar">
+        <div>
+            <h1 class="cmns-page-title" style="color: var(--primary);">
+                <span class="material-symbols-rounded" style="font-size: 32px;"><?= htmlspecialchars($category ? ($category['icon'] ?: 'folder_open') : 'inventory_2') ?></span>
+                <?= $category ? htmlspecialchars($category['name']) : 'ALL ITEMS' ?>
+            </h1>
+            <p style="color: var(--text-muted); margin-top: 5px; font-size: 14px;">
+                <?php if ($category && $category['description']): ?>
+                    <?= htmlspecialchars($category['description']) ?>
+                <?php elseif (!$category): ?>
+                    อะไหล่ทุกหมวดหมู่รวมกัน
+                <?php else: ?>
+                    ทั้งหมด <b><?= number_format($stat['item_count']) ?></b> รายการในหมวดนี้
+                <?php endif; ?>
+            </p>
+        </div>
+        <div class="cmns-action-buttons">
+            <?php if (can('parts.manage')): ?>
+            <button onclick="openAddModal()" class="cmns-btn cmns-btn-primary">
+                <span class="material-symbols-rounded">add_circle</span> เพิ่มสินค้า
+            </button>
+            <?php endif; ?>
+        </div>
     </div>
 
     <!-- ── Stat cards ── -->
@@ -182,31 +204,69 @@ include '../templates/header_admin.php';
         <?php endif; ?>
     </div>
 
-    <div class="cmns-view-card">
-        
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px;">
-            <div style="display: flex; align-items: center; gap: 12px;">
-                <span class="material-symbols-rounded" style="font-size: 36px; color: var(--primary);"><?= htmlspecialchars($category ? ($category['icon'] ?: 'folder_open') : 'inventory_2') ?></span>
-                <div>
-                    <h1 style="margin:0; font-size: 22px; font-weight: 700;"><?= $category ? htmlspecialchars($category['name']) : 'ALL ITEMS' ?></h1>
-                    <?php if($category && $category['description']): ?>
-                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;"><?= htmlspecialchars($category['description']) ?></div>
-                    <?php elseif(!$category): ?>
-                        <div style="font-size: 12px; color: var(--text-muted); margin-top: 2px;">อะไหล่ทุกหมวดหมู่รวมกัน</div>
-                    <?php endif; ?>
-                </div>
-            </div>
+    <?php $status_opts = ($current_type == 'new') ? ['STOCK', 'OOS'] : (($current_type == 'used') ? ['GOOD', 'TEST', 'DEAD'] : ($current_type == 'sale' ? ['READY', 'SOLD', 'PENDING'] : ['READY', 'PARTIAL', 'DISCOUNT'])); ?>
+    <?php $sort_opts = ['newest' => 'Newest First', 'oldest' => 'Oldest First', 'price_low' => 'Price: Low-High', 'price_high' => 'Price: High-Low']; ?>
+    <form action="view.php" method="GET">
+            <input type="hidden" name="id" value="<?= $category_id ?>">
+            <input type="hidden" name="type" value="<?= $current_type ?>">
 
-            <form action="view.php" method="GET" class="search-form-pro">
-                <input type="hidden" name="id" value="<?= $category_id ?>">
-                <input type="hidden" name="type" value="<?= $current_type ?>">
-                <input type="hidden" name="status" value="<?= $current_status ?>">
-                <input type="hidden" name="sort" value="<?= $sort ?>">
-                
-                <span class="material-symbols-rounded search-icon">search</span>
-                <input type="text" name="q" value="<?= htmlspecialchars($search) ?>" placeholder="ค้นหา (ชื่อ, SKU, S/N, Part No., Asset Tag)..." class="view-search-input">
-            </form>
-        </div>
+            <div class="log-filter-bar" style="margin-bottom:20px;">
+                <div class="log-filter-group" style="flex:1; min-width:220px;">
+                    <label>ค้นหา</label>
+                    <div class="log-search-wrap">
+                        <span class="material-symbols-rounded search-icon">search</span>
+                        <input type="text" name="q" value="<?= htmlspecialchars($search) ?>" placeholder="ชื่อ, SKU, S/N, Part No., Asset Tag" class="view-search-input">
+                    </div>
+                </div>
+
+                <div class="inv-filter-wrap" style="align-self:flex-end;">
+                    <button type="button" class="inv-filter-btn <?= ($current_status !== '' || $sort !== 'newest') ? 'has-filter' : '' ?>"
+                            id="statusFilterBtn" onclick="toggleStatusFilterMenu(event)"
+                            aria-label="ตัวกรอง / เรียงลำดับ" data-tip="ตัวกรอง / เรียงลำดับ">
+                        <span class="material-symbols-rounded">filter_list</span>
+                        <?php if ($current_status !== '' || $sort !== 'newest'): ?><span class="inv-filter-badge">&bull;</span><?php endif; ?>
+                    </button>
+                    <div class="inv-filter-menu" id="statusFilterMenu">
+                        <div class="inv-filter-title">สถานะ</div>
+                        <label class="inv-filter-item">
+                            <input type="radio" name="status" value="" <?= $current_status === '' ? 'checked' : '' ?>>
+                            <span>ทั้งหมด</span>
+                        </label>
+                        <?php foreach ($status_opts as $opt): ?>
+                        <label class="inv-filter-item">
+                            <input type="radio" name="status" value="<?= htmlspecialchars($opt, ENT_QUOTES) ?>" <?= $current_status === $opt ? 'checked' : '' ?>>
+                            <span><?= htmlspecialchars($opt) ?></span>
+                        </label>
+                        <?php endforeach; ?>
+
+                        <div class="inv-filter-title" style="margin-top:10px;">เรียงลำดับ</div>
+                        <?php foreach ($sort_opts as $sv => $sl): ?>
+                        <label class="inv-filter-item">
+                            <input type="radio" name="sort" value="<?= $sv ?>" <?= $sort === $sv ? 'checked' : '' ?>>
+                            <span><?= $sl ?></span>
+                        </label>
+                        <?php endforeach; ?>
+
+                        <div class="inv-filter-actions">
+                            <button type="button" onclick="clearStatusFilter()">ล้าง</button>
+                            <button type="submit">ค้นหา</button>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="inv-icon-btn inv-icon-search" aria-label="ค้นหา" data-tip="ค้นหา" style="align-self:flex-end;">
+                    <span class="material-symbols-rounded">search</span>
+                </button>
+                <?php if ($search !== '' || $current_status !== '' || $sort !== 'newest'): ?>
+                <a href="view.php?id=<?= $category_id ?>&type=<?= htmlspecialchars($current_type) ?>"
+                   class="inv-icon-btn inv-icon-reset" aria-label="ล้างค่าทั้งหมด" data-tip="ล้างค่าทั้งหมด" style="align-self:flex-end;">
+                    <span class="material-symbols-rounded">close</span>
+                </a>
+                <?php endif; ?>
+            </div>
+    </form>
+
+    <div class="cmns-view-card">
 
         <?php if(!empty($sub_categories) && $search === ''): ?>
             <div style="margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px dashed var(--border);">
@@ -233,27 +293,11 @@ include '../templates/header_admin.php';
         <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px; flex-wrap: wrap; gap: 15px;">
             <div class="cmns-tabs">
                 <?php $bt = "view.php?id=$category_id&q=$search&status=$current_status&sort=$sort"; ?>
-                <a href="<?= $bt ?>&type=all"     class="cmns-tab <?= $current_type == 'all' ? 'active-all' : '' ?>">ALL</a>
-                <a href="<?= $bt ?>&type=new"     class="cmns-tab <?= $current_type == 'new' ? 'active-new' : '' ?>">NEW</a>
-                <a href="<?= $bt ?>&type=used"    class="cmns-tab <?= $current_type == 'used' ? 'active-used' : '' ?>">USED</a>
-                <a href="<?= $bt ?>&type=machine" class="cmns-tab <?= $current_type == 'machine' ? 'active-machine' : '' ?>">MACHINE</a>
-                <a href="<?= $bt ?>&type=sale"    class="cmns-tab <?= $current_type == 'sale' ? 'active-sale' : '' ?>">SALE</a>
-            </div>
-
-            <div style="display: flex; gap: 10px;">
-                <select class="filter-select" onchange="location.href='view.php?id=<?= $category_id ?>&q=<?= $search ?>&type=<?= $current_type ?>&sort=<?= $sort ?>&status='+this.value">
-                    <option value="">Status: All</option>
-                    <?php 
-                        $status_opts = ($current_type == 'new') ? ['STOCK', 'OOS'] : (($current_type == 'used') ? ['GOOD', 'TEST', 'DEAD'] : ($current_type == 'sale' ? ['READY', 'SOLD', 'PENDING'] : ['READY', 'PARTIAL', 'DISCOUNT']));
-                        foreach($status_opts as $opt) echo "<option value='$opt' ".($current_status==$opt?'selected':'').">$opt</option>";
-                    ?>
-                </select>
-                <select class="filter-select" onchange="location.href='view.php?id=<?= $category_id ?>&q=<?= $search ?>&type=<?= $current_type ?>&status=<?= $current_status ?>&sort='+this.value">
-                    <option value="newest" <?= $sort == 'newest' ? 'selected' : '' ?>>Newest First</option>
-                    <option value="oldest" <?= $sort == 'oldest' ? 'selected' : '' ?>>Oldest First</option>
-                    <option value="price_low" <?= $sort == 'price_low' ? 'selected' : '' ?>>Price: Low-High</option>
-                    <option value="price_high" <?= $sort == 'price_high' ? 'selected' : '' ?>>Price: High-Low</option>
-                </select>
+                <a href="<?= $bt ?>&type=all"     class="cmns-tab <?= $current_type == 'all' ? 'active-all' : '' ?>"><span class="material-symbols-rounded">apps</span> ทั้งหมด</a>
+                <a href="<?= $bt ?>&type=new"     class="cmns-tab <?= $current_type == 'new' ? 'active-new' : '' ?>"><span class="material-symbols-rounded">new_releases</span> ของใหม่</a>
+                <a href="<?= $bt ?>&type=used"    class="cmns-tab <?= $current_type == 'used' ? 'active-used' : '' ?>"><span class="material-symbols-rounded">build</span> มือสอง</a>
+                <a href="<?= $bt ?>&type=machine" class="cmns-tab <?= $current_type == 'machine' ? 'active-machine' : '' ?>"><span class="material-symbols-rounded">memory</span> เครื่อง/ซาก</a>
+                <a href="<?= $bt ?>&type=sale"    class="cmns-tab <?= $current_type == 'sale' ? 'active-sale' : '' ?>"><span class="material-symbols-rounded">sell</span> ขาย</a>
             </div>
         </div>
 
@@ -315,7 +359,8 @@ include '../templates/header_admin.php';
                         $isMachine = ($it === 'machine' || $it === 'sale');
                         $isOos  = !$isMachine && ($qty === 0 || $st === 'OOS');
                         $isDead = ($st === 'DEAD');
-                        $rowClass = $isOos ? 'row-oos' : ($isDead ? 'row-dead' : '');
+                        $isSold = ($st === 'SOLD');
+                        $rowClass = $isOos ? 'row-oos' : ($isDead ? 'row-dead' : ($isSold ? 'row-sold' : ''));
 
                         // Group header สำหรับ ALL tab
                         if ($current_type === 'all' && $it !== $prev_type):
@@ -555,7 +600,7 @@ include '../templates/header_admin.php';
                                     <?php if($it === 'new'): ?>
                                         <?php if (can('parts.consume')): ?>
                                         <button class="inv-btn inv-btn-requisition <?= $isOos ? 'disabled' : '' ?>"
-                                                title="เบิกอะไหล่ NEW"
+                                                aria-label="เบิกอะไหล่ NEW" data-tip="<?= $isOos ? 'หมดสต็อก เบิกไม่ได้' : 'เบิกอะไหล่ NEW' ?>"
                                                 onclick="<?= $isOos ? '' : "openRequisitionModal({$item['id']},'new')" ?>"
                                                 <?= $isOos ? 'disabled' : '' ?>>
                                             <span class="material-symbols-rounded">output</span>
@@ -563,7 +608,7 @@ include '../templates/header_admin.php';
                                         <?php endif; ?>
                                         <?php if (can('shop.finance')): ?>
                                         <button class="inv-btn inv-btn-to-sale <?= $isOos ? 'disabled' : '' ?>"
-                                                title="ย้ายไป SALE"
+                                                aria-label="ย้ายไป SALE" data-tip="<?= $isOos ? 'หมดสต็อก ย้ายไม่ได้' : 'ย้ายไปขายในแท็บ SALE' ?>"
                                                 onclick="<?= $isOos ? '' : "openToSaleModal({$item['id']},'new')" ?>"
                                                 <?= $isOos ? 'disabled' : '' ?>>
                                             <span class="material-symbols-rounded">sell</span>
@@ -572,7 +617,7 @@ include '../templates/header_admin.php';
                                     <?php elseif($it === 'used'): ?>
                                         <?php if (can('parts.consume')): ?>
                                         <button class="inv-btn <?= $isOos ? 'disabled' : '' ?>"
-                                                title="ใช้อะไหล่ USED"
+                                                aria-label="ใช้อะไหล่ USED" data-tip="<?= $isOos ? 'หมดสต็อก เบิกไม่ได้' : 'เบิกใช้อะไหล่ USED' ?>"
                                                 style="background:rgba(245,158,11,.12); border:1px solid rgba(245,158,11,.35); color:#f59e0b;"
                                                 onclick="<?= $isOos ? '' : "openRequisitionModal({$item['id']},'used')" ?>"
                                                 <?= $isOos ? 'disabled' : '' ?>>
@@ -581,7 +626,7 @@ include '../templates/header_admin.php';
                                         <?php endif; ?>
                                         <?php if (can('shop.finance')): ?>
                                         <button class="inv-btn inv-btn-to-sale <?= $isOos ? 'disabled' : '' ?>"
-                                                title="ย้ายไป SALE"
+                                                aria-label="ย้ายไป SALE" data-tip="<?= $isOos ? 'หมดสต็อก ย้ายไม่ได้' : 'ย้ายไปขายในแท็บ SALE' ?>"
                                                 onclick="<?= $isOos ? '' : "openToSaleModal({$item['id']},'used')" ?>"
                                                 <?= $isOos ? 'disabled' : '' ?>>
                                             <span class="material-symbols-rounded">sell</span>
@@ -590,7 +635,7 @@ include '../templates/header_admin.php';
                                     <?php elseif($it === 'machine'): ?>
                                         <?php if (can('parts.manage')): ?>
                                         <button class="inv-btn"
-                                                title="แยกอะไหล่ → USED"
+                                                aria-label="แยกอะไหล่ → USED" data-tip="แยกอะไหล่จากเครื่องนี้ → เก็บเป็น USED"
                                                 style="background:rgba(139,92,246,.12); border:1px solid rgba(139,92,246,.35); color:#8b5cf6;"
                                                 onclick="openStripModal(<?= $item['id'] ?>, '<?= htmlspecialchars(addslashes($item['name'])) ?>', '<?= htmlspecialchars(addslashes($item['asset_tag'] ?? '')) ?>')">
                                             <span class="material-symbols-rounded">content_cut</span>
@@ -598,7 +643,7 @@ include '../templates/header_admin.php';
                                         <?php endif; ?>
                                         <?php if (can('shop.finance')): ?>
                                         <button class="inv-btn inv-btn-to-sale"
-                                                title="ย้ายไป SALE"
+                                                aria-label="ย้ายไป SALE" data-tip="ย้ายไปขายในแท็บ SALE"
                                                 onclick="openToSaleModal(<?= $item['id'] ?>,'machine')">
                                             <span class="material-symbols-rounded">sell</span>
                                         </button>
@@ -607,14 +652,14 @@ include '../templates/header_admin.php';
                                         <?php if (can('shop.finance')): ?>
                                         <?php if($st === 'PENDING'): ?>
                                             <button class="inv-btn"
-                                                    title="Mark READY"
+                                                    aria-label="Mark READY" data-tip="เช็คเสร็จแล้ว → พร้อมขาย (READY)"
                                                     style="background:rgba(16,185,129,.12); border:1px solid rgba(16,185,129,.35); color:#10b981;"
                                                     onclick="updateSaleStatus(<?= $item['id'] ?>,'mark_ready')">
                                                 <span class="material-symbols-rounded">check_circle</span>
                                             </button>
                                         <?php elseif($st === 'READY'): ?>
                                             <button class="inv-btn"
-                                                    title="ยืนยันขาย SOLD"
+                                                    aria-label="ยืนยันขาย SOLD" data-tip="ยืนยันการขาย → เปลี่ยนเป็น SOLD"
                                                     style="background:rgba(239,68,68,.12); border:1px solid rgba(239,68,68,.35); color:#ef4444;"
                                                     onclick="openMarkSoldModal(<?= $item['id'] ?>, <?= htmlspecialchars(json_encode($item['name'])) ?>, <?= (float)$item['sell_price'] ?>)">
                                                 <span class="material-symbols-rounded">payments</span>
@@ -622,7 +667,7 @@ include '../templates/header_admin.php';
                                         <?php endif; ?>
                                         <?php if($st !== 'SOLD'): ?>
                                             <button class="inv-btn"
-                                                    title="คืนของที่เดิม"
+                                                    aria-label="คืนของที่เดิม" data-tip="ยกเลิก/คืนของกลับที่เดิม"
                                                     style="background:rgba(245,158,11,.12); border:1px solid rgba(245,158,11,.35); color:#f59e0b;"
                                                     onclick="confirmRevertSale(<?= $item['id'] ?>, <?= htmlspecialchars(json_encode($item['name'])) ?>)">
                                                 <span class="material-symbols-rounded">undo</span>
@@ -631,13 +676,13 @@ include '../templates/header_admin.php';
                                         <?php endif; // shop.finance ?>
                                     <?php endif; ?>
                                     <?php if (can('parts.manage')): ?>
-                                    <button class="inv-btn inv-btn-edit" title="แก้ไข"
+                                    <button class="inv-btn inv-btn-edit" aria-label="แก้ไข" data-tip="แก้ไขข้อมูลสินค้า"
                                             onclick="openEditModal(<?= $item['id'] ?>)">
                                         <span class="material-symbols-rounded">edit</span>
                                     </button>
                                     <?php endif; ?>
                                     <?php if ($can_hard_delete): ?>
-                                        <button class="inv-btn inv-btn-delete" title="ลบทั้งก้อน (super admin)"
+                                        <button class="inv-btn inv-btn-delete" aria-label="ลบทั้งก้อน" data-tip="ลบทั้งก้อน (super admin only, ลบถาวร)"
                                                 onclick="confirmHardDelete(<?= $item['id'] ?>, <?= htmlspecialchars(json_encode($item['name']), ENT_QUOTES) ?>)">
                                             <span class="material-symbols-rounded">delete_forever</span>
                                         </button>
@@ -655,38 +700,39 @@ include '../templates/header_admin.php';
                 </tbody>
             </table>
         </div>
-    </div>
 
+        <?php $total_pages = max(1, (int)$total_pages); ?>
+        <div class="log-pagination">
+            <div>
+                แสดง <b><?= number_format(min($total_items, $offset + 1)) ?>–<?= number_format(min($total_items, $offset + $per_page)) ?></b>
+                จาก <b><?= number_format($total_items) ?></b> รายการ
+                &nbsp;·&nbsp; หน้า <?= $page ?> / <?= $total_pages ?>
+            </div>
+            <div class="page-btns">
+                <a href="<?= inv_page_url($page - 1) ?>" class="page-btn <?= $page <= 1 ? 'disabled' : '' ?>"><span class="material-symbols-rounded" style="font-size:16px;">chevron_left</span></a>
+                <?php
+                $w_start = max(1, $page - 2);
+                $w_end   = min($total_pages, $w_start + 4);
+                $w_start = max(1, $w_end - 4);
+                for ($i = $w_start; $i <= $w_end; $i++):
+                ?>
+                <a href="<?= inv_page_url($i) ?>" class="page-btn <?= $i === $page ? 'active' : '' ?>"><?= $i ?></a>
+                <?php endfor; ?>
+                <a href="<?= inv_page_url($page + 1) ?>" class="page-btn <?= $page >= $total_pages ? 'disabled' : '' ?>"><span class="material-symbols-rounded" style="font-size:16px;">chevron_right</span></a>
+                <select onchange="location.href=this.value"
+                        style="padding:6px 10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-surface); color:var(--text-main); font-size:13px; outline:none; cursor:pointer; font-family:'Sarabun',sans-serif;">
+                    <?php foreach ([20, 50, 100] as $pp):
+                        $q = $_GET; $q['per'] = $pp; $q['page'] = 1;
+                    ?>
+                    <option value="?<?= h(http_build_query($q)) ?>" <?= $per_page == $pp ? 'selected' : '' ?>><?= $pp ?>/หน้า</option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        </div>
+    </div>
 
     <?php if (can('parts.consume')) include 'partials/_modal_requisition.php'; ?>
     <?php if (can('parts.manage'))  include 'partials/_modal_strip.php'; ?>
-
-    <?php $total_pages = max(1, (int)$total_pages); ?>
-    <div class="inv-pagination">
-        <div class="pg-info">
-            แสดง <b><?= number_format(min($total_items, $offset + 1)) ?>-<?= number_format(min($total_items, $offset + $per_page)) ?></b>
-            จาก <b><?= number_format($total_items) ?></b> รายการ
-        </div>
-        <div class="pg-btns">
-            <a href="<?= inv_page_url($page - 1) ?>" class="pg-btn <?= $page <= 1 ? 'disabled' : '' ?>"><span class="material-symbols-rounded">chevron_left</span></a>
-            <?php
-            $w_start = max(1, $page - 2);
-            $w_end   = min($total_pages, $w_start + 4);
-            $w_start = max(1, $w_end - 4);
-            for ($i = $w_start; $i <= $w_end; $i++):
-            ?>
-            <a href="<?= inv_page_url($i) ?>" class="pg-btn <?= $i === $page ? 'active' : '' ?>"><?= $i ?></a>
-            <?php endfor; ?>
-            <a href="<?= inv_page_url($page + 1) ?>" class="pg-btn <?= $page >= $total_pages ? 'disabled' : '' ?>"><span class="material-symbols-rounded">chevron_right</span></a>
-            <select class="pg-per" onchange="location.href=this.value">
-                <?php foreach ([20, 50, 100] as $pp):
-                    $q = $_GET; $q['per'] = $pp; $q['page'] = 1;
-                ?>
-                <option value="?<?= h(http_build_query($q)) ?>" <?= $per_page == $pp ? 'selected' : '' ?>><?= $pp ?>/หน้า</option>
-                <?php endforeach; ?>
-            </select>
-        </div>
-    </div>
 </div>
 
 <link rel="stylesheet" href="../templates/assets/css/modal.css?v=<?= time(); ?>">
@@ -701,6 +747,30 @@ include '../templates/header_admin.php';
     <?php include 'partials/_modal_edit.php'; ?>
 <?php endif; ?>
 
+<script>
+// ── Filter/Sort panel: กดปุ่มเดียวเปิด panel, เลือกแล้วกด "ค้นหา" ถึง submit form จริง (native submit — ไม่ auto-apply) ──
+function toggleStatusFilterMenu(e) {
+    e.stopPropagation();
+    const menu = document.getElementById('statusFilterMenu');
+    const btn  = document.getElementById('statusFilterBtn');
+    const open = menu.classList.toggle('open');
+    btn.classList.toggle('active', open);
+}
+function clearStatusFilter() {
+    const statusAll = document.querySelector('#statusFilterMenu input[name="status"][value=""]');
+    const sortDefault = document.querySelector('#statusFilterMenu input[name="sort"][value="newest"]');
+    if (statusAll) statusAll.checked = true;
+    if (sortDefault) sortDefault.checked = true;
+}
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.inv-filter-wrap')) {
+        const menu = document.getElementById('statusFilterMenu');
+        const btn  = document.getElementById('statusFilterBtn');
+        if (menu) menu.classList.remove('open');
+        if (btn)  btn.classList.remove('active');
+    }
+});
+</script>
 <script src="assets/js/inventory-table.js?v=<?= time(); ?>"></script>
 <?php if (can('parts.consume')): ?><script src="assets/js/inventory-requisition.js?v=<?= time(); ?>"></script><?php endif; ?>
 <?php if (can('shop.finance')): ?><script src="assets/js/inventory-sale.js?v=<?= time(); ?>"></script><?php endif; ?>

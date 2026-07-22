@@ -68,7 +68,7 @@ $firstChar = strtoupper(mb_substr($adminName, 0, 1));
         <div class="user-dropdown-wrapper">
             <div class="user-profile" onclick="toggleUserMenu(event)">
                 
-                <div class="user-avatar" style="padding: 0; overflow: hidden; display: flex; align-items: center; justify-content: center; background: var(--bg-surface-alt);">
+                <div class="user-avatar" style="padding: 0; overflow: hidden; display: flex; align-items: center; justify-content: center;">
                     <?php if (!empty($avatar_file)): ?>
                         <img src="/uploads/avatars/<?= htmlspecialchars($avatar_file) ?>" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;">
                     <?php else: ?>

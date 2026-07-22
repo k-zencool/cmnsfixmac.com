@@ -5,6 +5,12 @@
    ห้ามย้ายกลับไปไฟล์ shared — tracking/repairs/shop พึ่ง inventory-dashboard/logs.css อยู่
    ========================================================================== */
 
+/* ── Tighter side gutters — ขอบซ้าย/ขวาเท่ากับหน้า tracking เป๊ะ (ค่าเดียวกันทุก breakpoint, ทั้ง index.php และ view.php) ──
+   .content-padding (30px !important, จาก header_admin.php) เป็นตัวกินขอบตัวจริง ไม่ใช่ .cmns-wrapper
+   ต้อง override ทั้งคู่พร้อมกันเหมือน tracking-index.css ไม่งั้นเหลือ 30px ค้างอยู่ */
+.content-padding { padding-left: 14px !important; padding-right: 14px !important; }
+.cmns-wrapper    { padding-left: 4px; padding-right: 4px; }
+
 /* --- 1. MAIN CARD & TABLE --- */
 .cmns-view-card {
     background: var(--bg-surface);
@@ -16,11 +22,23 @@
     margin-bottom: 20px;
 }
 
+/* pagination ชิดขอบล่างการ์ดแบบ tracking (.log-card ไม่มี padding ของตัวเอง แต่ .cmns-view-card มี
+   24px รอบด้าน — ต้องหักลบด้วย negative margin ให้ชนขอบ + โค้งมุมล่างให้ตรงกับตัวการ์ด) */
+.cmns-view-card .log-pagination {
+    margin: 24px -24px -24px -24px;
+    border-radius: 0 0 16px 16px;
+}
+@media (max-width: 900px) {
+    .cmns-view-card .log-pagination { margin: 16px -16px -16px -16px; border-radius: 0 0 12px 12px; }
+}
+
 .cmns-table-responsive {
     overflow-x: auto;
     border: none;
     background: transparent;
+    scrollbar-width: none; /* ยังเลื่อนได้ด้วย trackpad/นิ้วเหมือนเดิม แค่ไม่โชว์แถบ scrollbar */
 }
+.cmns-table-responsive::-webkit-scrollbar { display: none; }
 
 .cmns-table {
     width: 100%;
@@ -167,18 +185,14 @@
 .status-purple { color: #a855f7; }
 .status-purple::before { background-color: #a855f7; box-shadow: 0 0 5px rgba(168, 85, 247, 0.6); }
 
-/* --- 5. CONTROLS --- */
-.search-form-pro {
-    display: flex; align-items: center; gap: 10px;
-    background: var(--bg-surface-alt);
-    padding: 10px 15px;
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    width: 100%; max-width: 380px;
-}
-.view-search-input {
-    background: transparent !important; border: none !important; outline: none !important;
-    color: var(--text-main); font-size: 14px; width: 100%;
+/* --- 5. CONTROLS ---
+   .view-search-input styling ตอนนี้มาจาก .log-filter-group input[type="text"] (inventory-logs.css)
+   คลาสนี้เหลือไว้แค่เป็น JS hook (inventory-table.js) ไม่ต้องมี CSS ของตัวเองแล้ว --- */
+
+/* ── Search icon padding fix — เหมือนกับที่ tracking-index.css มี (.log-filter-group input[type="text"]
+   ความ specificity สูงกว่า .log-search-wrap input เลยทับ padding-left:38px ทิ้ง ไอคอนเลยไปชนตัวหนังสือ) ── */
+.log-filter-bar .log-search-wrap input[type="text"] {
+    padding-left: 42px !important;
 }
 .filter-select {
     background: var(--bg-surface-alt); color: var(--text-main);
@@ -188,6 +202,80 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238e8e93' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
     background-repeat: no-repeat; background-position: right 10px center;
 }
+/* ── Filter/Sort: ปุ่มเดียว เปิด panel มีทั้งสถานะ+เรียงลำดับข้างใน (เหมือน trk-filter-* ใน tracking-index.css) ── */
+.inv-filter-wrap { position: relative; }
+.inv-filter-btn {
+    width: 42px; height: 42px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 10px; border: 1.5px solid var(--border);
+    background: var(--bg-surface-alt); color: var(--text-muted);
+    cursor: pointer; transition: all .2s; position: relative; padding: 0;
+}
+.inv-filter-btn .material-symbols-rounded { font-size: 20px; }
+.inv-filter-btn:hover,
+.inv-filter-btn.active,
+.inv-filter-btn.has-filter { border-color: var(--primary); color: var(--primary); background: rgba(37,99,235,.07); }
+
+.inv-filter-badge {
+    position: absolute; top: -7px; right: -7px;
+    min-width: 18px; height: 18px; border-radius: 9px;
+    background: var(--primary); color: #fff;
+    font-size: 10px; font-weight: 800; padding: 0 4px;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none; border: 2px solid var(--bg-surface);
+}
+
+.inv-filter-menu {
+    position: absolute; top: calc(100% + 8px); right: 0;
+    min-width: 200px;
+    background: var(--bg-surface); border: 1.5px solid var(--border);
+    border-radius: 14px; padding: 10px;
+    box-shadow: 0 12px 32px rgba(0,0,0,.12);
+    z-index: 500; display: none;
+    animation: filterFadeIn .15s ease;
+}
+[data-theme="dark"] .inv-filter-menu { box-shadow: 0 12px 32px rgba(0,0,0,.45); }
+.inv-filter-menu.open { display: block; }
+
+.inv-filter-title {
+    font-size: 10px; font-weight: 800; letter-spacing: .8px;
+    text-transform: uppercase; color: var(--text-muted);
+    padding: 2px 6px 8px; border-bottom: 1px solid var(--border); margin-bottom: 6px;
+}
+.inv-filter-item {
+    display: flex; align-items: center; gap: 9px;
+    padding: 7px 8px; border-radius: 8px; cursor: pointer;
+    font-size: 13px; color: var(--text-main);
+    transition: background .12s; user-select: none;
+}
+.inv-filter-item:hover { background: var(--bg-surface-alt); }
+.inv-filter-item input[type="radio"] {
+    accent-color: var(--primary); width: 15px; height: 15px;
+    cursor: pointer; flex-shrink: 0;
+}
+.inv-filter-actions {
+    display: flex; gap: 7px; margin-top: 8px; padding-top: 8px;
+    border-top: 1px solid var(--border);
+}
+.inv-filter-actions button {
+    flex: 1; padding: 8px 4px; border-radius: 8px; font-size: 12px;
+    font-weight: 700; cursor: pointer; transition: .18s;
+}
+.inv-filter-actions button:first-child {
+    background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+}
+.inv-filter-actions button:first-child:hover { color: var(--text-main); border-color: var(--text-muted); }
+.inv-filter-actions button:last-child {
+    background: var(--primary); border: none; color: #fff;
+    box-shadow: 0 2px 8px rgba(37,99,235,.25);
+}
+.inv-filter-actions button:last-child:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+@keyframes filterFadeIn {
+    from { opacity: 0; transform: translateY(-6px) scale(.97); }
+    to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+
 .type-badge {
     font-size: 10px; font-weight: 800; color: var(--text-muted);
     background: var(--bg-surface-alt); border: 1px solid var(--border);
@@ -291,6 +379,53 @@
 .inv-btn-to-sale.disabled:hover { transform: none; box-shadow: none; color: var(--text-muted); background: var(--bg-surface-alt); border-color: var(--border); }
 .inv-btn-delete { color: #ef4444; background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.3); }
 .inv-btn-delete:hover { color: #fff; background: #ef4444; border-color: #ef4444; }
+
+/* ── Action button tooltips (.inv-btn = table row actions, .inv-icon-btn = page-level icon buttons) ── */
+.inv-btn[data-tip],
+.inv-icon-btn[data-tip] { position: relative; }
+.inv-btn[data-tip]::after,
+.inv-btn[data-tip]::before,
+.inv-icon-btn[data-tip]::after,
+.inv-icon-btn[data-tip]::before {
+    position: absolute; left: 50%; bottom: calc(100% + 7px); transform: translateX(-50%) translateY(3px);
+    opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .12s ease, transform .12s ease;
+    z-index: 40;
+}
+.inv-btn[data-tip]::after,
+.inv-icon-btn[data-tip]::after {
+    content: attr(data-tip);
+    background: #1a1a1a; color: #fff; font-size: 11px; font-weight: 700; line-height: 1.3;
+    white-space: nowrap; padding: 5px 9px; border-radius: 6px; box-shadow: 0 4px 12px rgba(0,0,0,.25);
+}
+.inv-btn[data-tip]::before,
+.inv-icon-btn[data-tip]::before {
+    content: ""; bottom: calc(100% + 3px); border: 5px solid transparent; border-top-color: #1a1a1a;
+}
+.inv-btn[data-tip]:hover::after,
+.inv-btn[data-tip]:hover::before,
+.inv-icon-btn[data-tip]:hover::after,
+.inv-icon-btn[data-tip]:hover::before { opacity: 1; visibility: visible; transform: translateX(-50%) translateY(0); }
+.inv-btn[data-tip].disabled:hover::after,
+.inv-btn[data-tip].disabled:hover::before { opacity: 1; visibility: visible; } /* โชว์เหตุผลได้แม้ปุ่มถูก disable */
+
+/* ── Icon-only action buttons (search / reset) — page-level, not table-row ── */
+.inv-icon-btn {
+    width: 42px; height: 42px; flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 12px; border: 1.5px solid transparent;
+    cursor: pointer; transition: all .18s; text-decoration: none; padding: 0;
+}
+.inv-icon-btn .material-symbols-rounded { font-size: 20px; line-height: 1; }
+.inv-icon-search {
+    background: var(--primary); color: #fff; border-color: var(--primary);
+    box-shadow: 0 3px 10px rgba(37,99,235,.3);
+}
+.inv-icon-search:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 5px 14px rgba(37,99,235,.35); }
+.inv-icon-reset {
+    background: var(--bg-surface-alt); color: var(--text-muted); border-color: var(--border);
+}
+.inv-icon-reset:hover { color: #ef4444; border-color: #ef4444; background: rgba(239,68,68,.07); }
+
 #hd-btn:disabled { opacity: .45; cursor: not-allowed; }
 #hd-input:focus { outline: none; border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239,68,68,.12); }
 
@@ -298,6 +433,8 @@
 .row-oos:hover td { opacity: .75; }
 .row-dead td { opacity: .5; background: rgba(239,68,68,.04); }
 .row-dead:hover td { opacity: .7; }
+.row-sold td { opacity: .55; filter: grayscale(85%); }
+.row-sold:hover td { opacity: .8; }
 
 /* --- 8. EDIT MODAL TABS --- */
 .edit-tabs {

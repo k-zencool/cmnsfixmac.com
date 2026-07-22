@@ -42,32 +42,23 @@ const style = document.createElement('style');
 style.innerHTML = `@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }`;
 document.head.appendChild(style);
 
-// 2. ระบบค้นหา Real-time (รอ 0.5 วิแล้ว Submit)
+// 2. ระบบค้นหา — พิมพ์ให้จบก่อน แล้วกด Enter หรือปุ่มค้นหาเอง (ไม่ auto-submit ระหว่างพิมพ์
+//    เพราะบน iPad การพิมพ์ปกติ/autocorrect ทำให้ input event ยิงถี่ กดค้นหาเองรัว ๆ)
 document.addEventListener("DOMContentLoaded", function() {
     const searchInput = document.querySelector('.view-search-input');
     if (searchInput) {
-        
+
         // เลื่อนเคอร์เซอร์ไปท้ายสุด
         const val = searchInput.value;
         if (val) {
             searchInput.focus();
-            searchInput.value = ''; 
-            searchInput.value = val; 
+            searchInput.value = '';
+            searchInput.value = val;
         }
-
-        let typingTimer;
-        searchInput.addEventListener('input', function() {
-            clearTimeout(typingTimer);
-            typingTimer = setTimeout(() => {
-                const form = this.closest('form');
-                if (form) form.submit();
-            }, 500); 
-        });
 
         searchInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter') {
                 e.preventDefault();
-                clearTimeout(typingTimer);
                 const form = this.closest('form');
                 if (form) form.submit();
             }
