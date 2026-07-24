@@ -62,7 +62,7 @@ if (notif_bool($pdo, 'notify_evening_enabled', true)) {
     }
     // แจ้งเตือนผ่านแอป (Web Push — ฟรี) คู่กับ LINE
     require_once __DIR__ . '/../../includes/push_helper.php';
-    $pushOut = push_report_notify($pdo, '🌙 รายงานเย็น — รับเข้าใหม่ ' . $count_new . ' เครื่อง',
+    $pushOut = push_report_notify($pdo, 'รายงานเย็น — รับเข้าใหม่ ' . $count_new . ' เครื่อง',
         implode(' · ', array_map(function ($r) { return $r['label'] . ' ' . $r['value']; }, array_slice($lineRows, 0, 3))));
 }
 

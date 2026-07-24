@@ -267,7 +267,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ? 'สถานะ: ' . $fmtVal('status', $job['status']) . ' → ' . line_tracking_status($status)['label']
                         : 'แก้ไข ' . count($diff) . ' รายการ';
                     push_job_notify($pdo,
-                        "✏️ อัปเดตงาน $ticket",
+                        "อัปเดตงาน $ticket",
                         $pushBody . ' · โดย ' . ($admin_name ?: '—'),
                         '/admin/tracking/edit.php?id=' . $id);
                 } catch (Throwable $e) { /* ignore */ }

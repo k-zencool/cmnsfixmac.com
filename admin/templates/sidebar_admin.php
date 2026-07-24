@@ -182,12 +182,10 @@ $sb_initial = mb_strtoupper(mb_substr($sb_name, 0, 1));
             <span class="material-symbols-rounded">help</span>
             <span class="link-text">ศูนย์ช่วยเหลือ</span>
         </a>
-        <?php if (can('settings.manage')): ?>
         <a href="/admin/settings/" title="การตั้งค่า">
             <span class="material-symbols-rounded">settings</span>
             <span class="link-text">การตั้งค่า</span>
         </a>
-        <?php endif; ?>
 
         <div class="sidebar-user" id="sidebarUser">
             <div class="sidebar-user-main">

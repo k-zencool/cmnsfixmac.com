@@ -58,7 +58,7 @@ if (notif_bool($pdo, 'notify_morning_enabled', true)) {
     // แจ้งเตือนผ่านแอป (Web Push — ฟรี) คู่กับ LINE
     require_once __DIR__ . '/../../includes/push_helper.php';
     $pushTop = array_slice($lineRows, 0, 3);
-    $pushOut = push_report_notify($pdo, '🌤 รายงานเช้า — งานค้าง ' . count($all_jobs) . ' รายการ',
+    $pushOut = push_report_notify($pdo, 'รายงานเช้า — งานค้าง ' . count($all_jobs) . ' รายการ',
         implode(' · ', array_map(function ($r) { return $r['label'] . ' ' . $r['value']; }, $pushTop)));
 }
 

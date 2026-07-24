@@ -16,12 +16,16 @@ if (!isset($_SESSION['admin_id'])) {
     header("Location: ../login.php");
     exit();
 }
-require_perms(['settings.manage']);
+require_login();
 
-// มีแต่ super_admin เท่านั้น
-if (($_SESSION['admin_role'] ?? '') !== 'super_admin') {
-    header("Location: /admin/settings/");
-    exit();
+// ทุกยศดูได้ — แก้ไข/บันทึก/ยิงจริงได้เฉพาะเจ้าของระบบ (บังคับซ้ำฝั่ง server ในทุก handler ด้านล่าง)
+$canEdit = (($_SESSION['admin_role'] ?? '') === 'super_admin');
+
+/** ปิดบัง token/secret สำหรับคนที่ดูอย่างเดียว — โชว์แค่ 4 ตัวท้าย */
+function nc_mask(string $s): string {
+    $s = trim($s);
+    if ($s === '') return '';
+    return str_repeat('•', 12) . mb_substr($s, -4);
 }
 
 /** อ่าน config LINE ปัจจุบัน — 'line' = บอทหลัก · 'line_reports' = บอทรายงานเช้า-เย็น */
@@ -40,6 +44,11 @@ $conn = null;      // ผลทดสอบการเชื่อมต่อ 
 // ── AJAX: สวิตช์ auto-save (สวิตช์รวม / กลุ่ม / รายคน) — ไม่มีปุ่มบันทึก ──
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === '1') {
     header('Content-Type: application/json; charset=utf-8');
+    if (!$canEdit) {
+        http_response_code(403);
+        echo json_encode(['ok' => false, 'err' => 'ไม่มีสิทธิ์แก้ไขการตั้งค่านี้ (super_admin เท่านั้น)']);
+        exit;
+    }
     $action = $_POST['action'] ?? '';
     $val    = ($_POST['val'] ?? '') === '1' ? 1 : 0;
     try {
@@ -73,7 +82,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === '1') {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$canEdit) {
+    $flash = 'ไม่มีสิทธิ์ทำรายการนี้ (super_admin เท่านั้น)';
+    $flash_type = 'err';
+} elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
 
     // channel ที่ฟอร์ม config ส่งมา: 'line' (บอทหลัก) หรือ 'line_reports' (บอทรายงาน)
@@ -183,34 +195,40 @@ try {
 $line_linked = count(array_filter($admins, fn($a) => !empty($a['line_user_id'])));
 
 /** รายชื่อผู้รับ (กลุ่ม + admin) ของบอทหนึ่ง — สวิตช์ auto-save พร้อม data-duty */
-function nc_render_recipients(array $groups, array $admins, string $duty, int $line_linked): void {
+function nc_render_recipients(array $groups, array $admins, string $duty, int $line_linked, bool $canEdit): void {
     $gcol = $duty === 'reports' ? 'recv_reports' : 'recv_jobs';
     $acol = $duty === 'reports' ? 'line_notify_reports' : 'line_notify_jobs';
+    $dis  = $canEdit ? '' : 'disabled';
 
-    echo '<div class="ln-sub">กลุ่มที่รับจากบอทนี้</div>';
+    echo '<div class="stg-sub">กลุ่มที่รับจากบอทนี้</div>';
     if (!$groups) {
-        echo '<p class="ln-hint">ยังไม่มีกลุ่ม — เชิญบอทเข้ากลุ่ม LINE แล้วมันจะโผล่ที่นี่</p>';
+        echo '<p class="stg-desc" style="padding:2px 0 14px;">ยังไม่มีกลุ่ม — เชิญบอทเข้ากลุ่ม LINE แล้วมันจะโผล่ที่นี่</p>';
     } else {
+        echo '<div class="stg-list">';
         foreach ($groups as $gr) {
             $name = htmlspecialchars($gr['group_name'] ?: $gr['group_id']);
-            echo '<div class="nc-row"><span><span class="material-symbols-rounded" style="font-size:18px;vertical-align:-3px;">group</span> ' . $name . '</span>';
+            echo '<div class="stg-list-row">';
+            echo '<span class="stg-list-icon"><span class="material-symbols-rounded">group</span></span>';
+            echo '<div class="stg-list-body"><b>' . $name . '</b></div>';
             if ((int)$gr['is_active']) {
-                echo '<label class="nc-toggle" style="margin:0;"><input type="checkbox" class="nc-auto" data-action="toggle_group" data-duty="' . $duty . '"'
+                echo '<label class="nc-toggle" style="margin:0;"><input type="checkbox" class="nc-auto" ' . $dis . ' data-action="toggle_group" data-duty="' . $duty . '"'
                    . ' data-group="' . htmlspecialchars($gr['group_id']) . '" ' . ((int)$gr[$gcol] ? 'checked' : '') . '><span class="nc-sw"></span></label>';
             } else {
                 echo '<span class="nc-chip">บอทไม่ได้อยู่ในกลุ่มแล้ว</span>';
             }
             echo '</div>';
         }
+        echo '</div>';
     }
 
-    echo '<div class="ln-sub" style="margin-top:16px;">Admin รายคน (' . $line_linked . ' จาก ' . count($admins) . ' คนที่เชื่อม LINE)</div>';
-    echo '<div class="nc-admins">';
+    echo '<div class="stg-sub" style="margin-top:18px;">Admin รายคน (' . $line_linked . ' จาก ' . count($admins) . ' คนที่เชื่อม LINE)</div>';
+    echo '<div class="stg-list">';
     foreach ($admins as $a) {
-        echo '<div class="nc-admin"><span>' . htmlspecialchars($a['username'])
-           . ' <small class="ln-hint">' . htmlspecialchars($a['role']) . '</small></span>';
+        echo '<div class="stg-list-row">';
+        echo '<span class="stg-list-icon"><span class="material-symbols-rounded">person</span></span>';
+        echo '<div class="stg-list-body"><b>' . htmlspecialchars($a['username']) . '</b><small>' . htmlspecialchars($a['role']) . '</small></div>';
         if (!empty($a['line_user_id'])) {
-            echo '<label class="nc-toggle" style="margin:0;"><input type="checkbox" class="nc-auto" data-action="toggle_admin" data-duty="' . $duty . '"'
+            echo '<label class="nc-toggle" style="margin:0;"><input type="checkbox" class="nc-auto" ' . $dis . ' data-action="toggle_admin" data-duty="' . $duty . '"'
                . ' data-admin="' . (int)$a['id'] . '" ' . ((int)$a[$acol] ? 'checked' : '') . '><span class="nc-sw"></span></label>';
         } else {
             echo '<span class="nc-chip">ไม่ได้เชื่อม</span>';
@@ -223,22 +241,22 @@ function nc_render_recipients(array $groups, array $admins, string $duty, int $l
 /** แถบโควต้า push เดือนนี้ของบอทหนึ่ง */
 function nc_render_quota(?array $q): void {
     if ($q === null) return;
-    echo '<div class="nc-quota">';
+    echo '<div class="stg-quota">';
     if (!empty($q['ok'])) {
         $limit = !empty($q['limited']) ? (int)$q['limit'] : 0;
         $used  = (int)$q['used'];
         $pct   = $limit > 0 ? min(100, (int)round($used / $limit * 100)) : 0;
         $color = $pct >= 90 ? '#dc2626' : ($pct >= 70 ? '#f59e0b' : '#06c755');
-        echo '<div class="nc-quota-head"><span>โควต้าข้อความเดือนนี้</span><b' . ($pct >= 90 ? ' style="color:#dc2626;"' : '') . '>'
+        echo '<div class="stg-quota-head"><span>โควต้าข้อความเดือนนี้</span><b' . ($pct >= 90 ? ' style="color:#dc2626;"' : '') . '>'
            . number_format($used) . ($limit ? ' / ' . number_format($limit) : '') . '</b></div>';
         if ($limit) {
-            echo '<div class="nc-quota-bar"><span style="width:' . $pct . '%;background:' . $color . ';"></span></div>';
-            if ($used >= $limit) echo '<p class="ln-hint" style="color:#dc2626;margin:8px 0 0;">โควต้าเต็มแล้ว — LINE จะส่งไม่ได้ (429) จนกว่าจะรีเซ็ตวันที่ 1 ของเดือนหน้า</p>';
+            echo '<div class="stg-quota-bar"><span style="width:' . $pct . '%;background:' . $color . ';"></span></div>';
+            if ($used >= $limit) echo '<p class="stg-desc" style="color:#dc2626;margin:8px 0 0;">โควต้าเต็มแล้ว — LINE จะส่งไม่ได้ (429) จนกว่าจะรีเซ็ตวันที่ 1 ของเดือนหน้า</p>';
         } else {
-            echo '<p class="ln-hint" style="margin:0;">แพลนนี้ไม่จำกัดจำนวนข้อความ</p>';
+            echo '<p class="stg-desc" style="margin:0;">แพลนนี้ไม่จำกัดจำนวนข้อความ</p>';
         }
     } else {
-        echo '<p class="ln-hint" style="margin:0;">ดึงโควต้าไม่สำเร็จ — ' . htmlspecialchars($q['err'] ?? '') . '</p>';
+        echo '<p class="stg-desc" style="margin:0;">ดึงโควต้าไม่สำเร็จ — ' . htmlspecialchars($q['err'] ?? '') . '</p>';
     }
     echo '</div>';
 }
@@ -278,6 +296,11 @@ include '../templates/header_admin.php';
         </a>
     </div>
 
+    <div class="stg-head">
+        <h1>การแจ้งเตือน &amp; LINE</h1>
+        <p>คุมช่องทางแจ้งเตือนงานซ่อมและรายงานประจำวันทั้งหมดจากที่นี่<?= $canEdit ? '' : ' — คุณดูได้อย่างเดียว การแก้ไขและยิงจริงสงวนไว้สำหรับ super_admin' ?></p>
+    </div>
+
     <?php if ($flash): ?>
     <div class="ln-flash <?= $flash_type ?>"><?= htmlspecialchars($flash) ?></div>
     <?php endif; ?>
@@ -304,94 +327,145 @@ include '../templates/header_admin.php';
         <?php endif; ?>
     <?php endif; ?>
 
-    <!-- สวิตช์ใหญ่: ช่อง LINE ทั้งระบบ (ปิด = เงียบทุกบอท) -->
-    <div class="ln-card nc-master">
-        <label class="nc-toggle" style="margin:0;">
-            <input type="checkbox" class="nc-auto" data-action="toggle_setting" data-key="notify_line_enabled" <?= $on('notify_line_enabled') ? 'checked' : '' ?>>
-            <span class="nc-sw"></span>
-            <span>ช่อง <b>LINE</b> ทั้งระบบ</span>
-        </label>
-        <span id="line-badge" class="nc-badge <?= $on('notify_line_enabled') ? 'on' : 'off' ?>">
-            <?= $on('notify_line_enabled') ? 'เปิด' : 'ปิด' ?>
-        </span>
-        <span class="ln-hint nc-master-hint">ปิด = เงียบทุกบอททุกแจ้งเตือน ·
-            admin เชื่อมบัญชีผ่านบอทหลัก ·
-            <a href="/admin/cron/line_links.php" style="color:var(--primary);">จัดการการเชื่อม</a>
-        </span>
+    <!-- ช่องทางแจ้งเตือน: สวิตช์รวมทั้งหมดในที่เดียว แบบแถวมีเส้นคั่น -->
+    <div class="stg-card">
+        <div class="stg-card-head">
+            <div class="stg-card-title">ช่องทางแจ้งเตือน</div>
+        </div>
+
+        <div class="stg-row">
+            <div class="stg-row-main">
+                <b>LINE ทั้งระบบ</b>
+                <span class="stg-desc">ปิด = เงียบทุกบอททุกแจ้งเตือน · admin เชื่อมบัญชีผ่านบอทหลัก · <a href="/admin/cron/line_links.php">จัดการการเชื่อม</a></span>
+            </div>
+            <div class="stg-row-ctl">
+                <span id="line-badge" class="nc-badge <?= $on('notify_line_enabled') ? 'on' : 'off' ?>"><?= $on('notify_line_enabled') ? 'เปิด' : 'ปิด' ?></span>
+                <label class="nc-toggle" style="margin:0;">
+                    <input type="checkbox" class="nc-auto" <?= $canEdit ? '' : 'disabled' ?> data-action="toggle_setting" data-key="notify_line_enabled" <?= $on('notify_line_enabled') ? 'checked' : '' ?>>
+                    <span class="nc-sw"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="stg-row">
+            <div class="stg-row-main">
+                <b>แจ้งเตือนผ่านแอป (Push)</b>
+                <span class="stg-desc">ฟรี ไม่มีโควต้า เด้งคู่กับ LINE ทุกเหตุการณ์</span>
+            </div>
+            <div class="stg-row-ctl">
+                <label class="nc-toggle" style="margin:0;">
+                    <input type="checkbox" class="nc-auto" <?= $canEdit ? '' : 'disabled' ?> data-action="toggle_setting" data-key="notify_push_enabled" <?= $on('notify_push_enabled') ? 'checked' : '' ?>>
+                    <span class="nc-sw"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="stg-row">
+            <div class="stg-row-main">
+                <b>การ์ดงานซ่อม</b>
+                <span class="stg-desc">เปิดงาน/แก้ไข ส่งทันทีผ่านบอทหลัก</span>
+            </div>
+            <div class="stg-row-ctl">
+                <label class="nc-toggle" style="margin:0;">
+                    <input type="checkbox" class="nc-auto" <?= $canEdit ? '' : 'disabled' ?> data-action="toggle_setting" data-key="notify_jobs_enabled" <?= $on('notify_jobs_enabled') ? 'checked' : '' ?>>
+                    <span class="nc-sw"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="stg-row">
+            <div class="stg-row-main">
+                <b>รายงานเช้า</b>
+                <span class="stg-desc">สรุปงานซ่อมค้าง ส่งเวลา 07:00 น.</span>
+            </div>
+            <div class="stg-row-ctl">
+                <label class="nc-toggle" style="margin:0;">
+                    <input type="checkbox" class="nc-auto" <?= $canEdit ? '' : 'disabled' ?> data-action="toggle_setting" data-key="notify_morning_enabled" <?= $on('notify_morning_enabled') ? 'checked' : '' ?>>
+                    <span class="nc-sw"></span>
+                </label>
+            </div>
+        </div>
+
+        <div class="stg-row">
+            <div class="stg-row-main">
+                <b>รายงานเย็น</b>
+                <span class="stg-desc">สรุปงานซ่อมรับเข้าใหม่ ส่งเวลา 19:00 น.</span>
+            </div>
+            <div class="stg-row-ctl">
+                <label class="nc-toggle" style="margin:0;">
+                    <input type="checkbox" class="nc-auto" <?= $canEdit ? '' : 'disabled' ?> data-action="toggle_setting" data-key="notify_evening_enabled" <?= $on('notify_evening_enabled') ? 'checked' : '' ?>>
+                    <span class="nc-sw"></span>
+                </label>
+            </div>
+        </div>
     </div>
 
-    <!-- แจ้งเตือนผ่านแอป (Web Push) — ฟรี ไม่มีโควต้า วิ่งคู่กับ LINE ทุกเหตุการณ์ -->
-    <div class="ln-card">
-        <div class="ln-label" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <span class="material-symbols-rounded" style="color:#8b5cf6;">install_mobile</span> แจ้งเตือนผ่านแอป
-            <span class="ln-hint" style="font-weight:400;">Web Push — ฟรี ไม่มีโควต้า เด้งคู่กับ LINE</span>
-            <label class="nc-toggle" style="margin-left:auto;">
-                <input type="checkbox" class="nc-auto" data-action="toggle_setting" data-key="notify_push_enabled" <?= $on('notify_push_enabled') ? 'checked' : '' ?>>
-                <span class="nc-sw"></span>
-            </label>
+    <!-- อุปกรณ์ที่รับ Push -->
+    <div class="stg-card">
+        <div class="stg-card-head">
+            <div class="stg-card-title">
+                <span class="material-symbols-rounded" style="color:#8b5cf6;font-size:20px;">install_mobile</span>
+                อุปกรณ์ที่รับ Push
+            </div>
         </div>
-
         <?php if ($push_devices === null): ?>
-        <p class="ln-hint" style="margin:0 0 12px;color:#dc2626;">ยังไม่ได้รัน migration_push_subscriptions.sql บนฐานข้อมูลนี้</p>
+        <p class="stg-desc" style="color:#dc2626;">ยังไม่ได้รัน migration_push_subscriptions.sql บนฐานข้อมูลนี้</p>
         <?php elseif (!$push_devices): ?>
-        <p class="ln-hint" style="margin:0 0 12px;">ยังไม่มีเครื่องไหนเปิดรับ — แต่ละคนเปิดเองได้ที่ <b>โปรไฟล์ → ความปลอดภัย</b> (หรือปุ่มด้านล่างสำหรับเครื่องนี้) · iPhone/iPad ต้องเพิ่มแอปลงหน้าจอโฮมก่อน</p>
+        <p class="stg-desc">ยังไม่มีเครื่องไหนเปิดรับ — เปิดเองได้ด้วยปุ่มด้านล่าง · iPhone/iPad ต้องเพิ่มแอปลงหน้าจอโฮมก่อน</p>
         <?php else: ?>
-        <div class="ln-sub">อุปกรณ์ที่รับอยู่ (<?= count($push_devices) ?> เครื่อง)</div>
-        <?php foreach ($push_devices as $d): ?>
-        <div class="nc-row">
-            <span><span class="material-symbols-rounded" style="font-size:18px;vertical-align:-3px;">devices</span>
-                <?= htmlspecialchars($d['username'] ?: 'ไม่ทราบ') ?> · <?= nc_ua_label($d['ua']) ?>
-                <small class="ln-hint">เปิดเมื่อ <?= date('d/m/Y', strtotime($d['created_at'])) ?><?= $d['last_ok_at'] ? ' · ส่งล่าสุด ' . date('d/m H:i', strtotime($d['last_ok_at'])) : '' ?></small>
-            </span>
+        <div class="stg-list">
+            <?php foreach ($push_devices as $d): ?>
+            <div class="stg-list-row">
+                <span class="stg-list-icon"><span class="material-symbols-rounded">devices</span></span>
+                <div class="stg-list-body">
+                    <b><?= htmlspecialchars($d['username'] ?: 'ไม่ทราบ') ?> · <?= nc_ua_label($d['ua']) ?></b>
+                    <small>เปิดเมื่อ <?= date('d/m/Y', strtotime($d['created_at'])) ?><?= $d['last_ok_at'] ? ' · ส่งล่าสุด ' . date('d/m H:i', strtotime($d['last_ok_at'])) : '' ?></small>
+                </div>
+            </div>
+            <?php endforeach; ?>
         </div>
-        <?php endforeach; ?>
-        <div style="height:12px;"></div>
         <?php endif; ?>
-
-        <?php include __DIR__ . '/../templates/push_ui.php'; ?>
+        <div style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
+            <?php include __DIR__ . '/../templates/push_ui.php'; ?>
+        </div>
     </div>
 
     <div class="nc-cards">
     <div class="nc-col">
     <!-- ── แผงบอทหลัก: การ์ดงานซ่อม + ตอบแชต ── -->
-    <div class="ln-card">
-        <div class="ln-label" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <span class="material-symbols-rounded" style="color:#06c755;">build</span> บอทหลัก
-            <span class="ln-hint" style="font-weight:400;">การ์ดงานซ่อม + ตอบแชต</span>
+    <div class="stg-card">
+        <div class="stg-card-head">
+            <div class="stg-card-title">
+                <span class="material-symbols-rounded" style="color:#06c755;font-size:20px;">build</span> บอทหลัก
+            </div>
             <?= $line_ready
                 ? '<span class="nc-badge on">' . htmlspecialchars($line_cfg['page_name'] ?: 'พร้อม') . '</span>'
                 : '<span class="nc-badge off">ยังไม่ตั้ง token</span>' ?>
         </div>
+        <p class="stg-desc" style="margin:-6px 0 4px;">การ์ดงานซ่อม + ตอบแชต</p>
 
         <?php nc_render_quota($quota_main); ?>
+        <?php nc_render_recipients($groups, $admins, 'jobs', $line_linked, $canEdit); ?>
 
-        <div class="nc-duty">
-            <label class="nc-toggle">
-                <input type="checkbox" class="nc-auto" data-action="toggle_setting" data-key="notify_jobs_enabled" <?= $on('notify_jobs_enabled') ? 'checked' : '' ?>>
-                <span class="nc-sw"></span>
-                <span>การ์ด<b>งานซ่อม</b> (เปิดงาน/แก้ไข ทันที)</span>
-            </label>
-        </div>
-
-        <?php nc_render_recipients($groups, $admins, 'jobs', $line_linked); ?>
-
-        <form method="POST" style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px;">
+        <form method="POST" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
             <input type="hidden" name="action" value="test_line">
-            <button type="submit" class="cmns-btn cmns-btn-line" onclick="return confirm('ยิงข้อความทดสอบจากบอทหลัก ไปผู้รับชุดงานซ่อมจริงเลยนะ?');">
+            <button type="submit" class="cmns-btn cmns-btn-line" <?= $canEdit ? '' : 'disabled title="super_admin เท่านั้นที่ยิงทดสอบได้"' ?> onclick="return confirm('ยิงข้อความทดสอบจากบอทหลัก ไปผู้รับชุดงานซ่อมจริงเลยนะ?');">
                 <span class="material-symbols-rounded" style="font-size:16px;">wifi_tethering</span> ยิงทดสอบบอทหลัก
             </button>
         </form>
     </div>
 
     <!-- config บอทหลัก -->
-    <div class="ln-card" id="line-config" style="scroll-margin-top:80px;">
-        <div class="ln-label" style="display:flex;align-items:center;gap:8px;">
-            <span class="material-symbols-rounded" style="color:#06c755;">key</span> บอทหลัก — การ์ดงานซ่อม + ตอบแชต
+    <div class="stg-card" id="line-config" style="scroll-margin-top:80px;">
+        <div class="stg-card-head">
+            <div class="stg-card-title">
+                <span class="material-symbols-rounded" style="color:#06c755;font-size:20px;">key</span> บอทหลัก — การ์ดงานซ่อม + ตอบแชต
+            </div>
         </div>
 
         <!-- Webhook URL -->
         <div class="ln-field">
-            <label>Webhook URL <span class="ln-hint">(วางใน LINE Developers → Messaging API → Webhook URL)</span></label>
+            <label>Webhook URL <span class="stg-desc">(วางใน LINE Developers → Messaging API → Webhook URL)</span></label>
             <div class="ln-copy">
                 <input type="text" id="wh" value="<?= htmlspecialchars($webhook_url) ?>" readonly>
                 <button type="button" class="cmns-btn cmns-btn-secondary" onclick="cp()">
@@ -401,34 +475,37 @@ include '../templates/header_admin.php';
         </div>
 
         <!-- Config form -->
+        <?php if (!$canEdit): ?>
+        <p class="stg-desc" style="margin:0 0 14px;color:#dc2626;">ดูได้อย่างเดียว — token/secret ปิดบังไว้ แก้ไข/บันทึกได้เฉพาะ super_admin</p>
+        <?php endif; ?>
         <form method="POST">
             <input type="hidden" name="channel" value="line">
             <div class="ln-field">
                 <label>ชื่อ Channel / OA (ไว้จำ)</label>
-                <input type="text" name="page_name" value="<?= htmlspecialchars($line_cfg['page_name']) ?>" placeholder="เช่น API Test">
+                <input type="text" name="page_name" value="<?= htmlspecialchars($line_cfg['page_name']) ?>" placeholder="เช่น API Test" <?= $canEdit ? '' : 'disabled' ?>>
             </div>
             <div class="ln-field">
                 <label>Channel access token (long-lived)</label>
-                <textarea name="access_token" rows="3" placeholder="วาง token จากแท็บ Messaging API" required><?= htmlspecialchars($line_cfg['access_token']) ?></textarea>
-                <span class="ln-hint">LINE Developers → Channel → แท็บ Messaging API → Channel access token → Issue</span>
+                <textarea name="access_token" rows="3" placeholder="วาง token จากแท็บ Messaging API" <?= $canEdit ? 'required' : 'disabled' ?>><?= $canEdit ? htmlspecialchars($line_cfg['access_token']) : nc_mask($line_cfg['access_token']) ?></textarea>
+                <span class="stg-desc">LINE Developers → Channel → แท็บ Messaging API → Channel access token → Issue</span>
             </div>
             <div class="ln-field">
                 <label>Channel secret</label>
-                <input type="text" name="secret_key" value="<?= htmlspecialchars($line_cfg['secret_key']) ?>" placeholder="32 ตัวอักษร" required>
-                <span class="ln-hint">LINE Developers → Channel → แท็บ Basic settings → Channel secret</span>
+                <input type="text" name="secret_key" value="<?= $canEdit ? htmlspecialchars($line_cfg['secret_key']) : nc_mask($line_cfg['secret_key']) ?>" placeholder="32 ตัวอักษร" <?= $canEdit ? 'required' : 'disabled' ?>>
+                <span class="stg-desc">LINE Developers → Channel → แท็บ Basic settings → Channel secret</span>
             </div>
 
-            <p class="ln-hint" style="line-height:1.6;margin:4px 0 0;">
+            <p class="stg-desc" style="line-height:1.6;margin:4px 0 0;">
                 <b>ขั้นตอน:</b> 1) วาง token + secret แล้วกดบันทึก →
                 2) กดทดสอบการเชื่อมต่อ ต้องขึ้นชื่อ channel ให้ตรง →
                 3) เอา Webhook URL ด้านบนไปใส่ใน LINE Developers แล้วกด Verify (ต้องได้ Success)
             </p>
 
             <div class="nc-btn-row nc-config-btns">
-                <button type="submit" name="action" value="save_line" class="cmns-btn cmns-btn-primary">
+                <button type="submit" name="action" value="save_line" class="cmns-btn cmns-btn-primary" <?= $canEdit ? '' : 'disabled' ?>>
                     <span class="material-symbols-rounded" style="font-size:16px;">save</span> บันทึก token/secret
                 </button>
-                <button type="submit" name="action" value="test_conn" class="cmns-btn cmns-btn-secondary">
+                <button type="submit" name="action" value="test_conn" class="cmns-btn cmns-btn-secondary" <?= $canEdit ? '' : 'disabled' ?>>
                     <span class="material-symbols-rounded" style="font-size:16px;">wifi_tethering</span> ทดสอบการเชื่อมต่อ
                 </button>
             </div>
@@ -438,86 +515,79 @@ include '../templates/header_admin.php';
 
     <div class="nc-col">
     <!-- ── แผงบอทรายงาน: สรุปงานซ่อมเช้า-เย็น ── -->
-    <div class="ln-card">
-        <div class="ln-label" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-            <span class="material-symbols-rounded" style="color:#06c755;">campaign</span> บอทรายงาน
-            <span class="ln-hint" style="font-weight:400;">สรุปงานซ่อมเช้า-เย็น</span>
+    <div class="stg-card">
+        <div class="stg-card-head">
+            <div class="stg-card-title">
+                <span class="material-symbols-rounded" style="color:#06c755;font-size:20px;">campaign</span> บอทรายงาน
+            </div>
             <?= $rep_ready
                 ? '<span class="nc-badge on">' . htmlspecialchars($rep_cfg['page_name'] ?: 'พร้อม') . '</span>'
                 : '<span class="nc-badge off">ใช้บอทหลักส่งแทน</span>' ?>
         </div>
-
-        <?php nc_render_quota($quota_rep); ?>
+        <p class="stg-desc" style="margin:-6px 0 4px;">สรุปงานซ่อมเช้า-เย็น</p>
         <?php if (!$rep_ready): ?>
-        <p class="ln-hint" style="margin:0 0 14px;">ยังไม่ตั้ง token บอทรายงาน — รายงานเช้า-เย็นจะออกจาก<b>บอทหลัก</b> (กินโควต้าบอทหลัก) · ตั้งได้ที่การ์ดด้านล่าง</p>
+        <p class="stg-desc" style="margin:0 0 10px;">ยังไม่ตั้ง token บอทรายงาน — รายงานเช้า-เย็นจะออกจาก<b>บอทหลัก</b> (กินโควต้าบอทหลัก) · ตั้งได้ที่การ์ดด้านล่าง</p>
         <?php endif; ?>
 
-        <div class="nc-duty">
-            <label class="nc-toggle">
-                <input type="checkbox" class="nc-auto" data-action="toggle_setting" data-key="notify_morning_enabled" <?= $on('notify_morning_enabled') ? 'checked' : '' ?>>
-                <span class="nc-sw"></span>
-                <span>รอบ <b>เช้า</b> (07:00)</span>
-            </label>
-            <label class="nc-toggle">
-                <input type="checkbox" class="nc-auto" data-action="toggle_setting" data-key="notify_evening_enabled" <?= $on('notify_evening_enabled') ? 'checked' : '' ?>>
-                <span class="nc-sw"></span>
-                <span>รอบ <b>เย็น</b> (19:00)</span>
-            </label>
-        </div>
+        <?php nc_render_quota($quota_rep); ?>
+        <?php nc_render_recipients($groups, $admins, 'reports', $line_linked, $canEdit); ?>
 
-        <?php nc_render_recipients($groups, $admins, 'reports', $line_linked); ?>
-
-        <div class="nc-btn-row" style="margin-top:14px;border-top:1px solid var(--border);padding-top:14px;">
+        <div class="nc-btn-row" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border);">
             <form method="POST" style="margin:0;">
                 <input type="hidden" name="action" value="test_morning">
-                <button type="submit" class="cmns-btn cmns-btn-line" onclick="return confirm('ยิงรายงานเช้าไปผู้รับจริงชุดรายงานเลยนะ?');">
+                <button type="submit" class="cmns-btn cmns-btn-line" <?= $canEdit ? '' : 'disabled title="super_admin เท่านั้นที่ยิงรายงานได้"' ?> onclick="return confirm('ยิงรายงานเช้าไปผู้รับจริงชุดรายงานเลยนะ?');">
                     <span class="material-symbols-rounded" style="font-size:16px;">wb_sunny</span> ยิงรายงานเช้า
                 </button>
             </form>
             <form method="POST" style="margin:0;">
                 <input type="hidden" name="action" value="test_evening">
-                <button type="submit" class="cmns-btn cmns-btn-line" onclick="return confirm('ยิงรายงานเย็นไปผู้รับจริงชุดรายงานเลยนะ?');">
+                <button type="submit" class="cmns-btn cmns-btn-line" <?= $canEdit ? '' : 'disabled title="super_admin เท่านั้นที่ยิงรายงานได้"' ?> onclick="return confirm('ยิงรายงานเย็นไปผู้รับจริงชุดรายงานเลยนะ?');">
                     <span class="material-symbols-rounded" style="font-size:16px;">nightlight</span> ยิงรายงานเย็น
                 </button>
             </form>
         </div>
-        <p class="ln-hint" style="margin-top:10px;">ปุ่มยิงเคารพสวิตช์เช้า/เย็น + ช่อง LINE ด้านบน (ปิดอยู่จะข้าม)</p>
+        <p class="stg-desc" style="margin-top:10px;">ปุ่มยิงเคารพสวิตช์เช้า/เย็น + ช่อง LINE ด้านบน (ปิดอยู่จะข้าม)</p>
     </div>
 
     <!-- config บอทรายงาน -->
-    <div class="ln-card" id="line-reports-config">
-        <div class="ln-label" style="display:flex;align-items:center;gap:8px;">
-            <span class="material-symbols-rounded" style="color:#06c755;">smart_toy</span> บอทรายงานเช้า-เย็น
+    <div class="stg-card" id="line-reports-config">
+        <div class="stg-card-head">
+            <div class="stg-card-title">
+                <span class="material-symbols-rounded" style="color:#06c755;font-size:20px;">smart_toy</span> บอทรายงานเช้า-เย็น
+            </div>
             <span class="nc-badge <?= $rep_ready ? 'on' : 'off' ?>"><?= $rep_ready ? 'ใช้งานอยู่' : 'ยังไม่ตั้ง' ?></span>
         </div>
 
-        <p class="ln-hint" style="line-height:1.6;margin:0 0 14px;">
+        <p class="stg-desc" style="line-height:1.6;margin:0 0 14px;">
             OA ตัวที่ 2 สำหรับรายงานเช้า-เย็นโดยเฉพาะ — <b>แยกโควต้า</b>จากบอทหลัก
             (สร้าง channel ใหม่ใต้ <b>provider เดิม</b>ใน LINE Developers เพื่อให้ userId เดิมใช้ได้เลย) ·
             ไม่ต้องตั้ง webhook · ทุกคน/ทุกกลุ่มที่รับรายงานต้อง<b>แอดบอทตัวนี้เป็นเพื่อน / เชิญเข้ากลุ่ม</b>ด้วย ·
             เว้นว่างทั้งคู่แล้วบันทึก = ปิด กลับไปใช้บอทหลัก
         </p>
 
+        <?php if (!$canEdit): ?>
+        <p class="stg-desc" style="margin:0 0 14px;color:#dc2626;">ดูได้อย่างเดียว — token/secret ปิดบังไว้ แก้ไข/บันทึกได้เฉพาะ super_admin</p>
+        <?php endif; ?>
         <form method="POST">
             <input type="hidden" name="channel" value="line_reports">
             <div class="ln-field">
                 <label>ชื่อ Channel / OA (ไว้จำ)</label>
-                <input type="text" name="page_name" value="<?= htmlspecialchars($rep_cfg['page_name']) ?>" placeholder="เช่น CMNS Reports">
+                <input type="text" name="page_name" value="<?= htmlspecialchars($rep_cfg['page_name']) ?>" placeholder="เช่น CMNS Reports" <?= $canEdit ? '' : 'disabled' ?>>
             </div>
             <div class="ln-field">
                 <label>Channel access token (long-lived)</label>
-                <textarea name="access_token" rows="3" placeholder="วาง token จากแท็บ Messaging API"><?= htmlspecialchars($rep_cfg['access_token']) ?></textarea>
+                <textarea name="access_token" rows="3" placeholder="วาง token จากแท็บ Messaging API" <?= $canEdit ? '' : 'disabled' ?>><?= $canEdit ? htmlspecialchars($rep_cfg['access_token']) : nc_mask($rep_cfg['access_token']) ?></textarea>
             </div>
             <div class="ln-field">
                 <label>Channel secret</label>
-                <input type="text" name="secret_key" value="<?= htmlspecialchars($rep_cfg['secret_key']) ?>" placeholder="32 ตัวอักษร">
+                <input type="text" name="secret_key" value="<?= $canEdit ? htmlspecialchars($rep_cfg['secret_key']) : nc_mask($rep_cfg['secret_key']) ?>" placeholder="32 ตัวอักษร" <?= $canEdit ? '' : 'disabled' ?>>
             </div>
 
             <div class="nc-btn-row">
-                <button type="submit" name="action" value="save_line" class="cmns-btn cmns-btn-primary">
+                <button type="submit" name="action" value="save_line" class="cmns-btn cmns-btn-primary" <?= $canEdit ? '' : 'disabled' ?>>
                     <span class="material-symbols-rounded" style="font-size:16px;">save</span> บันทึก token/secret
                 </button>
-                <button type="submit" name="action" value="test_conn" class="cmns-btn cmns-btn-secondary">
+                <button type="submit" name="action" value="test_conn" class="cmns-btn cmns-btn-secondary" <?= $canEdit ? '' : 'disabled' ?>>
                     <span class="material-symbols-rounded" style="font-size:16px;">wifi_tethering</span> ทดสอบการเชื่อมต่อ
                 </button>
             </div>
@@ -528,13 +598,33 @@ include '../templates/header_admin.php';
 </div><!-- /.cmns-wrapper -->
 
 <style>
-.ln-card { background:var(--bg-surface); border:1px solid var(--border); border-radius:14px; padding:20px 22px; margin-bottom:16px; box-shadow:var(--shadow); }
-.ln-label { font-size:.95rem; font-weight:700; color:var(--text-main); margin-bottom:14px; }
-.ln-hint { font-size:.78rem; font-weight:400; color:var(--text-muted); }
+/* ── หัวหน้า ── */
+.stg-head { margin-bottom:22px; }
+.stg-head h1 { font-size:1.32rem; font-weight:700; color:var(--text-main); margin:0 0 5px; letter-spacing:-.01em; }
+.stg-head p { font-size:.85rem; color:var(--text-muted); margin:0; line-height:1.5; }
+
+/* ── การ์ด/ส่วน แบบแบน ไม่มีเงา เส้นบางคั่นแทน ── */
+/* section แบบเรียบ — ไม่มีกล่อง/เงา แค่หัวข้อตัวหนา + เว้นระยะห่างระหว่างหมวด */
+.stg-card { margin-bottom:34px; }
+.stg-card:last-child { margin-bottom:0; }
+.stg-card-head { display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; }
+.stg-card-title { display:flex; align-items:center; gap:8px; font-size:1rem; font-weight:700; color:var(--text-main); }
+
+/* ── แถวรายการ: label+desc ซ้าย / control ขวา คั่นด้วยเส้นบาง ── */
+.stg-row { display:flex; align-items:center; justify-content:space-between; gap:16px; padding:16px 0; border-top:1px solid var(--border); flex-wrap:wrap; }
+.stg-card > .stg-row:first-of-type,
+.stg-card-head + .stg-row { border-top:1px solid var(--border); margin-top:16px; }
+.stg-card > .stg-row:only-child { border-top:none; }
+.stg-row-main { display:flex; flex-direction:column; gap:3px; min-width:0; }
+.stg-row-main b { font-size:.88rem; font-weight:600; color:var(--text-main); }
+.stg-row-ctl { flex-shrink:0; display:flex; align-items:center; gap:10px; }
+
+.stg-desc { font-size:.78rem; font-weight:400; color:var(--text-muted); line-height:1.55; }
+.stg-sub { font-size:.83rem; font-weight:700; color:var(--text-main); margin:18px 0 4px; }
+
 .ln-flash { padding:12px 16px; border-radius:10px; margin-bottom:16px; font-size:.9rem; line-height:1.5; }
 .ln-flash.ok  { background:rgba(16,185,129,.1); color:#059669; border:1px solid rgba(16,185,129,.25); }
 .ln-flash.err { background:rgba(239,68,68,.1); color:#dc2626; border:1px solid rgba(239,68,68,.25); }
-.ln-sub { font-size:.85rem; font-weight:700; color:var(--text-main); margin:6px 0 10px; }
 
 .ln-field { margin-bottom:16px; }
 .ln-field label { display:block; font-size:.87rem; font-weight:600; color:var(--text-main); margin-bottom:7px; }
@@ -548,43 +638,41 @@ include '../templates/header_admin.php';
 .ln-copy { display:flex; gap:10px; }
 .ln-copy input { flex:1; background:var(--bg-surface-alt,#0000000a); }
 
-/* แถบสวิตช์ใหญ่ (ช่อง LINE ทั้งระบบ) */
-.nc-master { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
-.nc-master-hint { margin-left:auto; text-align:right; }
-
-/* สวิตช์ duty ประจำแผงบอท */
-.nc-duty { display:flex; gap:20px; flex-wrap:wrap; margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--border); }
-
 .nc-toggle { display:flex; align-items:center; gap:10px; cursor:pointer; font-size:.9rem; color:var(--text-main); user-select:none; }
 .nc-toggle input { display:none; }
 .nc-sw { flex:0 0 42px; width:42px; height:24px; border-radius:99px; background:var(--border); position:relative; transition:background .2s; }
 .nc-sw::after { content:''; position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; background:#fff; transition:transform .2s; box-shadow:0 1px 3px rgba(0,0,0,.3); }
 .nc-toggle input:checked + .nc-sw { background:var(--primary); }
 .nc-toggle input:checked + .nc-sw::after { transform:translateX(18px); }
+.nc-toggle input:disabled { pointer-events:none; }
+.nc-toggle input:disabled + .nc-sw { opacity:.45; cursor:not-allowed; }
+.nc-toggle:has(input:disabled) { cursor:not-allowed; }
 
-.nc-badge { font-size:.72rem; font-weight:700; padding:2px 9px; border-radius:99px; }
+.ln-field input:disabled, .ln-field textarea:disabled { opacity:.6; cursor:not-allowed; }
+.cmns-wrapper .cmns-btn:disabled { opacity:.45; cursor:not-allowed; pointer-events:none; }
+
+.nc-badge { font-size:.72rem; font-weight:700; padding:2px 9px; border-radius:99px; flex-shrink:0; }
 .nc-badge.on  { background:rgba(16,185,129,.14); color:#059669; }
 .nc-badge.off { background:rgba(239,68,68,.12); color:#dc2626; }
 
-.nc-quota { margin-bottom:14px; padding-bottom:14px; border-bottom:1px solid var(--border); }
-.nc-quota-head { display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:.85rem; color:var(--text-main); margin-bottom:8px; }
-.nc-quota-bar { height:8px; border-radius:99px; background:var(--border); overflow:hidden; }
-.nc-quota-bar span { display:block; height:100%; border-radius:99px; transition:width .3s ease; }
+/* ── โควต้า ── */
+.stg-quota { padding:16px 0; border-top:1px solid var(--border); }
+.stg-quota-head { display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:.85rem; color:var(--text-main); margin-bottom:8px; }
+.stg-quota-bar { height:8px; border-radius:99px; background:var(--border); overflow:hidden; }
+.stg-quota-bar span { display:block; height:100%; border-radius:99px; transition:width .3s ease; }
 
-.nc-row { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px dashed var(--border); font-size:.88rem; }
+/* ── list แบบแถวมีไอคอน (ผู้รับ / อุปกรณ์) ── */
+.stg-list { border-top:1px solid var(--border); margin-top:2px; }
+.stg-list-row { display:flex; align-items:center; gap:12px; padding:11px 0; border-top:1px solid var(--border); font-size:.85rem; }
+.stg-list-row:first-child { border-top:none; }
+.stg-list-icon { flex:0 0 32px; width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center;
+    background:var(--bg-surface-alt,rgba(0,0,0,.04)); color:var(--text-muted); }
+.stg-list-icon .material-symbols-rounded { font-size:17px; }
+.stg-list-body { flex:1; min-width:0; }
+.stg-list-body b { font-size:.85rem; font-weight:600; color:var(--text-main); }
+.stg-list-body small { display:block; font-size:.74rem; color:var(--text-muted); margin-top:1px; }
 
-/* toast ยืนยัน auto-save (มุมล่างกลางจอ โผล่แป๊บเดียว) */
-#nc-toast { position:fixed; bottom:24px; left:50%; transform:translateX(-50%) translateY(8px);
-    background:#1d1d1f; color:#fff; padding:9px 18px; border-radius:99px;
-    font-size:.82rem; font-weight:600; opacity:0; pointer-events:none;
-    transition:opacity .2s ease, transform .2s ease; z-index:999; white-space:nowrap; max-width:90vw;
-    overflow:hidden; text-overflow:ellipsis; }
-#nc-toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
-#nc-toast.err { background:#dc2626; }
-
-.nc-admins { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:8px; }
-.nc-admin { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:8px 12px; background:var(--bg-surface-alt,rgba(0,0,0,.03)); border-radius:9px; font-size:.85rem; }
-.nc-chip { font-size:.66rem; font-weight:700; padding:2px 7px; border-radius:5px; background:rgba(148,163,184,.18); color:var(--text-muted); }
+.nc-chip { font-size:.66rem; font-weight:700; padding:2px 7px; border-radius:5px; background:rgba(148,163,184,.18); color:var(--text-muted); flex-shrink:0; }
 .nc-chip.on { background:rgba(16,185,129,.16); color:#059669; }
 
 .nc-btn-row { display:flex; gap:10px; flex-wrap:wrap; }
@@ -637,16 +725,13 @@ include '../templates/header_admin.php';
     box-shadow:0 4px 12px -4px rgba(6,199,85,.55);
 }
 
-/* ── iPad landscape ขึ้นไป: แผงบอทข้างละคอลัมน์ ── */
+/* ── iPad landscape ขึ้นไป: แผงบอทข้างละคอลัมน์ คั่นด้วยเส้นบาง (ไม่มีกล่อง) ── */
 @media (min-width:1024px) {
     .cmns-wrapper { max-width:1180px !important; }
-    .nc-cards { display:flex; gap:18px; align-items:flex-start; }
+    .nc-cards { display:flex; gap:32px; align-items:flex-start; }
     .nc-col { flex:1; min-width:0; }
-    .nc-col > .ln-card:last-child { margin-bottom:0; }
-}
-/* จอแคบ: hint ของแถบสวิตช์ใหญ่ลงบรรทัดใหม่ */
-@media (max-width:700px) {
-    .nc-master-hint { margin-left:0; width:100%; text-align:left; }
+    .nc-col + .nc-col { border-left:1px solid var(--border); padding-left:32px; }
+    .nc-col > .stg-card:last-child { margin-bottom:0; }
 }
 
 /* ── iPad / mobile ── */
@@ -654,8 +739,9 @@ include '../templates/header_admin.php';
     .cmns-wrapper { max-width:100% !important; }
 }
 @media (max-width:600px) {
-    .ln-card { padding:16px; border-radius:12px; }
-    .ln-label { font-size:.9rem; }
+    .stg-card { margin-bottom:28px; }
+    .stg-card-title { font-size:.92rem; }
+    .stg-row { padding:14px 0; }
     /* กันไม่ให้ iOS ซูมเองตอนโฟกัส input (ต้อง >=16px) */
     .ln-field input, .ln-field textarea, .ln-copy input { font-size:16px; padding:11px 13px; }
     /* copy webhook: วางปุ่มใต้ช่อง URL แทนข้างกัน */
@@ -664,10 +750,7 @@ include '../templates/header_admin.php';
     /* ปุ่ม action เต็มความกว้าง แตะง่าย */
     .nc-btn-row { flex-direction:column; }
     .nc-btn-row form { width:100%; }
-    .ln-card .cmns-btn { width:100%; justify-content:center; padding-top:11px; padding-bottom:11px; }
-    /* สถานะ channel: ปุ่มแก้ token ลงบรรทัดใหม่เต็มกว้าง */
-    .nc-line-status { align-items:stretch; }
-    .nc-line-status > a { justify-content:center; }
+    .stg-card .cmns-btn { width:100%; justify-content:center; padding-top:11px; padding-bottom:11px; }
 }
 </style>
 
