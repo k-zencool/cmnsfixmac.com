@@ -307,7 +307,7 @@ include '../templates/header_admin.php';
 
     <?php if ($test !== null): ?>
     <div class="ln-flash <?= $test['ok'] ? 'ok' : 'err' ?>">
-        <?= $test['ok'] ? '✅' : '❌' ?> ทดสอบ <?= htmlspecialchars($test['label'] ?? '') ?> —
+        ทดสอบ <?= htmlspecialchars($test['label'] ?? '') ?> —
         <?= htmlspecialchars($test['detail']) ?>
     </div>
     <?php endif; ?>
@@ -315,13 +315,13 @@ include '../templates/header_admin.php';
     <?php if ($conn !== null): ?>
         <?php if (($conn['code'] ?? 0) === 200 && !empty($conn['body']['basicId'])): ?>
         <div class="ln-flash ok">
-            ✅ เชื่อมต่อสำเร็จ — token ใช้งานได้<br>
+            เชื่อมต่อสำเร็จ — token ใช้งานได้<br>
             Channel: <b><?= htmlspecialchars($conn['body']['displayName'] ?? '-') ?></b>
             (<?= htmlspecialchars($conn['body']['basicId'] ?? '-') ?>)
         </div>
         <?php else: ?>
         <div class="ln-flash err">
-            ❌ ทดสอบไม่ผ่าน (HTTP <?= (int)($conn['code'] ?? 0) ?>) —
+            ทดสอบไม่ผ่าน (HTTP <?= (int)($conn['code'] ?? 0) ?>) —
             <?= htmlspecialchars($conn['body']['message'] ?? $conn['err'] ?? 'token ไม่ถูกต้อง') ?>
         </div>
         <?php endif; ?>
