@@ -162,6 +162,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ]);
                     $newId = (int)$pdo->lastInsertId();
 
+                    // ── ตอบกลับผู้ใช้ทันที ก่อนยิง LINE/Push (curl ช้า ไม่ให้ user รอการแจ้งเตือน) ──
+                    $_SESSION['success'] = "เปิดงาน $ticket เรียบร้อย";
+                    ignore_user_abort(true);
+                    if (function_exists('fastcgi_finish_request')) {
+                        header("Location: index.php");
+                        session_write_close();
+                        fastcgi_finish_request();
+                    } else {
+                        while (ob_get_level() > 0) ob_end_clean();
+                        header("Location: index.php");
+                        header("Connection: close");
+                        header("Content-Length: 0");
+                        session_write_close();
+                        ob_start();
+                        ob_end_flush();
+                        flush();
+                    }
+
                     // ── LINE alert: การ์ดเปิดงานใหม่ (fail-safe — พังเงียบ ไม่ block การบันทึก) ──
                     try {
                         require_once __DIR__ . '/../../includes/line_helper.php';
@@ -188,8 +206,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             '/admin/tracking/edit.php?id=' . $newId);
                     } catch (Throwable $e) { /* ignore */ }
 
-                    $_SESSION['success'] = "เปิดงาน $ticket เรียบร้อย";
-                    header("Location: index.php");
                     exit;
                 } catch (PDOException $e) {
                     $errorMsg = "DB Error: " . $e->getMessage();

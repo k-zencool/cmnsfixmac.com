@@ -150,7 +150,8 @@ if (!function_exists('push_b64url')) {
                 'TTL: 86400',
                 'Urgency: high',
             ],
-            CURLOPT_TIMEOUT => 10,
+            CURLOPT_CONNECTTIMEOUT => 3,
+            CURLOPT_TIMEOUT        => 5,
         ]);
         $res  = curl_exec($ch);
         $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);

@@ -222,6 +222,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]);
             }
 
+            // ── ตอบกลับผู้ใช้ทันที ก่อนยิง LINE/Push (curl ช้า ไม่ให้ user รอการแจ้งเตือน) ──
+            $_SESSION['success'] = "บันทึกแก้ไขงาน $ticket เรียบร้อย";
+            ignore_user_abort(true);
+            if (function_exists('fastcgi_finish_request')) {
+                header("Location: index.php");
+                session_write_close();
+                fastcgi_finish_request();
+            } else {
+                while (ob_get_level() > 0) ob_end_clean();
+                header("Location: index.php");
+                header("Connection: close");
+                header("Content-Length: 0");
+                session_write_close();
+                ob_start();
+                ob_end_flush();
+                flush();
+            }
+
             // ── LINE alert: การ์ดอัปเดตงาน (เฉพาะมีการเปลี่ยนแปลงจริง; fail-safe) ──
             if (!empty($diff)) {
                 try {
@@ -273,8 +291,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 } catch (Throwable $e) { /* ignore */ }
             }
 
-            $_SESSION['success'] = "บันทึกแก้ไขงาน $ticket เรียบร้อย";
-            header("Location: index.php");
             exit;
         } catch (PDOException $e) {
             $errorMsg = "Update Error: " . $e->getMessage();
