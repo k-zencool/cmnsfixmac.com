@@ -60,10 +60,13 @@ $where_sql = $where ? implode(" AND ", $where) : "1";
 
 $order_map = ['newest'=>'i.created_at DESC','oldest'=>'i.created_at ASC','price_low'=>'i.sell_price ASC','price_high'=>'i.sell_price DESC'];
 $type_order = "FIELD(i.type,'new','used','machine','sale')";
-$sold_last  = "(i.status = 'SOLD')"; // SALE ที่ขายแล้ว ดันไปท้ายสุดเสมอ ไม่ว่าจะเรียงลำดับแบบไหน
+// ดันของ "หมดแล้ว" ไปท้ายสุดเสมอ ไม่ว่าจะเรียงลำดับแบบไหน:
+//   - SALE ที่ขายแล้ว (status='SOLD')
+//   - new/used ที่สต็อกหมด (qty รวมจาก lot = 0 หรือ status='OOS')
+$depleted_last = "((i.status = 'SOLD') OR (i.type IN ('new','used') AND (COALESCE(SUM(l.qty_remaining), 0) = 0 OR i.status = 'OOS')))";
 $order_sql = $current_type === 'all'
-    ? "ORDER BY $type_order, $sold_last, " . ($order_map[$sort] ?? 'i.created_at DESC')
-    : "ORDER BY $sold_last, " . ($order_map[$sort] ?? 'i.created_at DESC');
+    ? "ORDER BY $type_order, $depleted_last, " . ($order_map[$sort] ?? 'i.created_at DESC')
+    : "ORDER BY $depleted_last, " . ($order_map[$sort] ?? 'i.created_at DESC');
 
 $stmt_count = $pdo->prepare("SELECT COUNT(DISTINCT i.id) FROM inventory i WHERE $where_sql");
 $stmt_count->execute($params);
