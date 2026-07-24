@@ -330,6 +330,11 @@
 @media (max-width: 640px) {
     .cr3-actionbar { bottom: 8px; }
     .cr3-btn { flex: 1; padding: 13px 10px; }
+    /* edit page: bar-left/bar-right squeeze 3 buttons into a half-width row,
+       label text wraps to 2 lines and padding inflates the button — stack full-width instead */
+    .cr3e-bar-left, .cr3e-bar-right { flex: 1 1 100%; }
+    .cr3e-bar-right { flex-direction: column; }
+    .cr3e-bar-right .cr3-btn { width: 100%; }
 }
 
 /* ── Quick guide (aside) ── */
