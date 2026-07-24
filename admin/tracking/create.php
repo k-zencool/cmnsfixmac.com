@@ -180,6 +180,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         line_job_notify($pdo, line_job_flex(
                             'เปิดงานซ่อมใหม่', $ticket, date('d/m/Y H:i') . ' น.', $rows, $editUrl, '#10b981'
                         ));
+                        // แจ้งเตือนผ่านแอป (Web Push — ฟรี ไม่มีโควต้า) คู่กับ LINE
+                        require_once __DIR__ . '/../../includes/push_helper.php';
+                        push_job_notify($pdo,
+                            "🆕 เปิดงานใหม่ $ticket",
+                            trim("$cust_name · $type $series $model_code") . ' · ' . $stMeta['label'],
+                            '/admin/tracking/edit.php?id=' . $newId);
                     } catch (Throwable $e) { /* ignore */ }
 
                     $_SESSION['success'] = "เปิดงาน $ticket เรียบร้อย";

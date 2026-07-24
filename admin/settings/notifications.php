@@ -10,6 +10,7 @@ require_once '../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/notify_settings.php';
 require_once __DIR__ . '/../../includes/line_helper.php';
+require_once __DIR__ . '/../../includes/push_helper.php';
 
 if (!isset($_SESSION['admin_id'])) {
     header("Location: ../login.php");
@@ -43,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['ajax'] ?? '') === '1') {
     $val    = ($_POST['val'] ?? '') === '1' ? 1 : 0;
     try {
         if ($action === 'toggle_setting') {
-            $allowed = ['notify_line_enabled', 'notify_morning_enabled', 'notify_evening_enabled', 'notify_jobs_enabled'];
+            $allowed = ['notify_line_enabled', 'notify_morning_enabled', 'notify_evening_enabled', 'notify_jobs_enabled', 'notify_push_enabled'];
             $key = $_POST['key'] ?? '';
             if (!in_array($key, $allowed, true)) throw new Exception('key ไม่ถูกต้อง');
             notif_set($pdo, $key, (string)$val);
@@ -246,6 +247,26 @@ function nc_render_quota(?array $q): void {
 $quota_main = $line_ready ? line_quota_status($pdo, $line_cfg['access_token']) : null;
 $quota_rep  = $rep_ready  ? line_quota_status($pdo, $rep_cfg['access_token'])  : null;
 
+// Web Push: จำนวนอุปกรณ์ที่ subscribe (ตารางอาจยังไม่ migrate)
+$push_devices = null;
+try {
+    $push_devices = $pdo->query("
+        SELECT s.id, s.ua, s.created_at, s.last_ok_at, a.username
+        FROM push_subscriptions s LEFT JOIN admin_users a ON a.id = s.admin_id
+        ORDER BY s.created_at DESC")->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {}
+
+/** เดารุ่นอุปกรณ์คร่าวๆ จาก user agent ไว้โชว์ในรายการ */
+function nc_ua_label(?string $ua): string {
+    $ua = (string)$ua;
+    if (stripos($ua, 'iPhone') !== false) return 'iPhone';
+    if (stripos($ua, 'iPad') !== false)   return 'iPad';
+    if (stripos($ua, 'Android') !== false) return 'Android';
+    if (stripos($ua, 'Macintosh') !== false) return 'Mac';
+    if (stripos($ua, 'Windows') !== false)   return 'Windows';
+    return 'อุปกรณ์';
+}
+
 $pageTitle = 'การแจ้งเตือน & LINE';
 include '../templates/header_admin.php';
 ?>
@@ -297,6 +318,37 @@ include '../templates/header_admin.php';
             admin เชื่อมบัญชีผ่านบอทหลัก ·
             <a href="/admin/cron/line_links.php" style="color:var(--primary);">จัดการการเชื่อม</a>
         </span>
+    </div>
+
+    <!-- แจ้งเตือนผ่านแอป (Web Push) — ฟรี ไม่มีโควต้า วิ่งคู่กับ LINE ทุกเหตุการณ์ -->
+    <div class="ln-card">
+        <div class="ln-label" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span class="material-symbols-rounded" style="color:#8b5cf6;">install_mobile</span> แจ้งเตือนผ่านแอป
+            <span class="ln-hint" style="font-weight:400;">Web Push — ฟรี ไม่มีโควต้า เด้งคู่กับ LINE</span>
+            <label class="nc-toggle" style="margin-left:auto;">
+                <input type="checkbox" class="nc-auto" data-action="toggle_setting" data-key="notify_push_enabled" <?= $on('notify_push_enabled') ? 'checked' : '' ?>>
+                <span class="nc-sw"></span>
+            </label>
+        </div>
+
+        <?php if ($push_devices === null): ?>
+        <p class="ln-hint" style="margin:0 0 12px;color:#dc2626;">ยังไม่ได้รัน migration_push_subscriptions.sql บนฐานข้อมูลนี้</p>
+        <?php elseif (!$push_devices): ?>
+        <p class="ln-hint" style="margin:0 0 12px;">ยังไม่มีเครื่องไหนเปิดรับ — แต่ละคนเปิดเองได้ที่ <b>โปรไฟล์ → ความปลอดภัย</b> (หรือปุ่มด้านล่างสำหรับเครื่องนี้) · iPhone/iPad ต้องเพิ่มแอปลงหน้าจอโฮมก่อน</p>
+        <?php else: ?>
+        <div class="ln-sub">อุปกรณ์ที่รับอยู่ (<?= count($push_devices) ?> เครื่อง)</div>
+        <?php foreach ($push_devices as $d): ?>
+        <div class="nc-row">
+            <span><span class="material-symbols-rounded" style="font-size:18px;vertical-align:-3px;">devices</span>
+                <?= htmlspecialchars($d['username'] ?: 'ไม่ทราบ') ?> · <?= nc_ua_label($d['ua']) ?>
+                <small class="ln-hint">เปิดเมื่อ <?= date('d/m/Y', strtotime($d['created_at'])) ?><?= $d['last_ok_at'] ? ' · ส่งล่าสุด ' . date('d/m H:i', strtotime($d['last_ok_at'])) : '' ?></small>
+            </span>
+        </div>
+        <?php endforeach; ?>
+        <div style="height:12px;"></div>
+        <?php endif; ?>
+
+        <?php include __DIR__ . '/../templates/push_ui.php'; ?>
     </div>
 
     <div class="nc-cards">

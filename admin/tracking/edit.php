@@ -261,6 +261,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'โดย ' . ($admin_name ?: '—') . ' · ' . date('d/m/Y H:i') . ' น.',
                         $rows, $editUrl, '#0ea5e9'
                     ));
+                    // แจ้งเตือนผ่านแอป (Web Push — ฟรี ไม่มีโควต้า) คู่กับ LINE
+                    require_once __DIR__ . '/../../includes/push_helper.php';
+                    $pushBody = isset($diff['status'])
+                        ? 'สถานะ: ' . $fmtVal('status', $job['status']) . ' → ' . line_tracking_status($status)['label']
+                        : 'แก้ไข ' . count($diff) . ' รายการ';
+                    push_job_notify($pdo,
+                        "✏️ อัปเดตงาน $ticket",
+                        $pushBody . ' · โดย ' . ($admin_name ?: '—'),
+                        '/admin/tracking/edit.php?id=' . $id);
                 } catch (Throwable $e) { /* ignore */ }
             }
 

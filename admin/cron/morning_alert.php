@@ -50,9 +50,18 @@ $lineMsgs = [
 // ส่งถ้าเปิดรอบเช้า + เปิดช่อง LINE (Notification Center)
 // channel 'line_reports' = บอทรายงานแยกโควต้า — ยังไม่ตั้ง token จะ fallback ไปบอทหลักเอง
 $lineOut = ['skipped' => true];
-if (notif_bool($pdo, 'notify_morning_enabled', true) && notif_bool($pdo, 'notify_line_enabled', true)) {
-    $lineOut = line_alert_send($pdo, $lineMsgs, 'reports');
+$pushOut = ['skipped' => true];
+if (notif_bool($pdo, 'notify_morning_enabled', true)) {
+    if (notif_bool($pdo, 'notify_line_enabled', true)) {
+        $lineOut = line_alert_send($pdo, $lineMsgs, 'reports');
+    }
+    // แจ้งเตือนผ่านแอป (Web Push — ฟรี) คู่กับ LINE
+    require_once __DIR__ . '/../../includes/push_helper.php';
+    $pushTop = array_slice($lineRows, 0, 3);
+    $pushOut = push_report_notify($pdo, '🌤 รายงานเช้า — งานค้าง ' . count($all_jobs) . ' รายการ',
+        implode(' · ', array_map(function ($r) { return $r['label'] . ' ' . $r['value']; }, $pushTop)));
 }
 
 echo "<h3>Morning Report</h3>";
 echo "<pre>LINE: " . htmlspecialchars(json_encode($lineOut, JSON_UNESCAPED_UNICODE)) . "</pre>";
+echo "<pre>PUSH: " . htmlspecialchars(json_encode($pushOut, JSON_UNESCAPED_UNICODE)) . "</pre>";

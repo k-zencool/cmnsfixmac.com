@@ -290,6 +290,19 @@ include '../templates/header_admin.php';
                         </div>
                     </form>
                 </div>
+
+                <!-- แจ้งเตือนผ่านแอป (Web Push — ต่ออุปกรณ์ ต่อคน) -->
+                <div class="form-card" style="margin-top:20px;">
+                    <h4 class="form-section-header">แจ้งเตือนผ่านแอป</h4>
+                    <p style="font-size:.85rem; color:var(--text-muted, #6b7280); margin:0 0 16px; line-height:1.6;">
+                        รับแจ้งเตือนงานซ่อม/รายงานเด้งบนเครื่องนี้โดยตรง (ฟรี ไม่ผ่าน LINE) —
+                        เปิดทีละเครื่องที่ใช้งานจริง · iPhone/iPad ต้องเพิ่มแอปลงหน้าจอโฮมก่อน
+                    </p>
+                    <?php
+                    require_once __DIR__ . '/../../includes/push_helper.php';
+                    include __DIR__ . '/../templates/push_ui.php';
+                    ?>
+                </div>
             </div>
 
         </div>
