@@ -309,6 +309,7 @@
     padding: 11px 22px;
     border-radius: 10px;
     font-size: 14px; font-weight: 700; font-family: 'Sarabun', sans-serif;
+    line-height: 1;
     cursor: pointer; text-decoration: none;
     border: 1.5px solid transparent;
     transition: all .15s;
@@ -325,17 +326,6 @@
 }
 .cr3-btn-save:hover { filter: brightness(1.08); transform: translateY(-1px); }
 .cr3-btn-save:active { transform: scale(.97); }
-
-/* phone: full-width buttons for fat thumbs */
-@media (max-width: 640px) {
-    .cr3-actionbar { bottom: 8px; }
-    .cr3-btn { flex: 1; padding: 13px 10px; }
-    /* edit page: bar-left/bar-right squeeze 3 buttons into a half-width row,
-       label text wraps to 2 lines and padding inflates the button — stack full-width instead */
-    .cr3e-bar-left, .cr3e-bar-right { flex: 1 1 100%; }
-    .cr3e-bar-right { flex-direction: column; }
-    .cr3e-bar-right .cr3-btn { width: 100%; }
-}
 
 /* ── Quick guide (aside) ── */
 .cr3-guide-steps {
@@ -418,16 +408,18 @@
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
 }
 
-/* warranty chips */
+/* warranty chips — padding/font/border match .cr3-btn so the chip and the
+   "ออกใบประกัน" button next to it are always the same height, at every breakpoint */
 .cr3e-wty {
     display: inline-flex; align-items: center; gap: 6px;
-    padding: 7px 12px; border-radius: 10px;
-    font-size: 12.5px; font-weight: 700;
-    border: 1px solid; text-decoration: none;
+    padding: 11px 22px; border-radius: 10px;
+    font-size: 14px; font-weight: 700; font-family: 'Sarabun', sans-serif;
+    line-height: 1;
+    border: 1.5px solid; text-decoration: none;
     transition: filter .15s;
 }
 .cr3e-wty:hover { filter: brightness(1.06); }
-.cr3e-wty .material-symbols-rounded { font-size: 15px; }
+.cr3e-wty .material-symbols-rounded { font-size: 18px; }
 .cr3e-wty small { opacity: .65; font-size: 11px; font-weight: 400; }
 .cr3e-wty-active { color: #059669; background: rgba(16,185,129,.10); border-color: rgba(16,185,129,.30); }
 .cr3e-wty-voided { color: #dc2626; background: rgba(239,68,68,.08);  border-color: rgba(239,68,68,.20); }
@@ -439,6 +431,24 @@
 }
 .cr3e-btn-warranty:hover { background: rgba(245,158,11,.20); }
 [data-theme="dark"] .cr3e-btn-warranty { color: #fbbf24; }
+
+/* phone: full-width buttons for fat thumbs, but compact — 4 stacked buttons
+   at desktop padding/font ate half the viewport. Must come after the
+   .cr3e-wty base rule above — same specificity, source order decides,
+   and that rule was overriding these padding/font-size values before. */
+@media (max-width: 640px) {
+    .cr3-actionbar { bottom: 8px; padding: 10px; gap: 8px; }
+    .cr3-btn { flex: 1; padding: 10px 10px; font-size: 13px; }
+    .cr3-btn .material-symbols-rounded { font-size: 16px; }
+    /* edit page: bar-left/bar-right each get their own full-width row (was
+       sharing one row, squeezing 3 buttons to half-width). Buttons inside
+       stay in a row like create.php, splitting the row evenly via flex:1. */
+    .cr3e-bar-left, .cr3e-bar-right { flex: 1 1 100%; gap: 8px; }
+    /* warranty chip sits next to the warranty button in bar-left — match
+       the button's sizing so they read as one row, not two mismatched pills */
+    .cr3e-wty { flex: 1; padding: 10px 10px; font-size: 13px; justify-content: center; }
+    .cr3e-wty .material-symbols-rounded { font-size: 16px; }
+}
 
 /* lock state */
 #btnToggleLock.cr3e-unlocked { border-color: #ef4444; color: #ef4444; }
