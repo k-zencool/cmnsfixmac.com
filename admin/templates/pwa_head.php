@@ -4,7 +4,7 @@
    so the manifest/meta/icons live in ONE place. */
 ?>
     <!-- PWA: installable admin app (Add to Home Screen → fullscreen, no URL bar) -->
-    <link rel="manifest" href="/admin/manifest.webmanifest?v=3">
+    <link rel="manifest" href="/admin/manifest.webmanifest?v=5">
     <meta name="theme-color" content="#0a0a0a">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
