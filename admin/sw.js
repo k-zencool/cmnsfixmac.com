@@ -1,7 +1,7 @@
 /* CMNS Admin service worker — makes the admin panel installable as an app.
    Strategy: cache static assets (stale-while-revalidate); ALWAYS hit the
    network for dynamic PHP so admin data is never served stale. */
-const CACHE = 'cmns-admin-v5';
+const CACHE = 'cmns-admin-v6';
 const ASSET_RE = /\.(?:css|js|png|jpe?g|webp|svg|woff2?|ico|gif)$/i;
 
 self.addEventListener('install', () => self.skipWaiting());
