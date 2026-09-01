@@ -152,7 +152,7 @@ $_auto_cat = $_cat_map[(int)($inv['category_id'] ?? 0)] ?? 0;
 if ($isModal): ?>
 <!DOCTYPE html><html lang="th">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <script>document.documentElement.setAttribute('data-theme',localStorage.getItem('admin_theme')||'dark');</script>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">

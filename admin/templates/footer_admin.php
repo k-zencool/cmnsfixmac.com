@@ -23,8 +23,10 @@ $app_version = "1.0.1 (Beta)";
                 </span>
             </div>
         </footer>
-        </div> </main> </div> <div id="global-loader" style="display:none; position:fixed; inset:0; background:rgba(255,255,255,0.8); z-index:9999; justify-content:center; align-items:center;">
-        <div style="font-weight:bold; color:var(--primary); font-size:1.2rem;">Loading...</div>
+        </div> </main> </div> <div id="global-loader" style="display:none;">
+        <div class="loader-spinner"></div>
+        <div class="loader-text">กำลังโหลด...</div>
+        <div class="loader-text loader-text-slow" id="loaderSlowText">ใช้เวลานานกว่าปกติ กรุณารอสักครู่...</div>
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>

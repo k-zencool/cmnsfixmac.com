@@ -30,7 +30,7 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Admin Panel';
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     
     <title><?= htmlspecialchars($pageTitle) ?> | FixMac Admin</title>
@@ -42,7 +42,10 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Admin Panel';
 
     <script>
         (function() {
-            const savedTheme = localStorage.getItem('admin_theme') || 'dark';
+            // ยังไม่เคยเลือกเอง = ตามโหมดของเครื่อง (prefers-color-scheme)
+            const stored = localStorage.getItem('admin_theme');
+            const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const savedTheme = stored || (prefersDark ? 'dark' : 'light');
             document.documentElement.setAttribute('data-theme', savedTheme);
             const bgColor = savedTheme === 'dark' ? '#0a0a0a' : '#f1f5f9';
             document.documentElement.style.backgroundColor = bgColor;

@@ -12,15 +12,24 @@ document.addEventListener("DOMContentLoaded", function() {
     // ------------------------------------------------
     // 1. Global Loader Control
     // ------------------------------------------------
-    window.showGlobalLoader = function() { 
+    let loaderSlowTimer = null;
+    window.showGlobalLoader = function() {
         if(loader) {
             loader.style.display = 'flex';
             void loader.offsetWidth; // Force Reflow
-            loader.style.opacity = '1'; 
+            loader.style.opacity = '1';
+
+            // เน็ตช้า/query หนัก โชว์ reassurance หลัง 4 วิ กันคนคิดว่าค้าง
+            const slowText = document.getElementById('loaderSlowText');
+            clearTimeout(loaderSlowTimer);
+            loaderSlowTimer = setTimeout(() => {
+                if (slowText) slowText.classList.add('show');
+            }, 4000);
         }
     };
-    window.hideGlobalLoader = function() { 
+    window.hideGlobalLoader = function() {
         if(loader) {
+            clearTimeout(loaderSlowTimer);
             loader.style.opacity = '0';
             setTimeout(() => { loader.style.display = 'none'; }, 200);
         }
@@ -54,7 +63,10 @@ document.addEventListener("DOMContentLoaded", function() {
     // ------------------------------------------------
     // 3. Theme Initialization
     // ------------------------------------------------
-    const savedTheme = localStorage.getItem('admin_theme') || 'light';
+    // ยังไม่เคยเลือกเอง = ตามโหมดของเครื่อง (ต้องตรงกับ header_admin.php + login.php)
+    const storedTheme = localStorage.getItem('admin_theme');
+    const prefersDarkOS = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const savedTheme = storedTheme || (prefersDarkOS ? 'dark' : 'light');
     document.documentElement.setAttribute('data-theme', savedTheme);
     const themeIcon = document.getElementById('themeIcon');
     if(themeIcon) themeIcon.textContent = savedTheme === 'dark' ? 'light_mode' : 'dark_mode';

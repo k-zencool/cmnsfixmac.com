@@ -68,6 +68,7 @@
 /* 🔴 เพิ่มส่วนนี้: สั่งให้ html มีพื้นหลังตามตัวแปรธีมทันที */
 html {
     background-color: var(--bg-body);
+    touch-action: manipulation; /* กันดับเบิลแท็บซูม ให้รู้สึกเหมือนแอปจริง */
 }
 
 body {
@@ -662,6 +663,17 @@ html.sidebar-collapsed .nav-section::before {
     z-index: 99999;
     transition: opacity 0.2s;
 }
+.loader-spinner {
+    width: 42px;
+    height: 42px;
+    border: 3px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: loader-spin 0.7s linear infinite;
+}
+@keyframes loader-spin {
+    to { transform: rotate(360deg); }
+}
 .loader-text {
     margin-top: 15px;
     color: var(--primary);
@@ -669,3 +681,13 @@ html.sidebar-collapsed .nav-section::before {
     font-size: 14px;
     letter-spacing: 1px;
 }
+.loader-text-slow {
+    display: none;
+    margin-top: 6px;
+    color: var(--text-muted);
+    font-weight: 400;
+    font-size: 12.5px;
+    letter-spacing: normal;
+    animation: none;
+}
+.loader-text-slow.show { display: block; }
