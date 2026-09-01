@@ -47,6 +47,7 @@ $app_version = "1.0.1 (Beta)";
     ?>
 
     <script src="<?= $assets_base ?>js/admin.js?v=<?= time() ?>"></script>
+    <script src="<?= $assets_base ?>js/pull-refresh.js?v=<?= time() ?>"></script>
 
 </body>
 </html>

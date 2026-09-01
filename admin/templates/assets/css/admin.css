@@ -668,7 +668,7 @@ html.sidebar-collapsed .nav-section::before {
     position: fixed;
     top: env(safe-area-inset-top, 0px);
     left: 50%;
-    transform: translate(-50%, -52px);
+    transform: translate3d(-50%, -52px, 0) scale(.55);
     z-index: 99998;
     width: 40px; height: 40px;
     display: grid; place-items: center;
@@ -678,12 +678,21 @@ html.sidebar-collapsed .nav-section::before {
     box-shadow: var(--shadow);
     opacity: 0;
     pointer-events: none;
+    /* transition ของ border-color อย่างเดียว — transform/opacity ปล่อยให้ JS คุมเอง
+       ตอนลากต้องตามนิ้วทันที ถ้าใส่ transition จะหน่วงตามไม่ทัน */
+    transition: border-color .18s ease, box-shadow .18s ease;
 }
 #pull-refresh .ptr-spinner {
     width: 20px; height: 20px;
     border: 2.5px solid var(--border);
     border-top-color: var(--primary);
     border-radius: 50%;
+    transition: border-top-color .18s ease;
+}
+/* ดึงถึงระยะแล้ว — ให้รู้สึกได้ก่อนปล่อยนิ้ว */
+#pull-refresh.ptr-ready {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 4px var(--primary-light), var(--shadow);
 }
 #pull-refresh.ptr-loading .ptr-spinner { animation: loader-spin 0.7s linear infinite; }
 
