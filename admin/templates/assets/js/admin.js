@@ -38,6 +38,66 @@ document.addEventListener("DOMContentLoaded", function() {
     window.addEventListener('pageshow', function() { hideGlobalLoader(); });
 
     // ------------------------------------------------
+    // 1.5 Pull to Refresh (ดึงลงเพื่อรีเฟรช)
+    // ทำเฉพาะตอนรันเป็น PWA — เปิดใน browser ปกติ iOS/Android
+    // มี pull-to-refresh ของตัวเองอยู่แล้ว ใส่ทับจะเด้งสองชั้น
+    // ------------------------------------------------
+    (function initPullToRefresh() {
+        const standalone = window.matchMedia('(display-mode: standalone)').matches
+                        || navigator.standalone === true;
+        if (!standalone) return;
+
+        const ptr = document.getElementById('pull-refresh');
+        if (!ptr) return;
+
+        const THRESHOLD = 70;   // ดึงเกินนี้ถึงจะรีเฟรช
+        const MAX_PULL  = 110;  // ดึงได้ไกลสุด (หน่วงไว้ไม่ให้ยืดไม่มีที่สิ้นสุด)
+        const DAMPING   = 0.5;  // ดึง 100px = ตัว indicator ขยับ 50px
+        let startY = 0, pulled = 0, tracking = false, refreshing = false;
+
+        const park = function (animate) {
+            ptr.style.transition = animate ? 'transform .22s ease, opacity .22s ease' : '';
+            ptr.style.transform  = 'translate(-50%, -52px)';
+            ptr.style.opacity    = '0';
+        };
+
+        document.addEventListener('touchstart', function (e) {
+            if (refreshing || e.touches.length !== 1) return;
+            if (window.scrollY > 0) return;                                  // ต้องอยู่บนสุดของหน้า
+            if (sidebar && sidebar.classList.contains('show')) return;       // เมนูมือถือเปิดอยู่ ไม่ยุ่ง
+            startY = e.touches[0].clientY;
+            pulled = 0;
+            tracking = true;
+            ptr.style.transition = '';
+        }, { passive: true });
+
+        document.addEventListener('touchmove', function (e) {
+            if (!tracking || refreshing) return;
+            const delta = e.touches[0].clientY - startY;
+            // ปัดขึ้น หรือหน้าเลื่อนไปแล้ว = เลิกจับ ปล่อยให้ scroll ตามปกติ
+            if (delta <= 0 || window.scrollY > 0) { tracking = false; park(true); return; }
+            if (e.cancelable) e.preventDefault();   // กัน rubber-band ของ iOS มาสู้กับ transform
+            pulled = Math.min(delta * DAMPING, MAX_PULL);
+            ptr.style.transform = 'translate(-50%, ' + (pulled - 52) + 'px) rotate(' + (pulled * 4) + 'deg)';
+            ptr.style.opacity   = Math.min(pulled / THRESHOLD, 1);
+        }, { passive: false });
+
+        document.addEventListener('touchend', function () {
+            if (!tracking || refreshing) return;
+            tracking = false;
+            if (pulled < THRESHOLD) { park(true); return; }
+
+            refreshing = true;
+            ptr.classList.add('ptr-loading');
+            ptr.style.transition = 'transform .22s ease';
+            ptr.style.transform  = 'translate(-50%, 22px)';
+            ptr.style.opacity    = '1';
+            // หน่วงนิดให้เห็นว่ามันติดจริง ไม่ใช่จอกระพริบเฉยๆ
+            setTimeout(function () { location.reload(); }, 180);
+        }, { passive: true });
+    })();
+
+    // ------------------------------------------------
     // 2. Smart Link Handling (คลิกแล้วหมุน Loader)
     // ------------------------------------------------
     document.querySelectorAll('a').forEach(link => {

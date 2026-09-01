@@ -486,6 +486,30 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['username'])) {
     .theme-toggle:active { transform: scale(0.92); }
     @media (min-width: 900px) { .theme-toggle { top: 20px; right: 22px; } }
 
+    /* ===================== Pull to Refresh ===================== */
+    #pull-refresh {
+      position: fixed;
+      top: env(safe-area-inset-top, 0px);
+      left: 50%;
+      transform: translate(-50%, -52px);
+      z-index: 998;
+      width: 40px; height: 40px;
+      display: grid; place-items: center;
+      border-radius: 50%;
+      background: var(--card-bg);
+      border: 1px solid var(--divider);
+      box-shadow: 0 6px 18px -8px rgba(0, 0, 0, 0.45);
+      opacity: 0;
+      pointer-events: none;
+    }
+    #pull-refresh .ptr-spinner {
+      width: 20px; height: 20px;
+      border: 2.5px solid var(--field-bg);
+      border-top-color: var(--brand);
+      border-radius: 50%;
+    }
+    #pull-refresh.ptr-loading .ptr-spinner { animation: login-spin 0.7s linear infinite; }
+
     /* ===================== Loading Overlay ===================== */
     .loading-overlay {
       position: fixed; inset: 0;
@@ -582,6 +606,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['username'])) {
 
   </div>
 
+  <div id="pull-refresh" aria-hidden="true"><span class="ptr-spinner"></span></div>
+
   <div id="loadingOverlay" class="loading-overlay">
     <div class="login-spinner"></div>
     <div class="loading-text">กำลังตรวจสอบข้อมูล...</div>
@@ -641,6 +667,58 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['username'])) {
         window.addEventListener('pageshow', function() {
             if (loadingOverlay) loadingOverlay.classList.remove('active');
         });
+
+        // 3. ดึงลงเพื่อรีเฟรช — ตรรกะเดียวกับ admin.js
+        // ทำเฉพาะตอนรันเป็น PWA เพราะ browser ปกติมีของตัวเองอยู่แล้ว ใส่ทับจะเด้งสองชั้น
+        (function initPullToRefresh() {
+            const standalone = window.matchMedia('(display-mode: standalone)').matches
+                            || navigator.standalone === true;
+            if (!standalone) return;
+
+            const ptr = document.getElementById('pull-refresh');
+            if (!ptr) return;
+
+            const THRESHOLD = 70, MAX_PULL = 110, DAMPING = 0.5;
+            let startY = 0, pulled = 0, tracking = false, refreshing = false;
+
+            const park = function (animate) {
+                ptr.style.transition = animate ? 'transform .22s ease, opacity .22s ease' : '';
+                ptr.style.transform  = 'translate(-50%, -52px)';
+                ptr.style.opacity    = '0';
+            };
+
+            document.addEventListener('touchstart', function (e) {
+                if (refreshing || e.touches.length !== 1) return;
+                if (window.scrollY > 0) return;
+                startY = e.touches[0].clientY;
+                pulled = 0;
+                tracking = true;
+                ptr.style.transition = '';
+            }, { passive: true });
+
+            document.addEventListener('touchmove', function (e) {
+                if (!tracking || refreshing) return;
+                const delta = e.touches[0].clientY - startY;
+                if (delta <= 0 || window.scrollY > 0) { tracking = false; park(true); return; }
+                if (e.cancelable) e.preventDefault();
+                pulled = Math.min(delta * DAMPING, MAX_PULL);
+                ptr.style.transform = 'translate(-50%, ' + (pulled - 52) + 'px) rotate(' + (pulled * 4) + 'deg)';
+                ptr.style.opacity   = Math.min(pulled / THRESHOLD, 1);
+            }, { passive: false });
+
+            document.addEventListener('touchend', function () {
+                if (!tracking || refreshing) return;
+                tracking = false;
+                if (pulled < THRESHOLD) { park(true); return; }
+
+                refreshing = true;
+                ptr.classList.add('ptr-loading');
+                ptr.style.transition = 'transform .22s ease';
+                ptr.style.transform  = 'translate(-50%, 22px)';
+                ptr.style.opacity    = '1';
+                setTimeout(function () { location.reload(); }, 180);
+            }, { passive: true });
+        })();
     });
   </script>
 

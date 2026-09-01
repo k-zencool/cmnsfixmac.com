@@ -663,6 +663,30 @@ html.sidebar-collapsed .nav-section::before {
     z-index: 99999;
     transition: opacity 0.2s;
 }
+/* --- Pull to Refresh (โผล่เฉพาะตอนรันเป็น PWA ดู admin.js) --- */
+#pull-refresh {
+    position: fixed;
+    top: env(safe-area-inset-top, 0px);
+    left: 50%;
+    transform: translate(-50%, -52px);
+    z-index: 99998;
+    width: 40px; height: 40px;
+    display: grid; place-items: center;
+    border-radius: 50%;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    opacity: 0;
+    pointer-events: none;
+}
+#pull-refresh .ptr-spinner {
+    width: 20px; height: 20px;
+    border: 2.5px solid var(--border);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+}
+#pull-refresh.ptr-loading .ptr-spinner { animation: loader-spin 0.7s linear infinite; }
+
 .loader-spinner {
     width: 42px;
     height: 42px;

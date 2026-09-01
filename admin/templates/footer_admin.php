@@ -23,7 +23,9 @@ $app_version = "1.0.1 (Beta)";
                 </span>
             </div>
         </footer>
-        </div> </main> </div> <div id="global-loader" style="display:none;">
+        </div> </main> </div> <div id="pull-refresh" aria-hidden="true"><span class="ptr-spinner"></span></div>
+
+    <div id="global-loader" style="display:none;">
         <div class="loader-spinner"></div>
         <div class="loader-text">กำลังโหลด...</div>
         <div class="loader-text loader-text-slow" id="loaderSlowText">ใช้เวลานานกว่าปกติ กรุณารอสักครู่...</div>
