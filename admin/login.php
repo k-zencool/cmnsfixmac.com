@@ -172,12 +172,15 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['username'])) {
       background: var(--page-bg);
       color: var(--text-main);
       min-height: 100vh;
+      min-height: 100dvh;
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
       overscroll-behavior-y: none;
     }
 
-    .auth { display: flex; flex-direction: column; min-height: 100vh; }
+    /* dvh = ความสูงจอจริงหลังหักแถบ Safari ถ้าใช้ vh เฉยๆ บน iOS จะเกินจอแล้วเลื่อนได้
+       (บรรทัด vh ไว้ให้ browser เก่าที่ไม่รู้จัก dvh) */
+    .auth { display: flex; flex-direction: column; min-height: 100vh; min-height: 100dvh; }
     .brand-side { display: flex; flex-direction: column; }
 
     /* ===================== BRAND PANEL (รูปร้าน + overlay) ===================== */
@@ -391,10 +394,34 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['username'])) {
     .contact-item .material-symbols-rounded { font-size: 18px; color: var(--brand); }
     .contact-item:hover { border-color: var(--brand); }
 
-    /* บนมือถือซ่อน list ฟีเจอร์ ไม่งั้นฟอร์มตกขอบจอ ต้องเลื่อนก่อนถึงจะ login ได้ */
+    /* มือถือ: บีบให้จบใน 1 หน้าจอ ไม่ต้องเลื่อน
+       ตัด list ฟีเจอร์ + ย่อหน้าอธิบายออก เหลือ chip กับหัวข้อพอ
+       (วัดแล้วเนื้อหาเดิมเกินจอ ~104px) */
     @media (max-width: 899px) {
-      .feats { display: none; }
-      .brand-panel { padding-bottom: 78px; }
+      .feats, .brand-sub { display: none; }
+      .brand-panel { padding: 44px 26px 62px; }
+      .status-chip { margin-bottom: 14px; }
+      .brand-title { font-size: 22px; margin-top: 0; }
+      .form-panel { padding-top: 26px; }
+      .form-card h1 { font-size: 21px; }
+      .form-sub { margin-bottom: 20px; }
+    }
+
+    /* จอเตี้ย (iPhone SE / จอที่มีแถบ Safari กินที่) บีบอีกชั้นให้ยังจบใน 1 หน้าจอ */
+    @media (max-width: 899px) and (max-height: 740px) {
+      .brand-bar { padding: calc(16px + env(safe-area-inset-top)) 22px 14px; }
+      .brand-logo { width: 118px; }
+      .brand-panel { padding: 30px 24px 46px; }
+      .brand-title { font-size: 19px; }
+      .status-chip { margin-bottom: 10px; padding: 5px 11px 5px 9px; font-size: 11.5px; }
+      .form-panel { margin-top: -44px; padding-top: 22px; padding-bottom: calc(18px + env(safe-area-inset-bottom)); }
+      .form-card h1 { font-size: 19px; }
+      .form-sub { font-size: 12.5px; margin-bottom: 16px; }
+      form { gap: 10px; }
+      input[type="text"], input[type="password"] { padding: 12px 44px 12px 46px; }
+      button[type="submit"] { padding: 13px; margin-top: 6px; }
+      .divider { margin: 18px 0 12px; }
+      .contact-item { padding: 11px 8px; }
     }
 
     /* ===================== DESKTOP: แบ่งสองฝั่ง ===================== */
