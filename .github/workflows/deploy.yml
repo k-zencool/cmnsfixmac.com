@@ -14,9 +14,9 @@ jobs:
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '7.4'   # MUST match the production host PHP version
+          php-version: '8.0'   # MUST match the production host PHP version
 
-      - name: Lint all PHP on 7.4 (block deploy on PHP 8-only syntax)
+      - name: Lint all PHP on 8.0 (block deploy on syntax the host can't run)
         run: |
           ERRORS=0
           while IFS= read -r f; do

@@ -1,6 +1,6 @@
-# ใช้ PHP 7.4 + Apache — ตรงกับ prod (โฮสให้สูงสุด 7.4) เพื่อ dev/prod parity
-# ถ้าโฮสอัพเป็น 8.x เมื่อไหร่ ค่อยขยับตาม พร้อมกับ php-version ใน deploy.yml
-FROM php:7.4-apache
+# ใช้ PHP 8.0 + Apache — ตรงกับ prod (โฮสอัพเป็น 8.0 เมื่อ 2026-09-02) เพื่อ dev/prod parity
+# ถ้าโฮสขยับอีก ต้องแก้ที่นี่ + php-version ใน deploy.yml พร้อมกัน
+FROM php:8.0-apache
 
 # ติดตั้ง GD สำหรับ image processing (JPEG, PNG, WebP)
 RUN apt-get update && apt-get install -y \
