@@ -74,29 +74,30 @@ if (can('shop.finance')) {
 }
 
 // 4. Fetch Stats for each Folder (ดึงจากตาราง Lots แทน)
-foreach ($root_categories as $key => $cat) {
-    $cat_id = $cat['id'];
-    $stmt_sub_ids = $pdo->prepare("SELECT id FROM parts_categories WHERE parent_id = ? OR id = ?");
-    $stmt_sub_ids->execute([$cat_id, $cat_id]);
-    $all_ids = $stmt_sub_ids->fetchAll(PDO::FETCH_COLUMN);
-    $ids_in = implode(',', $all_ids);
+// หมวดมี 2 ชั้น (root = parent_id NULL) เลย map ทุกหมวดขึ้น root ด้วย COALESCE(parent_id, id)
+// แล้วรวมยอดทีเดียวจบ — เดิมยิง 2 query ต่อ 1 หมวด (N+1) ตอนนี้เหลือ query เดียวทั้งหน้า
+// machine/sale = individual units (no lots) → COUNT items; new/used = lot-based → SUM qty_remaining
+$stmt_stats = $pdo->query("
+    SELECT COALESCE(c.parent_id, c.id) AS root_id,
+           i.type,
+           CASE
+               WHEN i.type IN ('machine','sale') THEN COUNT(DISTINCT i.id)
+               ELSE COALESCE(SUM(l.qty_remaining), 0)
+           END AS total_qty
+    FROM inventory i
+    JOIN parts_categories c ON c.id = i.category_id
+    LEFT JOIN inventory_lots l ON l.inventory_id = i.id
+    WHERE NOT (i.type = 'sale' AND i.status = 'SOLD')
+    GROUP BY root_id, i.type
+");
 
-    // machine/sale = individual units (no lots) → COUNT items; new/used = lot-based → SUM qty_remaining
-    $stmt_stats = $pdo->prepare("
-        SELECT i.type,
-            CASE
-                WHEN i.type IN ('machine','sale') THEN COUNT(DISTINCT i.id)
-                ELSE COALESCE(SUM(l.qty_remaining), 0)
-            END as total_qty
-        FROM inventory i
-        LEFT JOIN inventory_lots l ON i.id = l.inventory_id
-        WHERE i.category_id IN ($ids_in)
-          AND NOT (i.type = 'sale' AND i.status = 'SOLD')
-        GROUP BY i.type
-    ");
-    $stmt_stats->execute();
-    $stats = $stmt_stats->fetchAll(PDO::FETCH_KEY_PAIR);
-    
+$stats_by_root = [];
+foreach ($stmt_stats->fetchAll(PDO::FETCH_ASSOC) as $row) {
+    $stats_by_root[(int)$row['root_id']][$row['type']] = (int)$row['total_qty'];
+}
+
+foreach ($root_categories as $key => $cat) {
+    $stats = $stats_by_root[(int)$cat['id']] ?? [];
     $root_categories[$key]['stats'] = [
         'new'     => $stats['new']     ?? 0,
         'used'    => $stats['used']    ?? 0,
