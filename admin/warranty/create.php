@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 include __DIR__ . '/../templates/header_admin.php';
 ?>
-<link rel="stylesheet" href="<?= $assets_base ?>css/inventory-dashboard.css?v=3">
+<link rel="stylesheet" href="<?= $assets_base ?>css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
 <style>
 .war-form-wrap { max-width:720px; margin:0 auto; }
 .war-card { background:var(--bg-surface); border:1px solid var(--border); border-radius:14px; padding:28px; margin-bottom:20px; }

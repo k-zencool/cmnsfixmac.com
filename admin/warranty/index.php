@@ -60,8 +60,8 @@ unset($_SESSION['success']);
 
 include __DIR__ . '/../templates/header_admin.php';
 ?>
-<link rel="stylesheet" href="<?= $assets_base ?>css/inventory-dashboard.css?v=3">
-<link rel="stylesheet" href="<?= $assets_base ?>css/modal.css?v=1">
+<link rel="stylesheet" href="<?= $assets_base ?>css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
+<link rel="stylesheet" href="<?= $assets_base ?>css/modal.css?v=<?= asset_ver('/admin/templates/assets/css/modal.css') ?>">
 <style>
 /* ── shared form components ── */
 .cmns-label { font-size:11px; font-weight:800; color:var(--text-muted); margin-bottom:6px; display:block; text-transform:uppercase; letter-spacing:.5px; }

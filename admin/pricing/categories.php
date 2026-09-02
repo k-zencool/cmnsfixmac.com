@@ -56,7 +56,7 @@ $categories = $pdo->query("SELECT pc.*, COUNT(sp.id) AS cnt
 include __DIR__ . '/../templates/header_admin.php';
 ?>
 
-<link rel="stylesheet" href="<?= $assets_base ?>css/inventory-dashboard.css?v=3">
+<link rel="stylesheet" href="<?= $assets_base ?>css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
 
 <style>
 .cat-layout { display: grid; grid-template-columns: 1fr 360px; gap: 24px; align-items: start; }

@@ -234,7 +234,7 @@ $greet = $hour < 12 ? 'อรุณสวัสดิ์' : ($hour < 17 ? 'ส�
 
 include __DIR__ . '/../templates/header_admin.php';
 ?>
-<link rel="stylesheet" href="<?= $assets_base ?>css/inventory-dashboard.css?v=3">
+<link rel="stylesheet" href="<?= $assets_base ?>css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <style>
 .dash { display:flex; flex-direction:column; gap:18px; padding-bottom:40px; }

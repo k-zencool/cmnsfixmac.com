@@ -71,7 +71,7 @@ $device_order = ['iPhone','iPad','MacBook','iMac','AirPods','Apple Watch','Softw
 include __DIR__ . '/../templates/header_admin.php';
 ?>
 
-<link rel="stylesheet" href="<?= $assets_base ?>css/inventory-dashboard.css?v=3">
+<link rel="stylesheet" href="<?= $assets_base ?>css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
 
 <style>
 /* ── Stats ── */

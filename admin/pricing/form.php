@@ -115,11 +115,11 @@ $suggestions = [
 <script>document.documentElement.setAttribute('data-theme',localStorage.getItem('admin_theme')||'dark');</script>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
-<link rel="stylesheet" href="/admin/templates/assets/css/admin.css?v=3">
-<link rel="stylesheet" href="/admin/templates/assets/css/inventory-dashboard.css?v=3">
+<link rel="stylesheet" href="/admin/templates/assets/css/admin.css?v=<?= asset_ver('/admin/templates/assets/css/admin.css') ?>">
+<link rel="stylesheet" href="/admin/templates/assets/css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
 <?php else: ?>
 <?php include __DIR__ . '/../templates/header_admin.php'; ?>
-<link rel="stylesheet" href="<?= $assets_base ?>css/inventory-dashboard.css?v=3">
+<link rel="stylesheet" href="<?= $assets_base ?>css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
 <?php endif; ?>
 
 <style>

@@ -679,7 +679,7 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['username'])) {
     });
   </script>
 
-  <script src="/admin/templates/assets/js/pull-refresh.js?v=1"></script>
+  <script src="/admin/templates/assets/js/pull-refresh.js?v=<?= asset_ver('/admin/templates/assets/js/pull-refresh.js') ?>"></script>
 
 </body>
 </html>
