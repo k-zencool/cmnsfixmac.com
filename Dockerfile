@@ -12,7 +12,12 @@ RUN apt-get update && apt-get install -y \
 RUN docker-php-ext-install pdo pdo_mysql mysqli && docker-php-ext-enable pdo_mysql
 
 # เปิด modules ที่จำเป็น และตั้ง AllowOverride All เพื่อให้ .htaccess ทำงานได้
-RUN a2enmod rewrite headers expires
+RUN a2enmod rewrite headers expires ssl
+
+# vhost HTTPS สำหรับ dev เท่านั้น — ใบ cert ถูก mount ตอน runtime ไม่ได้ฝังใน image
+# มีไว้เพราะกล้อง/ไมค์ (getUserMedia) ต้องการ secure context ถึงจะเทสจากมือถือได้
+COPY docker/apache-ssl.conf /etc/apache2/sites-available/dev-ssl.conf
+RUN a2ensite dev-ssl
 RUN sed -i 's/AllowOverride None/AllowOverride All/g' /etc/apache2/apache2.conf
 
 # ติดตั้ง Git, Unzip และ Composer (เครื่องมือจัดการ library ของ PHP)

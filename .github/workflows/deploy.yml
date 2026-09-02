@@ -45,5 +45,6 @@ jobs:
             database/**
             docker-compose.yml
             Dockerfile
+            docker/**
             BackUp/**
             **/*.md

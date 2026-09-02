@@ -80,6 +80,9 @@ nbproject/
 # Local full-site backup dump — never commit (1.4GB, not source)
 /BackUp/
 
+# mkcert dev TLS material — machine-specific, and the key must never be committed
+/docker/certs/
+
 # Stray editor/OS screenshots
 Screenshot *.png
 

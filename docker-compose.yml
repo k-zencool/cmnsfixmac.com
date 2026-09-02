@@ -5,8 +5,12 @@ services:
     container_name: cmns-web
     ports:
       - "8000:80"
+      # 8443 คือของโปรเจกต์ aitest อยู่แล้ว เลยใช้ 8444
+      - "8444:443"
     volumes:
       - ./:/var/www/html/
+      # mkcert dev cert — gitignored, dev only, never shipped to prod
+      - ./docker/certs:/etc/apache2/certs:ro
     environment:
       # override DB_HOST only inside Docker; .env still holds 127.0.0.1 for the real host
       DB_HOST: db

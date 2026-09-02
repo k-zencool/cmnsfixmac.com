@@ -3,6 +3,17 @@ RewriteEngine On
 RewriteBase /
 
 # ══════════════════════════════════════════════════════════════
+# 0. BLOCK DEV-ONLY FILES
+#    docker/ is bind-mounted into the webroot for local dev, so the mkcert
+#    TLS private key would otherwise be downloadable over http. Deny it.
+#    Harmless on prod — the folder is excluded from the FTP deploy.
+# ══════════════════════════════════════════════════════════════
+RewriteRule ^docker/ - [F,L]
+<FilesMatch "\.(pem|key|crt|p12|pfx)$">
+    Require all denied
+</FilesMatch>
+
+# ══════════════════════════════════════════════════════════════
 # PHP UPLOAD LIMITS
 # ══════════════════════════════════════════════════════════════
 <IfModule mod_php.c>
