@@ -152,8 +152,8 @@ $ROLES = ['super_admin'=>'Super Admin','manager'=>'Manager','admin'=>'Admin','st
 $pageTitle = 'จัดการผู้ใช้งาน';
 include __DIR__ . '/../templates/header_admin.php';
 ?>
-<link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time(); ?>">
-<link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= time(); ?>">
+<link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
+<link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-logs.css') ?>">
 <style>
 .t-btn{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:7px;border:1px solid var(--border);background:var(--bg-surface-alt);color:var(--text-muted);cursor:pointer;transition:all .18s;text-decoration:none;padding:0;}
 .t-btn .material-symbols-rounded{font-size:16px;line-height:1;}

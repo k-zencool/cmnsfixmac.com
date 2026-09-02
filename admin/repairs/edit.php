@@ -243,7 +243,7 @@ if ($isModal):
 <script>document.documentElement.setAttribute('data-theme',localStorage.getItem('admin_theme')||'dark');</script>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
-<link rel="stylesheet" href="/admin/templates/assets/css/admin.css?v=<?= time() ?>">
+<link rel="stylesheet" href="/admin/templates/assets/css/admin.css?v=<?= asset_ver('/admin/templates/assets/css/admin.css') ?>">
 <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
 </head><body class="modal-mode" style="margin:0;padding:0;background:var(--bg-surface);height:100vh;overflow:hidden;display:flex;flex-direction:column;">
 <div id="ifrm-header" style="flex-shrink:0;display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:1px solid var(--border,#e5e7eb);">

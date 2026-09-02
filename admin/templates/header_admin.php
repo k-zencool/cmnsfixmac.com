@@ -1,6 +1,9 @@
 <?php
 // admin/templates/header_admin.php
 
+// asset_ver() — โหลดตรงนี้ด้วย เผื่อหน้าไหนไม่ได้ include db.php (function_exists guard อยู่แล้ว)
+require_once __DIR__ . '/../../includes/asset.php';
+
 // 1. เริ่ม Session
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -62,7 +65,7 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Admin Panel';
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
 
-    <link rel="stylesheet" href="<?= $assets_base ?>css/admin.css?v=<?= time(); ?>">
+    <link rel="stylesheet" href="<?= $assets_base ?>css/admin.css?v=<?= asset_ver('/admin/templates/assets/css/admin.css') ?>">
     
 </head>
 

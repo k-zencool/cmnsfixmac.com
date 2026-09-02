@@ -27,8 +27,8 @@ foreach ($all_cats as $cat) {
 }
 ?>
 
-<link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time(); ?>">
-<link rel="stylesheet" href="assets/css/inventory-categories.css?v=<?= time(); ?>">
+<link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
+<link rel="stylesheet" href="assets/css/inventory-categories.css?v=<?= asset_ver('/admin/inventory/assets/css/inventory-categories.css') ?>">
 
 <div class="cmns-wrapper">
     <div style="margin-bottom: 20px;">

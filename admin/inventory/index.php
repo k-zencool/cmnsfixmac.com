@@ -108,10 +108,10 @@ foreach ($root_categories as $key => $cat) {
 
 ?>
 
-<link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time(); ?>">
-<link rel="stylesheet" href="assets/css/inventory-v2.css?v=<?= time(); ?>">
-<link rel="stylesheet" href="assets/css/inventory-index.css?v=<?= time(); ?>">
-<link rel="stylesheet" href="../templates/assets/css/modal.css?v=<?= time(); ?>">
+<link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
+<link rel="stylesheet" href="assets/css/inventory-v2.css?v=<?= asset_ver('/admin/inventory/assets/css/inventory-v2.css') ?>">
+<link rel="stylesheet" href="assets/css/inventory-index.css?v=<?= asset_ver('/admin/inventory/assets/css/inventory-index.css') ?>">
+<link rel="stylesheet" href="../templates/assets/css/modal.css?v=<?= asset_ver('/admin/templates/assets/css/modal.css') ?>">
 
 <div class="cmns-wrapper" style="--active-theme-color: <?= $header_color ?>;">
     

@@ -135,9 +135,9 @@ $pageTitle = $category ? "Category: " . htmlspecialchars($category['name']) : "A
 include '../templates/header_admin.php';
 ?>
 
-<link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time(); ?>">
-<link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= time(); ?>">
-<link rel="stylesheet" href="assets/css/inventory-v2.css?v=<?= time(); ?>">
+<link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
+<link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-logs.css') ?>">
+<link rel="stylesheet" href="assets/css/inventory-v2.css?v=<?= asset_ver('/admin/inventory/assets/css/inventory-v2.css') ?>">
 
 <div class="cmns-wrapper">
     
@@ -738,7 +738,7 @@ include '../templates/header_admin.php';
     <?php if (can('parts.manage'))  include 'partials/_modal_strip.php'; ?>
 </div>
 
-<link rel="stylesheet" href="../templates/assets/css/modal.css?v=<?= time(); ?>">
+<link rel="stylesheet" href="../templates/assets/css/modal.css?v=<?= asset_ver('/admin/templates/assets/css/modal.css') ?>">
 
 <?php if (can('shop.finance')): ?>
     <?php include 'partials/_modal_to_sale.php'; ?>
@@ -774,17 +774,17 @@ document.addEventListener('click', function(e) {
     }
 });
 </script>
-<script src="assets/js/inventory-table.js?v=<?= time(); ?>"></script>
-<?php if (can('parts.consume')): ?><script src="assets/js/inventory-requisition.js?v=<?= time(); ?>"></script><?php endif; ?>
-<?php if (can('shop.finance')): ?><script src="assets/js/inventory-sale.js?v=<?= time(); ?>"></script><?php endif; ?>
+<script src="assets/js/inventory-table.js?v=<?= asset_ver('/admin/inventory/assets/js/inventory-table.js') ?>"></script>
+<?php if (can('parts.consume')): ?><script src="assets/js/inventory-requisition.js?v=<?= asset_ver('/admin/inventory/assets/js/inventory-requisition.js') ?>"></script><?php endif; ?>
+<?php if (can('shop.finance')): ?><script src="assets/js/inventory-sale.js?v=<?= asset_ver('/admin/inventory/assets/js/inventory-sale.js') ?>"></script><?php endif; ?>
 <?php if (can('parts.manage')): ?>
 <script>
 // page data for strip-modal JS (sub-category picker)
 const _stripSubCats = <?= json_encode(array_values($sub_cats), JSON_UNESCAPED_UNICODE) ?>;
 </script>
-<script src="assets/js/inventory-edit.js?v=<?= time(); ?>"></script>
-<script src="assets/js/inventory-strip.js?v=<?= time(); ?>"></script>
+<script src="assets/js/inventory-edit.js?v=<?= asset_ver('/admin/inventory/assets/js/inventory-edit.js') ?>"></script>
+<script src="assets/js/inventory-strip.js?v=<?= asset_ver('/admin/inventory/assets/js/inventory-strip.js') ?>"></script>
 <?php endif; ?>
-<?php if ($can_hard_delete): ?><script src="assets/js/inventory-danger.js?v=<?= time(); ?>"></script><?php endif; ?>
+<?php if ($can_hard_delete): ?><script src="assets/js/inventory-danger.js?v=<?= asset_ver('/admin/inventory/assets/js/inventory-danger.js') ?>"></script><?php endif; ?>
 
 <?php include '../templates/footer_admin.php'; ?>

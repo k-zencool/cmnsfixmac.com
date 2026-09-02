@@ -317,9 +317,9 @@ try {
 require_once __DIR__ . '/../templates/header_admin.php';
 ?>
 
-<link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time() ?>">
+<link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
 <link rel="stylesheet" href="../templates/assets/css/modal.css?v=1">
-<link rel="stylesheet" href="assets/css/create-v3.css?v=<?= time() ?>">
+<link rel="stylesheet" href="assets/css/create-v3.css?v=<?= asset_ver('/admin/tracking/assets/css/create-v3.css') ?>">
 
 <div class="cr3-wrap">
 

@@ -38,8 +38,8 @@ $pageTitle = "งานค้าง — Manager";
 include '../templates/header_admin.php';
 ?>
 
-<link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time(); ?>">
-<link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= time(); ?>">
+<link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
+<link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-logs.css') ?>">
 <style>
 /* ── ระยะขอบเท่าหน้า tracking เป๊ะ (tracking-index.css:7-8) ── */
 .content-padding { padding-left: 14px !important; padding-right: 14px !important; }

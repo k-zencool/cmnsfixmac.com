@@ -91,7 +91,7 @@ $pageTitle = "โปรไฟล์ส่วนตัว";
 include '../templates/header_admin.php';
 ?>
 
-<link rel="stylesheet" href="../templates/assets/css/profile.css?v=<?= time() ?>">
+<link rel="stylesheet" href="../templates/assets/css/profile.css?v=<?= asset_ver('/admin/templates/assets/css/profile.css') ?>">
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 
 <div class="profile-banner">

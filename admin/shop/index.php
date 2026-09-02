@@ -294,8 +294,8 @@ function avail_url(array $extra = []): string {
 $pageTitle = 'จัดการร้านค้า';
 include __DIR__ . '/../templates/header_admin.php';
 ?>
-<link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time() ?>">
-<link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= time() ?>">
+<link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
+<link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-logs.css') ?>">
 <style>
 .shop-stats{display:grid;grid-template-columns:repeat(5,1fr);gap:14px;margin-bottom:24px;}
 .stat-card{background:var(--bg-surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;display:flex;align-items:center;gap:14px;}

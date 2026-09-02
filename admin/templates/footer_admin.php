@@ -1,4 +1,6 @@
 <?php
+require_once __DIR__ . '/../../includes/asset.php';
+
 // Path Config (เหมือนเดิม)
 if (!isset($assets_base)) {
     $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? "https" : "http";
@@ -46,8 +48,8 @@ $app_version = "1.0.1 (Beta)";
     unset($_SESSION['error']);
     ?>
 
-    <script src="<?= $assets_base ?>js/admin.js?v=<?= time() ?>"></script>
-    <script src="<?= $assets_base ?>js/pull-refresh.js?v=<?= time() ?>"></script>
+    <script src="<?= $assets_base ?>js/admin.js?v=<?= asset_ver('/admin/templates/assets/js/admin.js') ?>"></script>
+    <script src="<?= $assets_base ?>js/pull-refresh.js?v=<?= asset_ver('/admin/templates/assets/js/pull-refresh.js') ?>"></script>
 
 </body>
 </html>

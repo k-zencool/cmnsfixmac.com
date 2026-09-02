@@ -63,7 +63,7 @@ $stats = $pdo->query("
 $pageTitle = 'ผลงานทั้งหมด';
 include __DIR__ . '/../templates/header_admin.php';
 ?>
-<link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time() ?>">
+<link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
 <style>
 .t-btn{width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:7px;border:1px solid var(--border);background:var(--bg-surface-alt);color:var(--text-muted);cursor:pointer;transition:all .18s;text-decoration:none;padding:0;flex-shrink:0;}
 .t-btn .material-symbols-rounded{font-size:16px;line-height:1;}
@@ -82,8 +82,8 @@ include __DIR__ . '/../templates/header_admin.php';
 .thumb-wrap .thumb-icon{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--text-muted);transition:opacity .2s;}
 .thumb-wrap.loaded .thumb-icon{opacity:0;pointer-events:none;}
 </style>
-<link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= time() ?>">
-<link rel="stylesheet" href="../templates/assets/css/modal.css?v=<?= time() ?>">
+<link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-logs.css') ?>">
+<link rel="stylesheet" href="../templates/assets/css/modal.css?v=<?= asset_ver('/admin/templates/assets/css/modal.css') ?>">
 
 <div class="cmns-wrapper">
 

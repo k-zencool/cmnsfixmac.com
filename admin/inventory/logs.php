@@ -135,9 +135,9 @@ $pageTitle = "Stock Logs";
 include '../templates/header_admin.php';
 ?>
 
-<link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= time() ?>">
-<link rel="stylesheet" href="assets/css/inventory-v2.css?v=<?= time() ?>">
-<link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= time() ?>">
+<link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
+<link rel="stylesheet" href="assets/css/inventory-v2.css?v=<?= asset_ver('/admin/inventory/assets/css/inventory-v2.css') ?>">
+<link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-logs.css') ?>">
 
 <div class="cmns-wrapper log-wrapper">
 
@@ -484,7 +484,7 @@ include '../templates/header_admin.php';
 <?php
 $current_type = 'new'; // default mode ใน modal
 ?>
-<link rel="stylesheet" href="../templates/assets/css/modal.css?v=<?= time() ?>">
+<link rel="stylesheet" href="../templates/assets/css/modal.css?v=<?= asset_ver('/admin/templates/assets/css/modal.css') ?>">
 <?php if (can('parts.manage')) include 'modal_add.php'; ?>
 
 <?php include '../templates/footer_admin.php'; ?>
