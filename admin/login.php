@@ -343,7 +343,8 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['username'])) {
       background: var(--field-bg);
       border: 1.5px solid transparent;
       border-radius: 999px;
-      font-size: 15px; color: var(--text-main);
+      /* 16px คือขั้นต่ำ ถ้าต่ำกว่านี้ iOS Safari จะซูมเข้าเองตอนโฟกัส (มันไม่สน user-scalable=no) */
+      font-size: 16px; color: var(--text-main);
       font-family: 'Sarabun', sans-serif;
       transition: border-color 0.2s, box-shadow 0.2s;
     }
