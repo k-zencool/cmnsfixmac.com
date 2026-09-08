@@ -1,0 +1,173 @@
+/* =========================================================
+   CMNS Admin — QR scanner
+   Path: admin/templates/assets/css/scan.css
+   Used by: admin/scan/index.php only.
+   ========================================================= */
+
+.scan-page {
+    /* .content-padding is display:flex/column — a centred child there needs
+       an explicit width or it shrink-wraps. Same trap as .more-page. */
+    width: 100%;
+    max-width: 520px;
+    margin: 0 auto;
+}
+
+/* ── Camera stage ── */
+.scan-stage {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 3 / 4;
+    max-height: 62vh;
+    margin: 0 auto;
+    border-radius: 16px;
+    overflow: hidden;
+    background: #000;
+    border: 1px solid var(--border);
+}
+.scan-stage video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+/* ── Reticle ── */
+.scan-reticle {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 62%;
+    aspect-ratio: 1;
+    pointer-events: none;
+    /* dim everything outside the square without a second element */
+    box-shadow: 0 0 0 100vmax rgba(0, 0, 0, 0.42);
+    border-radius: 12px;
+}
+.scan-reticle .c {
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    border: 3px solid #fff;
+}
+.scan-reticle .tl { top: -1px; left: -1px;  border-right: 0; border-bottom: 0; border-radius: 10px 0 0 0; }
+.scan-reticle .tr { top: -1px; right: -1px; border-left: 0;  border-bottom: 0; border-radius: 0 10px 0 0; }
+.scan-reticle .bl { bottom: -1px; left: -1px;  border-right: 0; border-top: 0; border-radius: 0 0 0 10px; }
+.scan-reticle .br { bottom: -1px; right: -1px; border-left: 0;  border-top: 0; border-radius: 0 0 10px 0; }
+
+.scan-laser {
+    position: absolute;
+    left: 6%;
+    right: 6%;
+    height: 2px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, transparent, var(--primary), transparent);
+    box-shadow: 0 0 12px var(--primary);
+    animation: scan-sweep 2.4s var(--ease-out) infinite;
+}
+@keyframes scan-sweep {
+    0%, 100% { top: 8%;  opacity: 0.25; }
+    50%      { top: 92%; opacity: 1; }
+}
+
+/* ── Cover: shown while opening, and on any failure ── */
+.scan-cover {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    padding: 24px;
+    text-align: center;
+    background: var(--bg-surface-alt);
+    color: var(--text-main);
+}
+/* `display: flex` above outranks the UA's `[hidden] { display: none }`, so
+   without this the element stays visible no matter what el.hidden says —
+   the camera would run forever behind a "กำลังเปิดกล้อง…" screen. */
+.scan-cover[hidden] { display: none; }
+
+.scan-cover-ico { font-size: 42px; color: var(--text-muted); }
+.scan-cover-msg { margin: 0; font-size: 0.92rem; line-height: 1.5; color: var(--text-muted); max-width: 30ch; }
+
+.scan-hint {
+    margin: 14px 0 0;
+    text-align: center;
+    font-size: 0.88rem;
+    color: var(--text-muted);
+}
+
+/* ── Result ── */
+.scan-result {
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: var(--shadow);
+}
+.scan-result-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-weight: 700;
+    color: #10b981;
+    margin-bottom: 10px;
+}
+.scan-result-value {
+    margin: 0 0 14px;
+    padding: 12px;
+    background: var(--bg-surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.84rem;
+    line-height: 1.5;
+    color: var(--text-main);
+    /* a long URL must wrap, never widen the page */
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 30vh;
+    overflow-y: auto;
+}
+.scan-result-actions { display: flex; gap: 10px; }
+.scan-note {
+    margin: 12px 0 0;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+/* ── Buttons ── */
+.scan-btn {
+    flex: 1 1 0;
+    min-height: 44px;
+    padding: 0 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+    transition: filter 0.15s var(--ease-out), background 0.15s var(--ease-out);
+}
+.scan-btn:active { filter: brightness(0.92); }
+/* .scan-cover is a flex COLUMN, so the shared `flex: 1 1 0` above stretches
+   the retry button down the whole panel. Only the row of result actions
+   wants the equal-split behaviour. */
+.scan-cover .scan-btn { flex: 0 0 auto; padding: 0 22px; }
+.scan-btn-primary {
+    background: var(--accent-grad);
+    border-color: transparent;
+    color: #fff;
+    box-shadow: var(--accent-glow);
+}
+.scan-btn-ghost {
+    background: var(--bg-surface-alt);
+    color: var(--text-main);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .scan-laser { animation: none; top: 50%; }
+}
