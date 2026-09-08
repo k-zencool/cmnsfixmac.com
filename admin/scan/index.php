@@ -2,12 +2,12 @@
 /* =========================================================
    admin/scan/index.php — QR scanner (mobile-first)
 
-   Scaffold only, by request: it opens the camera, decodes a QR and shows
-   what it read. It deliberately does NOT act on the result yet.
+   Opens the camera, decodes a QR, and opens the warranty it belongs to.
+   The QRs this system prints encode `/warranty/?q=<warranty_no>` (see
+   admin/warranty/print.php); resolve.php does the lookup and redirect.
 
-   When it does get wired up, the QRs this system already prints encode
-   `/warranty/?q=<warranty_no>` (see admin/warranty/print.php + view.php),
-   so that is the first format worth routing.
+   Anything that is not a warranty still just shows its decoded value —
+   no other format is routed yet.
 
    Camera needs a secure context. https://…:8444 and http://localhost are
    both fine; http://<LAN-IP or .local> is NOT, and scan.js says so in
@@ -24,6 +24,19 @@ if (!isset($_SESSION['admin_id'])) {
 require_login();
 
 $pageTitle = "สแกน QR";
+
+/* resolve.php bounces back here when a scan cannot be opened. It sends the
+   value it actually read so the message can name it — "ไม่พบ" on its own is
+   useless when the slip is in your hand. */
+$scan_err_map = [
+    'empty'    => 'อ่าน QR ไม่ได้ ลองสแกนใหม่อีกครั้ง',
+    'format'   => 'QR นี้ไม่ใช่ใบประกันของร้าน',
+    'notfound' => 'ไม่พบใบประกันนี้ในระบบ',
+];
+$scan_err_key = $_GET['err'] ?? '';
+$scan_err     = $scan_err_map[$scan_err_key] ?? '';
+$scan_err_raw = trim((string)($_GET['raw'] ?? ''));
+
 include '../templates/header_admin.php';
 ?>
 
@@ -31,7 +44,22 @@ include '../templates/header_admin.php';
 
 <div class="scan-page">
 
-    <div class="scan-stage" id="scanStage">
+<?php if ($scan_err !== ''): ?>
+    <div class="scan-alert" role="alert">
+        <span class="material-symbols-rounded">error</span>
+        <div>
+            <strong><?= htmlspecialchars($scan_err, ENT_QUOTES, 'UTF-8') ?></strong>
+            <?php if ($scan_err_raw !== ''): ?>
+                <code><?= htmlspecialchars($scan_err_raw, ENT_QUOTES, 'UTF-8') ?></code>
+            <?php endif; ?>
+        </div>
+    </div>
+<?php endif; ?>
+
+    <?php /* data-last-fail stops the scanner re-routing the very QR that just
+             bounced: the slip is usually still in frame when this page comes
+             back, which would otherwise loop resolve.php forever. */ ?>
+    <div class="scan-stage" id="scanStage" data-last-fail="<?= htmlspecialchars($scan_err !== '' ? $scan_err_raw : '', ENT_QUOTES, 'UTF-8') ?>">
         <video id="scanVideo" playsinline muted autoplay></video>
 
         <!-- Reticle: four corner brackets over a dimmed surround -->
@@ -62,7 +90,7 @@ include '../templates/header_admin.php';
             <button type="button" class="scan-btn scan-btn-primary" id="scanAgain">สแกนอีกครั้ง</button>
             <button type="button" class="scan-btn scan-btn-ghost" id="scanCopy">คัดลอก</button>
         </div>
-        <p class="scan-note">ยังไม่ได้ผูกกับระบบ — ตอนนี้แค่อ่านค่าออกมาโชว์</p>
+        <p class="scan-note" id="scanNote">QR ใบประกันจะเปิดใบนั้นให้อัตโนมัติ — ที่เห็นค่านี้แปลว่าอ่านได้แต่ไม่ใช่ใบประกัน</p>
     </div>
 
 </div>

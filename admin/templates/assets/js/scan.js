@@ -4,12 +4,15 @@
    Used by: admin/scan/index.php only.
 
    Decodes with jsQR because iOS Safari ships no BarcodeDetector, and the
-   admin runs as an iOS PWA. Reading the value is all this does — routing
-   on the result is deliberately not built yet.
+   admin runs as an iOS PWA. A decode that looks like a warranty slip is
+   handed to resolve.php, which does the lookup and the redirect; anything
+   else just shows its value. The check below only decides whether to make
+   that round-trip — resolve.php re-validates and is the real gate.
    ========================================================= */
 (function () {
     'use strict';
 
+    var stage   = document.getElementById('scanStage');
     var video   = document.getElementById('scanVideo');
     var cover   = document.getElementById('scanCover');
     var coverIco = document.getElementById('scanCoverIco');
@@ -20,6 +23,7 @@
     var valueEl = document.getElementById('scanValue');
     var againBtn = document.getElementById('scanAgain');
     var copyBtn = document.getElementById('scanCopy');
+    var noteEl  = document.getElementById('scanNote');
 
     if (!video) return;
 
@@ -124,9 +128,53 @@
         if (code && code.data) found(code.data);
     }
 
+    /* Two live warranty formats: W-2026-0055 and WJ-202606-0292. */
+    var WARRANTY_RE = /\bWJ?-\d{4,6}-\d{1,6}\b/i;
+
+    /* A printed slip decodes to the full /warranty/?q=<no> URL; the same
+       slip read by a generic barcode app decodes to the bare number. Pull
+       the number out of either, or return null for anything else. */
+    function warrantyNoFrom(text) {
+        var m = /[?&]q=([^&\s]+)/.exec(text);
+        var candidate = m ? decodeURIComponent(m[1]) : text;
+        var w = WARRANTY_RE.exec(candidate.trim());
+        return w ? w[0].toUpperCase() : null;
+    }
+
+    /* The value resolve.php just rejected, if we came back from it. Comparing
+       on the parsed number, not the raw text, so re-reading the same slip
+       through a different encoding still counts as the same failure. */
+    var lastFail = warrantyNoFrom((stage && stage.dataset.lastFail) || '');
+
     function found(text) {
         stop();
         if (navigator.vibrate) navigator.vibrate(60);
+
+        var no = warrantyNoFrom(text);
+        var suppressed = false;
+        if (no && no === lastFail) {
+            // Same slip that just failed — show it instead of looping.
+            no = null;
+            suppressed = true;
+        }
+        // Otherwise the panel would claim this is not a warranty, which the
+        // number on screen plainly contradicts.
+        if (noteEl) {
+            noteEl.textContent = suppressed
+                ? 'ใบนี้เพิ่งเปิดไม่สำเร็จ เลยไม่เปิดซ้ำให้ — เอา QR ใบอื่นมาสแกนได้เลย'
+                : 'QR ใบประกันจะเปิดใบนั้นให้อัตโนมัติ — ที่เห็นค่านี้แปลว่าอ่านได้แต่ไม่ใช่ใบประกัน';
+        }
+        if (no) {
+            // Leave the cover up on the way out — a live camera behind a
+            // page that is already navigating reads as a frozen scanner.
+            cover.hidden = false;
+            retryBtn.hidden = true;
+            coverIco.textContent = 'receipt_long';
+            coverMsg.textContent = 'เปิดใบประกัน ' + no + '…';
+            location.href = 'resolve.php?q=' + encodeURIComponent(no);
+            return;
+        }
+
         valueEl.textContent = text;
         result.hidden = false;
         hint.hidden = true;

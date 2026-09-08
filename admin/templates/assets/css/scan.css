@@ -171,3 +171,27 @@
 @media (prefers-reduced-motion: reduce) {
     .scan-laser { animation: none; top: 50%; }
 }
+
+/* Bounce-back message from resolve.php. Sits above the stage so it is read
+   before the camera pulls the eye. */
+.scan-alert {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background: rgba(239, 68, 68, 0.10);
+    border: 1px solid rgba(239, 68, 68, 0.32);
+    color: var(--text-main);
+    font-size: 0.88rem;
+    line-height: 1.5;
+}
+.scan-alert .material-symbols-rounded { font-size: 20px; color: #ef4444; flex: 0 0 auto; }
+.scan-alert strong { display: block; font-weight: 700; }
+.scan-alert code {
+    display: block;
+    margin-top: 4px;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    word-break: break-all;
+}
