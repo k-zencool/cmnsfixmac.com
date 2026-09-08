@@ -342,12 +342,20 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+<!-- QR init lives in its own block: if the CDN ever 404s again, the throw
+     stays contained here instead of killing the modal wiring below. -->
 <script>
-QRCode.toCanvas(document.getElementById('qr-canvas'),
-    `${location.protocol}//${location.host}/warranty/?q=<?= urlencode($war['warranty_no']) ?>`,
-    {width:200, margin:1}, function(err){ if(err) console.error(err); });
+if (window.QRCode) {
+    QRCode.toCanvas(document.getElementById('qr-canvas'),
+        `${location.protocol}//${location.host}/warranty/?q=<?= urlencode($war['warranty_no']) ?>`,
+        {width:200, margin:1}, function(err){ if(err) console.error(err); });
+} else {
+    console.error('QRCode library failed to load');
+}
+</script>
 
+<script>
 function openClaimModal()     { document.getElementById('modal-add-claim').classList.add('show'); }
 function closeClaimModal()    { document.getElementById('modal-add-claim').classList.remove('show'); }
 function closeEditClaimModal(){ document.getElementById('modal-edit-claim').classList.remove('show'); }

@@ -273,7 +273,7 @@ body {
     </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
 <script>
 QRCode.toCanvas(document.getElementById('qr-print'), <?= json_encode($public_url) ?>, {
     width: 140, margin: 1, color: { dark: '#1e3a5f', light: '#fff' }
