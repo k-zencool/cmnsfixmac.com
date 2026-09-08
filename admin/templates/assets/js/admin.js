@@ -70,8 +70,7 @@ document.addEventListener("DOMContentLoaded", function() {
     const prefersDarkOS = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
     const savedTheme = storedTheme || (prefersDarkOS ? 'dark' : 'light');
     document.documentElement.setAttribute('data-theme', savedTheme);
-    const themeIcon = document.getElementById('themeIcon');
-    if(themeIcon) themeIcon.textContent = savedTheme === 'dark' ? 'light_mode' : 'dark_mode';
+    syncThemeIcons(savedTheme);
 
     // ------------------------------------------------
     // 4. Auto Active Menu (ไฮไลท์เมนูปัจจุบัน)
@@ -216,9 +215,18 @@ window.toggleTheme = function() {
     html.setAttribute('data-theme', newTheme);
     localStorage.setItem('admin_theme', newTheme);
     
-    const icon = document.getElementById('themeIcon');
-    if(icon) icon.textContent = newTheme === 'dark' ? 'light_mode' : 'dark_mode';
+    syncThemeIcons(newTheme);
 };
+
+/* ไอคอนธีมมีได้หลายที่ (topbar = #themeIcon, หน้าเพิ่มเติม = .js-theme-icon)
+   เลยอัปเดตทีเดียวทั้งหมด ไม่งั้นกดจากหน้าเพิ่มเติมแล้วไอคอนค้าง */
+function syncThemeIcons(theme) {
+    const label = theme === 'dark' ? 'light_mode' : 'dark_mode';
+    document.querySelectorAll('#themeIcon, .js-theme-icon').forEach(function (el) {
+        el.textContent = label;
+    });
+}
+window.syncThemeIcons = syncThemeIcons;
 
 /**
  * 📂 Toggle Submenu
