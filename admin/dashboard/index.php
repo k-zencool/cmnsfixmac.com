@@ -47,6 +47,19 @@ $kpi['articles'] = (int)$pdo->query("SELECT COUNT(*) FROM articles WHERE status=
 // สินค้าในร้าน
 $kpi['shop'] = (int)$pdo->query("SELECT COUNT(*) FROM shop_listings WHERE status='active'")->fetchColumn();
 
+/* งานที่ต้องรีบจัดการ — สำหรับหน้าแรกเวอร์ชันมือถือ
+   นิยามลอกมาจาก admin/tracking/index.php เป๊ะๆ เพื่อให้ตัวเลขบนหน้าแรก
+   ตรงกับที่เห็นตอนกดเข้าไปในหน้า tracking (ถ้าแก้ที่นั่น ต้องแก้ที่นี่ด้วย)
+   หมายเหตุ: in_progress ใช้ชุด QS/WC/OK/RW ซึ่งแคบกว่า $kpi['active_jobs']
+   ด้านบน (ตัวนั้นรวม FN/NCF/NCS ด้วย) — ตั้งใจให้ต่างกัน */
+$urgent = $pdo->query("
+    SELECT
+        COALESCE(SUM(status NOT IN ('DV','RT','NCF','NCS') AND appointment_date IS NOT NULL AND appointment_date < CURDATE()), 0) AS overdue,
+        COALESCE(SUM(status = 'FN'), 0)                        AS waiting_pickup,
+        COALESCE(SUM(status IN ('QS','WC','OK','RW')), 0)      AS in_progress
+    FROM tracking
+")->fetch(PDO::FETCH_ASSOC);
+
 /* ═══════════════════════════════════════════
    STATUS BREAKDOWN (Donut chart)
 ═══════════════════════════════════════════ */
@@ -235,7 +248,25 @@ $greet = $hour < 12 ? 'อรุณสวัสดิ์' : ($hour < 17 ? 'ส�
 include __DIR__ . '/../templates/header_admin.php';
 ?>
 <link rel="stylesheet" href="<?= $assets_base ?>css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+/* กราฟทั้งหมดเป็นของ desktop แล้ว — บนมือถือไม่ต้องดาวน์โหลด Chart.js (~200KB)
+   และไม่ต้องวาดอะไรเลย โหลดแบบมีเงื่อนไขตรงนี้แทน <script src> ตรงๆ */
+(function () {
+    if (!window.matchMedia('(min-width: 992px)').matches) return;
+    var s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js';
+    s.onload = function () {
+        // สคริปต์นี้อยู่ใน <head> — onload อาจมาก่อน canvas ถูก parse
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', runDashCharts);
+        } else {
+            runDashCharts();
+        }
+    };
+    function runDashCharts() { if (window.__initDashCharts) window.__initDashCharts(); }
+    document.head.appendChild(s);
+})();
+</script>
 <style>
 .dash { display:flex; flex-direction:column; gap:18px; padding-bottom:40px; }
 
@@ -337,6 +368,200 @@ include __DIR__ . '/../templates/header_admin.php';
 @media(max-width:900px){ .dash-bento,.dash-bento-3 { grid-template-columns:1fr; } .dash-hero { flex-direction:column; align-items:flex-start; } }
 @media(max-width:560px){ .dash-stats,.dash-mini { grid-template-columns:repeat(2,1fr); } }
 </style>
+
+<link rel="stylesheet" href="assets/css/dashboard-mobile.css?v=<?= asset_ver('/admin/dashboard/assets/css/dashboard-mobile.css') ?>">
+
+<?php
+/* ─────────────────────────────────────────────────────────────
+   MOBILE DASHBOARD (<992px)
+   A separate, shorter page rather than a squeezed desktop one. Both
+   blocks render; dashboard-mobile.css shows exactly one, so the desktop
+   layout below is untouched. No extra queries beyond $urgent.
+
+   What earns a slot: it has to be actionable from the shop floor.
+   Counts you can only look at (งานทั้งหมด, บทความ, สินค้าในร้าน) and all
+   five charts stay desktop-only.
+   ───────────────────────────────────────────────────────────── */
+
+/* Status mix of machines physically in the shop. These five are mutually
+   exclusive, so they sum to a real whole — which is what makes a stacked
+   meter honest here. เกินกำหนดนัด is deliberately NOT a segment: it cuts
+   across the other statuses, so adding it would double-count. It gets its
+   own alert row instead. */
+$mix_defs = [
+    ['QS', 'รอเช็คราคา'],
+    ['WC', 'รอคอนเฟิร์ม'],
+    ['OK', 'กำลังซ่อม'],
+    ['RW', 'งานแก้ / เคลม'],
+    ['FN', 'เสร็จ รอรับ'],
+];
+$counts_by_status = [];
+foreach ($status_rows as $r) { $counts_by_status[$r['status']] = (int)$r['cnt']; }
+
+$mix = [];
+$mix_total = 0;
+foreach ($mix_defs as $i => $d) {
+    $c = $counts_by_status[$d[0]] ?? 0;
+    $mix[] = ['code' => $d[0], 'label' => $d[1], 'cnt' => $c, 'slot' => $i + 1];
+    $mix_total += $c;
+}
+
+$m_alerts = (int)$kpi['low_stock'] + (int)$kpi['expiring_soon'];
+
+/* Device → icon. Matched on a prefix so "Apple Watch", "Mac mini" and
+   "Mac Pro" land correctly; longest key wins, hence the explicit order.
+   Anything unknown falls back to a neutral chip rather than no chip, so
+   the list keeps an even rhythm. */
+$dev_icons = [
+    'MacBook'     => 'laptop_mac',
+    'Notebook'    => 'laptop_windows',
+    'iPhone'      => 'smartphone',
+    'iPad'        => 'tablet_mac',
+    'AirPods'     => 'headphones',
+    'Apple Watch' => 'watch',
+    'Apple TV'    => 'tv',
+    'iMac'        => 'desktop_mac',
+    'Mac mini'    => 'dvr',
+    'Mac Pro'     => 'dns',
+    'PC'          => 'desktop_windows',
+];
+if (!function_exists('dm_device_icon')) {
+    function dm_device_icon(?string $type, array $map): string {
+        $type = trim((string)$type);
+        foreach ($map as $k => $icon) {
+            if (stripos($type, $k) === 0) return $icon;
+        }
+        return 'devices_other';
+    }
+}
+?>
+
+<div class="dm">
+
+    <!-- ── Greeting ── -->
+    <header class="dm-head">
+        <p class="dm-date"><?= h($today_str) ?></p>
+        <h1 class="dm-hello"><?= h($greet) ?>, <?= h($adminName) ?></h1>
+    </header>
+
+    <!-- ── Hero: the one big number + the composition it breaks into ── -->
+    <section class="dm-hero">
+        <p class="dm-hero-lbl">เครื่องอยู่ในร้านตอนนี้</p>
+        <p class="dm-hero-val"><?= number_format($mix_total) ?><span class="dm-hero-unit">เครื่อง</span></p>
+
+        <?php if ($mix_total > 0): ?>
+        <!-- Stacked meter. gap:2px in the surface colour is what separates
+             the segments — no borders (see marks-and-anatomy). -->
+        <div class="dm-meter" role="img"
+             aria-label="สัดส่วนสถานะงาน: <?= h(implode(', ', array_map(fn($m) => $m['label'] . ' ' . $m['cnt'], array_filter($mix, fn($m) => $m['cnt'] > 0)))) ?>">
+            <?php foreach ($mix as $m): if ($m['cnt'] <= 0) continue; ?>
+            <span class="dm-seg s<?= $m['slot'] ?>" style="flex-grow:<?= $m['cnt'] ?>;"></span>
+            <?php endforeach; ?>
+        </div>
+
+        <!-- Legend carries identity, and its visible counts are also the
+             "relief" the light-mode contrast warning requires. -->
+        <ul class="dm-legend">
+            <?php foreach ($mix as $m): ?>
+            <li class="dm-legend-row<?= $m['cnt'] === 0 ? ' is-zero' : '' ?>">
+                <span class="dm-dot s<?= $m['slot'] ?>"></span>
+                <span class="dm-legend-lbl"><?= h($m['label']) ?></span>
+                <span class="dm-legend-val"><?= number_format($m['cnt']) ?></span>
+            </li>
+            <?php endforeach; ?>
+        </ul>
+        <?php else: ?>
+        <p class="dm-hero-empty">ไม่มีเครื่องค้างในร้าน</p>
+        <?php endif; ?>
+    </section>
+
+    <!-- ── Overdue: a cross-cutting flag, so it sits outside the meter.
+             Icon + label, never colour alone. ── -->
+    <?php if ((int)$urgent['overdue'] > 0): ?>
+    <a class="dm-flag" href="/admin/tracking/index.php?group=overdue">
+        <span class="dm-flag-ico material-symbols-rounded">warning</span>
+        <span class="dm-flag-text">เลยกำหนดนัดแล้ว</span>
+        <span class="dm-flag-val"><?= number_format((int)$urgent['overdue']) ?></span>
+        <span class="dm-flag-chev material-symbols-rounded">chevron_right</span>
+    </a>
+    <?php endif; ?>
+
+    <a class="dm-cta" href="/admin/tracking/create.php" onclick="showLoader()">
+        <span class="material-symbols-rounded">add_task</span> เปิดงานซ่อม
+    </a>
+
+    <!-- ── วันนี้ ── -->
+    <h2 class="dm-title">วันนี้</h2>
+    <div class="dm-pair">
+        <a class="dm-stat" href="/admin/tracking/index.php?date_from=<?= date('Y-m-d') ?>&amp;date_to=<?= date('Y-m-d') ?>">
+            <span class="dm-stat-top">
+                <span class="dm-stat-ico material-symbols-rounded">login</span>
+                <span class="dm-stat-lbl">รับเข้า</span>
+            </span>
+            <span class="dm-stat-val"><?= number_format($kpi['today_in']) ?></span>
+        </a>
+        <div class="dm-stat is-static">
+            <span class="dm-stat-top">
+                <span class="dm-stat-ico is-done material-symbols-rounded">task_alt</span>
+                <span class="dm-stat-lbl">ส่งมอบ</span>
+            </span>
+            <span class="dm-stat-val"><?= number_format($kpi['today_done']) ?></span>
+        </div>
+    </div>
+
+    <!-- ── แจ้งเตือน: โผล่เฉพาะตอนมีของจริง ── -->
+    <?php if ($m_alerts > 0): ?>
+    <h2 class="dm-title">แจ้งเตือน</h2>
+    <div class="dm-alerts">
+        <?php if ((int)$kpi['low_stock'] > 0): ?>
+        <a class="dm-alert" href="/admin/inventory/index.php?type=all">
+            <span class="dm-alert-ico material-symbols-rounded">inventory_2</span>
+            <span class="dm-alert-text">อะไหล่หมดสต็อก</span>
+            <span class="dm-alert-count"><?= number_format((int)$kpi['low_stock']) ?></span>
+        </a>
+        <?php endif; ?>
+        <?php if ((int)$kpi['expiring_soon'] > 0): ?>
+        <a class="dm-alert" href="/admin/warranty/">
+            <span class="dm-alert-ico material-symbols-rounded">schedule</span>
+            <span class="dm-alert-text">ประกันหมดใน 30 วัน</span>
+            <span class="dm-alert-count"><?= number_format((int)$kpi['expiring_soon']) ?></span>
+        </a>
+        <?php endif; ?>
+    </div>
+    <?php endif; ?>
+
+    <!-- ── งานล่าสุด: timeline rail ── -->
+    <h2 class="dm-title">
+        งานล่าสุด
+        <a class="dm-title-link" href="/admin/tracking/index.php">ทั้งหมด</a>
+    </h2>
+    <div class="dm-feed">
+        <?php if (empty($recent_jobs)): ?>
+            <p class="dm-empty">ยังไม่มีงานซ่อม</p>
+        <?php else: foreach (array_slice($recent_jobs, 0, 5) as $j):
+            $st = $statusMap[$j['status']] ?? [$j['status'], '#9ca3af'];
+        ?>
+        <a class="dm-item" href="/admin/tracking/edit.php?id=<?= (int)$j['id'] ?>" onclick="showLoader()">
+            <span class="dm-item-rail"><span class="dm-item-dot"></span></span>
+            <span class="dm-item-chip">
+                <span class="material-symbols-rounded"><?= h(dm_device_icon($j['device_type'] ?? '', $dev_icons)) ?></span>
+            </span>
+            <span class="dm-item-body">
+                <span class="dm-item-top">
+                    <span class="dm-item-ticket"><?= h($j['ticket_number']) ?></span>
+                    <span class="dm-item-date"><?= date('d/m/y', strtotime($j['created_at'])) ?></span>
+                </span>
+                <span class="dm-item-name"><?= h($j['customer_name']) ?></span>
+                <span class="dm-item-sub">
+                    <?= h(trim(($j['device_type'] ?? '') . ' ' . mb_substr($j['device_model'] ?? '', 0, 22))) ?>
+                    · <?= h($st[0]) ?>
+                </span>
+            </span>
+        </a>
+        <?php endforeach; endif; ?>
+    </div>
+
+</div><!-- .dm -->
 
 <div class="dash">
 
@@ -623,8 +848,9 @@ include __DIR__ . '/../templates/header_admin.php';
 
 </div><!-- .dash -->
 
-<!-- ── Chart.js Init ── -->
+<!-- ── Chart.js Init (desktop only — เรียกจาก loader ใน <head>) ── -->
 <script>
+window.__initDashCharts = function () {
 const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
 const gridColor  = isDark ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.06)';
 const textColor  = isDark ? '#94a3b8' : '#6b7280';
@@ -684,6 +910,7 @@ new Chart(document.getElementById('chartDevice'), {
     options: { ...chartDefaults, indexAxis:'y',
         scales: { x:{ grid:{color:gridColor}, ticks:{color:textColor, font:{size:10}}, beginAtZero:true }, y:{ grid:{display:false}, ticks:{color:textColor, font:{size:11}} } } }
 });
+};  // __initDashCharts
 </script>
 
 <?php include __DIR__ . '/../templates/footer_admin.php'; ?>

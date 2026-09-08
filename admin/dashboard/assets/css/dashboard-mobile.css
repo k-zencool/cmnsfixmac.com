@@ -1,0 +1,493 @@
+/* =========================================================
+   CMNS Admin — Dashboard, mobile edition
+   Path: admin/dashboard/assets/css/dashboard-mobile.css
+   Used by: admin/dashboard/index.php only.
+
+   The page renders two layouts and this file picks one:
+     .dm    — the short, action-first phone version  (<992px)
+     .dash  — the original desktop dashboard         (≥992px)
+   Desktop must render exactly as before, so .dash is never restyled
+   here; it is only switched off below the breakpoint.
+   ========================================================= */
+
+.dm { display: none; }
+
+@media (max-width: 991px) {
+    .dm   { display: block; }
+    .dash { display: none; }
+}
+
+/* =========================================================
+   SERIES PALETTE — status mix meter
+   The meter now sits on the hero's dark gradient in BOTH themes, so it
+   uses the dark steps unconditionally — the theme no longer decides,
+   the surface does. Validated with the dataviz validator against the
+   gradient's lower half (#1c2f6f and darker): all checks pass, contrast
+   included. Re-validate against the ACTUAL surface if the gradient is
+   ever lightened — at #1e3a8a three slots already drop under 3:1.
+
+   DO NOT re-pick these by eye. The app's own status hues fail: its
+   purple #8b5cf6 and blue #3b82f6 are ΔE 1.3 apart under deuteranopia,
+   i.e. the same colour to a red-green colourblind reader.
+   ========================================================= */
+.dm-hero {
+    --s1: #3987e5;   /* blue    — รอเช็คราคา */
+    --s2: #d95926;   /* orange  — รอคอนเฟิร์ม */
+    --s3: #199e70;   /* aqua    — กำลังซ่อม */
+    --s4: #c98500;   /* yellow  — งานแก้ / เคลม */
+    --s5: #d55181;   /* magenta — เสร็จ รอรับ */
+}
+.dm .s1 { --seg: var(--s1); }
+.dm .s2 { --seg: var(--s2); }
+.dm .s3 { --seg: var(--s3); }
+.dm .s4 { --seg: var(--s4); }
+.dm .s5 { --seg: var(--s5); }
+
+/* =========================================================
+   CARD DEPTH
+   Dark cards need a lit top edge to read as objects rather than holes;
+   an inset 1px highlight is that edge. Light cards are already lighter
+   than the page, so they only need the drop shadow.
+   ========================================================= */
+.dm {
+    --dm-card-bg: var(--bg-surface);
+    --dm-card-shadow:
+        0 1px 2px rgba(15, 23, 42, .05),
+        0 10px 22px -14px rgba(15, 23, 42, .40);
+}
+[data-theme="dark"] .dm {
+    --dm-card-bg: linear-gradient(180deg, #1d1d1f 0%, #161617 100%);
+    --dm-card-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, .07),
+        0 2px 4px rgba(0, 0, 0, .45),
+        0 14px 30px -18px rgba(0, 0, 0, .95);
+}
+
+/* ── Greeting ── */
+.dm-head { margin-bottom: 18px; }
+.dm-date {
+    margin: 0 0 2px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: .3px;
+    color: var(--text-muted);
+}
+.dm-hello {
+    margin: 0;
+    font-size: 1.34rem;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: -.2px;
+    color: var(--text-main);
+}
+
+/* =========================================================
+   HERO — the one big number on this view, plus its breakdown.
+   Deliberately dark in BOTH themes: it is the page's single focal
+   point, and a light-mode page of pale cards had nothing to look at.
+   ========================================================= */
+.dm-hero {
+    position: relative;
+    overflow: hidden;
+    padding: 22px 20px 18px;
+    margin-bottom: 14px;
+    border-radius: 22px;
+    color: #fff;
+    /* the meter sits over the lower, darker half — that is the surface
+       the series palette above was validated against */
+    background: linear-gradient(158deg, #2a5cd6 0%, #1e3a8a 40%, #16204c 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, .16),
+        0 10px 28px -14px rgba(23, 37, 84, .85);
+}
+/* Two soft lights so the slab has a direction instead of reading flat. */
+.dm-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background:
+        radial-gradient(90% 70% at 82% -12%, rgba(255, 255, 255, .22), transparent 60%),
+        radial-gradient(70% 60% at -8% 108%, rgba(56, 189, 248, .18), transparent 62%);
+}
+/* A large, mostly off-canvas ring — texture without a pattern file. */
+.dm-hero::after {
+    content: '';
+    position: absolute;
+    top: -78px; right: -68px;
+    width: 210px; height: 210px;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, .13);
+    pointer-events: none;
+}
+.dm-hero > * { position: relative; }
+
+.dm-hero-lbl {
+    margin: 0;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: .2px;
+    color: rgba(255, 255, 255, .68);
+}
+.dm-hero-val {
+    /* Hero figure: proportional digits on purpose — tabular-nums makes a
+       display-size number look gappy (see marks-and-anatomy). */
+    margin: 4px 0 18px;
+    font-size: 3.7rem;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -2.5px;
+    color: #fff;
+    text-shadow: 0 2px 14px rgba(0, 0, 0, .28);
+}
+.dm-hero-unit {
+    margin-left: 9px;
+    font-size: 0.92rem;
+    font-weight: 600;
+    letter-spacing: 0;
+    color: rgba(255, 255, 255, .62);
+}
+.dm-hero-empty {
+    margin: 0;
+    padding: 6px 0 4px;
+    font-size: 0.88rem;
+    color: rgba(255, 255, 255, .68);
+}
+
+/* ── Stacked meter ──
+   The 2px gap is the separator; segments carry no border, because a
+   stroke would add ink that isn't data. */
+.dm-meter {
+    display: flex;
+    gap: 2px;
+    height: 14px;
+    margin-bottom: 16px;
+    border-radius: 999px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, .13);
+}
+.dm-seg {
+    display: block;
+    min-width: 4px;          /* a 1-job slice must stay visible */
+    background: var(--seg);
+}
+
+/* ── Legend — identity channel, never colour alone ── */
+.dm-legend { list-style: none; margin: 0; padding: 0; }
+.dm-legend-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 6px 0;
+    font-size: 0.85rem;
+}
+.dm-legend-row + .dm-legend-row { border-top: 1px solid rgba(255, 255, 255, .10); }
+.dm-legend-row.is-zero { opacity: .42; }
+.dm-dot {
+    flex: 0 0 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--seg);
+}
+/* Text stays on ink tokens (here: the panel's own ink); the dot beside
+   it carries the identity. */
+.dm-legend-lbl { flex: 1 1 auto; color: rgba(255, 255, 255, .88); }
+.dm-legend-val {
+    flex: 0 0 auto;
+    font-weight: 700;
+    color: #fff;
+    /* a column of numbers — this is where tabular figures belong */
+    font-variant-numeric: tabular-nums;
+}
+
+/* =========================================================
+   OVERDUE FLAG — status colour, always with icon + label
+   ========================================================= */
+.dm-flag {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 13px 14px;
+    margin-bottom: 12px;
+    min-height: 56px;
+    border-radius: 14px;
+    text-decoration: none;
+    background: rgba(208, 59, 59, .10);
+    border: 1px solid rgba(208, 59, 59, .32);
+    box-shadow: var(--dm-card-shadow);
+}
+.dm-flag-ico { flex: 0 0 auto; font-size: 21px; color: #d03b3b; }
+.dm-flag-text { flex: 1 1 auto; font-size: 0.92rem; font-weight: 700; color: var(--text-main); }
+.dm-flag-val {
+    flex: 0 0 auto;
+    font-size: 1.15rem;
+    font-weight: 800;
+    color: #d03b3b;
+    font-variant-numeric: tabular-nums;
+}
+.dm-flag-chev { flex: 0 0 auto; font-size: 19px; color: #d03b3b; opacity: .6; }
+[data-theme="dark"] .dm-flag-ico,
+[data-theme="dark"] .dm-flag-val,
+[data-theme="dark"] .dm-flag-chev { color: #f08a8a; }
+
+/* ── Primary action ── */
+.dm-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    min-height: 50px;
+    margin-bottom: 26px;
+    border-radius: 14px;
+    background: var(--accent-grad);
+    color: #fff;
+    font-weight: 700;
+    font-size: 0.96rem;
+    text-decoration: none;
+    box-shadow: var(--accent-glow);
+    -webkit-tap-highlight-color: transparent;
+    transition: transform 0.16s var(--ease-spring);
+}
+.dm-cta:active { transform: scale(0.985); }
+.dm-cta .material-symbols-rounded { font-size: 21px; }
+
+/* ── Section titles ── */
+.dm-title {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin: 0 0 10px 2px;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+.dm-title-link {
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: 0;
+    color: var(--primary);
+    text-decoration: none;
+}
+
+/* ── วันนี้: two stat tiles ── */
+.dm-pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 26px;
+}
+.dm-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 14px 15px;
+    border-radius: 14px;
+    background: var(--dm-card-bg);
+    border: 1px solid var(--border);
+    box-shadow: var(--dm-card-shadow);
+    text-decoration: none;
+    color: var(--text-main);
+}
+.dm-stat-top { display: flex; align-items: center; gap: 8px; }
+.dm-stat-ico {
+    flex: 0 0 26px;
+    height: 26px;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    font-size: 16px;
+    background: color-mix(in srgb, var(--primary) 15%, transparent);
+    color: var(--primary);
+}
+.dm-stat-ico.is-done {
+    background: rgba(16, 185, 129, .15);
+    color: #10b981;
+}
+.dm-stat-lbl { font-size: 0.78rem; font-weight: 600; color: var(--text-muted); }
+.dm-stat-val { font-size: 1.7rem; font-weight: 800; line-height: 1; }
+
+/* ── Alerts ── */
+.dm-alerts { display: flex; flex-direction: column; gap: 8px; margin-bottom: 26px; }
+.dm-alert {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    min-height: 56px;
+    border-radius: 13px;
+    background: var(--dm-card-bg);
+    border: 1px solid var(--border);
+    box-shadow: var(--dm-card-shadow);
+    text-decoration: none;
+    color: var(--text-main);
+}
+.dm-alert-ico {
+    flex: 0 0 34px;
+    height: 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    background: rgba(250, 178, 25, .16);
+    color: #b45309;
+    font-size: 19px;
+}
+[data-theme="dark"] .dm-alert-ico { color: #fab219; }
+.dm-alert-text { flex: 1 1 auto; font-size: 0.9rem; font-weight: 600; }
+.dm-alert-count {
+    flex: 0 0 auto;
+    font-size: 1rem;
+    font-weight: 800;
+    color: var(--text-main);
+    font-variant-numeric: tabular-nums;
+}
+
+/* =========================================================
+   งานล่าสุด — a rail, not another stack of cards
+   ========================================================= */
+.dm-feed { padding-left: 2px; }
+.dm-item {
+    display: flex;
+    gap: 12px;
+    text-decoration: none;
+    color: var(--text-main);
+    -webkit-tap-highlight-color: transparent;
+}
+.dm-item-rail {
+    position: relative;
+    flex: 0 0 9px;
+    display: flex;
+    justify-content: center;
+}
+/* The continuous line is drawn by the rail itself; the last item's line
+   is trimmed so the thread ends with the list. */
+.dm-item-rail::before {
+    content: '';
+    position: absolute;
+    top: 0; bottom: 0;
+    width: 2px;
+    background: var(--border);
+}
+.dm-item:last-child .dm-item-rail::before { bottom: auto; height: 20px; }
+.dm-item-dot {
+    position: relative;
+    margin-top: 15px;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--primary);
+    /* surface ring so the dot reads clearly where it crosses the rail */
+    box-shadow: 0 0 0 3px var(--bg-body);
+}
+/* A device chip per row. It carries information (what kind of machine) and
+   is what stops the feed from reading as five identical grey lines. */
+.dm-item-chip {
+    flex: 0 0 36px;
+    height: 36px;
+    margin-top: 12px;
+    display: grid;
+    place-items: center;
+    border-radius: 11px;
+    background: var(--bg-surface-alt);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+}
+.dm-item-chip .material-symbols-rounded { font-size: 19px; }
+.dm-item:active .dm-item-chip { background: var(--primary-light); color: var(--primary); }
+
+.dm-item-body {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 10px 0 16px;
+}
+.dm-item:not(:last-child) .dm-item-body { border-bottom: 1px solid var(--border); }
+.dm-item-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.dm-item-ticket { font-size: 0.95rem; font-weight: 800; }
+.dm-item-date { flex: 0 0 auto; font-size: 0.74rem; color: var(--text-muted); }
+.dm-item-name { font-size: 0.88rem; font-weight: 600; }
+.dm-item-sub {
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.dm-empty {
+    margin: 0;
+    padding: 26px 0;
+    text-align: center;
+    font-size: 0.88rem;
+    color: var(--text-muted);
+}
+
+
+/* =========================================================
+   MOTION
+   The page had none, which is most of why it read as a web page rather
+   than an app. Everything here is opt-out via prefers-reduced-motion.
+
+   Entrance uses the standalone `translate` property, NOT `transform`, on
+   purpose: with animation-fill-mode: both the final keyframe keeps
+   applying forever, so animating `transform` here would permanently
+   outrank the `:active` press transforms below and kill tap feedback.
+   ========================================================= */
+@keyframes dm-in {
+    from { opacity: 0; translate: 0 14px; }
+    to   { opacity: 1; translate: 0 0; }
+}
+@keyframes dm-grow {
+    from { transform: scaleX(0); }
+    to   { transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    /* Staggered so the eye is walked down the page instead of being hit
+       with all of it at once. Caps at the 9th child — anything past that
+       is below the fold anyway and should not wait to appear. */
+    .dm > * { animation: dm-in .46s var(--ease-out) both; }
+    .dm > *:nth-child(1) { animation-delay: .00s; }
+    .dm > *:nth-child(2) { animation-delay: .04s; }
+    .dm > *:nth-child(3) { animation-delay: .08s; }
+    .dm > *:nth-child(4) { animation-delay: .12s; }
+    .dm > *:nth-child(5) { animation-delay: .16s; }
+    .dm > *:nth-child(6) { animation-delay: .20s; }
+    .dm > *:nth-child(7) { animation-delay: .24s; }
+    .dm > *:nth-child(8) { animation-delay: .28s; }
+    .dm > *:nth-child(n+9) { animation-delay: .32s; }
+
+    /* The meter draws itself in, after the hero has landed. */
+    .dm-meter {
+        transform-origin: left center;
+        animation: dm-grow .8s .30s cubic-bezier(.16, 1, .3, 1) both;
+    }
+
+    /* Feed rows arrive one after another, tied to the meter's timing so the
+       whole page reads as one movement rather than two. */
+    .dm-item { animation: dm-in .42s var(--ease-out) both; }
+    .dm-item:nth-child(1) { animation-delay: .34s; }
+    .dm-item:nth-child(2) { animation-delay: .40s; }
+    .dm-item:nth-child(3) { animation-delay: .46s; }
+    .dm-item:nth-child(4) { animation-delay: .52s; }
+    .dm-item:nth-child(n+5) { animation-delay: .58s; }
+}
+
+/* ── Press feedback ──
+   Every tappable surface answers the finger. Cheap, and its absence is
+   most of what makes a web page feel dead next to a native app. */
+.dm-stat,
+.dm-alert,
+.dm-flag,
+.dm-item,
+.dm-legend-row {
+    transition: transform .16s var(--ease-spring), background .16s var(--ease-out);
+}
+.dm-stat:active,
+.dm-alert:active,
+.dm-flag:active { transform: scale(.978); }
+.dm-item:active { transform: scale(.99); }
