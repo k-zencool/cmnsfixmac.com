@@ -13,7 +13,7 @@ if (!isset($assets_base)) {
 $app_version = "1.0.1 (Beta)"; 
 ?>
 
-        <footer style="margin-top: auto; padding: 20px 25px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: var(--text-muted); width: 100%;">
+        <footer class="admin-footer" style="margin-top: auto; padding: 20px 25px; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; font-size: 0.85rem; color: var(--text-muted); width: 100%;">
             <div>
                 &copy; <?= date('Y') ?> <strong>CMNS Fix Mac</strong>. All rights reserved.
             </div>
@@ -26,6 +26,8 @@ $app_version = "1.0.1 (Beta)";
             </div>
         </footer>
         </div> </main> </div> <div id="pull-refresh" aria-hidden="true"><span class="ptr-spinner"></span></div>
+
+    <?php include __DIR__ . '/tabbar_admin.php'; ?>
 
     <div id="global-loader" style="display:none;">
         <div class="loader-spinner"></div>
@@ -50,6 +52,7 @@ $app_version = "1.0.1 (Beta)";
 
     <script src="<?= $assets_base ?>js/admin.js?v=<?= asset_ver('/admin/templates/assets/js/admin.js') ?>"></script>
     <script src="<?= $assets_base ?>js/pull-refresh.js?v=<?= asset_ver('/admin/templates/assets/js/pull-refresh.js') ?>"></script>
+    <script src="<?= $assets_base ?>js/admin-mobile.js?v=<?= asset_ver('/admin/templates/assets/js/admin-mobile.js') ?>"></script>
 
 </body>
 </html>

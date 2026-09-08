@@ -33,7 +33,8 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Admin Panel';
 <html lang="th">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <!-- viewport-fit=cover จำเป็นสำหรับ env(safe-area-inset-*) ตอนรันเป็น PWA เต็มจอบน iPhone -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     
     <title><?= htmlspecialchars($pageTitle) ?> | FixMac Admin</title>
@@ -66,6 +67,8 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Admin Panel';
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
 
     <link rel="stylesheet" href="<?= $assets_base ?>css/admin.css?v=<?= asset_ver('/admin/templates/assets/css/admin.css') ?>">
+    <!-- mobile foundation: ต้องโหลดหลัง admin.css เพราะทับกฎ drawer เดิม -->
+    <link rel="stylesheet" href="<?= $assets_base ?>css/admin-mobile.css?v=<?= asset_ver('/admin/templates/assets/css/admin-mobile.css') ?>">
     
 </head>
 

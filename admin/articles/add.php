@@ -162,11 +162,12 @@ try {
 if ($isModal): ?>
 <!DOCTYPE html><html lang="th">
 <head>
-<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <script>document.documentElement.setAttribute('data-theme',localStorage.getItem('admin_theme')||'dark');</script>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet">
 <link rel="stylesheet" href="/admin/templates/assets/css/admin.css?v=<?= asset_ver('/admin/templates/assets/css/admin.css') ?>">
+<link rel="stylesheet" href="/admin/templates/assets/css/admin-mobile.css?v=<?= asset_ver('/admin/templates/assets/css/admin-mobile.css') ?>">
 <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
 <?php else: ?>
 <?php include __DIR__ . '/../templates/header_admin.php'; ?>

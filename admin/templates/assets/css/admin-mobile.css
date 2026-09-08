@@ -1,0 +1,476 @@
+/* =========================================================
+   CMNS Admin — MOBILE FOUNDATION
+   Path: admin/templates/assets/css/admin-mobile.css
+
+   Loaded AFTER admin.css by header_admin.php, so it can override the
+   old drawer rules without touching them. Everything that changes
+   layout lives inside @media (max-width: 991px) — desktop must render
+   byte-identically to before this file existed.
+
+   Below 992px the admin is a tab-bar app, not a shrunken desktop:
+   the sidebar drawer, its overlay and the hamburger are all removed,
+   and /admin/more/ carries the long tail of the menu.
+
+   Sections:
+     1. Safe-area plumbing (PWA fullscreen)
+     2. Tab bar
+     3. Kill the drawer
+     4. Topbar on mobile
+     5. Tap targets & content rhythm
+     6. Table → cards (scaffolding for the page-by-page pass)
+     7. Bottom sheets
+   ========================================================= */
+
+/* =========================================================
+   1. SAFE AREA
+   Needs viewport-fit=cover in the <head> or every env() here
+   resolves to 0. header_admin.php + the 8 pages with their own
+   <head> all carry it — if you add a page, carry it too.
+   ========================================================= */
+:root {
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --safe-left: env(safe-area-inset-left, 0px);
+    --safe-right: env(safe-area-inset-right, 0px);
+
+    /* Tab-bar geometry lives on .tabbar-wrap, not here — the pill, its
+       insets and the scan chip all derive from each other, so keeping them
+       in one block stops them drifting apart. */
+
+    /* Apple's floor for anything a thumb has to hit. */
+    --tap-min: 44px;
+}
+
+/* =========================================================
+   2. TAB BAR
+   Hidden on desktop by default — the media query below turns it on,
+   never the other way round, so a CSS failure degrades to "no tab bar"
+   instead of a bar stuck across the desktop layout.
+   ========================================================= */
+.tabbar-wrap { display: none; }
+
+@media (max-width: 991px) {
+    /* Geometry lives on :root, NOT on .tabbar-wrap. `.main` needs these to
+       reserve space for the pill, and .main is not a descendant of the wrap —
+       custom properties only inherit downward, so scoping them to the wrap
+       left .main's calc() invalid and its padding-bottom silently 0. The last
+       job in the feed then sat 54px underneath the floating pill. */
+    :root {
+        --tabbar-h: 66px;
+        --tab-inset-x: 10px;             /* the pill floats clear of the edges */
+        --tab-inset-b: 12px;             /* …and clear of the bottom, above the safe area */
+        --scan-d: 56px;
+        --scan-r: 50%;                   /* a circle, by request */
+        --scan-lift: 18px;               /* how far the chip stands proud of the pill */
+        --scan-label-gap: 2px;           /* chip → its label; tuned so all five baselines match */
+    }
+
+    .tabbar-wrap {
+        --tabbar-fill: #ffffff;
+        --tabbar-edge: rgba(15, 23, 42, .06);
+
+        position: fixed;
+        left: 0; right: 0; bottom: 0;
+        z-index: 950;                    /* over content, under modals/loader */
+        display: block;
+        /* Room for the chip to stand up into. The wrap must not swallow taps
+           in that strip, nor beside the floating pill — the pill and the chip
+           take pointer events back below. */
+        padding-top: var(--scan-lift);
+        pointer-events: none;
+    }
+    [data-theme="dark"] .tabbar-wrap {
+        /* lighter than the page (#0a0a0a) and than the cards (#171717), so the
+           pill never merges with whatever is scrolling behind it */
+        --tabbar-fill: #232326;
+        --tabbar-edge: rgba(255, 255, 255, .07);
+    }
+
+    /* ── Scrim ──
+       A floating pill leaves the page visible around and behind it, and card
+       edges peeking past its corners read as a stray second border. This fades
+       the content out before it reaches the pill. Sits under .tabbar, which is
+       position:relative and therefore paints above a static ::before. */
+    .tabbar-wrap::before {
+        content: '';
+        position: absolute;
+        left: 0; right: 0; bottom: 0;
+        height: calc(100% + 26px);
+        pointer-events: none;
+        background: linear-gradient(to bottom,
+                    transparent 0%,
+                    var(--bg-body) 62%,
+                    var(--bg-body) 100%);
+    }
+
+    /* ── The pill ──
+       A floating capsule, not a full-bleed bar: it clears all three edges, so
+       the page reads as continuing underneath it rather than being cut off. */
+    .tabbar {
+        position: relative;              /* above nothing, but keeps its own stacking */
+        display: flex;
+        align-items: center;
+        pointer-events: auto;
+        height: var(--tabbar-h);
+        margin: 0 calc(var(--tab-inset-x) + var(--safe-left))
+                calc(var(--tab-inset-b) + var(--safe-bottom))
+                calc(var(--tab-inset-x) + var(--safe-right));
+        border-radius: 999px;
+        background: var(--tabbar-fill);
+        box-shadow:
+            inset 0 0 0 1px var(--tabbar-edge),
+            0 6px 16px -6px rgba(15, 23, 42, .28),
+            0 16px 36px -18px rgba(15, 23, 42, .45);
+    }
+    [data-theme="dark"] .tabbar {
+        box-shadow:
+            inset 0 0 0 1px var(--tabbar-edge),
+            0 8px 20px -8px rgba(0, 0, 0, .8),
+            0 18px 40px -20px rgba(0, 0, 0, 1);
+    }
+
+    .tabbar-item {
+        flex: 1 1 0;
+        min-width: 0;                    /* let 5 slots share the width */
+        align-self: stretch;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        text-decoration: none;
+        color: var(--text-muted);
+        border-radius: 999px;
+        -webkit-tap-highlight-color: transparent;
+        transition: color 0.18s var(--ease-out);
+    }
+    .tabbar-icon {
+        font-size: 23px;
+        line-height: 1;
+        font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        transition: font-variation-settings 0.18s var(--ease-out),
+                    transform 0.18s var(--ease-spring);
+    }
+
+    .tabbar-label {
+        font-size: 10px;
+        font-weight: 600;
+        line-height: 1.2;
+        max-width: 100%;
+        padding: 0 2px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .tabbar-item.is-active { color: var(--primary); }
+    .tabbar-item.is-active .tabbar-icon {
+        font-variation-settings: 'FILL' 1, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+    }
+    .tabbar-item:active .tabbar-icon { transform: scale(0.88); }
+
+    /* ── Scan chip ──
+       A rounded square standing proud of the pill's top edge. Sibling of the
+       pill, never a child: inside it, the pill's own border-radius would clip
+       the part that sticks out. Position is derived from the pill's geometry
+       so the two never drift apart when a value is tuned. */
+    .tabbar-scan {
+        position: absolute;
+        left: 50%;
+        bottom: calc(var(--tab-inset-b) + var(--safe-bottom)
+                     + var(--tabbar-h) + var(--scan-lift) - var(--scan-d));
+        transform: translateX(-50%);
+        pointer-events: auto;
+        display: block;
+        width: var(--scan-d);
+        height: var(--scan-d);
+        text-decoration: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+    /* The chip floats above the pill, so its label cannot ride in the same
+       column as the other four. It is positioned under the chip instead and
+       nudged with --scan-label-gap until it lines up with them. */
+    .tabbar-scan .tabbar-label {
+        position: absolute;
+        top: calc(100% + var(--scan-label-gap));
+        left: 50%;
+        transform: translateX(-50%);
+        color: var(--text-muted);
+    }
+    .tabbar-scan.is-active .tabbar-label { color: var(--primary); }
+
+    .tabbar-scan-btn {
+        display: grid;
+        place-items: center;
+        width: 100%;
+        height: 100%;
+        /* --scan-r is 50%: a circle. Change it there, not here. */
+        border-radius: var(--scan-r);
+        background: var(--accent-grad);
+        color: #fff;
+        box-shadow: 0 8px 18px -6px rgba(37, 99, 235, .7);
+        transition: transform 0.18s var(--ease-spring);
+    }
+    [data-theme="dark"] .tabbar-scan-btn {
+        box-shadow: 0 8px 20px -6px rgba(0, 0, 0, .85);
+    }
+    .tabbar-scan-btn .material-symbols-rounded {
+        font-size: 26px;
+        font-variation-settings: 'FILL' 0, 'wght' 500, 'GRAD' 0, 'opsz' 24;
+    }
+    .tabbar-scan:active .tabbar-scan-btn { transform: scale(0.9); }
+
+    /* Content clears the pill, its bottom inset, and a little air so the last
+       row never sits flush against the pill's edge. */
+    .main {
+        padding-bottom: calc(var(--tabbar-h) + var(--tab-inset-b) + var(--safe-bottom) + 12px);
+    }
+
+    /* ── Auto-hide on scroll (admin-mobile.js toggles body.nav-hidden) ──
+       Topbar ONLY — the tab bar stays put, by the user's call. It is the
+       navigation, so it has to be reachable without scrolling back up. */
+    .topbar {
+        transition: transform 0.25s var(--ease-out);
+        will-change: transform;
+    }
+    body.nav-hidden .topbar { transform: translateY(-100%); }
+}
+
+/* =========================================================
+   3. KILL THE DRAWER
+   The sidebar markup still renders (desktop needs it) — it is just
+   removed from the mobile layout. toggleSidebarMobile() becomes a
+   no-op here, which is fine: nothing calls it any more.
+   ========================================================= */
+@media (max-width: 991px) {
+    .sidebar,
+    .overlay,
+    .mobile-toggle-btn,
+    .close-btn { display: none !important; }
+
+    .main {
+        margin-left: 0 !important;
+        width: 100% !important;
+        min-width: 0 !important;         /* admin.css forced 100vw — that
+                                            plus a scrollbar = sideways scroll */
+        min-height: 100dvh;              /* iOS vh counts behind the chrome */
+    }
+}
+
+/* =========================================================
+   4. TOPBAR
+   Sticky at top:0, so under a notch it needs its own inset padding.
+   ========================================================= */
+@media (max-width: 991px) {
+    /* Nothing but the page title is left up here, so the bar can be shorter.
+       Overriding the token (not just .topbar's height) keeps the
+       `calc(100vh - var(--header-h) …)` rule in admin.css honest. */
+    :root { --header-h: 52px; }
+
+    .topbar {
+        height: calc(var(--header-h) + var(--safe-top));
+        padding-top: var(--safe-top);
+        padding-left: calc(16px + var(--safe-left));
+        padding-right: calc(16px + var(--safe-right));
+        gap: 8px;
+    }
+
+    /* Everything that used to sit in the topbar now lives elsewhere:
+         back / forward  → the OS edge-swipe
+         refresh         → pull-to-refresh (PWA) or the browser's own
+         theme toggle    → เพิ่มเติม › เปลี่ยนธีม
+         avatar dropdown → เพิ่มเติม › บัญชี (profile / มุมมองยศ / ออกจากระบบ)
+       admin.css forces these visible below 992px with !important, hence the
+       !important here — this file loads after it. */
+    .nav-history-controls,
+    .theme-btn,
+    .user-dropdown-wrapper { display: none !important; }
+
+    .page-title {
+        font-size: 1.06rem;
+        font-weight: 700;
+        margin: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        min-width: 0;
+    }
+    .topbar-left { min-width: 0; flex: 1 1 auto; gap: 0; }
+    .topbar-right { flex: 0 0 auto; }
+}
+
+/* =========================================================
+   5. TAP TARGETS & CONTENT RHYTHM
+   ========================================================= */
+@media (max-width: 991px) {
+    .content-padding {
+        padding: 14px calc(14px + var(--safe-left)) 18px calc(14px + var(--safe-right)) !important;
+    }
+
+    /* Anything clickable gets a real thumb target. Buttons that are
+       icon-only get a square one. */
+    .btn, button.btn, .cmns-btn,
+    .toggle-btn, .theme-btn, .nav-hist-btn {
+        min-height: var(--tap-min);
+    }
+    .toggle-btn, .theme-btn, .nav-hist-btn { min-width: var(--tap-min); }
+
+    /* 16px or iOS zooms the page on focus. Same fix as the login page. */
+    input, select, textarea,
+    .form-control, .usr-input {
+        font-size: 16px !important;
+        min-height: var(--tap-min);
+    }
+
+    /* The footer credit is desk furniture — it just eats thumb space here.
+       (It lives inside .content-padding, not directly under .main.)
+       !important because the element carries an inline `display: flex`,
+       which outranks any plain stylesheet rule. */
+    .admin-footer { display: none !important; }
+}
+
+/* =========================================================
+   6. TABLE → CARDS  (scaffolding)
+   Opt-in, applied page by page. A table gets class="mobile-cards" and
+   every <td> an accessible label:
+
+       <table class="table mobile-cards">
+         <tr>
+           <td data-label="ลูกค้า">สมชาย</td>
+           ...
+
+   Below 992px each row becomes a card and each cell a label/value line.
+   Cells that should not get a label row (the actions cell, the title)
+   are marked class="mc-full" / class="mc-title".
+
+   Desktop is untouched: none of this exists above 991px.
+   ========================================================= */
+@media (max-width: 991px) {
+    table.mobile-cards,
+    table.mobile-cards tbody,
+    table.mobile-cards tr,
+    table.mobile-cards td {
+        display: block;
+        width: auto;
+    }
+    /* Headers are dead weight once every cell carries its own label. */
+    table.mobile-cards thead { display: none; }
+
+    table.mobile-cards {
+        border: 0;
+        border-collapse: separate;
+        background: none;
+        box-shadow: none;
+    }
+
+    table.mobile-cards tr {
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        border-radius: var(--item-radius);
+        box-shadow: var(--shadow);
+        padding: 12px 14px;
+        margin-bottom: 10px;
+    }
+
+    table.mobile-cards td {
+        border: 0;
+        padding: 5px 0;
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 0.9rem;
+        text-align: left !important;
+    }
+    table.mobile-cards td::before {
+        content: attr(data-label);
+        flex: 0 0 auto;
+        color: var(--text-muted);
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    /* A cell with no data-label would render an empty gap-left column. */
+    table.mobile-cards td:not([data-label])::before { display: none; }
+
+    /* The row's headline — big, on its own line, no label. */
+    table.mobile-cards td.mc-title {
+        display: block;
+        font-size: 1rem;
+        font-weight: 700;
+        padding-bottom: 8px;
+        margin-bottom: 4px;
+        border-bottom: 1px solid var(--border);
+    }
+    table.mobile-cards td.mc-title::before { display: none; }
+
+    /* Full-width cell (action buttons, notes) — label hidden, content flows. */
+    table.mobile-cards td.mc-full {
+        display: block;
+        padding-top: 10px;
+    }
+    table.mobile-cards td.mc-full::before { display: none; }
+
+    /* Buttons in a card action row: even split, real tap height. */
+    table.mobile-cards td.mc-full .btn,
+    table.mobile-cards td.mc-full .cmns-btn {
+        flex: 1 1 0;
+        justify-content: center;
+        min-height: var(--tap-min);
+    }
+    table.mobile-cards td.mc-actions {
+        display: flex;
+        gap: 8px;
+        padding-top: 10px;
+    }
+    table.mobile-cards td.mc-actions::before { display: none; }
+
+    /* Wrappers that force a scroll bar around the table are pointless
+       once the table is cards. */
+    .table-responsive:has(> table.mobile-cards) { overflow: visible; }
+}
+
+/* =========================================================
+   7. BOTTOM SHEETS
+   Opt-in: add .sheet-on-mobile to a modal's panel and it slides up from
+   the bottom edge instead of floating centred. Sized to content, capped
+   at 88% so the page behind stays visible as an escape hatch.
+   ========================================================= */
+@media (max-width: 991px) {
+    .sheet-on-mobile {
+        position: fixed !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        top: auto !important;
+        width: 100% !important;
+        max-width: none !important;
+        margin: 0 !important;
+        max-height: 88dvh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        border-radius: 18px 18px 0 0;
+        padding-bottom: calc(16px + var(--safe-bottom));
+        animation: sheet-up 0.26s var(--ease-out);
+    }
+    /* Grab handle — the affordance that says "this drags/closes". */
+    .sheet-on-mobile::before {
+        content: '';
+        display: block;
+        width: 38px; height: 4px;
+        margin: 0 auto 12px;
+        border-radius: 4px;
+        background: var(--border);
+    }
+}
+@keyframes sheet-up {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+}
+
+/* Respect the OS setting — these animations are decoration. */
+@media (prefers-reduced-motion: reduce) {
+    .sheet-on-mobile { animation: none; }
+    .tabbar-item, .tabbar-icon { transition: none; }
+    /* The topbar still hides — it just snaps instead of sliding. */
+    .topbar { transition: none; }
+}
