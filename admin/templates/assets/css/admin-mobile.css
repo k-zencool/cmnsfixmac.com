@@ -450,7 +450,35 @@
         -webkit-overflow-scrolling: touch;
         border-radius: 18px 18px 0 0;
         padding-bottom: calc(16px + var(--safe-bottom));
-        animation: sheet-up 0.26s var(--ease-out);
+        /* Overshoots slightly and settles — the difference between "a panel
+           appeared" and "a sheet came up from the bottom edge". */
+        animation: sheet-up 0.38s cubic-bezier(.22, 1.18, .36, 1);
+        /* Dragging writes `translate`, never `transform`: a modal panel may
+           already own transform (e.g. a scale-in), and the two properties
+           compose instead of fighting. */
+        touch-action: pan-y;
+        /* A modal panel may carry its own scale-in (tracking's does). On a
+           sheet that reads as the panel inflating while it rises, so the
+           slide is the only motion left. `translate` stays free for the
+           animation and the drag. */
+        transform: none !important;
+    }
+    /* Set by the drag handler while a finger is down. */
+    .sheet-on-mobile.is-dragging {
+        animation: none;
+        transition: none;
+        /* The sheet follows the finger 1:1, so nothing may scroll under it. */
+        touch-action: none;
+    }
+    .sheet-on-mobile.is-settling {
+        animation: none;
+        transition: translate .26s cubic-bezier(.22, 1, .36, 1);
+    }
+    /* A wider invisible grab area around the handle — 4px of pixels is not
+       a target, the strip above the content is. */
+    .sheet-grab {
+        cursor: grab;
+        touch-action: none;
     }
     /* Grab handle — the affordance that says "this drags/closes". */
     .sheet-on-mobile::before {
@@ -463,8 +491,8 @@
     }
 }
 @keyframes sheet-up {
-    from { transform: translateY(100%); }
-    to   { transform: translateY(0); }
+    from { translate: 0 100%; }
+    to   { translate: 0 0; }
 }
 
 /* Respect the OS setting — these animations are decoration. */
