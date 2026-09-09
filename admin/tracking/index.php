@@ -142,17 +142,292 @@ $stats = $pdo->query("
     FROM tracking
 ")->fetch(PDO::FETCH_ASSOC);
 
+/* ── Per-row presentation data ────────────────────────────────────────
+   Built once here, consumed by BOTH layouts (mobile cards + desktop
+   table) so the two can never drift apart. $viewJobs is the payload the
+   detail modal reads. */
+$dev_icons = [
+    'MacBook'     => 'laptop_mac',
+    'Notebook'    => 'laptop_windows',
+    'iPhone'      => 'smartphone',
+    'iPad'        => 'tablet_mac',
+    'AirPods'     => 'headphones',
+    'Apple Watch' => 'watch',
+    'Apple TV'    => 'tv',
+    'iMac'        => 'desktop_mac',
+    'Mac mini'    => 'dvr',
+    'Mac Pro'     => 'dns',
+    'PC'          => 'desktop_windows',
+];
+function trk_device_icon(?string $type, array $map): string {
+    $type = trim((string)$type);
+    foreach ($map as $k => $icon) {
+        if (stripos($type, $k) === 0) return $icon;
+    }
+    return 'devices_other';
+}
+
+$rows     = [];
+$viewJobs = [];
+foreach ($jobs as $row) {
+    $id      = (int)$row['id'];
+    $stCode  = $row['status'] ?? 'QS';
+    $stData  = $statusMap[$stCode] ?? ['label' => $stCode, 'class' => 'st-gray'];
+    $dateIn  = date('d/m/y', strtotime($row['created_at']));
+    $dateApp = $row['appointment_date'] ? date('d/m/y', strtotime($row['appointment_date'])) : '—';
+    $isDone  = in_array($stCode, ['DV', 'RT']);
+    $cleanP  = strip_html_content($row['problem_details']);
+
+    $rowClass  = '';
+    $timeText  = '—';
+    $timeClass = '';
+
+    // Soft row tint by status (only these three); overdue/today still override
+    $stTint = ['QS' => 'tr-st-qs', 'OK' => 'tr-st-ok', 'FN' => 'tr-st-fn'][$stCode] ?? '';
+
+    if ($isDone) {
+        $rowClass = 'tr-done';
+    } elseif (!empty($row['appointment_date'])) {
+        $today  = strtotime(date('Y-m-d'));
+        $target = strtotime(date('Y-m-d', strtotime($row['appointment_date'])));
+        $days   = ($target - $today) / 86400;
+        if      ($days > 0)  { $timeText = 'อีก ' . number_format($days) . ' วัน'; $timeClass = 'time-ok'; }
+        elseif  ($days == 0) { $timeText = 'วันนี้'; $timeClass = 'time-warn'; $rowClass = 'tr-today'; }
+        else                 { $timeText = 'เกิน ' . number_format(abs($days)) . ' วัน'; $timeClass = 'time-danger'; $rowClass = 'tr-overdue'; }
+    }
+
+    [$vSymps, $vDetail] = trk_parse_problem($row['problem_details']);
+    [$vStates, $vNote]  = trk_parse_note($row['technician_note'] ?? '');
+
+    $rows[$id] = [
+        'stCode'    => $stCode,
+        'stData'    => $stData,
+        'dateIn'    => $dateIn,
+        'dateApp'   => $dateApp,
+        'cleanP'    => $cleanP,
+        'rowClass'  => $rowClass,
+        'stTint'    => $stTint,
+        'timeText'  => $timeText,
+        'timeClass' => $timeClass,
+        'icon'      => trk_device_icon($row['device_type'] ?? '', $dev_icons),
+    ];
+
+    $viewJobs[$id] = [
+        'id'       => $id,
+        'ticket'   => $row['ticket_number'],
+        'stLabel'  => $stData['label'],
+        'stClass'  => $stData['class'],
+        'created'  => date('d/m/Y H:i', strtotime($row['created_at'])),
+        'appt'     => $row['appointment_date'] ? date('d/m/Y', strtotime($row['appointment_date'])) : null,
+        'pickup'   => !empty($row['pickup_date']) ? date('d/m/Y H:i', strtotime($row['pickup_date'])) : null,
+        'timeText' => $timeText,
+        'timeClass'=> $timeClass,
+        'name'     => $row['customer_name'],
+        'phone'    => $row['customer_phone'],
+        'device'   => trim(($row['device_type'] ?? '') . ' ' . ($row['device_series'] ?? '')),
+        'model'    => $row['device_model'],
+        'sn'       => $row['serial_number'] ?: null,
+        'pass'     => $row['device_password'] ?: null,
+        'symptoms' => $vSymps,
+        'detail'   => $vDetail !== '' ? $vDetail : null,
+        'states'   => $vStates,
+        'note'     => $vNote !== '' ? $vNote : null,
+        'accs'     => array_values(array_filter(array_map('trim', explode(',', $row['accessories'] ?? '')))),
+        'cost'     => number_format((float)$row['estimated_cost']),
+    ];
+}
+
 include __DIR__ . '/../templates/header_admin.php';
 ?>
 
 <link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
 <link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-logs.css') ?>">
 <link rel="stylesheet" href="assets/css/tracking-index.css?v=<?= asset_ver('/admin/tracking/assets/css/tracking-index.css') ?>">
+<link rel="stylesheet" href="assets/css/tracking-mobile.css?v=<?= asset_ver('/admin/tracking/assets/css/tracking-mobile.css') ?>">
+
+<?php
+/* Shared by the mobile chips and the desktop group tabs */
+$tabBase = 'index.php?'
+    . ($q     ? 'q='         . urlencode($q) . '&' : '')
+    . ($dfrom ? 'date_from=' . $dfrom . '&' : '')
+    . ($dto   ? 'date_to='   . $dto   . '&' : '');
+$isManualStatus = !empty($_GET['status']);
+$monthFrom = date('Y-m-01');
+$monthTo   = date('Y-m-t');
+$isMonth   = ($dfrom === $monthFrom && $dto === $monthTo);
+?>
 
 <div class="cmns-wrapper">
 
+    <!-- ══════════════════════════════════════════════════════════════
+         MOBILE (<992px). The desktop blocks below carry .trk-d and are
+         switched off at that width; this block is switched on. Same data,
+         two layouts — see tracking-mobile.css.
+         ══════════════════════════════════════════════════════════════ -->
+    <div class="trk-m">
+
+        <!-- Search + filter sheet (its own form; the desktop one is hidden
+             and therefore never submitted) -->
+        <form method="GET" action="index.php" class="trk-m-tools" id="trkmForm">
+            <?php if ($group !== 'all'): ?>
+                <input type="hidden" name="group" value="<?= h($group) ?>">
+            <?php endif; ?>
+
+            <div class="trk-m-search">
+                <span class="material-symbols-rounded">search</span>
+                <input type="text" name="q" value="<?= h($q) ?>" placeholder="Job / ชื่อ / เบอร์ / รุ่น"
+                       enterkeyhint="search" autocomplete="off">
+            </div>
+            <button type="button" class="trk-m-filter <?= (!empty($statusFilter) || $dfrom || $dto) ? 'has-filter' : '' ?>"
+                    onclick="openTrkSheet()" aria-label="ตัวกรอง">
+                <span class="material-symbols-rounded">tune</span>
+                <?php $fcount = count($statusFilter) + ($dfrom ? 1 : 0) + ($dto ? 1 : 0); ?>
+                <?php if ($fcount): ?><span class="trk-m-fbadge"><?= $fcount ?></span><?php endif; ?>
+            </button>
+
+            <div class="trk-m-sheet-ov" id="trkmSheet" hidden>
+                <div class="trk-m-sheet sheet-on-mobile">
+                    <div class="trk-m-sheet-hd">
+                        <h2>ตัวกรอง</h2>
+                        <button type="button" onclick="closeTrkSheet()" aria-label="ปิด">
+                            <span class="material-symbols-rounded">close</span>
+                        </button>
+                    </div>
+
+                    <div class="trk-m-sheet-body">
+                        <label class="trk-m-lbl">สถานะงาน</label>
+                        <div class="trk-m-stats-grid">
+                            <?php foreach ($statusMap as $k => $v): ?>
+                                <label class="trk-m-chk">
+                                    <input type="checkbox" name="status[]" value="<?= $k ?>"
+                                        <?= in_array($k, $statusFilter) ? 'checked' : '' ?>>
+                                    <span class="trk-filter-dot <?= $v['class'] ?>"></span>
+                                    <span><?= h($v['label']) ?></span>
+                                </label>
+                            <?php endforeach; ?>
+                        </div>
+
+                        <label class="trk-m-lbl">ช่วงวันที่รับเครื่อง</label>
+                        <div class="trk-m-presets">
+                            <button type="button" class="trk-m-preset <?= $isMonth ? 'on' : '' ?>"
+                                    onclick="trkPreset(this, '<?= $monthFrom ?>', '<?= $monthTo ?>')">
+                                เดือนนี้ <b><?= number_format($stats['this_month']) ?></b>
+                            </button>
+                            <button type="button" class="trk-m-preset" onclick="trkPreset(this, '<?= date('Y-m-d') ?>', '<?= date('Y-m-d') ?>')">
+                                วันนี้
+                            </button>
+                            <button type="button" class="trk-m-preset" onclick="trkPreset(this, '<?= date('Y-m-d', strtotime('-7 days')) ?>', '<?= date('Y-m-d') ?>')">
+                                7 วันล่าสุด
+                            </button>
+                        </div>
+                        <div class="trk-m-dates">
+                            <input type="date" name="date_from" value="<?= h($dfrom) ?>" aria-label="จากวันที่">
+                            <span>ถึง</span>
+                            <input type="date" name="date_to" value="<?= h($dto) ?>" aria-label="ถึงวันที่">
+                        </div>
+                    </div>
+
+                    <div class="trk-m-sheet-ft">
+                        <button type="button" class="trk-m-btn-ghost" onclick="clearTrkSheet()">ล้างตัวกรอง</button>
+                        <button type="submit" class="trk-m-btn-primary" onclick="showLoader()">ดูผลลัพธ์</button>
+                    </div>
+                </div>
+            </div>
+        </form>
+
+        <!-- Group chips — these carry the counts the desktop stat cards
+             show, so the four stat cards are not repeated on mobile -->
+        <div class="trk-m-chips">
+            <a href="<?= $tabBase ?>group=all" class="trk-m-chip <?= ($group === 'all' && !$isManualStatus && !$isMonth) ? 'on' : '' ?>" onclick="showLoader()">
+                ทั้งหมด
+            </a>
+            <a href="<?= $tabBase ?>group=active" class="trk-m-chip c-blue <?= ($group === 'active' && !$isManualStatus) ? 'on' : '' ?>" onclick="showLoader()">
+                กำลังทำ <b><?= number_format($stats['active_count']) ?></b>
+            </a>
+            <a href="<?= $tabBase ?>group=done" class="trk-m-chip c-green <?= ($group === 'done' && !$isManualStatus) ? 'on' : '' ?>" onclick="showLoader()">
+                รอรับ <b><?= number_format($stats['done_count']) ?></b>
+            </a>
+            <a href="<?= $tabBase ?>group=overdue" class="trk-m-chip c-red <?= ($group === 'overdue' && !$isManualStatus) ? 'on' : '' ?>" onclick="showLoader()">
+                เกินนัด <b><?= number_format($stats['overdue_count']) ?></b>
+            </a>
+        </div>
+
+        <!-- Job cards -->
+        <?php if (empty($jobs)): ?>
+            <div class="trk-m-empty">
+                <span class="material-symbols-rounded">build_circle</span>
+                <p class="trk-m-empty-t">ไม่พบข้อมูลงานซ่อม</p>
+                <p class="trk-m-empty-s">ลองเปลี่ยนตัวกรองหรือค้นหาใหม่</p>
+            </div>
+        <?php else: ?>
+            <div class="trk-m-list">
+                <?php foreach ($jobs as $row):
+                    $m     = $rows[(int)$row['id']];
+                    $phone = preg_replace('/[^0-9+]/', '', $row['customer_phone'] ?? '');
+                ?>
+                <div class="trk-m-card <?= $m['rowClass'] ?>" id="trkm-row-<?= (int)$row['id'] ?>">
+                    <button type="button" class="trk-m-card-main" onclick="openViewModal(<?= (int)$row['id'] ?>)">
+                        <span class="trk-m-ic"><span class="material-symbols-rounded"><?= h($m['icon']) ?></span></span>
+                        <span class="trk-m-body">
+                            <span class="trk-m-top">
+                                <span class="trk-m-ticket"><?= h($row['ticket_number']) ?></span>
+                                <span class="status-badge <?= $m['stData']['class'] ?>"><?= h($m['stData']['label']) ?></span>
+                            </span>
+                            <span class="trk-m-name"><?= h($row['customer_name']) ?></span>
+                            <span class="trk-m-dev">
+                                <?= h(trim(($row['device_type'] ?? '') . ' ' . ($row['device_series'] ?? ''))) ?>
+                                <?php if (!empty($row['device_model'])): ?>
+                                    <span class="trk-m-dim"><?= h(mb_substr($row['device_model'], 0, 26)) ?></span>
+                                <?php endif; ?>
+                            </span>
+                            <span class="trk-m-foot">
+                                <?php if ($m['timeText'] !== '—'): ?>
+                                    <span class="<?= $m['timeClass'] ?>"><?= h($m['timeText']) ?></span>
+                                <?php else: ?>
+                                    <span class="trk-m-dim">รับ <?= $m['dateIn'] ?></span>
+                                <?php endif; ?>
+                                <span class="trk-m-cost">฿<?= number_format($row['estimated_cost']) ?></span>
+                            </span>
+                        </span>
+                    </button>
+                    <?php if ($phone !== ''): ?>
+                        <a class="trk-m-call" href="tel:<?= h($phone) ?>" aria-label="โทรหา <?= h($row['customer_name']) ?>">
+                            <span class="material-symbols-rounded">call</span>
+                        </a>
+                    <?php endif; ?>
+                </div>
+                <?php endforeach; ?>
+            </div>
+
+            <?php if ($pages <= 1): ?>
+                <p class="trk-m-total"><?= number_format($total) ?> รายการ</p>
+            <?php endif; ?>
+
+            <!-- Pager -->
+            <?php if ($pages > 1): ?>
+            <div class="trk-m-pager">
+                <a href="<?= $page > 1 ? page_url($page - 1) : '#' ?>" class="trk-m-pg <?= $page <= 1 ? 'off' : '' ?>"
+                   onclick="if(<?= (int)($page > 1) ?>) showLoader(); else return false;" aria-label="หน้าก่อน">
+                    <span class="material-symbols-rounded">chevron_left</span>
+                </a>
+                <span class="trk-m-pg-lbl"><?= number_format($total) ?> รายการ · หน้า <b><?= $page ?></b>/<?= $pages ?></span>
+                <a href="<?= $page < $pages ? page_url($page + 1) : '#' ?>" class="trk-m-pg <?= $page >= $pages ? 'off' : '' ?>"
+                   onclick="if(<?= (int)($page < $pages) ?>) showLoader(); else return false;" aria-label="หน้าถัดไป">
+                    <span class="material-symbols-rounded">chevron_right</span>
+                </a>
+            </div>
+            <?php endif; ?>
+        <?php endif; ?>
+
+        <!-- New job: a FAB clear of the tab bar, so the head stays one row -->
+        <a href="create.php" class="trk-m-fab" onclick="showLoader()" aria-label="เปิดงานซ่อม">
+            <span class="material-symbols-rounded">add</span>
+        </a>
+
+    </div><!-- .trk-m -->
+
     <!-- ── Header ── -->
-    <div class="cmns-header-bar">
+    <div class="cmns-header-bar trk-d">
         <div>
             <h1 class="cmns-page-title" style="color: var(--primary);">
                 <span class="material-symbols-rounded" style="font-size:32px;">build_circle</span>
@@ -173,7 +448,7 @@ include __DIR__ . '/../templates/header_admin.php';
     </div>
 
     <!-- ── Stat Cards (shop-style: icon + value + label) ── -->
-    <div class="trk-stats" style="margin-bottom:24px;">
+    <div class="trk-stats trk-d" style="margin-bottom:24px;">
         <a href="index.php?group=active" class="stat-card">
             <div class="stat-icon" style="background:#eff6ff;"><span class="material-symbols-rounded" style="color:#3b82f6;">pending_actions</span></div>
             <div><div class="stat-val"><?= number_format($stats['active_count']) ?></div><div class="stat-lbl">กำลังดำเนินการ</div></div>
@@ -193,7 +468,7 @@ include __DIR__ . '/../templates/header_admin.php';
     </div>
 
     <!-- ── Filter Bar ── -->
-    <form method="GET" action="index.php">
+    <form method="GET" action="index.php" class="trk-d">
         <?php if ($group !== 'all'): ?>
             <input type="hidden" name="group" value="<?= h($group) ?>">
         <?php endif; ?>
@@ -254,14 +529,7 @@ include __DIR__ . '/../templates/header_admin.php';
     </form>
 
     <!-- ── Group Tabs ── -->
-    <?php
-    $tabBase = 'index.php?'
-        . ($q    ? 'q='         . urlencode($q) . '&' : '')
-        . ($dfrom ? 'date_from=' . $dfrom . '&' : '')
-        . ($dto   ? 'date_to='   . $dto   . '&' : '');
-    $isManualStatus = !empty($_GET['status']);
-    ?>
-    <div class="log-tabs">
+    <div class="log-tabs trk-d">
         <a href="<?= $tabBase ?>group=all"    class="log-tab <?= $group === 'all'    && !$isManualStatus ? 'active-all'    : '' ?>">
             <span class="material-symbols-rounded" style="font-size:14px; vertical-align:middle;">list</span>
             ทั้งหมด
@@ -281,7 +549,7 @@ include __DIR__ . '/../templates/header_admin.php';
     </div>
 
     <!-- ── Table ── -->
-    <div class="log-card">
+    <div class="log-card trk-d">
         <div style="overflow-x:auto;">
             <table class="log-table">
                 <thead>
@@ -309,57 +577,18 @@ include __DIR__ . '/../templates/header_admin.php';
                             </div>
                         </td></tr>
                     <?php else: ?>
-                        <?php $viewJobs = []; ?>
                         <?php foreach ($jobs as $row):
-                            $stCode  = $row['status'] ?? 'QS';
-                            $stData  = $statusMap[$stCode] ?? ['label' => $stCode, 'class' => 'st-gray'];
-                            $dateIn  = date('d/m/y', strtotime($row['created_at']));
-                            $dateApp = $row['appointment_date'] ? date('d/m/y', strtotime($row['appointment_date'])) : '—';
-                            $isDone  = in_array($stCode, ['DV', 'RT']);
-                            $cleanP  = strip_html_content($row['problem_details']);
-
-                            $rowClass  = '';
-                            $timeText  = '—';
-                            $timeClass = '';
-
-                            // Soft row tint by status (only these three); overdue/today still override
-                            $stTint = ['QS' => 'tr-st-qs', 'OK' => 'tr-st-ok', 'FN' => 'tr-st-fn'][$stCode] ?? '';
-
-                            if ($isDone) {
-                                $rowClass = 'tr-done';
-                            } elseif (!empty($row['appointment_date'])) {
-                                $today  = strtotime(date('Y-m-d'));
-                                $target = strtotime(date('Y-m-d', strtotime($row['appointment_date'])));
-                                $days   = ($target - $today) / 86400;
-                                if      ($days > 0)  { $timeText = 'อีก ' . number_format($days) . ' วัน'; $timeClass = 'time-ok'; }
-                                elseif  ($days == 0) { $timeText = 'วันนี้'; $timeClass = 'time-warn'; $rowClass = 'tr-today'; }
-                                else                 { $timeText = 'เกิน ' . number_format(abs($days)) . ' วัน'; $timeClass = 'time-danger'; $rowClass = 'tr-overdue'; }
-                            }
-                            [$vSymps, $vDetail] = trk_parse_problem($row['problem_details']);
-                            [$vStates, $vNote]  = trk_parse_note($row['technician_note'] ?? '');
-                            $viewJobs[(int)$row['id']] = [
-                                'id'       => (int)$row['id'],
-                                'ticket'   => $row['ticket_number'],
-                                'stLabel'  => $stData['label'],
-                                'stClass'  => $stData['class'],
-                                'created'  => date('d/m/Y H:i', strtotime($row['created_at'])),
-                                'appt'     => $row['appointment_date'] ? date('d/m/Y', strtotime($row['appointment_date'])) : null,
-                                'pickup'   => !empty($row['pickup_date']) ? date('d/m/Y H:i', strtotime($row['pickup_date'])) : null,
-                                'timeText' => $timeText,
-                                'timeClass'=> $timeClass,
-                                'name'     => $row['customer_name'],
-                                'phone'    => $row['customer_phone'],
-                                'device'   => trim(($row['device_type'] ?? '') . ' ' . ($row['device_series'] ?? '')),
-                                'model'    => $row['device_model'],
-                                'sn'       => $row['serial_number'] ?: null,
-                                'pass'     => $row['device_password'] ?: null,
-                                'symptoms' => $vSymps,
-                                'detail'   => $vDetail !== '' ? $vDetail : null,
-                                'states'   => $vStates,
-                                'note'     => $vNote !== '' ? $vNote : null,
-                                'accs'     => array_values(array_filter(array_map('trim', explode(',', $row['accessories'] ?? '')))),
-                                'cost'     => number_format((float)$row['estimated_cost']),
-                            ];
+                            $m = $rows[(int)$row['id']];
+                            // presentation data is precomputed above so the mobile
+                            // cards and this table always agree
+                            $stData    = $m['stData'];
+                            $dateIn    = $m['dateIn'];
+                            $dateApp   = $m['dateApp'];
+                            $cleanP    = $m['cleanP'];
+                            $rowClass  = $m['rowClass'];
+                            $stTint    = $m['stTint'];
+                            $timeText  = $m['timeText'];
+                            $timeClass = $m['timeClass'];
                         ?>
                         <tr class="<?= trim($rowClass . ' ' . $stTint) ?>" id="trk-row-<?= $row['id'] ?>">
 
@@ -511,7 +740,7 @@ include __DIR__ . '/../templates/header_admin.php';
 
 <!-- ── View Job Modal (read-only detail card) ── -->
 <div id="viewModal" class="trk-modal-overlay">
-    <div class="trk-view">
+    <div class="trk-view sheet-on-mobile">
         <header class="trk-view-hd">
             <div class="trk-view-hd-l">
                 <span class="trk-view-ticket" id="vm-ticket"></span>
@@ -560,7 +789,15 @@ include __DIR__ . '/../templates/header_admin.php';
         </div>
 
         <footer class="trk-view-ft">
-            <button type="button" class="trk-btn-cancel" onclick="closeViewModal()">ปิด</button>
+            <!-- Redundant next to the header's ✕ on a phone; desktop keeps it. -->
+            <button type="button" class="trk-btn-cancel trk-d-only" onclick="closeViewModal()">ปิด</button>
+            <?php if (can('jobs.write')): ?>
+            <!-- Mobile only: the desktop table has its own delete button in the
+                 actions column, which is not rendered below 992px. -->
+            <button type="button" class="trk-view-delbtn trkm-only" onclick="deleteFromView()">
+                <span class="material-symbols-rounded">delete</span> ลบ
+            </button>
+            <?php endif; ?>
             <a id="vm-edit" href="#" class="trk-view-editbtn" onclick="showLoader()">
                 <span class="material-symbols-rounded">edit</span> แก้ไขงานนี้
             </a>
@@ -590,9 +827,11 @@ function _fillP(elId, text) {
     p.style.display = text ? '' : 'none';
 }
 
+let _trkViewId = null;
 function openViewModal(id) {
     const j = trkJobs[id];
     if (!j) return;
+    _trkViewId = id;
 
     document.getElementById('vm-ticket').textContent = j.ticket;
     const st = document.getElementById('vm-status');
@@ -654,6 +893,14 @@ window.addEventListener('pageshow', () => {
     if (el) el.style.display = 'none';
 });
 
+/* Delete from the detail sheet — mobile's only route to it. */
+function deleteFromView() {
+    const j = trkJobs[_trkViewId];
+    if (!j) return;
+    closeViewModal();
+    setTimeout(() => openDeleteModal(j.id, j.ticket), 160);
+}
+
 let _trkDelId = null;
 function openDeleteModal(id, ticket) {
     _trkDelId = id;
@@ -676,7 +923,8 @@ function doDeleteTracking() {
     fetch('', { method:'POST', body: fd }).then(r => r.json()).then(data => {
         closeDeleteModal();
         if (data.ok) {
-            const row = document.getElementById('trk-row-' + _trkDelId);
+            const row = document.getElementById('trk-row-' + _trkDelId)
+                     || document.getElementById('trkm-row-' + _trkDelId);
             if (row) {
                 row.style.transition = 'opacity .25s,transform .25s';
                 row.style.opacity = '0'; row.style.transform = 'translateX(30px)';
@@ -697,6 +945,60 @@ function goPerPage(sel) {
     u.searchParams.set('page', '1');
     location = u.toString();
 }
+
+/* ── Mobile filter sheet ──
+   The overlay is styled display:flex, which outranks the UA's
+   [hidden]{display:none}; tracking-mobile.css re-states it. Toggle via
+   .hidden property only — never inline display. */
+function openTrkSheet() {
+    const ov = document.getElementById('trkmSheet');
+    if (!ov) return;
+    ov.hidden = false;
+    document.body.style.overflow = 'hidden';
+    requestAnimationFrame(() => ov.classList.add('show'));
+}
+function closeTrkSheet() {
+    const ov = document.getElementById('trkmSheet');
+    if (!ov) return;
+    ov.classList.remove('show');
+    document.body.style.overflow = '';
+    setTimeout(() => { ov.hidden = true; }, 200);
+}
+function trkPreset(btn, from, to) {
+    const f = document.getElementById('trkmForm');
+    if (!f) return;
+    f.querySelector('input[name="date_from"]').value = from;
+    f.querySelector('input[name="date_to"]').value   = to;
+    f.querySelectorAll('.trk-m-preset').forEach(b => b.classList.toggle('on', b === btn));
+}
+function clearTrkSheet() {
+    const f = document.getElementById('trkmForm');
+    if (!f) return;
+    f.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+    f.querySelectorAll('input[type="date"]').forEach(d => d.value = '');
+    f.querySelectorAll('.trk-m-preset').forEach(b => b.classList.remove('on'));
+}
+(function () {
+    const ov = document.getElementById('trkmSheet');
+    if (!ov) return;
+    ov.addEventListener('click', e => { if (e.target === ov) closeTrkSheet(); });
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape' && !ov.hidden) closeTrkSheet();
+    });
+
+    /* Dragged down past the threshold — admin-mobile.js has already thrown
+       the sheet off-screen, this just tears it down. */
+    ov.addEventListener('sheetdismiss', () => {
+        ov.classList.remove('show');
+        ov.hidden = true;
+        document.body.style.overflow = '';
+    });
+    document.getElementById('viewModal').addEventListener('sheetdismiss', () => {
+        const m = document.getElementById('viewModal');
+        m.classList.remove('show');
+        m.style.display = 'none';
+    });
+})();
 
 // ── Filter Menu ──
 function toggleFilterMenu(e) {
