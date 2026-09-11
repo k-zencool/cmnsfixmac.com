@@ -128,8 +128,14 @@
     align-items: flex-start;
     gap: 11px;
     padding: 13px 12px;
+    /* a <button> (opens the detail sheet), so strip the UA button look */
+    background: none;
+    border: 0;
+    width: 100%;
+    text-align: left;
+    font-family: inherit;
     color: inherit;
-    text-decoration: none;
+    cursor: pointer;
     transition: transform .12s var(--ease-out);
 }
 .war-m-card-main:active { transform: scale(.985); }
@@ -307,3 +313,124 @@ body:has(.cmns-modal.show) .war-m-fab { display: none; }
     /* Footer buttons: two thumbs-wide targets instead of right-aligned pills */
     .war-sheet .cmns-btn { flex: 1; justify-content: center; min-height: 46px; }
 }
+
+/* =========================================================
+   DETAIL SHEET — a tap on a card opens this in place, like งานซ่อม.
+   .sheet-on-mobile does the slide-up and the drag; this is the overlay
+   behind it plus the sheet's contents.
+   ========================================================= */
+.war-v-ov {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: flex-end;
+    background: rgba(15, 23, 42, .5);
+    opacity: 0;
+    transition: opacity .2s var(--ease-out);
+}
+/* An author display outranks the UA [hidden] rule — restate it. */
+.war-v-ov[hidden],
+.war-v [hidden] { display: none !important; }
+.war-v-ov.show { opacity: 1; }
+body:has(.war-v-ov:not([hidden])) .war-m-fab { display: none; }
+
+.war-v {
+    background: var(--bg-surface);
+    color: var(--text-main);
+    padding: 12px 16px 16px;
+}
+.war-v-hd {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+.war-v-hd-l { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; min-width: 0; }
+.war-v-no {
+    font-family: monospace;
+    font-size: 1.05rem;
+    font-weight: 800;
+    letter-spacing: .4px;
+    color: var(--primary);
+}
+.war-v-close {
+    flex-shrink: 0;
+    width: 34px; height: 34px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 10px;
+    background: var(--bg-surface-alt);
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.war-v-meta {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 4px;
+}
+.war-v-meta > div {
+    padding: 9px 12px;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    background: var(--bg-surface-alt);
+}
+.war-v-meta label,
+.war-v-sec > label {
+    display: block;
+    margin-bottom: 3px;
+    font-size: 10.5px;
+    font-weight: 800;
+    letter-spacing: .5px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+}
+.war-v-meta b { font-size: 13.5px; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+.war-v-sec { padding: 12px 0; border-top: 1px dashed var(--border); }
+.war-v-sec:first-of-type { margin-top: 10px; }
+.war-v-sec > label { margin-bottom: 6px; }
+.war-v-line { font-size: 13.5px; margin-bottom: 4px; }
+.war-v-line b { font-weight: 700; }
+.war-v-line a { color: var(--primary); font-weight: 600; text-decoration: none; }
+.war-v-mono { font-family: monospace; font-size: 12.5px; color: var(--text-muted); }
+.war-v-p { margin: 0; font-size: 13px; line-height: 1.65; white-space: pre-line; }
+
+.war-v-ft {
+    display: flex;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+}
+.war-v-btn,
+.war-v-primary {
+    height: 46px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    border-radius: 12px;
+    font-size: .88rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+.war-v-btn {
+    flex-shrink: 0;
+    width: 46px;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text-main);
+}
+.war-v-primary {
+    flex: 1;
+    background: var(--primary);
+    color: #fff;
+}
+.war-v-primary .material-symbols-rounded { font-size: 19px; }
+.war-v-btn:active,
+.war-v-primary:active { transform: scale(.96); }

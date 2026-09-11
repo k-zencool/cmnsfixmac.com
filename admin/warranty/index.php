@@ -54,7 +54,8 @@ $pages  = max(1, (int)ceil($total / $per));
 if ($page > $pages) $page = $pages;
 $offset = ($page - 1) * $per;
 
-$rows = $pdo->prepare("SELECT w.*, t.ticket_number
+$rows = $pdo->prepare("SELECT w.*, t.ticket_number,
+                               (SELECT COUNT(*) FROM warranty_claims c WHERE c.warranty_id = w.id) AS claim_count
                         FROM warranties w
                         LEFT JOIN tracking t ON t.id = w.tracking_id
                         WHERE $where_sql
@@ -65,7 +66,8 @@ $warranties = $rows->fetchAll(PDO::FETCH_ASSOC);
 
 /* Per-row presentation data — built once, read by BOTH layouts (mobile
    cards + desktop table) so the two can never drift apart. */
-$meta = [];
+$meta    = [];
+$viewWar = [];
 foreach ($warranties as $w) {
     $days_left = w_days_left($w['end_date']);
     if ($w['status'] === 'active') {
@@ -80,6 +82,25 @@ foreach ($warranties as $w) {
         'days_txt' => $days_txt,
         'icon'     => war_device_icon($w['device_model']),
         'end'      => date('d/m/y', strtotime($w['end_date'])),
+    ];
+    // Payload for the phone detail sheet — read by JS, same idea as tracking's $viewJobs
+    $viewWar[(int)$w['id']] = [
+        'id'      => (int)$w['id'],
+        'no'      => $w['warranty_no'],
+        'badge'   => w_status_badge($w['status']),
+        'start'   => date('d/m/Y', strtotime($w['start_date'])),
+        'end'     => date('d/m/Y', strtotime($w['end_date'])),
+        'days'    => (int)$w['warranty_days'],
+        'left'    => $w['status'] === 'active' ? $days_txt : ($w['status'] === 'voided' ? 'ยกเลิกแล้ว' : 'หมดอายุ'),
+        'leftCls' => $days_cls,
+        'name'    => $w['customer_name'],
+        'phone'   => $w['customer_phone'] ?: null,
+        'device'  => $w['device_model'],
+        'sn'      => $w['serial_no'] ?: null,
+        'ticket'  => $w['ticket_number'] ?: null,
+        'trkId'   => $w['tracking_id'] ? (int)$w['tracking_id'] : null,
+        'summary' => $w['repair_summary'] ?: null,
+        'claims'  => (int)$w['claim_count'],
     ];
 }
 
@@ -205,7 +226,7 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
                 $st = $w['status'];
             ?>
             <div class="war-m-card st-<?= h($st) ?> <?= ($st === 'active' && $m['days_cls'] === 'warn') ? 'is-soon' : '' ?>">
-                <a class="war-m-card-main" href="view.php?id=<?= (int)$w['id'] ?>" onclick="showLoader()">
+                <button type="button" class="war-m-card-main" onclick="openWarSheet(<?= (int)$w['id'] ?>)">
                     <span class="war-m-ic"><span class="material-symbols-rounded"><?= $m['icon'] ?></span></span>
                     <span class="war-m-body">
                         <span class="war-m-top">
@@ -227,7 +248,7 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
                             <?php endif; ?>
                         </span>
                     </span>
-                </a>
+                </button>
             </div>
             <?php endforeach; ?>
         </div>
@@ -253,6 +274,65 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
     <button type="button" class="war-m-fab" onclick="openCreateModal()" aria-label="ออกใบประกันใหม่">
         <span class="material-symbols-rounded">add</span>
     </button>
+
+    <!-- Detail sheet — a tap on a card opens this in place instead of leaving
+         the list, same as งานซ่อม. Claims, QR and void still live on view.php. -->
+    <div class="war-v-ov" id="warSheet" hidden>
+        <div class="war-v sheet-on-mobile">
+            <header class="war-v-hd">
+                <div class="war-v-hd-l">
+                    <span class="war-v-no" id="wv-no"></span>
+                    <span id="wv-badge"></span>
+                </div>
+                <button type="button" class="war-v-close" onclick="closeWarSheet()" aria-label="ปิด">
+                    <span class="material-symbols-rounded">close</span>
+                </button>
+            </header>
+
+            <div class="war-v-meta">
+                <div><label>เริ่มประกัน</label><b id="wv-start"></b></div>
+                <div><label>หมดประกัน</label><b id="wv-end"></b></div>
+                <div><label>ระยะประกัน</label><b id="wv-days"></b></div>
+                <div><label>คงเหลือ</label><b id="wv-left"></b></div>
+            </div>
+
+            <section class="war-v-sec">
+                <label>ลูกค้า</label>
+                <div class="war-v-line"><b id="wv-name"></b><span id="wv-phone-wrap"> · <a id="wv-phone" href="#"></a></span></div>
+            </section>
+
+            <section class="war-v-sec">
+                <label>เครื่อง</label>
+                <div class="war-v-line"><b id="wv-device"></b></div>
+                <div class="war-v-line war-v-mono" id="wv-sn-row">SN: <span id="wv-sn"></span></div>
+                <div class="war-v-line" id="wv-ticket-row">งานซ่อม <a id="wv-ticket" href="#" onclick="showLoader()"></a></div>
+            </section>
+
+            <section class="war-v-sec" id="wv-sec-sum">
+                <label>สรุปงานซ่อม</label>
+                <p class="war-v-p" id="wv-summary"></p>
+            </section>
+
+            <section class="war-v-sec">
+                <label>การเคลม</label>
+                <div class="war-v-line" id="wv-claims"></div>
+            </section>
+
+            <footer class="war-v-ft">
+                <a id="wv-print" href="#" target="_blank" class="war-v-btn" aria-label="พิมพ์ใบประกัน">
+                    <span class="material-symbols-rounded">print</span>
+                </a>
+                <?php if (can('content.write')): ?>
+                <a id="wv-edit" href="#" class="war-v-btn" onclick="showLoader()" aria-label="แก้ไขข้อมูล">
+                    <span class="material-symbols-rounded">edit</span>
+                </a>
+                <?php endif; ?>
+                <a id="wv-full" href="#" class="war-v-primary" onclick="showLoader()">
+                    <span class="material-symbols-rounded">open_in_full</span> เคลม / ดูทั้งหมด
+                </a>
+            </footer>
+        </div>
+    </div>
 </div><!-- .war-m -->
 
 <div class="war-header war-d">
@@ -666,6 +746,71 @@ document.getElementById('modal-create-warranty').addEventListener('click', funct
 });
 // Dragged down past the threshold — admin-mobile.js already threw it off-screen
 document.getElementById('modal-create-warranty').addEventListener('sheetdismiss', closeCreateModal);
+
+/* Page-level, same as tracking's — the chips, pager and sheet links call it */
+function showLoader() {
+    const el = document.getElementById('global-loader');
+    if (el) { el.style.display = 'flex'; setTimeout(() => { el.style.display = 'none'; }, 5000); }
+}
+window.addEventListener('pageshow', () => {
+    const el = document.getElementById('global-loader');
+    if (el) el.style.display = 'none';
+});
+
+/* ── Phone detail sheet (tap a card) ── */
+const warData = <?= json_encode($viewWar, JSON_UNESCAPED_UNICODE) ?>;
+
+function openWarSheet(id) {
+    const w = warData[id];
+    if (!w) return;
+    const $ = el => document.getElementById(el);
+
+    $('wv-no').textContent    = w.no;
+    $('wv-badge').innerHTML   = w.badge;   // built server-side by w_status_badge()
+    $('wv-start').textContent = w.start;
+    $('wv-end').textContent   = w.end;
+    $('wv-days').textContent  = w.days + ' วัน';
+    $('wv-left').textContent  = w.left;
+    $('wv-left').className    = 'war-days-left ' + w.leftCls;
+
+    $('wv-name').textContent  = w.name;
+    $('wv-phone').textContent = w.phone || '';
+    $('wv-phone').href        = 'tel:' + (w.phone || '').replace(/[^0-9+]/g, '');
+    $('wv-phone-wrap').hidden = !w.phone;
+
+    $('wv-device').textContent = w.device || '—';
+    $('wv-sn').textContent     = w.sn || '';
+    $('wv-sn-row').hidden      = !w.sn;
+    $('wv-ticket').textContent = w.ticket || '';
+    $('wv-ticket').href        = '../tracking/edit.php?id=' + w.trkId;
+    $('wv-ticket-row').hidden  = !w.ticket;
+
+    $('wv-summary').textContent = w.summary || '';
+    $('wv-sec-sum').hidden      = !w.summary;
+    $('wv-claims').textContent  = w.claims ? 'เคลมแล้ว ' + w.claims + ' ครั้ง' : 'ยังไม่มีการเคลม';
+
+    $('wv-print').href = 'print.php?id=' + w.id;
+    if ($('wv-edit')) $('wv-edit').href = 'edit.php?id=' + w.id;
+    $('wv-full').href  = 'view.php?id=' + w.id;
+
+    const ov = $('warSheet');
+    ov.hidden = false;
+    // Force a style flush so the fade starts from 0 — deterministic, unlike
+    // waiting for the next animation frame
+    void ov.offsetWidth;
+    ov.classList.add('show');
+}
+function closeWarSheet() {
+    const ov = document.getElementById('warSheet');
+    ov.classList.remove('show');
+    ov.hidden = true;
+}
+(function () {
+    const ov = document.getElementById('warSheet');
+    ov.addEventListener('click', e => { if (e.target === ov) closeWarSheet(); });
+    ov.addEventListener('sheetdismiss', closeWarSheet);
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !ov.hidden) closeWarSheet(); });
+})();
 
 // Enter key on ticket input
 document.getElementById('cw-ticket').addEventListener('keydown', function(e) {
