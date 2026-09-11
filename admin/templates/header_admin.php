@@ -58,6 +58,10 @@ $pageTitle = isset($pageTitle) ? $pageTitle : 'Admin Panel';
             if (localStorage.getItem('sidebarState') === 'collapsed' && window.innerWidth > 991) {
                 document.documentElement.classList.add('sidebar-collapsed');
             }
+
+            // phone/desktop layout → cookie, so list pages size their page to it (admin_is_phone())
+            document.cookie = 'adm_vw=' + (window.matchMedia('(max-width: 991px)').matches ? 'm' : 'd')
+                            + ';path=/admin;max-age=31536000;SameSite=Lax';
         })();
     </script>
 

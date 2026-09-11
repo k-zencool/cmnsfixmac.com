@@ -36,7 +36,8 @@ function trk_parse_note($raw) {
 }
 
 function get_pager(): array {
-    $per  = max(5, min(200, (int)getv('per', 20)));
+    // 10 cards on a phone (a 20-card page ran ~2870px), 20 rows on desktop; ?per= still wins
+    $per  = max(5, min(200, (int)getv('per', admin_is_phone() ? 10 : 20)));
     $page = max(1, (int)getv('page', 1));
     return [$per, $page, ($page - 1) * $per];
 }

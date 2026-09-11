@@ -22,6 +22,20 @@ function require_login(): void
 }
 
 /**
+ * Will this request render the phone layout (<992px)?
+ *
+ * The server can't see the viewport, so the head script in header_admin.php
+ * and login.php writes cookie `adm_vw` = 'm' | 'd' from the same breakpoint
+ * the CSS uses. Login sets it before the first admin page, so the first list
+ * a phone opens is already sized for it. Only ever used for presentation
+ * (e.g. rows per page) — the value is client-supplied.
+ */
+function admin_is_phone(): bool
+{
+    return ($_COOKIE['adm_vw'] ?? '') === 'm';
+}
+
+/**
  * ========== Session tracking (online status / force-logout) ==========
  * เรียกจาก require_login() ทุกครั้ง — ต้องเบาที่สุด เพราะรันทุกหน้า admin
  * throttle การเขียน DB ไว้ที่ ~60 วิ/session (เก็บ timestamp ไว้ใน $_SESSION เอง

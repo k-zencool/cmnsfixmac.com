@@ -79,6 +79,10 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['username'])) {
       const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
       const savedTheme = stored || (prefersDark ? 'dark' : 'light');
       document.documentElement.setAttribute('data-theme', savedTheme);
+
+      // same as header_admin.php — set before the first admin page so its list is already phone-sized
+      document.cookie = 'adm_vw=' + (window.matchMedia('(max-width: 991px)').matches ? 'm' : 'd')
+                      + ';path=/admin;max-age=31536000;SameSite=Lax';
     })();
   </script>
 
