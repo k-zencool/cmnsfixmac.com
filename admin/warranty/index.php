@@ -8,6 +8,17 @@ require_login();
 
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 function war_page_url($i){ $q = $_GET; $q['page'] = max(1, (int)$i); return '?' . http_build_query($q); }
+/* device_model is free text ("iPhone 13 Pro", "MacBook Air M1"), so match anywhere in it */
+function war_device_icon(?string $model): string {
+    $map = [
+        'MacBook' => 'laptop_mac', 'iMac' => 'desktop_mac', 'Mac mini' => 'dvr', 'Mac Pro' => 'dns',
+        'iPhone'  => 'smartphone', 'iPad' => 'tablet_mac', 'AirPods'  => 'headphones', 'Watch' => 'watch',
+    ];
+    foreach ($map as $k => $icon) {
+        if (stripos((string)$model, $k) !== false) return $icon;
+    }
+    return 'devices_other';
+}
 
 $pageTitle = "ใบรับประกัน";
 
@@ -32,7 +43,8 @@ if ($q !== '') {
 $where_sql = implode(' AND ', $where);
 
 // ── Pagination ──
-$per  = max(10, min(200, (int)($_GET['per'] ?? 25)));
+// 10 cards on a phone, 25 rows on desktop; ?per= still wins
+$per  = max(10, min(200, (int)($_GET['per'] ?? (admin_is_phone() ? 10 : 25))));
 $page = max(1, (int)($_GET['page'] ?? 1));
 
 $cst = $pdo->prepare("SELECT COUNT(*) FROM warranties w LEFT JOIN tracking t ON t.id = w.tracking_id WHERE $where_sql");
@@ -51,6 +63,27 @@ $rows = $pdo->prepare("SELECT w.*, t.ticket_number
 $rows->execute($params);
 $warranties = $rows->fetchAll(PDO::FETCH_ASSOC);
 
+/* Per-row presentation data — built once, read by BOTH layouts (mobile
+   cards + desktop table) so the two can never drift apart. */
+$meta = [];
+foreach ($warranties as $w) {
+    $days_left = w_days_left($w['end_date']);
+    if ($w['status'] === 'active') {
+        $days_cls  = $days_left > 30 ? 'ok' : ($days_left > 0 ? 'warn' : 'over');
+        $days_txt  = $days_left > 0 ? "เหลือ $days_left วัน" : "หมดแล้ว";
+    } else {
+        $days_cls = 'over';
+        $days_txt = '-';
+    }
+    $meta[(int)$w['id']] = [
+        'days_cls' => $days_cls,
+        'days_txt' => $days_txt,
+        'icon'     => war_device_icon($w['device_model']),
+        'end'      => date('d/m/y', strtotime($w['end_date'])),
+        'phone'    => preg_replace('/[^0-9+]/', '', $w['customer_phone'] ?? ''),
+    ];
+}
+
 $counts = $pdo->query("SELECT status, COUNT(*) AS cnt FROM warranties GROUP BY status")->fetchAll(PDO::FETCH_ASSOC);
 $cnt    = array_column($counts, 'cnt', 'status');
 $cnt['all'] = array_sum($cnt);
@@ -62,6 +95,7 @@ include __DIR__ . '/../templates/header_admin.php';
 ?>
 <link rel="stylesheet" href="<?= $assets_base ?>css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
 <link rel="stylesheet" href="<?= $assets_base ?>css/modal.css?v=<?= asset_ver('/admin/templates/assets/css/modal.css') ?>">
+<link rel="stylesheet" href="assets/css/warranty-mobile.css?v=<?= asset_ver('/admin/warranty/assets/css/warranty-mobile.css') ?>">
 <style>
 /* ── shared form components ── */
 .cmns-label { font-size:11px; font-weight:800; color:var(--text-muted); margin-bottom:6px; display:block; text-transform:uppercase; letter-spacing:.5px; }
@@ -129,7 +163,105 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
     </div>
 <?php endif; ?>
 
-<div class="war-header">
+<!-- ══════════════════════════════════════════════════════════════
+     MOBILE (<992px). The desktop blocks below carry .war-d and are
+     switched off at that width; this block is switched on. Same data,
+     two layouts — see warranty-mobile.css.
+     ══════════════════════════════════════════════════════════════ -->
+<div class="war-m">
+
+    <form method="get" class="war-m-search">
+        <?php if ($status_filter !== 'all'): ?>
+            <input type="hidden" name="status" value="<?= h($status_filter) ?>">
+        <?php endif; ?>
+        <span class="material-symbols-rounded">search</span>
+        <input type="text" name="q" value="<?= h($q) ?>" placeholder="เลขประกัน / ชื่อ / เบอร์ / Serial"
+               enterkeyhint="search" autocomplete="off">
+        <?php if ($q !== ''): ?>
+            <a href="?status=<?= h($status_filter) ?>" class="war-m-clear" aria-label="ล้างคำค้น">
+                <span class="material-symbols-rounded">close</span>
+            </a>
+        <?php endif; ?>
+    </form>
+
+    <div class="war-m-chips">
+        <?php foreach (['all'=>'ทั้งหมด','active'=>'ใช้งานได้','expired'=>'หมดอายุ','voided'=>'ยกเลิก'] as $k => $label):
+            $url = '?' . http_build_query(array_merge($_GET, ['status'=>$k, 'page'=>1])); ?>
+            <a href="<?= h($url) ?>" class="war-m-chip c-<?= $k ?> <?= $status_filter === $k ? 'on' : '' ?>" onclick="showLoader()">
+                <?= $label ?> <b><?= number_format($cnt[$k] ?? 0) ?></b>
+            </a>
+        <?php endforeach; ?>
+    </div>
+
+    <?php if (empty($warranties)): ?>
+        <div class="war-m-empty">
+            <span class="material-symbols-rounded">verified_user</span>
+            <p class="war-m-empty-t">ไม่พบใบรับประกัน</p>
+            <p class="war-m-empty-s"><?= $q !== '' ? 'ลองค้นด้วยคำอื่น' : 'ยังไม่มีใบในสถานะนี้' ?></p>
+        </div>
+    <?php else: ?>
+        <div class="war-m-list">
+            <?php foreach ($warranties as $w):
+                $m  = $meta[(int)$w['id']];
+                $st = $w['status'];
+            ?>
+            <div class="war-m-card st-<?= h($st) ?> <?= ($st === 'active' && $m['days_cls'] === 'warn') ? 'is-soon' : '' ?>">
+                <a class="war-m-card-main" href="view.php?id=<?= (int)$w['id'] ?>" onclick="showLoader()">
+                    <span class="war-m-ic"><span class="material-symbols-rounded"><?= $m['icon'] ?></span></span>
+                    <span class="war-m-body">
+                        <span class="war-m-top">
+                            <span class="war-m-no"><?= h($w['warranty_no']) ?></span>
+                            <?= w_status_badge($st) ?>
+                        </span>
+                        <span class="war-m-name"><?= h($w['customer_name']) ?></span>
+                        <span class="war-m-dev">
+                            <?= h($w['device_model']) ?>
+                            <?php if ($w['serial_no']): ?><span class="war-m-dim">· <?= h($w['serial_no']) ?></span><?php endif; ?>
+                        </span>
+                        <span class="war-m-foot">
+                            <?php if ($st === 'active'): ?>
+                                <span class="war-days-left <?= $m['days_cls'] ?>"><?= h($m['days_txt']) ?></span>
+                                <span class="war-m-dim">ถึง <?= $m['end'] ?></span>
+                            <?php else: ?>
+                                <span class="war-m-dim"><?= $st === 'voided' ? 'ยกเลิกแล้ว' : 'หมดเมื่อ ' . $m['end'] ?></span>
+                                <span class="war-m-dim"><?= (int)$w['warranty_days'] ?> วัน</span>
+                            <?php endif; ?>
+                        </span>
+                    </span>
+                </a>
+                <?php if ($m['phone'] !== ''): ?>
+                    <a class="war-m-call" href="tel:<?= h($m['phone']) ?>" aria-label="โทรหา <?= h($w['customer_name']) ?>">
+                        <span class="material-symbols-rounded">call</span>
+                    </a>
+                <?php endif; ?>
+            </div>
+            <?php endforeach; ?>
+        </div>
+
+        <?php if ($pages > 1): ?>
+        <div class="war-m-pager">
+            <a href="<?= $page > 1 ? war_page_url($page - 1) : '#' ?>" class="war-m-pg <?= $page <= 1 ? 'off' : '' ?>"
+               onclick="if(<?= (int)($page > 1) ?>) showLoader(); else return false;" aria-label="หน้าก่อน">
+                <span class="material-symbols-rounded">chevron_left</span>
+            </a>
+            <span class="war-m-pg-lbl"><?= number_format($total) ?> ใบ · หน้า <b><?= $page ?></b>/<?= $pages ?></span>
+            <a href="<?= $page < $pages ? war_page_url($page + 1) : '#' ?>" class="war-m-pg <?= $page >= $pages ? 'off' : '' ?>"
+               onclick="if(<?= (int)($page < $pages) ?>) showLoader(); else return false;" aria-label="หน้าถัดไป">
+                <span class="material-symbols-rounded">chevron_right</span>
+            </a>
+        </div>
+        <?php else: ?>
+            <p class="war-m-total"><?= number_format($total) ?> ใบ</p>
+        <?php endif; ?>
+    <?php endif; ?>
+
+    <!-- New warranty: a FAB clear of the tab bar -->
+    <button type="button" class="war-m-fab" onclick="openCreateModal()" aria-label="ออกใบประกันใหม่">
+        <span class="material-symbols-rounded">add</span>
+    </button>
+</div><!-- .war-m -->
+
+<div class="war-header war-d">
     <div>
         <h1 class="page-title" style="margin:0;">
             <span class="material-symbols-rounded" style="vertical-align:middle;">verified_user</span>
@@ -142,7 +274,7 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
 </div>
 
 <!-- Stats -->
-<div class="war-stats">
+<div class="war-stats war-d">
     <div class="war-stat">
         <div class="war-stat-icon" style="background:rgba(37,99,235,.1);">
             <span class="material-symbols-rounded" style="color:var(--primary);">verified_user</span>
@@ -182,7 +314,7 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
 </div>
 
 <!-- Filters -->
-<div class="war-filters">
+<div class="war-filters war-d">
     <?php
     $filters = ['all'=>'ทั้งหมด','active'=>'ใช้งานได้','expired'=>'หมดอายุ','voided'=>'ยกเลิก'];
     foreach ($filters as $k => $label):
@@ -195,7 +327,7 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
 </div>
 
 <!-- Search -->
-<form class="war-search" method="get">
+<form class="war-search war-d" method="get">
     <input type="hidden" name="status" value="<?= h($status_filter) ?>">
     <div class="war-search-wrap">
         <span class="material-symbols-rounded">search</span>
@@ -206,7 +338,7 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
 </form>
 
 <!-- Table -->
-<div class="war-table-wrap">
+<div class="war-table-wrap war-d">
     <table class="war-table">
         <thead>
             <tr>
@@ -223,14 +355,7 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
         <?php if (empty($warranties)): ?>
             <tr><td colspan="7" style="text-align:center; padding:40px; color:var(--text-muted);">ไม่มีข้อมูล</td></tr>
         <?php else: foreach ($warranties as $w):
-            $days_left = w_days_left($w['end_date']);
-            if ($w['status'] === 'active') {
-                $days_cls  = $days_left > 30 ? 'ok' : ($days_left > 0 ? 'warn' : 'over');
-                $days_txt  = $days_left > 0 ? "เหลือ $days_left วัน" : "หมดแล้ว";
-            } else {
-                $days_cls = 'over';
-                $days_txt = '-';
-            }
+            ['days_cls' => $days_cls, 'days_txt' => $days_txt] = $meta[(int)$w['id']];
         ?>
             <tr>
                 <td>
@@ -325,7 +450,7 @@ function goPerPage(sel) {
      CREATE WARRANTY MODAL
 ══════════════════════════════════════════ -->
 <div id="modal-create-warranty" class="cmns-modal">
-    <div class="modal-content" style="max-width:620px; padding:30px;">
+    <div class="modal-content sheet-on-mobile war-sheet" style="max-width:620px; padding:30px;">
 
         <!-- Header -->
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:18px; margin-bottom:24px;">
@@ -545,6 +670,8 @@ async function cwSubmit() {
 document.getElementById('modal-create-warranty').addEventListener('click', function(e) {
     if (e.target === this) closeCreateModal();
 });
+// Dragged down past the threshold — admin-mobile.js already threw it off-screen
+document.getElementById('modal-create-warranty').addEventListener('sheetdismiss', closeCreateModal);
 
 // Enter key on ticket input
 document.getElementById('cw-ticket').addEventListener('keydown', function(e) {

@@ -35,6 +35,7 @@ include __DIR__ . '/../templates/header_admin.php';
 ?>
 <link rel="stylesheet" href="<?= $assets_base ?>css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
 <link rel="stylesheet" href="<?= $assets_base ?>css/modal.css?v=<?= asset_ver('/admin/templates/assets/css/modal.css') ?>">
+<link rel="stylesheet" href="assets/css/warranty-mobile.css?v=<?= asset_ver('/admin/warranty/assets/css/warranty-mobile.css') ?>">
 <style>
 /* ── shared form components ── */
 .cmns-label { font-size:11px; font-weight:800; color:var(--text-muted); margin-bottom:6px; display:block; text-transform:uppercase; letter-spacing:.5px; }
@@ -221,7 +222,7 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
 
 <!-- ── Modal: Add Claim ── -->
 <div id="modal-add-claim" class="cmns-modal">
-    <div class="modal-content" style="max-width:480px; padding:28px;">
+    <div class="modal-content sheet-on-mobile war-sheet" style="max-width:480px; padding:28px;">
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:16px; margin-bottom:20px;">
             <h3 style="margin:0; display:flex; align-items:center; gap:8px; font-weight:800; font-size:1.05rem;">
                 <span class="material-symbols-rounded" style="color:#f59e0b; font-size:22px;">report_problem</span>
@@ -270,7 +271,7 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
 
 <!-- ── Modal: Edit Claim ── -->
 <div id="modal-edit-claim" class="cmns-modal">
-    <div class="modal-content" style="max-width:480px; padding:28px;">
+    <div class="modal-content sheet-on-mobile war-sheet" style="max-width:480px; padding:28px;">
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:16px; margin-bottom:20px;">
             <h3 style="margin:0; display:flex; align-items:center; gap:8px; font-weight:800; font-size:1.05rem;">
                 <span class="material-symbols-rounded" style="color:var(--primary); font-size:22px;">edit</span>
@@ -313,7 +314,7 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
 
 <!-- ── Modal: Void Warranty ── -->
 <div id="modal-void" class="cmns-modal">
-    <div class="modal-content" style="max-width:420px; padding:28px;">
+    <div class="modal-content sheet-on-mobile war-sheet" style="max-width:420px; padding:28px;">
         <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:16px; margin-bottom:20px;">
             <h3 style="margin:0; display:flex; align-items:center; gap:8px; font-weight:800; font-size:1.05rem; color:#dc2626;">
                 <span class="material-symbols-rounded" style="font-size:22px;">block</span>
@@ -371,9 +372,12 @@ function editClaim(id, data) {
 }
 
 ['modal-add-claim','modal-edit-claim','modal-void'].forEach(id => {
-    document.getElementById(id).addEventListener('click', function(e){
+    const m = document.getElementById(id);
+    m.addEventListener('click', function(e){
         if (e.target === this) this.classList.remove('show');
     });
+    // Dragged down past the threshold — admin-mobile.js already threw it off-screen
+    m.addEventListener('sheetdismiss', () => m.classList.remove('show'));
 });
 </script>
 

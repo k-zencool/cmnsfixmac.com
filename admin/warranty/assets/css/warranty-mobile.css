@@ -1,0 +1,323 @@
+/* =========================================================
+   CMNS Admin — Warranty, mobile edition
+   Path: admin/warranty/assets/css/warranty-mobile.css
+   Used by: admin/warranty/index.php (list) and view.php (sheets only).
+
+   index.php renders two layouts and this file picks one:
+     .war-m  — phone version: search + chips + one card per warranty (<992px)
+     .war-d  — the original desktop blocks                            (>=992px)
+   Desktop markup is never restyled here, only switched off below the
+   breakpoint, so >=992px renders exactly as before.
+
+   Same visual recipe as tracking-mobile.css on purpose — the two lists sit
+   one tab apart and should read as one app.
+   ========================================================= */
+
+.war-m { display: none; }
+
+@media (max-width: 991px) {
+    .war-d { display: none !important; }
+    .war-m { display: block; }
+}
+
+/* ── Surfaces ── */
+.war-m {
+    --war-card-bg: var(--bg-surface);
+    --war-card-shadow:
+        0 1px 2px rgba(15, 23, 42, .05),
+        0 10px 22px -14px rgba(15, 23, 42, .40);
+    --war-radius: 16px;
+}
+[data-theme="dark"] .war-m {
+    --war-card-bg: linear-gradient(180deg, #1d1d1f 0%, #161617 100%);
+    --war-card-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, .07),
+        0 2px 4px rgba(0, 0, 0, .45),
+        0 14px 30px -18px rgba(0, 0, 0, .95);
+}
+
+/* ── Search ── */
+.war-m-search {
+    position: relative;
+    margin-bottom: 10px;
+}
+.war-m-search > .material-symbols-rounded {
+    position: absolute;
+    left: 11px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 19px;
+    color: var(--text-muted);
+    pointer-events: none;
+}
+.war-m-search input {
+    width: 100%;
+    height: 40px;
+    padding: 0 40px 0 36px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-surface);
+    color: var(--text-main);
+    /* 16px keeps iOS from zooming the page on focus */
+    font-size: 16px;
+    font-family: inherit;
+    outline: none;
+}
+.war-m-search input:focus { border-color: var(--primary); }
+.war-m-clear {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 32px; height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9px;
+    color: var(--text-muted);
+    text-decoration: none;
+}
+.war-m-clear .material-symbols-rounded { font-size: 18px; }
+
+/* ── Status chips (carry the desktop stat-card counts) ── */
+/* Wrap rather than scroll: a chip cut off at the edge hides a filter. */
+.war-m-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 12px;
+}
+.war-m-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    height: 31px;
+    padding: 0 11px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--bg-surface);
+    color: var(--text-muted);
+    font-size: .74rem;
+    font-weight: 700;
+    white-space: nowrap;
+    text-decoration: none;
+}
+.war-m-chip b { font-variant-numeric: tabular-nums; color: var(--text-main); }
+.war-m-chip:active { transform: scale(.96); }
+.war-m-chip.c-active  b { color: #059669; }
+.war-m-chip.c-voided  b { color: #dc2626; }
+.war-m-chip.on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.war-m-chip.on b { color: #fff; }
+
+/* ── Cards ── */
+.war-m-list { display: flex; flex-direction: column; gap: 10px; }
+
+.war-m-card {
+    display: flex;
+    align-items: stretch;
+    background: var(--war-card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--war-radius);
+    box-shadow: var(--war-card-shadow);
+    overflow: hidden;
+}
+.war-m-card-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: flex-start;
+    gap: 11px;
+    padding: 13px 12px;
+    color: inherit;
+    text-decoration: none;
+    transition: transform .12s var(--ease-out);
+}
+.war-m-card-main:active { transform: scale(.985); }
+
+.war-m-ic {
+    flex-shrink: 0;
+    width: 38px; height: 38px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 11px;
+    background: var(--bg-surface-alt);
+    color: var(--text-muted);
+}
+.war-m-ic .material-symbols-rounded { font-size: 21px; }
+.war-m-card.st-active .war-m-ic { background: rgba(16, 185, 129, .12); color: #059669; }
+
+.war-m-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.war-m-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+}
+.war-m-no {
+    font-family: monospace;
+    font-size: .84rem;
+    font-weight: 800;
+    color: var(--primary);
+    letter-spacing: .2px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+/* Every pill the same size — "ใช้งานได้" is the longest of the three */
+.war-m-top .status-badge {
+    flex-shrink: 0;
+    min-width: 92px;
+    justify-content: center;
+    padding: 2px 8px;
+    font-size: 10.5px;
+}
+.war-m-top .status-badge .material-symbols-rounded { font-size: 13px !important; }
+
+.war-m-name {
+    font-size: .88rem;
+    font-weight: 700;
+    color: var(--text-main);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.war-m-dev {
+    font-size: .74rem;
+    color: var(--text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+.war-m-dim { color: var(--text-muted); opacity: .8; }
+.war-m-foot {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+    margin-top: 3px;
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Call button — a sibling of the card link, never nested inside it */
+.war-m-call {
+    flex-shrink: 0;
+    width: 52px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-left: 1px solid var(--border);
+    color: #059669;
+    text-decoration: none;
+}
+.war-m-call:active { background: rgba(16, 185, 129, .12); }
+.war-m-call .material-symbols-rounded { font-size: 22px; }
+
+/* Expiring within 30 days — the one state worth a glance from across the room */
+.war-m-card.is-soon { border-left: 3px solid #f59e0b; }
+.war-m-card.st-voided { opacity: .62; }
+
+/* ── Empty state ── */
+.war-m-empty {
+    padding: 46px 20px;
+    text-align: center;
+    background: var(--war-card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--war-radius);
+    box-shadow: var(--war-card-shadow);
+}
+.war-m-empty .material-symbols-rounded { font-size: 40px; color: var(--text-muted); opacity: .5; }
+.war-m-empty-t { margin: 10px 0 4px; font-size: .95rem; font-weight: 700; color: var(--text-main); }
+.war-m-empty-s { margin: 0; font-size: .8rem; color: var(--text-muted); }
+
+/* ── Pager ── */
+.war-m-pager {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 14px;
+    margin-top: 16px;
+}
+.war-m-pg {
+    width: 42px; height: 42px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--bg-surface);
+    color: var(--text-main);
+    text-decoration: none;
+}
+.war-m-pg.off { opacity: .38; pointer-events: none; }
+.war-m-pg-lbl { font-size: .82rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.war-m-pg-lbl b { color: var(--text-main); }
+.war-m-total {
+    margin: 14px 0 0;
+    text-align: center;
+    font-size: .78rem;
+    color: var(--text-muted);
+}
+
+/* ── FAB — clear of the floating tab bar, from the tab-bar tokens ── */
+.war-m-fab {
+    position: fixed;
+    right: 16px;
+    bottom: calc(var(--tabbar-h, 66px) + var(--tab-inset-b, 12px)
+                 + var(--safe-bottom, 0px) + 14px);
+    z-index: 940;                 /* under the tab bar (950), over content */
+    width: 54px; height: 54px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-radius: 50%;
+    background: var(--primary);
+    color: #fff;
+    cursor: pointer;
+    box-shadow: 0 10px 24px -8px rgba(37, 99, 235, .75),
+                0 2px 6px rgba(15, 23, 42, .28);
+    transition: transform .14s var(--ease-out);
+}
+.war-m-fab .material-symbols-rounded { font-size: 27px; }
+.war-m-fab:active { transform: scale(.92); }
+body:has(.cmns-modal.show) .war-m-fab { display: none; }
+
+/* ── Entrance — `translate`, never `transform` (see tracking-mobile.css) ── */
+@media (prefers-reduced-motion: no-preference) {
+    .war-m-chips,
+    .war-m-list > *,
+    .war-m-empty {
+        opacity: 0;
+        animation: war-rise .34s var(--ease-out) both;
+    }
+    .war-m-chips { animation-delay: .02s; }
+    .war-m-list > *:nth-child(1) { animation-delay: .05s; }
+    .war-m-list > *:nth-child(2) { animation-delay: .09s; }
+    .war-m-list > *:nth-child(3) { animation-delay: .13s; }
+    .war-m-list > *:nth-child(4) { animation-delay: .17s; }
+    .war-m-list > *:nth-child(5) { animation-delay: .20s; }
+    .war-m-list > *:nth-child(n+6) { animation-delay: .23s; }
+}
+@keyframes war-rise {
+    from { opacity: 0; translate: 0 10px; }
+    to   { opacity: 1; translate: 0 0; }
+}
+
+/* =========================================================
+   SHEETS — create (index) + claim / edit claim / void (view)
+   .sheet-on-mobile does the slide-up and drag. These panels carry an
+   inline `padding`, which beats the sheet's safe-area padding-bottom,
+   so it is restated here with !important.
+   ========================================================= */
+@media (max-width: 991px) {
+    .war-sheet {
+        padding: 12px 16px calc(16px + var(--safe-bottom, 0px)) !important;
+        border-left: 0;
+        border-right: 0;
+        border-bottom: 0;
+    }
+    /* Footer buttons: two thumbs-wide targets instead of right-aligned pills */
+    .war-sheet .cmns-btn { flex: 1; justify-content: center; min-height: 46px; }
+}
