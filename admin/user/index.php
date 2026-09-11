@@ -59,10 +59,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['_action'])) {
         if (empty($form_errors)) {
             try {
                 if ($action === 'edit' && $edit_id) {
-                    if ($pw_hash)
+                    if ($pw_hash) {
                         $pdo->prepare("UPDATE admin_users SET username=?, role=?, full_name=?, phone=?, email=?, password=? WHERE id=?")
                             ->execute([$username, $role, $full_name ?: null, $phone ?: null, $email ?: null, $pw_hash, $edit_id]);
-                    else
+                        // รหัสใหม่ = เครื่องที่ "จดจำฉัน" ไว้ต้อง login ใหม่ (ถ้าแก้ของตัวเอง เครื่องนี้อยู่ต่อ)
+                        adm_remember_forget_user($pdo, $edit_id, $edit_id === (int)$_SESSION['admin_id']);
+                    } else
                         $pdo->prepare("UPDATE admin_users SET username=?, role=?, full_name=?, phone=?, email=? WHERE id=?")
                             ->execute([$username, $role, $full_name ?: null, $phone ?: null, $email ?: null, $edit_id]);
                 } else {

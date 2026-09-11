@@ -40,5 +40,7 @@ if (hash_equals($target['session_hash'], hash('sha256', session_id()))) {
 
 $pdo->prepare("UPDATE admin_sessions SET revoked_at = NOW(), revoked_by = ? WHERE id = ? AND revoked_at IS NULL")
     ->execute([(int)$_SESSION['admin_id'], $sessionId]);
+// and that device's "จดจำฉัน" token — otherwise it would just log itself back in
+adm_remember_forget_session($pdo, $sessionId);
 
 echo json_encode(['ok' => true]);

@@ -4,6 +4,9 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+// "จดจำฉัน" — restores an expired session from the long-lived cookie
+require_once __DIR__ . '/remember.php';
+
 /**
  * ========== ของเดิม (คงไว้ให้เข้ากันได้) ==========
  */
@@ -14,7 +17,7 @@ function is_logged_in(): bool
 
 function require_login(): void
 {
-    if (!is_logged_in()) {
+    if (!is_logged_in() && !adm_remember_restore()) {
         header('Location: /admin/login.php'); // แก้ path ให้ตรงระบบมึง
         exit;
     }
@@ -60,6 +63,8 @@ function touch_admin_session(): void
 
         if ($sess && $sess['revoked_at'] !== null) {
             // ถูกบังคับออกจากระบบจากที่อื่น (kill_session.php) — เตะออกตอนนี้เลย
+            // and burn this device's remember token first, or login.php would restore it straight back
+            adm_remember_forget_current($pdo);
             session_unset();
             session_destroy();
             header('Location: /admin/login.php?kicked=1');
@@ -220,7 +225,7 @@ function require_perms(array $perms): void
 function require_perms_json(array $perms): void
 {
     if (!headers_sent()) header('Content-Type: application/json; charset=utf-8');
-    if (!is_logged_in()) {
+    if (!is_logged_in() && !adm_remember_restore()) {
         http_response_code(403);
         echo json_encode(['ok' => false, 'msg' => 'กรุณาเข้าสู่ระบบ'], JSON_UNESCAPED_UNICODE);
         exit;

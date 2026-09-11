@@ -2,8 +2,15 @@
 session_start();
 include_once realpath(__DIR__ . '/../includes/db.php');
 require_once __DIR__ . '/../includes/ua_parser.php';
+require_once __DIR__ . '/../includes/remember.php';
 
 if (isset($_SESSION['admin_logged_in'])) {
+  header("Location: dashboard/");
+  exit();
+}
+
+// "จดจำฉัน" cookie still good? Straight in, no form.
+if ($_SERVER["REQUEST_METHOD"] !== "POST" && adm_remember_restore()) {
   header("Location: dashboard/");
   exit();
 }
@@ -26,27 +33,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['username'])) {
       $admin = $stmt->fetch();
 
       if ($admin && password_verify($password, $admin['password']) && (($admin['is_active'] ?? 1) == 1)) {
-        session_regenerate_id(true);
-        $_SESSION['admin_logged_in'] = true;
-        $_SESSION['admin_username'] = $admin['username'];
-        $_SESSION['admin_id'] = $admin['id'];
-        $_SESSION['admin_role'] = $admin['role'];
-        $_SESSION['LAST_ACTIVE'] = time();
+        // session vars + admin_sessions row — shared with the remember-me restore (includes/remember.php)
+        $sessRow = adm_start_session($pdo, $admin);
 
-        // บันทึก session สำหรับหน้า admin/user/ (ออนไลน์ตอนนี้ / อุปกรณ์ / บังคับออกจากระบบ)
-        // กัน error ไว้ เผื่อยังไม่ได้รัน migration_admin_sessions.sql — ต้องไม่บล็อกการ login
-        try {
-            $ua = mb_substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 250);
-            $pdo->prepare("INSERT INTO admin_sessions (admin_id, session_hash, ip, user_agent, device_label) VALUES (?, ?, ?, ?, ?)")
-                ->execute([
-                    $admin['id'],
-                    hash('sha256', session_id()),
-                    $_SERVER['REMOTE_ADDR'] ?? null,
-                    $ua,
-                    parse_device_label($ua),
-                ]);
-        } catch (Throwable $e) {
-            error_log('admin_sessions insert failed: ' . $e->getMessage());
+        // "จดจำฉัน": a 90-day token, so the PWA survives being killed and the session expiring
+        if (!empty($_POST['remember'])) {
+            adm_remember_issue($pdo, (int)$admin['id'], $sessRow);
         }
 
         header("Location: dashboard/");
@@ -366,6 +358,20 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['username'])) {
     }
     .toggle-password:active { color: var(--brand); }
 
+    .remember {
+      display: inline-flex; align-items: center; gap: 9px;
+      align-self: flex-start;
+      margin: 2px 0 0 6px;
+      font-size: 14px; color: var(--text-muted);
+      cursor: pointer; user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .remember input {
+      width: 19px; height: 19px; margin: 0;
+      accent-color: var(--brand);
+      cursor: pointer;
+    }
+
     button[type="submit"] {
       margin-top: 9px; padding: 15px;
       background: linear-gradient(135deg, var(--brand) 0%, var(--brand-dark) 100%);
@@ -602,6 +608,12 @@ if ($_SERVER["REQUEST_METHOD"] === "POST" && isset($_POST['username'])) {
             <input type="password" name="password" id="passwordInput" placeholder="รหัสผ่าน" required autocomplete="current-password">
             <span class="material-symbols-rounded toggle-password" id="togglePassword">visibility</span>
           </div>
+
+          <!-- ticked by default: the shop's own devices are the normal case -->
+          <label class="remember">
+            <input type="checkbox" name="remember" value="1" checked>
+            <span>จดจำฉันไว้ 90 วัน</span>
+          </label>
 
           <button type="submit">เข้าสู่ระบบ</button>
         </form>

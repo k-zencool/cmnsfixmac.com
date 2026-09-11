@@ -2,18 +2,22 @@
 // admin/logout.php
 
 session_start();
+require_once __DIR__ . '/../includes/remember.php';
 
-// ปิด session row ใน admin_sessions ด้วย (ถ้ามี) ก่อนทำลาย session จริง
-if (!empty($_SESSION['admin_id']) && session_id() !== '') {
-    try {
-        require_once __DIR__ . '/../includes/db.php';
+// ปิด session row ใน admin_sessions + ลบ token "จดจำฉัน" ของเครื่องนี้ ก่อนทำลาย session จริง
+$pdo = null;
+try {
+    require_once __DIR__ . '/../includes/db.php';
+    if (!empty($_SESSION['admin_id']) && session_id() !== '') {
         $pdo->prepare("UPDATE admin_sessions SET revoked_at = NOW() WHERE session_hash = ?")
             ->execute([hash('sha256', session_id())]);
-    } catch (Throwable $e) {
-        error_log('logout admin_sessions revoke failed: ' . $e->getMessage());
-        // กลืน error ทิ้ง — logout ต้องสำเร็จเสมอไม่ว่า DB จะเป็นยังไง
     }
+} catch (Throwable $e) {
+    error_log('logout admin_sessions revoke failed: ' . $e->getMessage());
+    // กลืน error ทิ้ง — logout ต้องสำเร็จเสมอไม่ว่า DB จะเป็นยังไง
 }
+// clears the cookie even when the DB is down — otherwise the next visit logs straight back in
+adm_remember_forget_current($pdo instanceof PDO ? $pdo : null);
 
 // ล้าง Session ทั้งหมดทิ้ง (Logout จริงๆ)
 session_unset();

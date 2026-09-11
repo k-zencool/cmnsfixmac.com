@@ -60,6 +60,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             ':id'       => $admin_id
         ]);
 
+        // รหัสใหม่ = เครื่องอื่นที่ "จดจำฉัน" ไว้ต้อง login ใหม่ (เครื่องนี้อยู่ต่อได้)
+        require_once __DIR__ . '/../../includes/remember.php';
+        adm_remember_forget_user($pdo, (int)$admin_id, true);
+
         // สำเร็จ!
         $_SESSION['success'] = "เปลี่ยนรหัสผ่านเรียบร้อยแล้ว! อย่าลืมรหัสใหม่ล่ะสัส!";
 

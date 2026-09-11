@@ -45,6 +45,7 @@ try {
         $pdo->prepare("UPDATE admin_users SET is_active = 0, deleted_at = NOW() WHERE id = ?")->execute([$id]);
         // ตัด session ที่ออนไลน์อยู่ทั้งหมดของ user นี้ทันที
         $pdo->prepare("UPDATE admin_sessions SET revoked_at = NOW() WHERE admin_id = ? AND revoked_at IS NULL")->execute([$id]);
+        adm_remember_forget_user($pdo, $id); // ทุกเครื่องที่ติ๊ก "จดจำฉัน" ไว้ด้วย
         echo json_encode(['ok' => true, 'msg' => 'ปิดใช้งานบัญชีเรียบร้อยแล้ว']);
 
     } elseif ($action === 'activate') {
@@ -57,6 +58,7 @@ try {
             exit;
         }
         $pdo->prepare("DELETE FROM admin_sessions WHERE admin_id = ?")->execute([$id]);
+        adm_remember_forget_user($pdo, $id);
         $pdo->prepare("DELETE FROM admin_users WHERE id = ?")->execute([$id]);
         echo json_encode(['ok' => true, 'msg' => 'ลบผู้ใช้งานถาวรเรียบร้อยแล้ว']);
 

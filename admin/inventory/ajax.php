@@ -8,7 +8,7 @@ require_once '../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 
 // fragment endpoint — ตอบ 403 ตรงๆ ไม่ redirect (redirect จะพ่นหน้า login ลงไปในแถวตาราง)
-if (!is_logged_in()) {
+if (!is_logged_in() && !adm_remember_restore()) {
     http_response_code(403);
     exit('forbidden');
 }
