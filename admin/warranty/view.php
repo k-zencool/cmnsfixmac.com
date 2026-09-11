@@ -35,6 +35,7 @@ include __DIR__ . '/../templates/header_admin.php';
 ?>
 <link rel="stylesheet" href="<?= $assets_base ?>css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
 <link rel="stylesheet" href="<?= $assets_base ?>css/modal.css?v=<?= asset_ver('/admin/templates/assets/css/modal.css') ?>">
+<link rel="stylesheet" href="assets/css/warranty.css?v=<?= asset_ver('/admin/warranty/assets/css/warranty.css') ?>">
 <link rel="stylesheet" href="assets/css/warranty-mobile.css?v=<?= asset_ver('/admin/warranty/assets/css/warranty-mobile.css') ?>">
 <style>
 /* ── shared form components ── */
@@ -45,14 +46,39 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
 .cmns-alert { display:flex; align-items:center; gap:10px; padding:10px 16px; border-radius:10px; font-size:.88rem; margin-bottom:14px; }
 .cmns-alert-success { background:rgba(16,185,129,.1); color:#065f46; border:1px solid rgba(16,185,129,.3); }
 /* ── view layout ── */
-.view-wrap { display:grid; grid-template-columns:1fr 360px; gap:20px; align-items:start; }
-.war-card { background:var(--bg-surface); border:1px solid var(--border); border-radius:14px; padding:24px; margin-bottom:16px; }
-.war-card-title { font-size:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:.6px; color:var(--text-muted); margin-bottom:16px; display:flex; align-items:center; gap:8px; }
+.view-wrap { display:grid; grid-template-columns:1fr 360px; gap:16px; align-items:start; }
+
+/* ── Page head — same as the tracking edit page (create-v3.css cr3-title / cr3e-*) ── */
+.war-topbar   { margin-bottom:18px; }
+.war-titlebar { display:flex; align-items:flex-end; justify-content:space-between; gap:16px; flex-wrap:wrap; margin-top:10px; }
+.war-title    { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin:0; font-size:1.45rem; font-weight:800; color:var(--primary); }
+.war-title > .material-symbols-rounded { font-size:30px; }
+.war-code     { font-family:'Courier New',monospace; font-size:15px; font-weight:800; color:var(--text-main); background:var(--bg-surface-alt); border:1px solid var(--border); padding:3px 10px; border-radius:8px; }
+.war-subline  { margin:6px 0 0; font-size:13px; color:var(--text-muted); }
+.cmns-btn-danger-soft { background:rgba(239,68,68,.1); color:#dc2626; border:1px solid rgba(239,68,68,.3); }
+.cmns-btn-danger-soft:hover { background:rgba(239,68,68,.16); }
+
+/* ── Cards — same recipe as the tracking edit page (cr3-card / cr3-hd):
+   coloured icon tile + subtitle + a 3px accent strip on top ── */
+.war-card { position:relative; background:var(--bg-surface); border:1px solid var(--border); border-radius:16px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,.05); margin-bottom:16px; }
+[data-theme="dark"] .war-card { box-shadow:0 2px 10px rgba(0,0,0,.25); }
+.war-card::before { content:''; position:absolute; top:0; left:0; right:0; height:3px; background:linear-gradient(90deg, var(--hd-c, var(--primary)), transparent 70%); }
+.war-hd       { display:flex; align-items:center; gap:12px; padding:14px 18px 13px; border-bottom:1px solid var(--border); }
+.war-hd-ico   { width:38px; height:38px; border-radius:11px; display:flex; align-items:center; justify-content:center; font-size:20px !important; flex-shrink:0; background:var(--hd-bg); color:var(--hd-c); }
+.war-hd-txt   { flex:1; min-width:0; }
+.war-hd-title { font-size:14.5px; font-weight:800; color:var(--text-main); line-height:1.2; }
+.war-hd-sub   { font-size:11.5px; color:var(--text-muted); margin-top:2px; }
+.war-hd-count { min-width:24px; height:24px; padding:0 7px; border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:800; background:var(--hd-bg); color:var(--hd-c); flex-shrink:0; }
+.war-body     { padding:16px 18px; }
+.hd-blue   { --hd-c:#3b82f6; --hd-bg:rgba(59,130,246,.12); }
+.hd-amber  { --hd-c:#f59e0b; --hd-bg:rgba(245,158,11,.14); }
+.hd-teal   { --hd-c:#14b8a6; --hd-bg:rgba(20,184,166,.12); }
+.hd-violet { --hd-c:#8b5cf6; --hd-bg:rgba(139,92,246,.12); }
+.hd-red    { --hd-c:#ef4444; --hd-bg:rgba(239,68,68,.12); }
 .detail-row { display:flex; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border); gap:12px; }
 .detail-row:last-child { border-bottom:none; }
 .detail-label { font-size:0.82rem; color:var(--text-muted); flex-shrink:0; }
 .detail-val   { font-size:0.88rem; font-weight:600; color:var(--text-main); text-align:right; }
-.status-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:0.78rem; font-weight:600; border:1px solid transparent; }
 .war-no-big { font-size:1.6rem; font-weight:800; font-family:monospace; color:var(--primary); letter-spacing:1px; }
 .claim-item { background:var(--bg-surface-alt); border:1px solid var(--border); border-radius:10px; padding:14px 16px; margin-bottom:10px; }
 .claim-item:last-child { margin-bottom:0; }
@@ -186,39 +212,54 @@ $m_phone = preg_replace('/[^0-9+]/', '', $war['customer_phone'] ?? '');
 </div><!-- .wv-m -->
 
 <!-- Header -->
-<div class="wv-d" style="display:flex; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
-    <a href="index.php" class="cmns-btn cmns-btn-secondary" style="padding:8px 12px;">
-        <span class="material-symbols-rounded">arrow_back</span>
+<div class="war-topbar wv-d">
+    <a href="index.php" class="cmns-back-link">
+        <span class="material-symbols-rounded">arrow_back</span> WARRANTY
     </a>
-    <div class="war-no-big"><?= h($war['warranty_no']) ?></div>
-    <?= w_status_badge($war['status']) ?>
-    <div style="margin-left:auto; display:flex; gap:8px; flex-wrap:wrap;">
-        <?php if (can('content.write')): ?>
-        <a href="edit.php?id=<?= $id ?>" class="cmns-btn cmns-btn-secondary">
-            <span class="material-symbols-rounded">edit</span> แก้ไขข้อมูล
-        </a>
-        <?php endif; ?>
-        <a href="print.php?id=<?= $id ?>" target="_blank" class="cmns-btn cmns-btn-secondary">
-            <span class="material-symbols-rounded">print</span> พิมพ์ใบประกัน
-        </a>
-        <?php if ($war['status'] !== 'voided'): ?>
-        <button class="cmns-btn cmns-btn-secondary" onclick="openClaimModal()">
-            <span class="material-symbols-rounded">report_problem</span> บันทึกการเคลม
-        </button>
-        <?php endif; ?>
-        <?php if ($war['status'] === 'active'): ?>
-        <button class="cmns-btn" style="background:rgba(239,68,68,.1);color:#dc2626;border:1px solid rgba(239,68,68,.3);" onclick="confirmVoid()">
-            <span class="material-symbols-rounded">block</span> ยกเลิกประกัน
-        </button>
-        <?php endif; ?>
+    <div class="war-titlebar">
+        <div>
+            <h1 class="war-title">
+                <span class="material-symbols-rounded">verified_user</span> ใบรับประกัน
+                <code class="war-code"><?= h($war['warranty_no']) ?></code>
+                <?= w_status_badge($war['status']) ?>
+            </h1>
+            <p class="war-subline"><?= h($war['customer_name']) ?><?= $war['customer_phone'] ? ' · ' . h($war['customer_phone']) : '' ?></p>
+        </div>
+        <div class="cmns-action-buttons">
+            <?php if (can('content.write')): ?>
+            <a href="edit.php?id=<?= $id ?>" class="cmns-btn cmns-btn-secondary">
+                <span class="material-symbols-rounded">edit</span> แก้ไขข้อมูล
+            </a>
+            <?php endif; ?>
+            <a href="print.php?id=<?= $id ?>" target="_blank" class="cmns-btn cmns-btn-secondary">
+                <span class="material-symbols-rounded">print</span> พิมพ์ใบประกัน
+            </a>
+            <?php if ($war['status'] !== 'voided'): ?>
+            <button class="cmns-btn cmns-btn-secondary" onclick="openClaimModal()">
+                <span class="material-symbols-rounded">report_problem</span> บันทึกการเคลม
+            </button>
+            <?php endif; ?>
+            <?php if ($war['status'] === 'active'): ?>
+            <button class="cmns-btn cmns-btn-danger-soft" onclick="confirmVoid()">
+                <span class="material-symbols-rounded">block</span> ยกเลิกประกัน
+            </button>
+            <?php endif; ?>
+        </div>
     </div>
 </div>
 
 <div class="view-wrap wv-d">
 <!-- Left: Details + Claims -->
 <div>
-    <div class="war-card">
-        <div class="war-card-title"><span class="material-symbols-rounded">person</span> ข้อมูลลูกค้าและเครื่อง</div>
+    <div class="war-card hd-blue">
+        <header class="war-hd">
+            <span class="war-hd-ico material-symbols-rounded">person</span>
+            <div class="war-hd-txt">
+                <div class="war-hd-title">ข้อมูลลูกค้าและเครื่อง</div>
+                <div class="war-hd-sub">ผู้ถือใบประกันและเครื่องที่รับประกัน</div>
+            </div>
+        </header>
+        <div class="war-body">
         <div class="detail-row"><span class="detail-label">ลูกค้า</span><span class="detail-val"><?= h($war['customer_name']) ?></span></div>
         <div class="detail-row"><span class="detail-label">เบอร์โทร</span><span class="detail-val"><?= $war['customer_phone'] ? h($war['customer_phone']) : '-' ?></span></div>
         <div class="detail-row"><span class="detail-label">เครื่อง</span><span class="detail-val"><?= h($war['device_model']) ?></span></div>
@@ -239,11 +280,20 @@ $m_phone = preg_replace('/[^0-9+]/', '', $war['customer_phone'] ?? '');
             <span class="detail-val" style="text-align:left; white-space:pre-line;"><?= h($war['repair_summary']) ?></span>
         </div>
         <?php endif; ?>
+        </div>
     </div>
 
     <!-- Claims -->
-    <div class="war-card">
-        <div class="war-card-title"><span class="material-symbols-rounded">report_problem</span> ประวัติการเคลม (<?= count($claims) ?>)</div>
+    <div class="war-card hd-amber">
+        <header class="war-hd">
+            <span class="war-hd-ico material-symbols-rounded">report_problem</span>
+            <div class="war-hd-txt">
+                <div class="war-hd-title">ประวัติการเคลม</div>
+                <div class="war-hd-sub">อาการที่ลูกค้าแจ้งและผลการดำเนินการ</div>
+            </div>
+            <span class="war-hd-count"><?= count($claims) ?></span>
+        </header>
+        <div class="war-body">
         <?php if (empty($claims)): ?>
             <p style="color:var(--text-muted); font-size:0.88rem; text-align:center; padding:16px 0;">ยังไม่มีการเคลม</p>
         <?php else: foreach ($claims as $c): ?>
@@ -277,13 +327,21 @@ $m_phone = preg_replace('/[^0-9+]/', '', $war['customer_phone'] ?? '');
             </button>
         </div>
         <?php endif; ?>
+        </div>
     </div>
 </div>
 
 <!-- Right: Status card + QR -->
 <div>
-    <div class="war-card" style="text-align:center;">
-        <div class="war-card-title" style="justify-content:center;"><span class="material-symbols-rounded">calendar_month</span> ระยะประกัน</div>
+    <div class="war-card hd-teal">
+        <header class="war-hd">
+            <span class="war-hd-ico material-symbols-rounded">calendar_month</span>
+            <div class="war-hd-txt">
+                <div class="war-hd-title">ระยะประกัน</div>
+                <div class="war-hd-sub">เวลาที่ใช้ไปและที่เหลือ</div>
+            </div>
+        </header>
+        <div class="war-body" style="text-align:center;">
 
         <?php
         $total  = $war['warranty_days'];
@@ -314,21 +372,36 @@ $m_phone = preg_replace('/[^0-9+]/', '', $war['customer_phone'] ?? '');
         <?php else: ?>
             <div style="font-size:1rem; color:var(--text-muted);"><?= $war['status'] === 'voided' ? 'ยกเลิกแล้ว' : 'หมดอายุ' ?></div>
         <?php endif; ?>
+        </div>
     </div>
 
     <!-- QR Code -->
-    <div class="war-card" style="text-align:center;">
-        <div class="war-card-title" style="justify-content:center;"><span class="material-symbols-rounded">qr_code_2</span> QR เช็คประกัน</div>
+    <div class="war-card hd-violet">
+        <header class="war-hd">
+            <span class="war-hd-ico material-symbols-rounded">qr_code_2</span>
+            <div class="war-hd-txt">
+                <div class="war-hd-title">QR เช็คประกัน</div>
+                <div class="war-hd-sub">ลูกค้าสแกนเช็คสถานะเองได้</div>
+            </div>
+        </header>
+        <div class="war-body" style="text-align:center;">
         <canvas id="qr-canvas" style="max-width:180px; width:100%;"></canvas>
         <div style="font-size:0.76rem; color:var(--text-muted); margin-top:8px; word-break:break-all;">
             <?= h((isset($_SERVER['HTTPS']) ? 'https' : 'http') . '://' . $_SERVER['HTTP_HOST'] . '/warranty/?q=' . urlencode($war['warranty_no'])) ?>
         </div>
+        </div>
     </div>
 
     <?php if ($war['void_reason']): ?>
-    <div class="war-card" style="border-color:rgba(239,68,68,.3); background:rgba(239,68,68,.04);">
-        <div class="war-card-title" style="color:#dc2626;"><span class="material-symbols-rounded">block</span> เหตุผลยกเลิก</div>
-        <p style="font-size:0.88rem; margin:0;"><?= h($war['void_reason']) ?></p>
+    <div class="war-card hd-red">
+        <header class="war-hd">
+            <span class="war-hd-ico material-symbols-rounded">block</span>
+            <div class="war-hd-txt">
+                <div class="war-hd-title">เหตุผลยกเลิก</div>
+                <div class="war-hd-sub">ใบนี้ถูกยกเลิกแล้ว</div>
+            </div>
+        </header>
+        <div class="war-body"><p style="font-size:0.88rem; margin:0;"><?= h($war['void_reason']) ?></p></div>
     </div>
     <?php endif; ?>
 </div>

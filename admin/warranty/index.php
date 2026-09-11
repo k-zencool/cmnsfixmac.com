@@ -115,6 +115,8 @@ include __DIR__ . '/../templates/header_admin.php';
 ?>
 <link rel="stylesheet" href="<?= $assets_base ?>css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
 <link rel="stylesheet" href="<?= $assets_base ?>css/modal.css?v=<?= asset_ver('/admin/templates/assets/css/modal.css') ?>">
+<link rel="stylesheet" href="<?= $assets_base ?>css/inventory-logs.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-logs.css') ?>">
+<link rel="stylesheet" href="assets/css/warranty.css?v=<?= asset_ver('/admin/warranty/assets/css/warranty.css') ?>">
 <link rel="stylesheet" href="assets/css/warranty-mobile.css?v=<?= asset_ver('/admin/warranty/assets/css/warranty-mobile.css') ?>">
 <style>
 /* ── shared form components ── */
@@ -125,31 +127,7 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
 .cmns-alert { display:flex; align-items:center; gap:10px; padding:10px 16px; border-radius:10px; font-size:.88rem; margin-bottom:14px; }
 .cmns-alert-success { background:rgba(16,185,129,.1); color:#065f46; border:1px solid rgba(16,185,129,.3); }
 .cmns-alert-danger  { background:#fef2f2; color:#dc2626; border:1px solid #fecaca; }
-/* ── warranty pages ── */
-.war-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; gap:12px; flex-wrap:wrap; }
-.war-stats  { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px; }
-.war-stat   { background:var(--bg-surface); border:1px solid var(--border); border-radius:12px; padding:16px 20px; display:flex; align-items:center; gap:12px; }
-.war-stat-icon { width:42px; height:42px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
-.war-stat-icon .material-symbols-rounded { font-size:21px; }
-.war-stat-val { font-size:1.5rem; font-weight:800; color:var(--text-main); line-height:1; }
-.war-stat-lbl { font-size:0.78rem; color:var(--text-muted); margin-top:3px; }
-.war-filters  { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
-.war-filter   { padding:6px 16px; border-radius:20px; border:1.5px solid var(--border); background:var(--bg-surface); cursor:pointer; font-size:0.84rem; font-weight:600; color:var(--text-muted); text-decoration:none; transition:.15s; display:inline-flex; align-items:center; gap:6px; }
-.war-filter:hover { border-color:var(--primary); color:var(--primary); }
-.war-filter.active { background:var(--primary); border-color:var(--primary); color:#fff; }
-.war-search  { display:flex; gap:10px; margin-bottom:18px; }
-.war-search-wrap { flex:1; position:relative; }
-.war-search-wrap .material-symbols-rounded { position:absolute; left:12px; top:50%; transform:translateY(-50%); color:var(--text-muted); font-size:20px; pointer-events:none; }
-.war-search-input { width:100%; padding:10px 12px 10px 40px; border:1.5px solid var(--border); border-radius:8px; font-size:0.95rem; background:var(--bg-surface); color:var(--text-main); }
-.war-search-input:focus { outline:none; border-color:var(--primary); }
-.war-table-wrap { background:var(--bg-surface); border:1px solid var(--border); border-radius:12px; overflow:hidden; }
-.war-table { width:100%; border-collapse:collapse; font-size:0.88rem; }
-.war-table th { padding:11px 14px; text-align:left; font-size:0.78rem; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:var(--text-muted); border-bottom:1px solid var(--border); background:var(--bg-surface-alt); }
-.war-table td { padding:12px 14px; border-bottom:1px solid var(--border); vertical-align:middle; }
-.war-table tr:last-child td { border-bottom:none; }
-.war-table tr:hover td { background:var(--bg-surface-alt); }
-.status-badge { display:inline-flex; align-items:center; gap:4px; padding:3px 10px; border-radius:20px; font-size:0.78rem; font-weight:600; border:1px solid transparent; white-space:nowrap; }
-.war-no { font-weight:700; font-family:monospace; font-size:0.9rem; color:var(--primary); }
+/* ── warranty pages (list chrome now comes from inventory-logs.css + warranty.css) ── */
 .war-device { font-size:0.82rem; color:var(--text-muted); margin-top:2px; }
 .war-days-left { font-size:0.8rem; font-weight:700; }
 .war-days-left.ok { color:#059669; }
@@ -164,16 +142,6 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
 .t-edit:hover { color:var(--primary); background:rgba(37,99,235,.07); border-color:var(--primary); }
 .t-del:hover  { color:#ef4444; background:rgba(239,68,68,.07); border-color:#ef4444; }
 
-/* ── Pagination (มาตรฐานเดียวกับหน้าอื่น) ── */
-.log-pagination { display:flex; align-items:center; justify-content:space-between; padding:16px 20px; font-size:13px; color:var(--text-muted); border-top:1px solid var(--border); flex-wrap:wrap; gap:10px; }
-.page-btns { display:flex; gap:5px; }
-.page-btn { min-width:36px; height:36px; padding:0 10px; border-radius:9px; border:1px solid var(--border); background:var(--bg-surface-alt); color:var(--text-main); font-size:13px; text-decoration:none; font-weight:600; transition:.2s; display:inline-flex; align-items:center; justify-content:center; }
-.page-btn:hover:not(.disabled) { border-color:var(--primary); color:var(--primary); background:rgba(37,99,235,.06); }
-.page-btn.active { background:var(--primary); color:#fff; border-color:var(--primary); box-shadow:0 2px 8px rgba(37,99,235,.3); }
-.page-btn.disabled { opacity:.3; pointer-events:none; }
-
-@media(max-width:768px){ .war-stats { grid-template-columns:repeat(2,1fr); } }
-@media(max-width:640px){ .log-pagination { flex-direction:column; align-items:flex-start; } }
 </style>
 
 <div class="main-content">
@@ -335,85 +303,83 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
     </div>
 </div><!-- .war-m -->
 
-<div class="war-header war-d">
+<!-- ── Header (same chrome as งานซ่อม / คลังอะไหล่) ── -->
+<div class="cmns-header-bar war-d">
     <div>
-        <h1 class="page-title" style="margin:0;">
-            <span class="material-symbols-rounded" style="vertical-align:middle;">verified_user</span>
-            ใบรับประกัน
+        <h1 class="cmns-page-title" style="color: var(--primary);">
+            <span class="material-symbols-rounded" style="font-size:32px;">verified_user</span>
+            WARRANTY / ใบรับประกัน
         </h1>
+        <p style="color:var(--text-muted); margin-top:5px; font-size:13px;">
+            จัดการใบรับประกันทั้งหมด · แสดง <b><?= number_format($total) ?></b> รายการ
+        </p>
     </div>
-    <button onclick="openCreateModal()" class="cmns-btn cmns-btn-primary">
-        <span class="material-symbols-rounded">add</span> ออกใบประกันใหม่
-    </button>
+    <div class="cmns-action-buttons">
+        <button type="button" onclick="openCreateModal()" class="cmns-btn cmns-btn-primary">
+            <span class="material-symbols-rounded">add_circle</span> ออกใบประกันใหม่
+        </button>
+    </div>
 </div>
 
-<!-- Stats -->
+<!-- ── Stat cards — each one is also its filter ── -->
 <div class="war-stats war-d">
-    <div class="war-stat">
-        <div class="war-stat-icon" style="background:rgba(37,99,235,.1);">
-            <span class="material-symbols-rounded" style="color:var(--primary);">verified_user</span>
-        </div>
-        <div>
-            <div class="war-stat-val"><?= $cnt['all'] ?? 0 ?></div>
-            <div class="war-stat-lbl">ทั้งหมด</div>
-        </div>
-    </div>
-    <div class="war-stat">
-        <div class="war-stat-icon" style="background:rgba(16,185,129,.1);">
-            <span class="material-symbols-rounded" style="color:#059669;">check_circle</span>
-        </div>
-        <div>
-            <div class="war-stat-val"><?= $cnt['active'] ?? 0 ?></div>
-            <div class="war-stat-lbl">ใช้งานได้</div>
-        </div>
-    </div>
-    <div class="war-stat">
-        <div class="war-stat-icon" style="background:rgba(107,114,128,.1);">
-            <span class="material-symbols-rounded" style="color:var(--text-muted);">schedule</span>
-        </div>
-        <div>
-            <div class="war-stat-val"><?= $cnt['expired'] ?? 0 ?></div>
-            <div class="war-stat-lbl">หมดอายุ</div>
-        </div>
-    </div>
-    <div class="war-stat">
-        <div class="war-stat-icon" style="background:rgba(239,68,68,.1);">
-            <span class="material-symbols-rounded" style="color:#dc2626;">block</span>
-        </div>
-        <div>
-            <div class="war-stat-val"><?= $cnt['voided'] ?? 0 ?></div>
-            <div class="war-stat-lbl">ยกเลิกแล้ว</div>
-        </div>
-    </div>
-</div>
-
-<!-- Filters -->
-<div class="war-filters war-d">
-    <?php
-    $filters = ['all'=>'ทั้งหมด','active'=>'ใช้งานได้','expired'=>'หมดอายุ','voided'=>'ยกเลิก'];
-    foreach ($filters as $k => $label):
-        $active = $status_filter === $k ? 'active' : '';
-        $n      = $cnt[$k] ?? 0;
-        $url    = '?' . http_build_query(array_merge($_GET, ['status'=>$k, 'page'=>1]));
-    ?>
-    <a href="<?= h($url) ?>" class="war-filter <?= $active ?>"><?= $label ?> <span style="opacity:.6;">(<?= $n ?>)</span></a>
+    <?php foreach ([
+        'all'     => ['ทั้งหมด',    'verified_user', '#eff6ff', '#3b82f6'],
+        'active'  => ['ใช้งานได้',  'check_circle',  '#f0fdf4', '#10b981'],
+        'expired' => ['หมดอายุ',    'schedule',      '#f1f5f9', '#64748b'],
+        'voided'  => ['ยกเลิกแล้ว', 'block',         '#fef2f2', '#ef4444'],
+    ] as $k => [$label, $icon, $bg, $fg]): ?>
+    <a href="?status=<?= $k ?>" class="stat-card">
+        <div class="stat-icon" style="background:<?= $bg ?>;"><span class="material-symbols-rounded" style="color:<?= $fg ?>;"><?= $icon ?></span></div>
+        <div><div class="stat-val"><?= number_format($cnt[$k] ?? 0) ?></div><div class="stat-lbl"><?= $label ?></div></div>
+    </a>
     <?php endforeach; ?>
 </div>
 
-<!-- Search -->
-<form class="war-search war-d" method="get">
-    <input type="hidden" name="status" value="<?= h($status_filter) ?>">
-    <div class="war-search-wrap">
-        <span class="material-symbols-rounded">search</span>
-        <input type="text" name="q" class="war-search-input" placeholder="ค้นหา เลขประกัน / ชื่อ / โทร / Serial / เครื่อง…" value="<?= h($q) ?>">
+<!-- ── Filter bar ── -->
+<form method="get" class="war-d">
+    <?php if ($status_filter !== 'all'): ?>
+        <input type="hidden" name="status" value="<?= h($status_filter) ?>">
+    <?php endif; ?>
+    <div class="log-filter-bar">
+        <div class="log-filter-group" style="flex:1; min-width:220px;">
+            <label>ค้นหา</label>
+            <div class="log-search-wrap">
+                <span class="material-symbols-rounded search-icon">search</span>
+                <input type="text" name="q" value="<?= h($q) ?>" placeholder="เลขประกัน / ชื่อ / เบอร์ / Serial / รุ่น">
+            </div>
+        </div>
+        <button type="submit" class="war-icon-btn is-search" title="ค้นหา">
+            <span class="material-symbols-rounded">search</span>
+        </button>
+        <?php if ($q !== ''): ?>
+            <a href="?status=<?= h($status_filter) ?>" class="war-icon-btn is-reset" title="ล้างคำค้น">
+                <span class="material-symbols-rounded">close</span>
+            </a>
+        <?php endif; ?>
     </div>
-    <button class="cmns-btn cmns-btn-primary" type="submit">ค้นหา</button>
-    <?php if ($q): ?><a href="?status=<?= h($status_filter) ?>" class="cmns-btn cmns-btn-secondary">ล้าง</a><?php endif; ?>
 </form>
 
-<!-- Table -->
-<div class="war-table-wrap war-d">
-    <table class="war-table">
+<!-- ── Status tabs ── -->
+<div class="log-tabs war-d">
+    <?php foreach ([
+        'all'     => ['ทั้งหมด',   'list',          'active-all'],
+        'active'  => ['ใช้งานได้', 'verified',      'active-in'],
+        'expired' => ['หมดอายุ',   'schedule',      'active-muted'],
+        'voided'  => ['ยกเลิก',    'block',         'active-out'],
+    ] as $k => [$label, $icon, $on]):
+        $url = '?' . http_build_query(array_merge($_GET, ['status' => $k, 'page' => 1])); ?>
+        <a href="<?= h($url) ?>" class="log-tab <?= $status_filter === $k ? $on : '' ?>">
+            <span class="material-symbols-rounded" style="font-size:14px;"><?= $icon ?></span>
+            <?= $label ?>
+        </a>
+    <?php endforeach; ?>
+</div>
+
+<!-- ── Table ── -->
+<div class="log-card war-d">
+    <div style="overflow-x:auto;">
+    <table class="log-table">
         <thead>
             <tr>
                 <th>เลขประกัน</th>
@@ -422,18 +388,27 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
                 <th>ระยะประกัน</th>
                 <th>วันหมดอายุ</th>
                 <th>สถานะ</th>
-                <th style="text-align:right;">Actions</th>
+                <th style="text-align:right;">จัดการ</th>
             </tr>
         </thead>
         <tbody>
         <?php if (empty($warranties)): ?>
-            <tr><td colspan="7" style="text-align:center; padding:40px; color:var(--text-muted);">ไม่มีข้อมูล</td></tr>
+            <tr><td colspan="7">
+                <div class="empty-state">
+                    <span class="material-symbols-rounded">verified_user</span>
+                    <p style="font-size:15px; font-weight:600; margin:0 0 6px;">ไม่พบใบรับประกัน</p>
+                    <p style="font-size:13px; margin:0;">ลองเปลี่ยนตัวกรองหรือค้นหาใหม่</p>
+                </div>
+            </td></tr>
         <?php else: foreach ($warranties as $w):
             ['days_cls' => $days_cls, 'days_txt' => $days_txt] = $meta[(int)$w['id']];
+            // same row language as งานซ่อม: amber = needs a look soon, faded = closed
+            $rowCls = $w['status'] === 'voided' ? 'tr-done'
+                    : (($w['status'] === 'active' && $days_cls === 'warn') ? 'tr-soon' : '');
         ?>
-            <tr>
+            <tr class="<?= $rowCls ?>">
                 <td>
-                    <div class="war-no"><?= h($w['warranty_no']) ?></div>
+                    <a href="view.php?id=<?= (int)$w['id'] ?>" class="job-link"><?= h($w['warranty_no']) ?></a>
                     <?php if ($w['ticket_number']): ?>
                         <div class="war-device">
                             <a href="../tracking/edit.php?id=<?= $w['tracking_id'] ?>" style="color:var(--text-muted); font-size:0.78rem;" target="_blank">
@@ -478,6 +453,7 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
         <?php endforeach; endif; ?>
         </tbody>
     </table>
+    </div>
 
     <?php if ($total > 0): ?>
     <div class="log-pagination">

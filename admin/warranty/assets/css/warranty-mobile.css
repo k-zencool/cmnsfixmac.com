@@ -600,7 +600,7 @@ body:has(.war-v-ov:not([hidden])) .war-m-fab { display: none; }
 }
 .wv-claim-hd { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
 .wv-claim-no { font-family: monospace; font-size: .82rem; font-weight: 800; color: var(--primary); }
-.wv-claim-hd .status-badge { padding: 2px 8px; font-size: 10.5px; }
+.wv-claim-hd .status-badge { min-width: 0; padding: 2px 8px; font-size: 10.5px; }
 .wv-claim-hd .status-badge .material-symbols-rounded { font-size: 13px !important; }
 .wv-claim-date { margin-top: 3px; font-size: .74rem; color: var(--text-muted); font-variant-numeric: tabular-nums; }
 .wv-claim-p { margin: 6px 0 0; font-size: .84rem; white-space: pre-line; }

@@ -1,0 +1,111 @@
+/* =========================================================
+   CMNS Admin — Warranty, desktop chrome
+   Path: admin/warranty/assets/css/warranty.css
+   Used by: admin/warranty/index.php, view.php
+
+   The list wears the same kit as งานซ่อม / คลังอะไหล่:
+   cmns-header-bar (inventory-dashboard.css) + log-filter-bar / log-tabs /
+   log-card / log-table (inventory-logs.css — SHARED by 7 pages, so nothing
+   here edits it; page-only tweaks are scoped below). The pieces that live in
+   tracking-index.css (stat cards, status pills, job link) are restated here
+   with the same values so the pages match.
+   ========================================================= */
+
+/* ── Gutters = งานซ่อม's (tracking-index.css: content-padding 14px sides,
+   cmns-wrapper 30px top / 4px sides). Desktop only — the phone layout
+   keeps its own spacing. ── */
+@media (min-width: 992px) {
+    .content-padding { padding-left: 14px !important; padding-right: 14px !important; }
+    .main-content    { padding: 30px 4px 0; }
+}
+
+/* ── Stat cards (same recipe as tracking-index.css) ── */
+.war-stats {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-bottom: 24px;
+}
+.stat-card {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 16px 18px;
+    display: flex; align-items: center; gap: 14px;
+    text-decoration: none; color: inherit;
+    transition: border-color .15s, transform .15s, box-shadow .15s;
+}
+a.stat-card:hover { border-color: var(--primary); transform: translateY(-2px); box-shadow: 0 6px 18px rgba(0,0,0,.08); }
+[data-theme="dark"] a.stat-card:hover { box-shadow: 0 6px 18px rgba(0,0,0,.35); }
+.stat-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.stat-icon .material-symbols-rounded { font-size: 20px; }
+.stat-val { font-size: 22px; font-weight: 800; color: var(--text-main); line-height: 1; }
+.stat-lbl { font-size: 11px; color: var(--text-muted); margin-top: 3px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
+@media (max-width: 1200px) { .war-stats { grid-template-columns: repeat(2, 1fr); } }
+
+/* ── Filter bar: icon buttons beside the search ── */
+.war-icon-btn {
+    align-self: flex-end;
+    width: 42px; height: 42px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 10px;
+    border: 1.5px solid var(--border);
+    background: var(--bg-surface-alt);
+    color: var(--text-muted);
+    cursor: pointer;
+    text-decoration: none;
+    transition: .2s;
+}
+.war-icon-btn .material-symbols-rounded { font-size: 20px; }
+.war-icon-btn.is-search {
+    border-color: var(--primary);
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 3px 10px rgba(37,99,235,.25);
+}
+.war-icon-btn.is-search:hover { filter: brightness(1.1); transform: translateY(-1px); }
+.war-icon-btn.is-reset:hover { border-color: #ef4444; color: #ef4444; }
+
+/* The shared `.log-filter-group input[type="text"]` (0,2,1) beats
+   `.log-search-wrap input` (0,1,1), so the icon sat on the text —
+   tracking-index.css restates it the same way. */
+.log-filter-bar .log-search-wrap input[type="text"] { width: 100%; padding-left: 38px; }
+
+/* inventory-logs.css has no neutral tab — "หมดอายุ" is not a warning */
+.log-tab.active-muted { background: #64748b; color: #fff; border-color: #64748b; box-shadow: 0 3px 10px rgba(100,116,139,.3); }
+
+/* ── Table — the tighter header งานซ่อม uses ── */
+.log-table th {
+    background: var(--bg-surface);
+    padding: 10px 12px;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: .4px;
+    border-bottom: 1px solid var(--border);
+    text-align: left;
+}
+.log-table td { padding: 11px 12px; }
+
+.job-link {
+    font-family: 'Courier New', monospace; font-weight: 700;
+    color: var(--primary); text-decoration: none; font-size: 13px;
+    letter-spacing: .3px;
+}
+.job-link:hover { text-decoration: underline; }
+
+.tr-soon td { background: rgba(245,158,11,.05); }
+[data-theme="dark"] .tr-soon td { background: rgba(245,158,11,.08); }
+.tr-done td { opacity: .65; }
+.tr-done .job-link { color: var(--text-muted); }
+
+/* ── Status pills (same as tracking-index.css) ── */
+.status-badge {
+    display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+    padding: 5px 12px; border-radius: 20px;
+    font-size: 11px; font-weight: 800; letter-spacing: .4px;
+    white-space: nowrap; border: 1px solid transparent;
+    min-width: 110px;
+}
+.st-amber  { background: rgba(245,158,11,.12);  color: #b45309;  border-color: rgba(245,158,11,.3); }
+.st-blue   { background: rgba(37,99,235,.1);    color: var(--primary); border-color: rgba(37,99,235,.25); }
+.st-purple { background: rgba(139,92,246,.1);   color: #7c3aed; border-color: rgba(139,92,246,.25); }
+.st-red    { background: rgba(239,68,68,.1);    color: #dc2626;  border-color: rgba(239,68,68,.25); }
+.st-green  { background: rgba(16,185,129,.1);   color: #059669; border-color: rgba(16,185,129,.25); }
+.st-gray   { background: var(--bg-surface-alt); color: var(--text-muted); border-color: var(--border); }
