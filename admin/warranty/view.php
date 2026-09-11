@@ -70,8 +70,123 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
     </div>
 <?php endif; ?>
 
+<?php
+/* ── MOBILE (<992px) ──────────────────────────────────────────────
+   The desktop header + .view-wrap below carry .wv-d and switch off at
+   that width; .wv-m switches on. Same data, two layouts — see
+   warranty-mobile.css. The claim / edit / void sheets are shared. */
+$m_st    = $war['status'];
+$m_total = (int)$war['warranty_days'];
+$m_used  = max(0, min((int)ceil((time() - strtotime($war['start_date'])) / 86400), $m_total));
+$m_pct   = $m_total > 0 ? (int)round($m_used / $m_total * 100) : 100;
+$m_label = ['active' => 'ใช้งานได้', 'expired' => 'หมดอายุ', 'voided' => 'ยกเลิก'][$m_st] ?? $m_st;
+// Still 'active' with 0 days left = the end date is today (w_sync_expired only
+// flips it tomorrow), so that is the last day, not "expired" under an active pill
+$m_live  = $m_st === 'active';
+$m_soon  = $m_live && $days_left <= 30;
+$m_phone = preg_replace('/[^0-9+]/', '', $war['customer_phone'] ?? '');
+?>
+<div class="wv-m">
+
+    <!-- Hero: the one number that matters — days left — on a slab whose
+         colour is the status (blue live / slate expired / red voided) -->
+    <section class="wv-hero st-<?= h($m_st) ?><?= $m_soon ? ' is-soon' : '' ?>">
+        <div class="wv-hero-top">
+            <span class="wv-hero-no"><?= h($war['warranty_no']) ?></span>
+            <span class="wv-hero-pill"><?= h($m_label) ?></span>
+        </div>
+        <?php if ($m_live && $days_left > 0): ?>
+            <div class="wv-hero-fig"><b><?= $days_left ?></b><span>วันที่เหลือ</span></div>
+        <?php elseif ($m_live): ?>
+            <div class="wv-hero-fig is-word"><b>วันสุดท้าย</b></div>
+        <?php else: ?>
+            <div class="wv-hero-fig is-word"><b><?= $m_st === 'voided' ? 'ยกเลิกแล้ว' : 'หมดประกันแล้ว' ?></b></div>
+        <?php endif; ?>
+        <div class="wv-hero-bar" role="img" aria-label="ใช้ไป <?= $m_pct ?>%"><i style="width:<?= $m_pct ?>%"></i></div>
+        <div class="wv-hero-dates">
+            <span><?= date('d/m/y', strtotime($war['start_date'])) ?> – <?= date('d/m/y', strtotime($war['end_date'])) ?></span>
+            <span><?= $m_total ?> วัน · ใช้ไป <?= $m_pct ?>%</span>
+        </div>
+    </section>
+
+    <!-- One row instead of four wrapping buttons; the claim button lives
+         with the claims below -->
+    <div class="wv-actions">
+        <a href="print.php?id=<?= $id ?>" target="_blank" class="wv-act">
+            <span class="material-symbols-rounded">print</span>พิมพ์
+        </a>
+        <?php if (can('content.write')): ?>
+        <a href="edit.php?id=<?= $id ?>" class="wv-act" onclick="showGlobalLoader()">
+            <span class="material-symbols-rounded">edit</span>แก้ไข
+        </a>
+        <?php endif; ?>
+        <?php if ($m_st === 'active'): ?>
+        <button type="button" class="wv-act is-danger" onclick="confirmVoid()">
+            <span class="material-symbols-rounded">block</span>ยกเลิกประกัน
+        </button>
+        <?php endif; ?>
+    </div>
+
+    <section class="wv-card">
+        <h3 class="wv-card-t">ลูกค้าและเครื่อง</h3>
+        <div class="wv-row"><span>ลูกค้า</span><b><?= h($war['customer_name']) ?></b></div>
+        <?php if ($m_phone !== ''): ?>
+        <div class="wv-row"><span>เบอร์โทร</span><a href="tel:<?= h($m_phone) ?>"><?= h($war['customer_phone']) ?></a></div>
+        <?php endif; ?>
+        <div class="wv-row"><span>เครื่อง</span><b><?= h($war['device_model']) ?></b></div>
+        <?php if ($war['serial_no']): ?>
+        <div class="wv-row"><span>Serial</span><b class="wv-mono"><?= h($war['serial_no']) ?></b></div>
+        <?php endif; ?>
+        <?php if ($war['ticket_number']): ?>
+        <!-- same tab: target=_blank would throw the PWA out to Safari -->
+        <div class="wv-row"><span>งานซ่อม</span><a href="../tracking/edit.php?id=<?= (int)$war['tracking_id'] ?>" onclick="showGlobalLoader()"><?= h($war['ticket_number']) ?></a></div>
+        <?php endif; ?>
+        <?php if ($war['repair_summary']): ?>
+        <div class="wv-sum"><span>สรุปงานซ่อม</span><p><?= h($war['repair_summary']) ?></p></div>
+        <?php endif; ?>
+    </section>
+
+    <?php if ($war['void_reason']): ?>
+    <section class="wv-card wv-void">
+        <h3 class="wv-card-t">เหตุผลยกเลิก</h3>
+        <p><?= h($war['void_reason']) ?></p>
+    </section>
+    <?php endif; ?>
+
+    <section class="wv-card">
+        <h3 class="wv-card-t">การเคลม <span class="wv-count"><?= count($claims) ?></span></h3>
+        <?php if (empty($claims)): ?>
+            <p class="wv-empty">ยังไม่มีการเคลม</p>
+        <?php else: foreach ($claims as $c): ?>
+            <div class="wv-claim">
+                <div class="wv-claim-hd">
+                    <span class="wv-claim-no"><?= h($c['claim_no']) ?></span>
+                    <?= w_claim_badge($c['status']) ?>
+                </div>
+                <div class="wv-claim-date"><?= date('d/m/Y', strtotime($c['claim_date'])) ?></div>
+                <?php if ($c['issue_desc']): ?><p class="wv-claim-p"><?= h($c['issue_desc']) ?></p><?php endif; ?>
+                <?php if ($c['resolution']): ?><p class="wv-claim-res"><?= h($c['resolution']) ?></p><?php endif; ?>
+                <button type="button" class="wv-claim-edit" aria-label="แก้ไขการเคลม"
+                        onclick="editClaim(<?= (int)$c['id'] ?>, <?= htmlspecialchars(json_encode($c), ENT_QUOTES) ?>)">
+                    <span class="material-symbols-rounded">edit</span>
+                </button>
+            </div>
+        <?php endforeach; endif; ?>
+        <?php if ($m_st !== 'voided'): ?>
+        <button type="button" class="wv-add" onclick="openClaimModal()">
+            <span class="material-symbols-rounded">add_circle</span> บันทึกการเคลม
+        </button>
+        <?php endif; ?>
+    </section>
+
+    <section class="wv-card wv-qr">
+        <h3 class="wv-card-t">QR เช็คประกัน</h3>
+        <canvas id="qr-canvas-m"></canvas>
+    </section>
+</div><!-- .wv-m -->
+
 <!-- Header -->
-<div style="display:flex; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
+<div class="wv-d" style="display:flex; align-items:center; gap:12px; margin-bottom:20px; flex-wrap:wrap;">
     <a href="index.php" class="cmns-btn cmns-btn-secondary" style="padding:8px 12px;">
         <span class="material-symbols-rounded">arrow_back</span>
     </a>
@@ -99,7 +214,7 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
     </div>
 </div>
 
-<div class="view-wrap">
+<div class="view-wrap wv-d">
 <!-- Left: Details + Claims -->
 <div>
     <div class="war-card">
@@ -348,9 +463,12 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
      stays contained here instead of killing the modal wiring below. -->
 <script>
 if (window.QRCode) {
-    QRCode.toCanvas(document.getElementById('qr-canvas'),
-        `${location.protocol}//${location.host}/warranty/?q=<?= urlencode($war['warranty_no']) ?>`,
-        {width:200, margin:1}, function(err){ if(err) console.error(err); });
+    const qrUrl = `${location.protocol}//${location.host}/warranty/?q=<?= urlencode($war['warranty_no']) ?>`;
+    // desktop card + phone card — CSS shows one of them
+    ['qr-canvas', 'qr-canvas-m'].forEach(cid => {
+        const c = document.getElementById(cid);
+        if (c) QRCode.toCanvas(c, qrUrl, {width:200, margin:1}, function(err){ if(err) console.error(err); });
+    });
 } else {
     console.error('QRCode library failed to load');
 }
