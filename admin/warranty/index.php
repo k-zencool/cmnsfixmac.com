@@ -80,7 +80,6 @@ foreach ($warranties as $w) {
         'days_txt' => $days_txt,
         'icon'     => war_device_icon($w['device_model']),
         'end'      => date('d/m/y', strtotime($w['end_date'])),
-        'phone'    => preg_replace('/[^0-9+]/', '', $w['customer_phone'] ?? ''),
     ];
 }
 
@@ -229,11 +228,6 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
                         </span>
                     </span>
                 </a>
-                <?php if ($m['phone'] !== ''): ?>
-                    <a class="war-m-call" href="tel:<?= h($m['phone']) ?>" aria-label="โทรหา <?= h($w['customer_name']) ?>">
-                        <span class="material-symbols-rounded">call</span>
-                    </a>
-                <?php endif; ?>
             </div>
             <?php endforeach; ?>
         </div>

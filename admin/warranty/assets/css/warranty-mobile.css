@@ -200,20 +200,6 @@
     font-variant-numeric: tabular-nums;
 }
 
-/* Call button — a sibling of the card link, never nested inside it */
-.war-m-call {
-    flex-shrink: 0;
-    width: 52px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-left: 1px solid var(--border);
-    color: #059669;
-    text-decoration: none;
-}
-.war-m-call:active { background: rgba(16, 185, 129, .12); }
-.war-m-call .material-symbols-rounded { font-size: 22px; }
-
 /* Expiring within 30 days — the one state worth a glance from across the room */
 .war-m-card.is-soon { border-left: 3px solid #f59e0b; }
 .war-m-card.st-voided { opacity: .62; }
