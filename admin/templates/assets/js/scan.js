@@ -211,10 +211,13 @@
     var WARRANTY_RE = /\bWJ?-\d{4,6}-\d{1,6}\b/i;
 
     /* A repair-number sticker (tracking/stickers.php) decodes to
-       HTTPS://<HOST>/T/<ticket> (older prints: …/admin/scan/resolve.php?t=);
+       "CMNS:<ticket>" — not a URL, so only this scanner can open it.
+       Stickers printed before that carry a URL (…/T/<ticket> or
+       …/admin/scan/resolve.php?t=<ticket>); still accepted here.
        resolve.php bounces a failed one back as the bare "t=<ticket>".
        Nothing else counts — a stray ?t= on some other site's QR must not
        open a repair job. */
+    var TICKET_CODE_RE = /^CMNS:(.{1,50})$/;
     var TICKET_RE      = /^https?:\/\/[^\/\s]+\/(?:admin\/scan\/resolve\.php\?(?:[^#\s]*&)?t=|T\/)([^&#?\/\s]{1,150})(?:[&#]|$)/i;
     var TICKET_BACK_RE = /^t=(.{1,50})$/;   // decoded, may hold spaces ("V5508 (2)")
 
@@ -224,14 +227,16 @@
     function routeFrom(text) {
         text = (text || '').trim();
 
-        var j = TICKET_RE.exec(text), ticket = null;
+        var j = TICKET_CODE_RE.exec(text), ticket = null;
         if (j) {
+            ticket = j[1];
+        } else if ((j = TICKET_RE.exec(text))) {
             try { ticket = decodeURIComponent(j[1].replace(/\+/g, ' ')); } catch (e) { ticket = j[1]; }
         } else if ((j = TICKET_BACK_RE.exec(text))) {
             ticket = j[1];
         }
         if (ticket !== null) {
-            return { key: 'T' + ticket.toUpperCase(), href: 'resolve.php?t=' + encodeURIComponent(ticket),
+            return { key: 'T' + ticket.toUpperCase(), href: 'resolve.php?src=app&t=' + encodeURIComponent(ticket),
                      icon: 'build', msg: 'เปิดงาน ' + ticket + '…' };
         }
 

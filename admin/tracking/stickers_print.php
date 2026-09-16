@@ -62,7 +62,7 @@ $sizeClass = function (string $t): string {
 };
 
 $qrPayload = [];
-foreach (array_unique($tickets) as $t) $qrPayload[$t] = stk_scan_url($t);
+foreach (array_unique($tickets) as $t) $qrPayload[$t] = stk_qr_payload($t);
 ?>
 <!DOCTYPE html>
 <html lang="th">

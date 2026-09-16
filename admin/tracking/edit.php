@@ -300,7 +300,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 /* ── Job QR: same payload as the pre-printed number sticker (stickers.php) ── */
-$jobScanUrl = stk_scan_url($job['ticket_number']);
+$jobScanUrl = stk_qr_payload($job['ticket_number']);
 
 /* ── Prepare date values ── */
 $appVal    = $job['appointment_date'] ? date('Y-m-d', strtotime($job['appointment_date'])) : '';

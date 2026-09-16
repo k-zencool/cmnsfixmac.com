@@ -39,6 +39,15 @@ if (isset($_GET['t'])) {
 
     $ticket = trim((string)$_GET['t']);
     $back   = 't=' . $ticket;   // the shape scan.js parses as "same sticker"
+
+    /* Stickers are scanned in the app only. Old prints carry a URL, so a
+       phone camera can still land here — send it to the scanner instead of
+       the job. (scan.js adds src=app; this steers a workflow, it is not a
+       security gate — the page needs a login either way.) */
+    if (($_GET['src'] ?? '') !== 'app') {
+        header('Location: index.php?err=use_app');
+        exit();
+    }
     if ($ticket === '' || mb_strlen($ticket) > 50) scan_back('format', $back);
 
     $st = $pdo->prepare("SELECT id, ticket_number FROM tracking WHERE ticket_number = ? LIMIT 1");

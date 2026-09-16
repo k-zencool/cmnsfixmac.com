@@ -166,12 +166,10 @@ Redirect 301 /device-test/          /tester/
 # sitemap.xml
 RewriteRule ^sitemap\.xml$ sitemap.php [L]
 
-# /T/V5700 → repair-number sticker QR (includes/sticker_lib.php stk_scan_url).
-# Short and upper-case on purpose: the QR stays small enough to scan on a
-# 13 mm label. A real redirect, not an internal rewrite: resolve.php sends
-# relative Locations (../login.php, index.php?err=) that would resolve
-# against /T/. Only V-numbers; legacy tickets keep the long URL.
-RewriteRule ^T/(V[0-9]{1,7})/?$ /admin/scan/resolve.php?t=$1 [NC,R=302,L]
+# /T/V5700 — an early sticker print encoded this URL. Stickers now encode
+# "CMNS:V5700" and must be scanned in the app, so an old one read by a phone
+# camera goes to the in-app scanner, not the job.
+RewriteRule ^T/(V[0-9]{1,7})/?$ /admin/scan/index.php?err=use_app [NC,R=302,L]
 
 # /article/slug → articles/detail.php (TH) — [^/]+ to allow Thai/unicode slugs
 RewriteCond %{REQUEST_FILENAME} !-f

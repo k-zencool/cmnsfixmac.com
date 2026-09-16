@@ -26,22 +26,15 @@ if (!function_exists('stk_fmt')) {
     function stk_fmt(int $n): string { return stk_prefix() . $n; }
 }
 
-/* What a sticker QR encodes: HTTPS://CMNSFIXMAC.COM/T/V5700 (.htaccess
-   rewrites /T/ to admin/scan/resolve.php?t=). Every character counts on a
-   13 mm code, and an all-upper-case URL fits QR's alphanumeric mode
-   (~5.5 bits/char instead of 8): 30 chars → version 2, 25 × 25 modules,
-   against 33 × 33 for the long /admin/scan/resolve.php?t= form. Scheme and
-   host are case-insensitive. Legacy reprints ("V5508 (2)") keep the long
-   form: spaces and brackets don't survive a path rewrite cleanly, and they
-   are a handful of one-off labels. */
-if (!function_exists('stk_scan_url')) {
-    function stk_scan_url(string $ticket): string {
-        $scheme = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' ? 'https' : 'http';
-        $base   = $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'cmnsfixmac.com');
-        if (preg_match('/^V\d{1,7}$/', $ticket)) {
-            return strtoupper($base) . '/T/' . $ticket;
-        }
-        return $base . '/admin/scan/resolve.php?t=' . rawurlencode($ticket);
+/* What a sticker QR encodes: "CMNS:V5700" — deliberately NOT a URL, so the
+   phone camera or any other app shows plain text and opens nothing; only
+   the in-app scanner (admin/templates/assets/js/scan.js) knows what it is.
+   Short and upper-case also keeps it in QR alphanumeric mode: version 1,
+   21 × 21 modules on a 14 mm code. Legacy tickets ("V5508 (2)") just fall
+   back to byte mode. */
+if (!function_exists('stk_qr_payload')) {
+    function stk_qr_payload(string $ticket): string {
+        return 'CMNS:' . $ticket;
     }
 }
 

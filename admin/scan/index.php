@@ -5,7 +5,7 @@
    Opens the camera, decodes a QR, and opens what it belongs to. Two
    printed formats are routed; resolve.php does the lookup and redirect:
      - warranty slip  → /warranty/?q=<warranty_no>  (admin/warranty/print.php)
-     - number sticker → /admin/scan/resolve.php?t=<ticket>  (admin/tracking/stickers.php)
+     - number sticker → CMNS:<ticket>, not a URL — only this scanner opens it  (admin/tracking/stickers.php)
 
    Anything else just shows its decoded value.
 
@@ -34,6 +34,7 @@ $scan_err_map = [
     'notfound'     => 'ไม่พบใบประกันนี้ในระบบ',
     'ticket_unused'   => 'เลขที่ซ่อมนี้ยังไม่ถูกใช้งาน',
     'ticket_notfound' => 'ไม่พบเลขที่ซ่อมนี้ในระบบ',
+    'use_app'         => 'สติ๊กเกอร์งานซ่อมต้องสแกนผ่านหน้านี้ในแอปเท่านั้น',
 ];
 $scan_err_key = $_GET['err'] ?? '';
 $scan_err     = $scan_err_map[$scan_err_key] ?? '';
