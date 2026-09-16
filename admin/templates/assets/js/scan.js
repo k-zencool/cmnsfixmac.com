@@ -149,6 +149,16 @@
             return;
         }
 
+        /* Every getUserMedia call can put the permission prompt back up
+           (always, in an iOS home-screen app). A stream we paused is still
+           live — resume it instead of asking again. */
+        if (stream && stream.getVideoTracks().some(function (t) { return t.readyState === 'live'; })) {
+            clearTimeout(releaseTimer);
+            stream.getTracks().forEach(function (t) { t.enabled = true; });
+            video.play().then(live, function () { stop(); start(); });
+            return;
+        }
+
         navigator.mediaDevices.getUserMedia({
             audio: false,
             // ideal, not exact: a laptop with only a front camera still works
@@ -158,14 +168,7 @@
             tuneTrack(s.getVideoTracks()[0]);
             video.srcObject = s;
             return video.play();
-        }).then(function () {
-            cover.hidden = true;
-            running = true;
-            frame = 0;
-            liveAt = Date.now();
-            lastRead = '';
-            rafId = requestAnimationFrame(tick);
-        }).catch(function (err) {
+        }).then(live).catch(function (err) {
             var name = err && err.name;
             if (name === 'NotAllowedError' || name === 'SecurityError') {
                 fail('no_photography', 'ไม่ได้รับอนุญาตให้ใช้กล้อง — เปิดสิทธิ์กล้องให้เว็บนี้ในตั้งค่าเบราว์เซอร์');
@@ -179,7 +182,31 @@
         });
     }
 
+    function live() {
+        cover.hidden = true;
+        running = true;
+        frame = 0;
+        liveAt = Date.now();
+        lastRead = '';
+        rafId = requestAnimationFrame(tick);
+    }
+
+    /* Stop decoding but keep the camera stream, so scanning again on this
+       page does not ask for permission again. Released after a few idle
+       minutes (e.g. a job sheet left open) so the camera indicator does not
+       stay on forever. */
+    var RELEASE_MS   = 5 * 60000;
+    var releaseTimer = 0;
+    function pause() {
+        running = false;
+        if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
+        if (stream) stream.getTracks().forEach(function (t) { t.enabled = false; });
+        clearTimeout(releaseTimer);
+        releaseTimer = setTimeout(stop, RELEASE_MS);
+    }
+
     function stop() {
+        clearTimeout(releaseTimer);
         running = false;
         if (rafId) { cancelAnimationFrame(rafId); rafId = 0; }
         if (stream) {
@@ -236,7 +263,8 @@
             ticket = j[1];
         }
         if (ticket !== null) {
-            return { key: 'T' + ticket.toUpperCase(), href: 'resolve.php?src=app&t=' + encodeURIComponent(ticket),
+            return { key: 'T' + ticket.toUpperCase(), ticket: ticket,
+                     href: 'resolve.php?src=app&t=' + encodeURIComponent(ticket),
                      icon: 'build', msg: 'เปิดงาน ' + ticket + '…' };
         }
 
@@ -258,10 +286,15 @@
     var lastFail = lastFailRoute ? lastFailRoute.key : null;
 
     function found(text) {
-        stop();
+        var route = routeFrom(text);
+        if (route && route.key === sheetKey && Date.now() - sheetClosedAt < REOPEN_MS) {
+            lastRead = '';   // same sticker still in frame after its sheet closed — keep scanning
+            return;
+        }
+
+        pause();
         if (navigator.vibrate) navigator.vibrate(60);
 
-        var route = routeFrom(text);
         var suppressed = false;
         if (route && route.key === lastFail) {
             // Same slip that just failed — show it instead of looping.
@@ -276,13 +309,15 @@
                 : 'QR ใบประกันและสติ๊กเกอร์งานซ่อมจะเปิดให้อัตโนมัติ — ที่เห็นค่านี้แปลว่าอ่านได้แต่ไม่ใช่ของร้าน';
         }
         if (route) {
-            // Leave the cover up on the way out — a live camera behind a
-            // page that is already navigating reads as a frozen scanner.
             cover.hidden = false;
             retryBtn.hidden = true;
             coverIco.textContent = route.icon;
             coverMsg.textContent = route.msg;
-            location.href = route.href;
+            if (route.ticket && window.JobView && window.fetch) {
+                openJobSheet(route);
+            } else {
+                leaveTo(route.href);
+            }
             return;
         }
 
@@ -294,6 +329,39 @@
         coverMsg.textContent = 'อ่านสำเร็จ';
         retryBtn.hidden = true;
         result.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    /* Leave the cover up on the way out — a live camera behind a page that
+       is already navigating reads as a frozen scanner. */
+    function leaveTo(href) {
+        stop();
+        location.href = href;
+    }
+
+    /* A job sticker opens its sheet right here, camera paused behind it.
+       Navigating would end the stream, and a home-screen web app on iOS
+       asks for camera permission again on every page load. Anything the
+       sheet cannot show (unused number, not found, signed out) still goes
+       through resolve.php, which knows what to do with it. */
+    var sheetKey = '', sheetClosedAt = 0;
+    var REOPEN_MS = 2500;   // the sticker is usually still in frame when the sheet closes
+
+    function openJobSheet(route) {
+        fetch('job.php?t=' + encodeURIComponent(route.ticket), { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                if (!data || !data.ok) { leaveTo(route.href); return; }
+                sheetKey = route.key;
+                JobView.open(data.job);
+            })
+            .catch(function () { leaveTo(route.href); });
+    }
+
+    if (window.JobView) {
+        JobView.onClose(function () {
+            sheetClosedAt = Date.now();
+            start();   // resumes the paused stream — no new permission prompt
+        });
     }
 
     againBtn.addEventListener('click', function () {
@@ -320,8 +388,8 @@
     window.addEventListener('pagehide', stop);
     document.addEventListener('visibilitychange', function () {
         if (document.hidden) {
-            stop();
-        } else if (result.hidden) {
+            pause();   // app switch: keep the stream if iOS lets us, no new prompt on return
+        } else if (result.hidden && !(window.JobView && JobView.isOpen())) {
             start();   // came back and no result on screen → resume scanning
         }
     });

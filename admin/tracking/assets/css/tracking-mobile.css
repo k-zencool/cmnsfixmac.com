@@ -486,35 +486,6 @@
     to   { opacity: 1; translate: 0 0; }
 }
 
-/* =========================================================
-   DETAIL SHEET — mobile-only delete
-   The desktop table deletes from its actions column, which is not
-   rendered below 992px, so the sheet carries the button instead.
-   ========================================================= */
-.trkm-only { display: none; }
-@media (max-width: 991px) {
-    .trkm-only { display: inline-flex; }
-    /* The header's ✕ already closes the sheet — and so does dragging it
-       down — so the footer's "ปิด" is a third way to do one thing. */
-    .trk-d-only { display: none !important; }
-    .trk-view-delbtn {
-        align-items: center;
-        gap: 5px;
-        height: 42px;
-        padding: 0 14px;
-        border: 1px solid rgba(239, 68, 68, .35);
-        border-radius: 11px;
-        background: rgba(239, 68, 68, .08);
-        color: #dc2626;
-        font-family: inherit;
-        font-size: .86rem;
-        font-weight: 700;
-        cursor: pointer;
-    }
-    .trk-view-delbtn .material-symbols-rounded { font-size: 19px; }
-    .trk-view-delbtn:active { transform: scale(.96); }
-}
-
 /* Row count — on the pager line when there is one, on its own when not */
 .trk-m-total {
     margin: 14px 0 0;

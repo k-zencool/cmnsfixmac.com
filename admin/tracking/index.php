@@ -8,32 +8,13 @@ date_default_timezone_set('Asia/Bangkok');
 
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/../../includes/job_view_lib.php';
 require_login();
 
 /* ── Helpers ── */
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 function getv($k, $d = null){ return isset($_GET[$k]) ? trim($_GET[$k]) : $d; }
 function strip_html_content($t){ return $t ? trim(strip_tags(html_entity_decode($t))) : '-'; }
-
-/* split "[ sym1, sym2 ] detail" → [symptoms[], clean detail] */
-function trk_parse_problem($raw) {
-    $symps = []; $detail = $raw ?? '';
-    if (preg_match('/^\[(.*?)\](.*)/s', $detail, $m)) {
-        $symps  = array_values(array_filter(array_map('trim', explode(',', $m[1]))));
-        $detail = trim($m[2]);
-    }
-    $detail = trim(strip_tags(preg_replace('/<\/(p|div|li)>|<br\s*\/?>/i', "\n", $detail)));
-    return [$symps, $detail];
-}
-/* split "สภาพ: a, b | Note: xxx" → [states[], clean note] */
-function trk_parse_note($raw) {
-    $states = []; $note = $raw ?? '';
-    if (preg_match('/^สภาพ:\s*([^|]*)(?:\|\s*(?:Note:\s*)?(.*))?$/su', $note, $m)) {
-        $states = array_values(array_filter(array_map('trim', explode(',', $m[1]))));
-        $note   = trim($m[2] ?? '');
-    }
-    return [$states, $note];
-}
 
 function get_pager(): array {
     // 10 cards on a phone (a 20-card page ran ~2870px), 20 rows on desktop; ?per= still wins
@@ -66,18 +47,7 @@ $overdueFilter = ($group === 'overdue' && empty($_GET['status']));
 [$per, $page, $offset] = get_pager();
 
 /* ── Status Map ── */
-$statusMap = [
-    'QS'  => ['label' => 'รอเช็คราคา',          'class' => 'st-amber'],
-    'WC'  => ['label' => 'รอคอนเฟิร์ม',         'class' => 'st-blue'],
-    'OK'  => ['label' => 'กำลังซ่อม',           'class' => 'st-purple'],
-    'RW'  => ['label' => 'งานแก้ / เคลม',       'class' => 'st-red'],
-    'FN'  => ['label' => 'ซ่อมเสร็จ (รอรับ)',   'class' => 'st-green'],
-    'NCF' => ['label' => 'ติดต่อไม่ได้ (เสร็จ)', 'class' => 'st-gray'],
-    'NCS' => ['label' => 'ติดต่อไม่ได้ (เสนอ)',  'class' => 'st-gray'],
-    'XX'  => ['label' => 'ยกเลิก (รอรับคืน)',   'class' => 'st-red'],
-    'DV'  => ['label' => 'ส่งมอบแล้ว',          'class' => 'st-dark'],
-    'RT'  => ['label' => 'ยกเลิก (คืนแล้ว)',    'class' => 'st-dark'],
-];
+$statusMap = jv_status_map();
 
 /* ── Delete Action ── */
 if (isset($_POST['action']) && $_POST['action'] === 'delete' && isset($_POST['id'])) {
@@ -197,8 +167,6 @@ foreach ($jobs as $row) {
         else                 { $timeText = 'เกิน ' . number_format(abs($days)) . ' วัน'; $timeClass = 'time-danger'; $rowClass = 'tr-overdue'; }
     }
 
-    [$vSymps, $vDetail] = trk_parse_problem($row['problem_details']);
-    [$vStates, $vNote]  = trk_parse_note($row['technician_note'] ?? '');
 
     $rows[$id] = [
         'stCode'    => $stCode,
@@ -213,29 +181,7 @@ foreach ($jobs as $row) {
         'icon'      => trk_device_icon($row['device_type'] ?? '', $dev_icons),
     ];
 
-    $viewJobs[$id] = [
-        'id'       => $id,
-        'ticket'   => $row['ticket_number'],
-        'stLabel'  => $stData['label'],
-        'stClass'  => $stData['class'],
-        'created'  => date('d/m/Y H:i', strtotime($row['created_at'])),
-        'appt'     => $row['appointment_date'] ? date('d/m/Y', strtotime($row['appointment_date'])) : null,
-        'pickup'   => !empty($row['pickup_date']) ? date('d/m/Y H:i', strtotime($row['pickup_date'])) : null,
-        'timeText' => $timeText,
-        'timeClass'=> $timeClass,
-        'name'     => $row['customer_name'],
-        'phone'    => $row['customer_phone'],
-        'device'   => trim(($row['device_type'] ?? '') . ' ' . ($row['device_series'] ?? '')),
-        'model'    => $row['device_model'],
-        'sn'       => $row['serial_number'] ?: null,
-        'pass'     => $row['device_password'] ?: null,
-        'symptoms' => $vSymps,
-        'detail'   => $vDetail !== '' ? $vDetail : null,
-        'states'   => $vStates,
-        'note'     => $vNote !== '' ? $vNote : null,
-        'accs'     => array_values(array_filter(array_map('trim', explode(',', $row['accessories'] ?? '')))),
-        'cost'     => number_format((float)$row['estimated_cost']),
-    ];
+    $viewJobs[$id] = jv_payload($row);
 }
 
 include __DIR__ . '/../templates/header_admin.php';
@@ -245,6 +191,7 @@ include __DIR__ . '/../templates/header_admin.php';
 <link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-logs.css') ?>">
 <link rel="stylesheet" href="assets/css/tracking-index.css?v=<?= asset_ver('/admin/tracking/assets/css/tracking-index.css') ?>">
 <link rel="stylesheet" href="assets/css/tracking-mobile.css?v=<?= asset_ver('/admin/tracking/assets/css/tracking-mobile.css') ?>">
+<link rel="stylesheet" href="assets/css/job-view.css?v=<?= asset_ver('/admin/tracking/assets/css/job-view.css') ?>">
 
 <?php
 /* Shared by the mobile chips and the desktop group tabs */
@@ -739,151 +686,23 @@ $isMonth   = ($dfrom === $monthFrom && $dto === $monthTo);
     </div>
 </div>
 
-<!-- ── View Job Modal (read-only detail card) ── -->
-<div id="viewModal" class="trk-modal-overlay">
-    <div class="trk-view sheet-on-mobile">
-        <header class="trk-view-hd">
-            <div class="trk-view-hd-l">
-                <span class="trk-view-ticket" id="vm-ticket"></span>
-                <span class="status-badge" id="vm-status"></span>
-            </div>
-            <button type="button" class="trk-view-close" onclick="closeViewModal()" aria-label="ปิด">
-                <span class="material-symbols-rounded">close</span>
-            </button>
-        </header>
-
-        <div class="trk-view-body">
-
-            <!-- meta tiles -->
-            <div class="trk-view-meta">
-                <div><label>วันที่รับ</label><b id="vm-created"></b></div>
-                <div><label>นัดหมาย</label><b><span id="vm-appt"></span> <span id="vm-time"></span></b></div>
-                <div><label>รับเครื่องคืน</label><b id="vm-pickup"></b></div>
-                <div><label>ราคาประเมิน</label><b id="vm-cost" class="trk-view-cost"></b></div>
-            </div>
-
-            <section class="trk-view-sec">
-                <label>ลูกค้า</label>
-                <div class="trk-view-line"><b id="vm-name"></b> · <a id="vm-phone" href="#"></a></div>
-            </section>
-
-            <section class="trk-view-sec">
-                <label>อุปกรณ์</label>
-                <div class="trk-view-line"><b id="vm-device"></b> <span id="vm-model" class="trk-view-dim"></span></div>
-                <div class="trk-view-line trk-view-mono">SN: <span id="vm-sn"></span></div>
-                <div class="trk-view-line trk-view-mono trk-view-pass">Pass: <span id="vm-pass"></span></div>
-            </section>
-
-            <section class="trk-view-sec" id="vm-sec-problem">
-                <label>อาการเสีย</label>
-                <div class="trk-view-tags trk-tags-red" id="vm-symptoms"></div>
-                <p class="trk-view-p" id="vm-detail"></p>
-            </section>
-
-            <section class="trk-view-sec" id="vm-sec-recv">
-                <label>ตรวจรับเครื่อง</label>
-                <div class="trk-view-tags" id="vm-accs"></div>
-                <div class="trk-view-tags trk-tags-amber" id="vm-states"></div>
-                <p class="trk-view-p" id="vm-note"></p>
-            </section>
-
-        </div>
-
-        <footer class="trk-view-ft">
-            <!-- Redundant next to the header's ✕ on a phone; desktop keeps it. -->
-            <button type="button" class="trk-btn-cancel trk-d-only" onclick="closeViewModal()">ปิด</button>
-            <?php if (can('jobs.write')): ?>
-            <!-- Mobile only: the desktop table has its own delete button in the
-                 actions column, which is not rendered below 992px. -->
-            <button type="button" class="trk-view-delbtn trkm-only" onclick="deleteFromView()">
-                <span class="material-symbols-rounded">delete</span> ลบ
-            </button>
-            <?php endif; ?>
-            <a id="vm-edit" href="#" class="trk-view-editbtn" onclick="showLoader()">
-                <span class="material-symbols-rounded">edit</span> แก้ไขงานนี้
-            </a>
-        </footer>
-    </div>
-</div>
+<?php $jvCanDelete = true; include __DIR__ . '/partials/job_view_sheet.php'; ?>
 
 <?php include __DIR__ . '/../templates/footer_admin.php'; ?>
 
+<script src="assets/js/job-view.js?v=<?= asset_ver('/admin/tracking/assets/js/job-view.js') ?>"></script>
 <script>
 /* ── View job modal ── */
 const trkJobs = <?= json_encode($viewJobs ?? [], JSON_UNESCAPED_UNICODE) ?>;
-
-function _fillTags(elId, items) {
-    const box = document.getElementById(elId);
-    box.innerHTML = '';
-    (items || []).forEach(t => {
-        const s = document.createElement('span');
-        s.textContent = t;
-        box.appendChild(s);
-    });
-    box.style.display = (items && items.length) ? '' : 'none';
-}
-function _fillP(elId, text) {
-    const p = document.getElementById(elId);
-    p.textContent = text || '';
-    p.style.display = text ? '' : 'none';
-}
 
 let _trkViewId = null;
 function openViewModal(id) {
     const j = trkJobs[id];
     if (!j) return;
     _trkViewId = id;
-
-    document.getElementById('vm-ticket').textContent = j.ticket;
-    const st = document.getElementById('vm-status');
-    st.textContent = j.stLabel;
-    st.className = 'status-badge ' + j.stClass;
-
-    document.getElementById('vm-created').textContent = j.created;
-    document.getElementById('vm-appt').textContent    = j.appt || '—';
-    const tm = document.getElementById('vm-time');
-    tm.textContent = (j.appt && j.timeText !== '—') ? '(' + j.timeText + ')' : '';
-    tm.className   = j.timeClass || '';
-    document.getElementById('vm-pickup').textContent  = j.pickup || '—';
-    document.getElementById('vm-cost').textContent    = '฿' + j.cost;
-
-    document.getElementById('vm-name').textContent  = j.name;
-    const ph = document.getElementById('vm-phone');
-    ph.textContent = j.phone; ph.href = 'tel:' + (j.phone || '').replace(/[^0-9+]/g, '');
-
-    document.getElementById('vm-device').textContent = j.device || '—';
-    document.getElementById('vm-model').textContent  = j.model || '';
-    document.getElementById('vm-sn').textContent     = j.sn || '—';
-    document.getElementById('vm-pass').textContent   = j.pass || '—';
-
-    _fillTags('vm-symptoms', j.symptoms);
-    _fillP('vm-detail', j.detail);
-    document.getElementById('vm-sec-problem').style.display =
-        (j.symptoms.length || j.detail) ? '' : 'none';
-
-    _fillTags('vm-accs', j.accs);
-    _fillTags('vm-states', j.states);
-    _fillP('vm-note', j.note);
-    document.getElementById('vm-sec-recv').style.display =
-        (j.accs.length || j.states.length || j.note) ? '' : 'none';
-
-    document.getElementById('vm-edit').href = 'edit.php?id=' + j.id;
-
-    const m = document.getElementById('viewModal');
-    m.style.display = 'flex';
-    requestAnimationFrame(() => m.classList.add('show'));
+    JobView.open(j);
 }
-function closeViewModal() {
-    const m = document.getElementById('viewModal');
-    m.classList.remove('show');
-    setTimeout(() => { m.style.display = 'none'; }, 150);
-}
-document.getElementById('viewModal').addEventListener('click', function(e) {
-    if (e.target === this) closeViewModal();
-});
-document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') closeViewModal();
-});
+function closeViewModal() { JobView.close(); }
 
 function showLoader() {
     const el = document.getElementById('global-loader');
@@ -993,11 +812,6 @@ function clearTrkSheet() {
         ov.classList.remove('show');
         ov.hidden = true;
         document.body.style.overflow = '';
-    });
-    document.getElementById('viewModal').addEventListener('sheetdismiss', () => {
-        const m = document.getElementById('viewModal');
-        m.classList.remove('show');
-        m.style.display = 'none';
     });
 })();
 

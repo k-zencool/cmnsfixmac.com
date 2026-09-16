@@ -1,0 +1,177 @@
+/* =========================================================
+   Repair job detail sheet (read-only)
+   Path: admin/tracking/assets/css/job-view.css
+   Used by: admin/tracking/index.php, admin/scan/index.php
+   Markup: admin/tracking/partials/job_view_sheet.php
+   ========================================================= */
+
+/* Overlay + status pill, scoped to the sheet: tracking-index.css has the
+   page-wide versions, but the scan page does not load that file. */
+#viewModal {
+    position: fixed; inset: 0; background: rgba(0,0,0,.4);
+    z-index: 1100;
+    display: none; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity .15s;
+}
+#viewModal.show { display: flex; opacity: 1; }
+
+#viewModal .status-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 5px 12px; border-radius: 20px;
+    font-size: 11px; font-weight: 800; letter-spacing: .4px;
+    white-space: nowrap; border: 1px solid transparent;
+}
+#viewModal .st-amber  { background: rgba(245,158,11,.12);  color: #b45309;  border-color: rgba(245,158,11,.3); }
+#viewModal .st-blue   { background: rgba(37,99,235,.1);    color: var(--primary); border-color: rgba(37,99,235,.25); }
+#viewModal .st-purple { background: rgba(139,92,246,.1);   color: #7c3aed; border-color: rgba(139,92,246,.25); }
+#viewModal .st-red    { background: rgba(239,68,68,.1);    color: #dc2626;  border-color: rgba(239,68,68,.25); }
+#viewModal .st-green  { background: rgba(16,185,129,.1);   color: #059669; border-color: rgba(16,185,129,.25); }
+#viewModal .st-dark,
+#viewModal .st-gray   { background: var(--bg-surface-alt); color: var(--text-muted); border-color: var(--border); }
+#viewModal .time-ok     { color: #10b981; font-weight: 700; font-size: 12px; white-space: nowrap; }
+#viewModal .time-warn   { color: #f59e0b; font-weight: 700; font-size: 12px; white-space: nowrap; }
+#viewModal .time-danger { color: #ef4444; font-weight: 700; font-size: 12px; white-space: nowrap; }
+
+.trk-view-cancel {
+    padding: 9px 20px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--bg-surface); color: var(--text-main);
+    font-weight: 600; cursor: pointer;
+    font-family: 'Sarabun', sans-serif; font-size: 14px;
+}
+
+/* ── Sheet ── */
+.trk-view {
+    background: var(--bg-surface);
+    width: 94%; max-width: 520px;
+    max-height: 88vh;
+    display: flex; flex-direction: column;
+    border-radius: 18px;
+    border: 1px solid var(--border);
+    box-shadow: 0 24px 60px rgba(0,0,0,.30);
+    overflow: hidden;
+    transform: scale(.96); transition: transform .18s;
+}
+.trk-modal-overlay.show .trk-view { transform: scale(1); }
+
+.trk-view-hd {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg-surface-alt);
+}
+.trk-view-hd-l { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.trk-view-ticket {
+    font-family: 'Courier New', monospace;
+    font-size: 18px; font-weight: 800; letter-spacing: .5px;
+    color: var(--primary);
+}
+.trk-view-close {
+    width: 32px; height: 32px; border-radius: 8px;
+    border: none; background: transparent; color: var(--text-muted);
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: background .12s, color .12s;
+}
+.trk-view-close:hover { background: var(--bg-surface); color: var(--text-main); }
+
+.trk-view-body { padding: 6px 20px 16px; overflow-y: auto; }
+
+/* meta tiles */
+.trk-view-meta {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+    padding: 14px 0;
+}
+.trk-view-meta > div {
+    background: var(--bg-surface-alt);
+    border: 1px solid var(--border);
+    border-radius: 10px; padding: 9px 12px;
+}
+.trk-view-meta label {
+    display: block; font-size: 10px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .5px;
+    color: var(--text-muted); margin-bottom: 3px;
+}
+.trk-view-meta b { font-size: 13px; color: var(--text-main); font-weight: 700; }
+.trk-view-cost { color: var(--primary) !important; }
+
+/* sections */
+.trk-view-sec { padding: 12px 0; border-top: 1px dashed var(--border); }
+.trk-view-sec > label {
+    display: block; font-size: 10.5px; font-weight: 800;
+    text-transform: uppercase; letter-spacing: .6px;
+    color: var(--text-muted); margin-bottom: 7px;
+}
+.trk-view-line { font-size: 13.5px; color: var(--text-main); margin-bottom: 4px; }
+.trk-view-line b { font-weight: 700; }
+.trk-view-line a { color: var(--primary); text-decoration: none; font-weight: 600; }
+.trk-view-line a:hover { text-decoration: underline; }
+.trk-view-dim  { color: var(--text-muted); }
+.trk-view-mono { font-family: 'Courier New', monospace; font-size: 12.5px; color: var(--text-muted); }
+.trk-view-pass span { color: #dc2626; font-weight: 800; }
+
+/* tag pills */
+.trk-view-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 7px; }
+.trk-view-tags span {
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 600;
+    background: rgba(37,99,235,.08); color: var(--primary);
+    border: 1px solid rgba(37,99,235,.22);
+}
+.trk-tags-red span   { background: rgba(239,68,68,.08); color: #dc2626; border-color: rgba(239,68,68,.22); }
+.trk-tags-amber span { background: rgba(245,158,11,.10); color: #b45309; border-color: rgba(245,158,11,.28); }
+[data-theme="dark"] .trk-tags-red span   { color: #f87171; }
+[data-theme="dark"] .trk-tags-amber span { color: #fbbf24; }
+
+.trk-view-p {
+    margin: 2px 0 0; font-size: 13px; line-height: 1.65;
+    color: var(--text-main); white-space: pre-line;
+}
+
+.trk-view-ft {
+    display: flex; justify-content: flex-end; gap: 10px;
+    padding: 13px 20px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-surface-alt);
+}
+.trk-view-editbtn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 18px; border-radius: 8px;
+    background: var(--primary); color: #fff;
+    font-size: 14px; font-weight: 700; text-decoration: none;
+    transition: filter .15s;
+}
+.trk-view-editbtn:hover { filter: brightness(1.08); }
+.trk-view-editbtn .material-symbols-rounded { font-size: 16px; }
+
+@media (max-width: 480px) {
+    .trk-view-meta { grid-template-columns: 1fr 1fr; }
+    .trk-view { max-height: 92vh; }
+}
+
+/* =========================================================
+   DETAIL SHEET — mobile-only delete
+   The desktop table deletes from its actions column, which is not
+   rendered below 992px, so the sheet carries the button instead.
+   ========================================================= */
+.trkm-only { display: none; }
+@media (max-width: 991px) {
+    .trkm-only { display: inline-flex; }
+    /* The header's ✕ already closes the sheet — and so does dragging it
+       down — so the footer's "ปิด" is a third way to do one thing. */
+    .trk-d-only { display: none !important; }
+    .trk-view-delbtn {
+        align-items: center;
+        gap: 5px;
+        height: 42px;
+        padding: 0 14px;
+        border: 1px solid rgba(239, 68, 68, .35);
+        border-radius: 11px;
+        background: rgba(239, 68, 68, .08);
+        color: #dc2626;
+        font-family: inherit;
+        font-size: .86rem;
+        font-weight: 700;
+        cursor: pointer;
+    }
+    .trk-view-delbtn .material-symbols-rounded { font-size: 19px; }
+    .trk-view-delbtn:active { transform: scale(.96); }
+}

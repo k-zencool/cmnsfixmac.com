@@ -50,6 +50,7 @@ include '../templates/header_admin.php';
 ?>
 
 <link rel="stylesheet" href="<?= $assets_base ?>css/scan.css?v=<?= asset_ver('/admin/templates/assets/css/scan.css') ?>">
+<link rel="stylesheet" href="/admin/tracking/assets/css/job-view.css?v=<?= asset_ver('/admin/tracking/assets/css/job-view.css') ?>">
 
 <div class="scan-page">
 
@@ -111,9 +112,14 @@ include '../templates/header_admin.php';
 
 </div>
 
-<!-- jsQR: iOS Safari has no BarcodeDetector, so native decoding is not an option -->
+<?php /* A scanned sticker opens this sheet over the camera — no page load, so
+         iOS does not ask for camera permission again between scans. */
+      include __DIR__ . '/../tracking/partials/job_view_sheet.php'; ?>
+
+<!-- zxing-wasm, jsQR fallback: iOS Safari has no BarcodeDetector -->
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.1.4/dist/iife/reader/index.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script src="/admin/tracking/assets/js/job-view.js?v=<?= asset_ver('/admin/tracking/assets/js/job-view.js') ?>"></script>
 <script src="<?= $assets_base ?>js/scan.js?v=<?= asset_ver('/admin/templates/assets/js/scan.js') ?>"></script>
 
 <?php include '../templates/footer_admin.php'; ?>
