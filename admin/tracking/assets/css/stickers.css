@@ -1,0 +1,220 @@
+/* =========================================================
+   Repair-number sticker manager
+   Path: admin/tracking/assets/css/stickers.css
+   Used by: admin/tracking/stickers.php (on top of create-v3.css)
+   ========================================================= */
+
+.stk-wrap { display: flex; flex-direction: column; gap: 16px; }
+.stk-wrap .cr3-topbar { margin-bottom: 0; }
+.stk-wrap .cr3-alert  { margin-bottom: 0; }
+
+/* ticket numbers: tabular figures, not Courier */
+.stk-no {
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    font-weight: 700; letter-spacing: .2px;
+    font-variant-numeric: tabular-nums;
+}
+.stk-note { margin: 0; font-size: 12.5px; color: var(--text-muted); line-height: 1.5; }
+.stk-empty { padding: 22px 18px; margin: 0; color: var(--text-muted); font-size: 14px; text-align: center; }
+
+/* ── Compact density: this page is a tool, not a form ── */
+.stk-wrap { gap: 12px; }
+.stk-wrap .cr3-title { font-size: 1.3rem; margin-top: 6px; color: var(--text-main); }
+.stk-wrap .cr3-body { padding: 14px 16px; gap: 12px; }
+.stk-wrap .stk-form { gap: 10px; }
+.stk-wrap .cr3-label { margin-bottom: 4px; }
+.stk-wrap .cr3-input { padding: 9px 11px; }
+
+.stk-stats { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 6px; font-size: 13px; color: var(--text-muted); }
+.stk-stats b { color: var(--text-main); font-weight: 800; }
+.stk-stats b.is-primary { color: var(--primary); }
+
+/* ── Layout: one centred column — a tool page, not a dashboard ── */
+.stk-wrap { max-width: 720px; margin-inline: auto; }
+.stk-stack { display: flex; flex-direction: column; gap: 12px; }
+
+/* plain cards: text-only headers, no accent strip / icon tile */
+.stk-wrap .cr3-card { box-shadow: none; }
+.stk-wrap .cr3-card::before { display: none; }
+.stk-wrap .cr3-hd { padding: 11px 16px; }
+.stk-wrap .cr3-hd-title { font-size: 14px; }
+
+/* ── Print card ── */
+.stk-form { gap: 14px; }
+.stk-panel { border: 0; margin: 0; padding: 0; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+.stk-panel[hidden] { display: none; }
+.stk-row2 { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 10px; }
+.stk-row2 .stk-no { font-size: 17px; color: var(--primary); }
+
+.stk-tabs {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 4px;
+    padding: 4px; border-radius: 12px;
+    background: var(--bg-surface-alt); border: 1px solid var(--border);
+}
+.stk-tabs button {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 9px 10px; border: 0; border-radius: 9px;
+    background: transparent; color: var(--text-muted);
+    font: 700 14px 'Sarabun', sans-serif; cursor: pointer;
+    transition: background .15s, color .15s;
+}
+.stk-tabs button .material-symbols-rounded { font-size: 18px; }
+.stk-tabs button:hover { color: var(--text-main); }
+.stk-tabs button[aria-selected="true"] {
+    background: var(--bg-surface); color: var(--primary);
+    box-shadow: 0 1px 4px rgba(0,0,0,.08);
+}
+
+/* copies per number: 1–4 chips */
+.stk-per { display: flex; gap: 6px; align-items: stretch; }
+.stk-per-opt { position: relative; flex: 1; display: flex; }
+.stk-per-opt input { position: absolute; opacity: 0; pointer-events: none; }
+.stk-per-opt span {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    min-height: 40px; border-radius: 10px;
+    border: 1.5px solid var(--border); background: var(--bg-surface-alt);
+    color: var(--text-main); font-size: 16px; font-weight: 800; cursor: pointer;
+    transition: all .15s;
+}
+.stk-per-opt span:hover { border-color: var(--text-muted); }
+.stk-per-opt input:checked + span { border-color: var(--primary); background: rgba(37,99,235,.10); color: var(--primary); }
+.stk-per-opt input:focus-visible + span { box-shadow: 0 0 0 3px rgba(37,99,235,.2); }
+
+.stk-dim { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+.stk-quick { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.stk-quick button {
+    padding: 6px 12px; border-radius: 999px;
+    border: 1px solid var(--border); background: var(--bg-surface-alt);
+    color: var(--text-main); font: 700 12.5px 'Sarabun', sans-serif; cursor: pointer;
+}
+.stk-quick button:hover { border-color: var(--primary); color: var(--primary); }
+
+/* start-slot disclosure */
+.stk-slotbox { border: 1px solid var(--border); border-radius: 12px; background: var(--bg-surface-alt); }
+.stk-slotbox summary {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 12px; cursor: pointer; list-style: none; user-select: none;
+}
+.stk-slotbox summary::-webkit-details-marker { display: none; }
+.stk-slotbox summary > .material-symbols-rounded { font-size: 20px; color: var(--text-muted); }
+.stk-slotbox-txt { flex: 1; font-size: 14px; font-weight: 600; color: var(--text-main); }
+.stk-slotbox-txt small { margin-left: 6px; font-size: 12px; font-weight: 500; color: var(--text-muted); }
+.stk-slotbox-chev { transition: transform .2s; }
+.stk-slotbox[open] .stk-slotbox-chev { transform: rotate(180deg); }
+.stk-slotbox-body {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    padding: 2px 12px 12px;
+}
+.stk-slotbox-body .stk-note { align-self: stretch; }
+
+/* mini A4: same cols × rows as stk_sheet(); cell ratio is set inline by JS */
+.stk-sheet {
+    display: grid; gap: 2px;
+    width: 100%; max-width: 260px;
+    padding: 8px; border-radius: 6px;
+    background: var(--bg-surface); border: 1px solid var(--border);
+    box-shadow: 0 2px 8px rgba(0,0,0,.06);
+}
+.stk-slot {
+    aspect-ratio: 4 / 5;
+    border: 1px solid var(--border); border-radius: 2px;
+    background: var(--bg-surface-alt);
+    padding: 0; cursor: pointer;
+    transition: background .1s, border-color .1s;
+}
+.stk-slot:hover { border-color: var(--primary); }
+.stk-slot.is-skip  { background: transparent; border-style: dashed; opacity: .4; }
+.stk-slot.is-fill  { background: rgba(37,99,235,.25); border-color: rgba(37,99,235,.5); }
+.stk-slot.is-start { background: var(--primary); border-color: var(--primary); }
+
+.stk-link {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 8px; border: 0; background: none; cursor: pointer;
+    color: var(--primary); font: 600 12.5px 'Sarabun', sans-serif;
+}
+.stk-link .material-symbols-rounded { font-size: 16px; }
+
+.stk-foot {
+    display: flex; flex-direction: column; gap: 10px;
+    padding-top: 14px; border-top: 1px solid var(--border);
+}
+.stk-summary { display: flex; flex-direction: column; gap: 1px; min-height: 2.6em; font-size: 13px; color: var(--text-muted); }
+.stk-summary b {
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-variant-numeric: tabular-nums;
+    font-size: 17px; font-weight: 700; color: var(--text-main);
+}
+.stk-submit { width: 100%; padding-top: 13px; padding-bottom: 13px; font-size: 15px; }
+
+.stk-warn {
+    display: flex; gap: 10px; align-items: flex-start;
+    padding: 12px 14px; border-radius: 12px;
+    background: rgba(245,158,11,.10); border: 1px solid rgba(245,158,11,.35);
+    color: var(--text-main); font-size: 13px;
+}
+.stk-warn > .material-symbols-rounded { color: #f59e0b; font-size: 22px; }
+.stk-warn ul { margin: 4px 0 6px 18px; padding: 0; }
+.stk-warn small { color: var(--text-muted); }
+
+/* ── Printed batches: one row per run, numbers on demand ── */
+.stk-hist { display: flex; flex-direction: column; }
+.stk-batch[hidden] { display: none; }
+.stk-batch + .stk-batch { border-top: 1px solid var(--border); }
+
+.stk-batch-row {
+    display: grid; align-items: center; gap: 12px;
+    grid-template-columns: 20px minmax(0, auto) minmax(0, 1fr) auto 34px;
+    padding: 6px 10px 6px 14px;
+    list-style: none; cursor: pointer; user-select: none;
+}
+div > .stk-batch-row { cursor: default; }
+.stk-batch-row::-webkit-details-marker { display: none; }
+summary.stk-batch-row:hover { background: var(--bg-surface-alt); }
+
+.stk-batch-ico { font-size: 18px !important; color: var(--text-muted); transition: transform .15s; }
+.stk-batch[open] .stk-batch-ico { transform: rotate(90deg); }
+div.stk-batch .stk-batch-ico { font-size: 16px !important; color: #f59e0b; }
+
+.stk-batch-no { font-size: 13.5px; color: var(--text-main); white-space: nowrap; }
+.stk-batch-use { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: 12.5px; color: var(--text-muted); }
+.stk-meter { flex: 1; max-width: 160px; height: 5px; border-radius: 99px; background: var(--bg-surface-alt); border: 1px solid var(--border); overflow: hidden; }
+.stk-meter i { display: block; height: 100%; background: var(--primary); border-radius: 99px; }
+.stk-batch-count { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.stk-batch-count b { color: var(--text-main); }
+.stk-batch-date { font-size: 12.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+
+.stk-hist-open {
+    width: 34px; height: 34px; border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    color: var(--text-muted); text-decoration: none;
+}
+.stk-hist-open:hover { color: var(--primary); background: var(--bg-surface); }
+.stk-hist-open .material-symbols-rounded { font-size: 18px; }
+
+/* expanded numbers: plain text grid; free = tappable to open a job, used = struck through */
+.stk-nums {
+    display: grid; gap: 2px 4px; grid-template-columns: repeat(auto-fill, minmax(58px, 1fr));
+    max-height: 168px; overflow-y: auto; overscroll-behavior: contain;
+    padding: 4px 12px 12px 44px;
+}
+.stk-num {
+    padding: 4px 0; text-align: center; border-radius: 6px;
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-variant-numeric: tabular-nums;
+    font-size: 12px; color: var(--text-main); text-decoration: none;
+}
+a.stk-num:hover { background: var(--primary); color: #fff; }
+.stk-num.is-used { color: var(--text-muted); text-decoration: line-through; opacity: .6; }
+a.stk-num.is-used:hover { background: var(--bg-surface-alt); color: var(--text-main); text-decoration: none; opacity: 1; }
+
+.stk-more {
+    padding: 10px; border: 0; border-top: 1px solid var(--border);
+    background: none; color: var(--primary); cursor: pointer;
+    font: 600 13px 'Sarabun', sans-serif;
+}
+
+@media (max-width: 640px) {
+    .stk-batch-row { grid-template-columns: 18px auto minmax(0, 1fr) 34px; gap: 8px; }
+    .stk-batch-date { display: none; }
+    .stk-meter { display: none; }
+    .stk-batch-use { justify-content: flex-end; }
+    .stk-nums { padding-left: 12px; }
+}

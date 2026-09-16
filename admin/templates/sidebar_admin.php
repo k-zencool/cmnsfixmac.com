@@ -80,6 +80,9 @@ $sb_initial = mb_strtoupper(mb_substr($sb_name, 0, 1));
                     <a href="/admin/tracking/history.php">
                         <span class="material-symbols-rounded" style="font-size:18px;">history</span> ประวัติ
                     </a>
+                    <a href="/admin/tracking/stickers.php">
+                        <span class="material-symbols-rounded" style="font-size:18px;">qr_code_2</span> สติ๊กเกอร์ QR
+                    </a>
                 </div>
             </div>
         </div>

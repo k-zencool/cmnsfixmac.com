@@ -2,7 +2,8 @@
 /* =========================================================
    admin/scan/resolve.php
 
-   Turns a scanned QR into the admin page it belongs to. The client
+   Turns a scanned QR into the admin page it belongs to — a warranty
+   slip (?q=<warranty_no>) or a repair-number sticker (?t=<ticket_number>). The client
    guesses whether a decode is routable so it does not round-trip on
    every stray QR, but the guess is never trusted here — this file
    re-parses and re-validates before it looks anything up.
@@ -27,6 +28,37 @@ require_login();
    is impossible to act on when the slip is right there in your hand. */
 function scan_back(string $err, string $raw): void {
     header('Location: index.php?err=' . urlencode($err) . '&raw=' . urlencode(mb_substr($raw, 0, 120)));
+    exit();
+}
+
+/* Repair-number sticker (admin/tracking/stickers.php) → ?t=<ticket_number>.
+   Stickers are printed before the job exists, so the QR carries the ticket
+   number, and an unused number is a normal answer, not an error. */
+if (isset($_GET['t'])) {
+    require_once __DIR__ . '/../../includes/sticker_lib.php';
+
+    $ticket = trim((string)$_GET['t']);
+    $back   = 't=' . $ticket;   // the shape scan.js parses as "same sticker"
+    if ($ticket === '' || mb_strlen($ticket) > 50) scan_back('format', $back);
+
+    $st = $pdo->prepare("SELECT id, ticket_number FROM tracking WHERE ticket_number = ? LIMIT 1");
+    $st->execute([$ticket]);
+    $job = $st->fetch(PDO::FETCH_ASSOC);
+
+    if (!$job) {
+        // A well-formed V-number nobody has opened a job with yet
+        $n = stk_parse_no($ticket);
+        scan_back($n !== null ? 'ticket_unused' : 'ticket_notfound', $n !== null ? 't=' . stk_fmt($n) : $back);
+    }
+
+    /* edit.php needs jobs.write; every role can read the list. Send a
+       read-only role to the job's detail sheet instead of a redirect that
+       ends on a permission error. */
+    if (can('jobs.write')) {
+        header('Location: ../tracking/edit.php?id=' . (int)$job['id']);
+    } else {
+        header('Location: ../tracking/index.php?q=' . urlencode($job['ticket_number']) . '&open=' . (int)$job['id']);
+    }
     exit();
 }
 

@@ -8,6 +8,7 @@ date_default_timezone_set('Asia/Bangkok');
 
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/../../includes/sticker_lib.php';
 require_login();
 require_perms(['jobs.write']); // แก้งานซ่อม: ช่าง+ ขึ้นไป (ยกเว้นบัญชี)
 
@@ -298,6 +299,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+/* ── Job QR: same payload as the pre-printed number sticker (stickers.php) ── */
+$jobScanUrl = stk_scan_url($job['ticket_number']);
+
 /* ── Prepare date values ── */
 $appVal    = $job['appointment_date'] ? date('Y-m-d', strtotime($job['appointment_date'])) : '';
 $pickupVal = !empty($job['pickup_date']) ? date('Y-m-d\TH:i', strtotime($job['pickup_date'])) : '';
@@ -352,7 +356,7 @@ require_once __DIR__ . '/../templates/header_admin.php';
             <div class="cr3-job-badge">
                 <span class="material-symbols-rounded">receipt_long</span> ใบรับซ่อม · JOB SLIP
             </div>
-            <div class="cr3-job-grid">
+            <div class="cr3-job-grid cr3e-job-grid">
                 <div class="cr3-job-logo">
                     <img src="/assets/img/Logo1.png" alt="CMNS FixMac">
                 </div>
@@ -366,6 +370,13 @@ require_once __DIR__ . '/../templates/header_admin.php';
                     <input type="datetime-local" name="job_date" id="jobDate" class="cr3-input"
                            value="<?= date('Y-m-d\TH:i', strtotime($job['created_at'])) ?>" required>
                 </div>
+                <button type="button" class="cr3e-qr" onclick="openJobQr()" aria-label="ดู QR งานนี้">
+                    <span class="cr3e-qr-img" data-job-qr></span>
+                    <span class="cr3e-qr-txt">
+                        <b>QR งานนี้</b>
+                        <small>แตะเพื่อขยาย / พิมพ์สติ๊กเกอร์ซ้ำ</small>
+                    </span>
+                </button>
             </div>
         </section>
 
@@ -962,6 +973,54 @@ spinStyle.textContent = '@keyframes spin { to { transform: rotate(360deg); } }';
 document.head.appendChild(spinStyle);
 
 wmRecalc();
+</script>
+
+<!-- ══════════════════════════════════════════════
+     JOB QR MODAL — scan from the screen, or print the device sticker
+════════════════════════════════════════════════ -->
+<div id="modal-jobqr" class="cmns-modal">
+    <div class="modal-content cr3e-qrm">
+        <button type="button" class="modal-close-btn cr3e-qrm-close" onclick="closeJobQr()" aria-label="ปิด">
+            <span class="material-symbols-rounded">close</span>
+        </button>
+        <div class="cr3e-qrm-img" data-job-qr></div>
+        <code class="cr3e-qrm-no"><?= h($job['ticket_number']) ?></code>
+        <div class="cr3e-qrm-name"><?= h($job['customer_name']) ?></div>
+        <p class="cr3e-qrm-hint">สแกนด้วยเมนู “สแกน” ในแอป admin เพื่อเปิดงานนี้</p>
+        <a href="stickers.php?reprint=<?= urlencode($job['ticket_number']) ?>#reprint" class="cr3-btn cr3-btn-save cr3e-qrm-print" onclick="showLoader()">
+            <span class="material-symbols-rounded">print</span> พิมพ์สติ๊กเกอร์ซ้ำ
+        </a>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.1/build/qrcode.min.js"></script>
+<!-- Own block: if the CDN ever fails, the throw stays here and the form still works -->
+<script>
+(function () {
+    var boxes = document.querySelectorAll('[data-job-qr]');
+    if (!window.QRCode) {
+        boxes.forEach(function (b) { b.classList.add('is-failed'); });
+        console.error('QRCode library failed to load');
+        return;
+    }
+    // One SVG, reused by the thumbnail and the modal — scales crisply at both sizes
+    QRCode.toString(<?= json_encode($jobScanUrl) ?>, {
+        type: 'svg', margin: 1, errorCorrectionLevel: 'M',
+        color: { dark: '#000000', light: '#ffffff' }
+    }, function (err, svg) {
+        if (err) { console.error(err); return; }
+        boxes.forEach(function (b) { b.innerHTML = svg; });
+    });
+})();
+
+function openJobQr()  { document.getElementById('modal-jobqr').classList.add('show'); }
+function closeJobQr() { document.getElementById('modal-jobqr').classList.remove('show'); }
+document.getElementById('modal-jobqr').addEventListener('click', function (e) {
+    if (e.target === this) closeJobQr();
+});
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') closeJobQr();
+});
 </script>
 
 <?php include __DIR__ . '/../templates/footer_admin.php'; ?>

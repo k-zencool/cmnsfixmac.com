@@ -188,6 +188,17 @@
 }
 .scan-alert .material-symbols-rounded { font-size: 20px; color: #ef4444; flex: 0 0 auto; }
 .scan-alert strong { display: block; font-weight: 700; }
+/* unused sticker number: not an error — the start of a new job */
+.scan-alert.is-info { background: rgba(37, 99, 235, 0.08); border-color: rgba(37, 99, 235, 0.30); }
+.scan-alert.is-info .material-symbols-rounded { color: var(--primary); }
+.scan-alert.is-info code { font-size: 1.05rem; font-weight: 800; color: var(--text-main); }
+.scan-alert-cta {
+    display: inline-flex; align-items: center; gap: 6px;
+    margin-top: 10px; padding: 9px 14px; border-radius: 10px;
+    background: var(--primary); color: #fff !important;
+    font-weight: 700; text-decoration: none;
+}
+.scan-alert-cta .material-symbols-rounded { font-size: 18px; color: #fff !important; }
 .scan-alert code {
     display: block;
     margin-top: 4px;

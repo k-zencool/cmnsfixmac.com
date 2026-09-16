@@ -3,11 +3,13 @@
    Path: admin/templates/assets/js/scan.js
    Used by: admin/scan/index.php only.
 
-   Decodes with jsQR because iOS Safari ships no BarcodeDetector, and the
-   admin runs as an iOS PWA. A decode that looks like a warranty slip is
-   handed to resolve.php, which does the lookup and the redirect; anything
-   else just shows its value. The check below only decides whether to make
-   that round-trip — resolve.php re-validates and is the real gate.
+   Decodes with zxing-wasm (ZXing C++ in WebAssembly) — iOS Safari ships no
+   BarcodeDetector and the admin runs as an iOS PWA. jsQR stays as the
+   fallback if the wasm cannot load; it is far weaker on a 14 mm sticker. A decode that looks like a warranty slip or a
+   repair-number sticker is handed to resolve.php, which does the lookup and
+   the redirect; anything else just shows its value. The check below only
+   decides whether to make that round-trip — resolve.php re-validates and
+   is the real gate.
    ========================================================= */
 (function () {
     'use strict';
@@ -27,10 +29,88 @@
 
     if (!video) return;
 
-    /* Decode off a downscaled copy of the frame. Full-resolution decoding
-       burns battery and drops the frame rate on a phone for no accuracy
-       gain — 480px on the long edge reads a QR from arm's length fine. */
-    var MAX_EDGE = 480;
+    /* Decode only what is inside the on-screen reticle, at native resolution
+       (capped at 720px). Reading the whole frame grabbed whatever QR drifted
+       into view first — the neighbouring sticker on a sheet — before the
+       user had aimed. Cropping also gives a 14 mm sticker far more pixels
+       per module than a downscaled full frame. */
+    var MAX_EDGE = 720;
+    var busy = false;   // zxing decodes async; never queue a second frame behind it
+    var reticle = stage ? stage.querySelector('.scan-reticle') : null;
+
+    /* Aim guards: nothing is accepted for a moment after the camera goes
+       live, and a value must be read twice in a row — a QR swept across the
+       reticle on the way to the right one reads once, not twice. */
+    var WARMUP_MS = 600;
+    var liveAt    = 0;
+    var lastRead  = '';
+
+    /* zxing-wasm fetches its .wasm from jsDelivr on first use. Warm it up
+       now so the first frames are not spent waiting; if it fails, jsQR. */
+    var zx = window.ZXingWASM || null;
+    var ZX_OPTS = { formats: ['QRCode'], tryHarder: true, tryInvert: false, maxNumberOfSymbols: 1 };
+    if (zx) {
+        zx.prepareZXingModule({ fireImmediately: true }).catch(function (e) {
+            console.warn('zxing-wasm unavailable, using jsQR', e);
+            zx = null;
+        });
+    }
+
+    function decode(img, w, h) {
+        if (zx) {
+            busy = true;
+            zx.readBarcodes(img, ZX_OPTS).then(function (rs) {
+                busy = false;
+                for (var i = 0; i < rs.length; i++) {
+                    if (rs[i].text) { accept(rs[i].text); return; }
+                }
+                lastRead = '';
+            }, function (e) {
+                busy = false;
+                console.warn('zxing decode failed, using jsQR', e);
+                zx = null;
+            });
+            return;
+        }
+        var code = window.jsQR ? window.jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' }) : null;
+        if (code && code.data) accept(code.data); else lastRead = '';
+    }
+
+    function accept(text) {
+        if (!running || Date.now() - liveAt < WARMUP_MS) return;
+        if (text !== lastRead) { lastRead = text; return; }
+        found(text);
+    }
+
+    /* The reticle's square in video pixels. The video is object-fit: cover,
+       so map through the same scale and centring the browser used. */
+    function reticleCrop(vw, vh) {
+        if (!reticle) {
+            var s = Math.min(vw, vh) * 0.62;
+            return { x: (vw - s) / 2, y: (vh - s) / 2, size: s };
+        }
+        var st = stage.getBoundingClientRect(), r = reticle.getBoundingClientRect();
+        var k  = Math.max(st.width / vw, st.height / vh);
+        var ox = (st.width - vw * k) / 2, oy = (st.height - vh * k) / 2;
+        var size = Math.min(r.width / k, vw, vh);
+        var x = Math.max(0, Math.min(vw - size, (r.left - st.left - ox) / k));
+        var y = Math.max(0, Math.min(vh - size, (r.top - st.top - oy) / k));
+        return { x: x, y: y, size: size };
+    }
+
+    /* Web cameras open at the lens' widest; iPhone Pro main cameras will not
+       focus closer than ~20 cm, where a 14 mm sticker is tiny (the native
+       Camera app switches to macro — a web page cannot). 2× zoom lets the
+       sticker be held at focus distance and still fill the reticle. */
+    function tuneTrack(track) {
+        if (!track || !track.getCapabilities) return;
+        var caps = track.getCapabilities(), adv = {};
+        if (caps.zoom && caps.zoom.max > 1) adv.zoom = Math.min(2, caps.zoom.max);
+        if (caps.focusMode && caps.focusMode.indexOf('continuous') !== -1) adv.focusMode = 'continuous';
+        if (Object.keys(adv).length) {
+            track.applyConstraints({ advanced: [adv] }).catch(function () {});
+        }
+    }
     var canvas = document.createElement('canvas');
     var ctx    = canvas.getContext('2d', { willReadFrequently: true });
 
@@ -64,7 +144,7 @@
             fail('videocam_off', 'เบราว์เซอร์นี้ไม่รองรับการใช้กล้อง');
             return;
         }
-        if (typeof window.jsQR !== 'function') {
+        if (!zx && typeof window.jsQR !== 'function') {
             fail('cloud_off', 'โหลดตัวถอดรหัส QR ไม่สำเร็จ — เช็คอินเทอร์เน็ตแล้วลองใหม่');
             return;
         }
@@ -72,15 +152,18 @@
         navigator.mediaDevices.getUserMedia({
             audio: false,
             // ideal, not exact: a laptop with only a front camera still works
-            video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }
+            video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
         }).then(function (s) {
             stream = s;
+            tuneTrack(s.getVideoTracks()[0]);
             video.srcObject = s;
             return video.play();
         }).then(function () {
             cover.hidden = true;
             running = true;
             frame = 0;
+            liveAt = Date.now();
+            lastRead = '';
             rafId = requestAnimationFrame(tick);
         }).catch(function (err) {
             var name = err && err.name;
@@ -111,67 +194,90 @@
         rafId = requestAnimationFrame(tick);
 
         // Decode every other frame — 30fps of decoding is wasted work.
-        if ((frame++ & 1) === 0) return;
+        if ((frame++ & 1) === 0 || busy) return;
         if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
 
         var vw = video.videoWidth, vh = video.videoHeight;
         if (!vw || !vh) return;
 
-        var scale = Math.min(1, MAX_EDGE / Math.max(vw, vh));
-        var w = Math.round(vw * scale), h = Math.round(vh * scale);
+        var c = reticleCrop(vw, vh);
+        var w = Math.round(Math.min(MAX_EDGE, c.size)), h = w;
         if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
-
-        ctx.drawImage(video, 0, 0, w, h);
-        var img = ctx.getImageData(0, 0, w, h);
-        var code = window.jsQR(img.data, w, h, { inversionAttempts: 'dontInvert' });
-
-        if (code && code.data) found(code.data);
+        ctx.drawImage(video, c.x, c.y, c.size, c.size, 0, 0, w, h);
+        decode(ctx.getImageData(0, 0, w, h), w, h);
     }
 
     /* Two live warranty formats: W-2026-0055 and WJ-202606-0292. */
     var WARRANTY_RE = /\bWJ?-\d{4,6}-\d{1,6}\b/i;
 
-    /* A printed slip decodes to the full /warranty/?q=<no> URL; the same
-       slip read by a generic barcode app decodes to the bare number. Pull
-       the number out of either, or return null for anything else. */
-    function warrantyNoFrom(text) {
+    /* A repair-number sticker (tracking/stickers.php) decodes to
+       HTTPS://<HOST>/T/<ticket> (older prints: …/admin/scan/resolve.php?t=);
+       resolve.php bounces a failed one back as the bare "t=<ticket>".
+       Nothing else counts — a stray ?t= on some other site's QR must not
+       open a repair job. */
+    var TICKET_RE      = /^https?:\/\/[^\/\s]+\/(?:admin\/scan\/resolve\.php\?(?:[^#\s]*&)?t=|T\/)([^&#?\/\s]{1,150})(?:[&#]|$)/i;
+    var TICKET_BACK_RE = /^t=(.{1,50})$/;   // decoded, may hold spaces ("V5508 (2)")
+
+    /* Where a decode should go, or null for anything we did not print.
+       A printed slip decodes to the full /warranty/?q=<no> URL; the same
+       slip read by a generic barcode app decodes to the bare number. */
+    function routeFrom(text) {
+        text = (text || '').trim();
+
+        var j = TICKET_RE.exec(text), ticket = null;
+        if (j) {
+            try { ticket = decodeURIComponent(j[1].replace(/\+/g, ' ')); } catch (e) { ticket = j[1]; }
+        } else if ((j = TICKET_BACK_RE.exec(text))) {
+            ticket = j[1];
+        }
+        if (ticket !== null) {
+            return { key: 'T' + ticket.toUpperCase(), href: 'resolve.php?t=' + encodeURIComponent(ticket),
+                     icon: 'build', msg: 'เปิดงาน ' + ticket + '…' };
+        }
+
         var m = /[?&]q=([^&\s]+)/.exec(text);
         var candidate = m ? decodeURIComponent(m[1]) : text;
         var w = WARRANTY_RE.exec(candidate.trim());
-        return w ? w[0].toUpperCase() : null;
+        if (w) {
+            var no = w[0].toUpperCase();
+            return { key: 'W' + no, href: 'resolve.php?q=' + encodeURIComponent(no),
+                     icon: 'receipt_long', msg: 'เปิดใบประกัน ' + no + '…' };
+        }
+        return null;
     }
 
     /* The value resolve.php just rejected, if we came back from it. Comparing
-       on the parsed number, not the raw text, so re-reading the same slip
+       on the parsed key, not the raw text, so re-reading the same slip
        through a different encoding still counts as the same failure. */
-    var lastFail = warrantyNoFrom((stage && stage.dataset.lastFail) || '');
+    var lastFailRoute = routeFrom((stage && stage.dataset.lastFail) || '');
+    var lastFail = lastFailRoute ? lastFailRoute.key : null;
 
     function found(text) {
         stop();
         if (navigator.vibrate) navigator.vibrate(60);
 
-        var no = warrantyNoFrom(text);
+        var route = routeFrom(text);
         var suppressed = false;
-        if (no && no === lastFail) {
+        if (route && route.key === lastFail) {
             // Same slip that just failed — show it instead of looping.
-            no = null;
+            route = null;
             suppressed = true;
         }
-        // Otherwise the panel would claim this is not a warranty, which the
-        // number on screen plainly contradicts.
+        // Otherwise the panel would claim this is not ours, which the
+        // value on screen plainly contradicts.
         if (noteEl) {
             noteEl.textContent = suppressed
-                ? 'ใบนี้เพิ่งเปิดไม่สำเร็จ เลยไม่เปิดซ้ำให้ — เอา QR ใบอื่นมาสแกนได้เลย'
-                : 'QR ใบประกันจะเปิดใบนั้นให้อัตโนมัติ — ที่เห็นค่านี้แปลว่าอ่านได้แต่ไม่ใช่ใบประกัน';
+                ? 'QR นี้เพิ่งเปิดไม่สำเร็จ เลยไม่เปิดซ้ำให้ — เอา QR อื่นมาสแกนได้เลย'
+                : 'QR ใบประกันและสติ๊กเกอร์งานซ่อมจะเปิดให้อัตโนมัติ — ที่เห็นค่านี้แปลว่าอ่านได้แต่ไม่ใช่ของร้าน';
         }
-        if (no) {
+        if (route) {
             // Leave the cover up on the way out — a live camera behind a
             // page that is already navigating reads as a frozen scanner.
             cover.hidden = false;
             retryBtn.hidden = true;
-            coverIco.textContent = 'receipt_long';
-            coverMsg.textContent = 'เปิดใบประกัน ' + no + '…';
-            location.href = 'resolve.php?q=' + encodeURIComponent(no);
+            coverIco.textContent = route.icon;
+            coverMsg.textContent = route.msg;
+            location.href = route.href;
             return;
         }
 

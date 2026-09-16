@@ -49,6 +49,7 @@ $mr_groups = [
             ['icon' => 'engineering', 'label' => 'กำลังซ่อม',     'desc' => 'งานที่อยู่ระหว่างดำเนินการ', 'href' => '/admin/tracking/index.php?group=active', 'show' => true],
             ['icon' => 'task_alt',    'label' => 'รอรับ / เสร็จ',  'desc' => 'ซ่อมจบ รอลูกค้ามารับ',     'href' => '/admin/tracking/index.php?group=done',   'show' => true],
             ['icon' => 'history',     'label' => 'ประวัติงานซ่อม', 'desc' => 'งานที่ปิดไปแล้ว',           'href' => '/admin/tracking/history.php',           'show' => true],
+            ['icon' => 'qr_code_2',   'label' => 'สติ๊กเกอร์ QR',  'desc' => 'พิมพ์เลขที่ซ่อมล่วงหน้า',    'href' => '/admin/tracking/stickers.php',          'show' => true],
         ],
     ],
     [

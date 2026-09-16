@@ -402,6 +402,59 @@
 }
 .cr3e-subline { margin: 6px 0 0; font-size: 13px; color: var(--text-muted); }
 
+/* job QR tile in the slip card — phone: a full-width row under the fields;
+   ≥640px: a fourth column. The QR sits on white in both themes (a scanner
+   needs dark-on-light), so only the frame follows the theme. */
+@media (min-width: 640px) { .cr3e-job-grid { grid-template-columns: auto 1fr 1fr auto; } }
+.cr3e-qr {
+    display: flex; align-items: center; gap: 12px;
+    padding: 6px 12px 6px 6px;
+    border: 1px solid var(--border); border-radius: 12px;
+    background: var(--bg-surface);
+    color: var(--text-main); font-family: inherit; text-align: left;
+    cursor: pointer; transition: border-color .15s;
+}
+.cr3e-qr:hover { border-color: var(--primary); }
+.cr3e-qr:active { transform: scale(.98); }
+.cr3e-qr-img {
+    flex: 0 0 64px; width: 64px; height: 64px;
+    background: #fff; border-radius: 8px; padding: 3px;
+}
+.cr3e-qr-img svg, .cr3e-qrm-img svg { display: block; width: 100%; height: 100%; }
+.cr3e-qr-txt { display: flex; flex-direction: column; gap: 2px; line-height: 1.25; }
+.cr3e-qr-txt b { font-size: 13px; font-weight: 800; }
+.cr3e-qr-txt small { font-size: 11px; color: var(--text-muted); }
+@media (min-width: 640px) {
+    .cr3e-qr { flex-direction: column; gap: 7px; padding: 6px 6px 8px; align-self: center; }
+    .cr3e-qr-txt b { line-height: 1.5; }   /* room for Thai tone marks above the text */
+    .cr3e-qr-txt { align-items: center; }
+    .cr3e-qr-txt small { display: none; }
+}
+[data-job-qr].is-failed::after {
+    content: 'QR โหลดไม่ได้'; display: flex; align-items: center; justify-content: center;
+    height: 100%; font-size: 10px; color: #64748b; text-align: center;
+}
+
+/* job QR modal */
+.cr3e-qrm {
+    position: relative;
+    max-width: 340px; padding: 28px 24px 24px;
+    display: flex; flex-direction: column; align-items: center; text-align: center;
+}
+.cr3e-qrm-close { position: absolute; top: 12px; right: 12px; }
+.cr3e-qrm-img {
+    width: min(240px, 70vw); aspect-ratio: 1;
+    background: #fff; border-radius: 14px; padding: 8px;
+}
+.cr3e-qrm-no {
+    margin-top: 16px;
+    font-family: 'Courier New', monospace; font-size: 22px; font-weight: 800;
+    color: var(--primary);
+}
+.cr3e-qrm-name { margin-top: 2px; font-size: 15px; font-weight: 700; }
+.cr3e-qrm-hint { margin: 10px 0 18px; font-size: 12px; color: var(--text-muted); }
+.cr3e-qrm-print { width: 100%; justify-content: center; text-decoration: none; }
+
 /* action bar: warranty left, actions right */
 .cr3e-actionbar { justify-content: space-between; flex-wrap: wrap; }
 .cr3e-bar-left, .cr3e-bar-right {

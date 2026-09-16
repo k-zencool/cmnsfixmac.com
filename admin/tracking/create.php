@@ -89,6 +89,13 @@ try {
     if ($lastTicket) $suggestTicket = 'V' . ((int)substr($lastTicket, 1) + 1);
 } catch (PDOException $e) { /* suggestion only — ignore */ }
 
+/* ── ?ticket=V5700: arrived from scanning an unused pre-printed sticker
+   (scan/resolve.php → scan page → "เปิดงานใหม่ด้วยเลขนี้"). The number on
+   the machine wins over the suggestion; the POST still rejects duplicates. */
+if (isset($_GET['ticket']) && preg_match('/^V\d{1,7}$/i', trim($_GET['ticket']))) {
+    $suggestTicket = strtoupper(trim($_GET['ticket']));
+}
+
 /* ── Recent jobs + today count (aside panel, desktop only) ── */
 $recentJobs = [];
 $todayCount = 0;
