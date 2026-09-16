@@ -13,6 +13,15 @@
    a page you could not otherwise open, and must not lock out a role
    that can already open it by hand.
    ========================================================= */
+/* Sticker links from outside the app (an old URL print read by a phone
+   camera, possibly a customer's) go to the public homepage — checked
+   before auth so they never see the admin login. scan.js adds src=app;
+   this steers a workflow, it is not a security gate. */
+if (isset($_GET['t']) && ($_GET['src'] ?? '') !== 'app') {
+    header('Location: /');
+    exit();
+}
+
 session_start();
 require_once '../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
@@ -40,14 +49,6 @@ if (isset($_GET['t'])) {
     $ticket = trim((string)$_GET['t']);
     $back   = 't=' . $ticket;   // the shape scan.js parses as "same sticker"
 
-    /* Stickers are scanned in the app only. Old prints carry a URL, so a
-       phone camera can still land here — send it to the scanner instead of
-       the job. (scan.js adds src=app; this steers a workflow, it is not a
-       security gate — the page needs a login either way.) */
-    if (($_GET['src'] ?? '') !== 'app') {
-        header('Location: index.php?err=use_app');
-        exit();
-    }
     if ($ticket === '' || mb_strlen($ticket) > 50) scan_back('format', $back);
 
     $st = $pdo->prepare("SELECT id, ticket_number FROM tracking WHERE ticket_number = ? LIMIT 1");

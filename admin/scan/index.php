@@ -34,7 +34,6 @@ $scan_err_map = [
     'notfound'     => 'ไม่พบใบประกันนี้ในระบบ',
     'ticket_unused'   => 'เลขที่ซ่อมนี้ยังไม่ถูกใช้งาน',
     'ticket_notfound' => 'ไม่พบเลขที่ซ่อมนี้ในระบบ',
-    'use_app'         => 'สติ๊กเกอร์งานซ่อมต้องสแกนผ่านหน้านี้ในแอปเท่านั้น',
 ];
 $scan_err_key = $_GET['err'] ?? '';
 $scan_err     = $scan_err_map[$scan_err_key] ?? '';
