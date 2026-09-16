@@ -51,14 +51,10 @@ if (isset($_GET['t'])) {
         scan_back($n !== null ? 'ticket_unused' : 'ticket_notfound', $n !== null ? 't=' . stk_fmt($n) : $back);
     }
 
-    /* edit.php needs jobs.write; every role can read the list. Send a
-       read-only role to the job's detail sheet instead of a redirect that
-       ends on a permission error. */
-    if (can('jobs.write')) {
-        header('Location: ../tracking/edit.php?id=' . (int)$job['id']);
-    } else {
-        header('Location: ../tracking/index.php?q=' . urlencode($job['ticket_number']) . '&open=' . (int)$job['id']);
-    }
+    /* A scan is a look-up — the machine is in your hand, you want to see
+       the job, not start editing it. Every role lands on the job's detail
+       sheet in the list; its edit button is there for roles that may. */
+    header('Location: ../tracking/index.php?q=' . urlencode($job['ticket_number']) . '&open=' . (int)$job['id']);
     exit();
 }
 

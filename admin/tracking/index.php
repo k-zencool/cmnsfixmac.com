@@ -1001,7 +1001,7 @@ function clearTrkSheet() {
     });
 })();
 
-// ── ?open=<id>: scan/resolve.php sends read-only roles here for a scanned sticker ──
+// ── ?open=<id>: scan/resolve.php sends every scanned sticker here ──
 (function () {
     const openId = new URLSearchParams(location.search).get('open');
     if (openId && trkJobs[openId]) openViewModal(openId);
