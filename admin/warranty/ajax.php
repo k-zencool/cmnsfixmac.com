@@ -45,13 +45,16 @@ if ($action === 'create_warranty') {
     $device  = trim($_POST['device_model'] ?? '');
     $serial  = trim($_POST['serial_no'] ?? '');
     $summary = trim($_POST['repair_summary'] ?? '');
-    $w_days  = (int)($_POST['warranty_days'] ?? 90);
+    $w_days  = w_parse_days($_POST['warranty_days'] ?? '');
     $start   = $_POST['start_date'] ?? date('Y-m-d');
-    $end     = date('Y-m-d', strtotime("$start +$w_days days"));
 
     if (!$cname || !$device) {
         json_out(['ok' => false, 'msg' => 'กรุณากรอกชื่อลูกค้าและรุ่นเครื่อง']);
     }
+    if (!$w_days) {
+        json_out(['ok' => false, 'msg' => 'จำนวนวันรับประกันต้องเป็นตัวเลข 1–' . w_days_max() . ' วัน']);
+    }
+    $end     = date('Y-m-d', strtotime("$start +$w_days days"));
     $wno = w_next_warranty_no($pdo);
     $pdo->prepare("INSERT INTO warranties
                    (warranty_no, tracking_id, customer_name, customer_phone,

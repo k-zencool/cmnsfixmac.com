@@ -38,12 +38,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $device    = trim($_POST['device_model'] ?? '');
     $serial    = trim($_POST['serial_no'] ?? '');
     $summary   = trim($_POST['repair_summary'] ?? '');
-    $w_days    = (int)($_POST['warranty_days'] ?? 90);
+    $w_days    = w_parse_days($_POST['warranty_days'] ?? '');
     $start     = $_POST['start_date'] ?? date('Y-m-d');
-    $end       = date('Y-m-d', strtotime($start . " +$w_days days"));
+    $end       = $w_days ? date('Y-m-d', strtotime($start . " +$w_days days")) : null;
 
     if (!$cname || !$device) {
         $error = "กรุณากรอกชื่อลูกค้าและรุ่นเครื่อง";
+    } elseif (!$w_days) {
+        $error = "จำนวนวันรับประกันต้องเป็นตัวเลข 1–" . w_days_max() . " วัน";
     } else {
         $wno = w_next_warranty_no($pdo);
         $pdo->prepare("INSERT INTO warranties
@@ -77,10 +79,13 @@ include __DIR__ . '/../templates/header_admin.php';
 .war-input:focus,.war-select:focus,.war-textarea:focus { outline:none; border-color:var(--primary); }
 .war-textarea { resize:vertical; min-height:90px; }
 .war-days-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; }
-.war-days-opt { display:none; }
-.war-days-opt + label { display:block; padding:10px 8px; border:2px solid var(--border); border-radius:10px; text-align:center; cursor:pointer; font-size:0.88rem; font-weight:700; transition:.15s; }
-.war-days-opt:checked + label { border-color:var(--primary); background:var(--primary-light); color:var(--primary); }
-.war-days-opt + label small { display:block; font-size:0.72rem; font-weight:400; color:var(--text-muted); margin-top:2px; }
+.war-days-chip { display:block; width:100%; padding:10px 8px; border:2px solid var(--border); border-radius:10px; background:var(--bg-surface); color:var(--text-main); text-align:center; cursor:pointer; font:inherit; font-size:0.88rem; font-weight:700; transition:.15s; }
+.war-days-chip:hover { border-color:var(--primary); }
+.war-days-chip.is-on { border-color:var(--primary); background:var(--primary-light); color:var(--primary); }
+.war-days-chip small { display:block; font-size:0.72rem; font-weight:400; color:var(--text-muted); margin-top:2px; }
+.war-days-input { position:relative; }
+.war-days-input .war-input { padding-right:44px; }
+.war-days-input span { position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:0.85rem; color:var(--text-muted); pointer-events:none; }
 .trk-lookup { display:flex; gap:8px; }
 .trk-lookup input { flex:1; }
 .trk-found { margin-top:10px; background:rgba(37,99,235,.06); border:1px solid rgba(37,99,235,.2); border-radius:8px; padding:10px 14px; font-size:0.85rem; display:none; }
@@ -157,17 +162,23 @@ include __DIR__ . '/../templates/header_admin.php';
             <span class="material-symbols-rounded">calendar_month</span>
             ระยะเวลารับประกัน
         </div>
-        <div class="war-days-grid" style="margin-bottom:18px;">
+        <div class="war-days-grid" style="margin-bottom:14px;">
             <?php
             $opts = [30=>'1 เดือน', 60=>'2 เดือน', 90=>'3 เดือน', 180=>'6 เดือน', 365=>'1 ปี'];
-            $sel  = (int)($prefill['warranty_days'] ?? $prefill['w_days'] ?? 90);
+            $sel  = (int)($prefill['w_days'] ?? 90);
             foreach ($opts as $d => $lbl):
             ?>
-            <div>
-                <input type="radio" name="warranty_days" id="wd_<?= $d ?>" class="war-days-opt" value="<?= $d ?>" <?= $sel===$d?'checked':'' ?> onchange="recalcEnd()">
-                <label for="wd_<?= $d ?>"><?= $d ?> วัน<small><?= $lbl ?></small></label>
-            </div>
+            <button type="button" class="war-days-chip<?= $sel===$d?' is-on':'' ?>" data-days="<?= $d ?>" onclick="setDays(<?= $d ?>)"><?= $d ?> วัน<small><?= $lbl ?></small></button>
             <?php endforeach; ?>
+        </div>
+        <div class="war-grid" style="margin-bottom:16px;">
+            <div class="war-field">
+                <label class="war-label" for="inp_days">จำนวนวันรับประกัน</label>
+                <div class="war-days-input">
+                    <input type="number" name="warranty_days" id="inp_days" class="war-input" min="1" max="<?= w_days_max() ?>" step="1" inputmode="numeric" required value="<?= $sel ?: '' ?>" oninput="syncDays()">
+                    <span>วัน</span>
+                </div>
+            </div>
         </div>
         <div class="war-grid">
             <div class="war-field">
@@ -198,10 +209,19 @@ function addDays(dateStr, days) {
     d.setDate(d.getDate() + days);
     return d.toLocaleDateString('th-TH', {day:'2-digit', month:'2-digit', year:'numeric'});
 }
+function setDays(d) {
+    document.getElementById('inp_days').value = d;
+    syncDays();
+}
+function syncDays() {
+    const v = parseInt(document.getElementById('inp_days').value, 10);
+    document.querySelectorAll('.war-days-chip').forEach(b => b.classList.toggle('is-on', +b.dataset.days === v));
+    recalcEnd();
+}
 function recalcEnd() {
     const start  = document.getElementById('inp_start').value;
-    const days   = parseInt(document.querySelector('input[name="warranty_days"]:checked')?.value || 90);
-    document.getElementById('disp_end').value = start ? addDays(start, days) : '-';
+    const days   = parseInt(document.getElementById('inp_days').value, 10);
+    document.getElementById('disp_end').value = start && days > 0 ? addDays(start, days) : '-';
 }
 
 async function lookupTracking() {
@@ -227,7 +247,7 @@ async function lookupTracking() {
     }
 }
 
-document.addEventListener('DOMContentLoaded', recalcEnd);
+document.addEventListener('DOMContentLoaded', syncDays);
 </script>
 
 <?php include __DIR__ . '/../templates/footer_admin.php'; ?>

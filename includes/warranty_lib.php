@@ -11,6 +11,21 @@ if (!function_exists('w_next_no')) {
     }
 }
 
+if (!function_exists('w_days_max')) {
+    // Upper bound for a typed-in warranty length (10 years)
+    function w_days_max(): int { return 3650; }
+}
+
+if (!function_exists('w_parse_days')) {
+    // Warranty length from a form value: whole days 1..w_days_max(), else null
+    function w_parse_days($raw): ?int {
+        $raw = trim((string)$raw);
+        if (!preg_match('/^\d{1,5}$/', $raw)) return null;
+        $d = (int)$raw;
+        return ($d >= 1 && $d <= w_days_max()) ? $d : null;
+    }
+}
+
 if (!function_exists('w_next_warranty_no')) {
     function w_next_warranty_no(PDO $pdo): string { return w_next_no($pdo, 'warranties', 'warranty_no', 'W'); }
 }

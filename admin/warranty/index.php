@@ -563,14 +563,15 @@ function goPerPage(sel) {
             <label class="cmns-label" style="display:block; margin-bottom:10px;">ระยะเวลารับประกัน</label>
             <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px;">
                 <?php foreach ([30=>'1 เดือน',60=>'2 เดือน',90=>'3 เดือน',180=>'6 เดือน',365=>'1 ปี'] as $d=>$lbl): ?>
-                <div>
-                    <input type="radio" name="cw_days" id="cwd_<?= $d ?>" value="<?= $d ?>"
-                           <?= $d===90?'checked':'' ?> style="display:none;" onchange="cwRecalc()">
-                    <label for="cwd_<?= $d ?>" class="cw-days-lbl">
-                        <?= $d ?> <span style="display:block;font-size:0.7rem;font-weight:400;opacity:.7;"><?= $lbl ?></span>
-                    </label>
-                </div>
+                <button type="button" class="cw-days-lbl<?= $d===90?' is-on':'' ?>" data-days="<?= $d ?>" onclick="cwSetDays(<?= $d ?>)">
+                    <?= $d ?> <span style="display:block;font-size:0.7rem;font-weight:400;opacity:.7;"><?= $lbl ?></span>
+                </button>
                 <?php endforeach; ?>
+            </div>
+            <div class="cw-days-input" style="margin-top:10px;">
+                <input type="number" id="cw-days" class="cmns-input" min="1" max="<?= w_days_max() ?>" step="1" inputmode="numeric"
+                       value="90" placeholder="หรือกรอกจำนวนวันเอง" oninput="cwSyncDays()">
+                <span>วัน</span>
             </div>
         </div>
 
@@ -599,13 +600,17 @@ function goPerPage(sel) {
 <style>
 .cw-days-lbl {
     display:block; padding:9px 6px; border:2px solid var(--border);
-    border-radius:10px; text-align:center; cursor:pointer;
+    border-radius:10px; text-align:center; cursor:pointer; width:100%;
+    background:var(--bg-surface); color:var(--text-main); font-family:inherit;
     font-size:0.9rem; font-weight:700; transition:.15s; line-height:1.3;
 }
-input[name="cw_days"]:checked + .cw-days-lbl {
+.cw-days-lbl.is-on {
     border-color:var(--primary); background:var(--primary-light); color:var(--primary);
 }
 .cw-days-lbl:hover { border-color:var(--primary); }
+.cw-days-input { position:relative; }
+.cw-days-input .cmns-input { padding-right:44px; }
+.cw-days-input span { position:absolute; right:12px; top:50%; transform:translateY(-50%); font-size:0.85rem; color:var(--text-muted); pointer-events:none; }
 @keyframes cw-spin { to { transform:rotate(360deg); } }
 </style>
 
@@ -622,8 +627,7 @@ function openCreateModal() {
     document.getElementById('cw-lookup-result').style.display = 'none';
     document.getElementById('cw-err').style.display = 'none';
     document.getElementById('cw-start').value = '<?= date('Y-m-d') ?>';
-    document.querySelector('input[name="cw_days"][value="90"]').checked = true;
-    cwRecalc();
+    cwSetDays(90);
     document.getElementById('modal-create-warranty').classList.add('show');
     setTimeout(() => document.getElementById('cw-cname').focus(), 300);
 }
@@ -632,13 +636,25 @@ function closeCreateModal() {
     document.getElementById('modal-create-warranty').classList.remove('show');
 }
 
+function cwSetDays(d) {
+    document.getElementById('cw-days').value = d;
+    cwSyncDays();
+}
+
+function cwSyncDays() {
+    const v = parseInt(document.getElementById('cw-days').value, 10);
+    document.querySelectorAll('.cw-days-lbl').forEach(b => b.classList.toggle('is-on', +b.dataset.days === v));
+    cwRecalc();
+}
+
 function cwRecalc() {
     const start = document.getElementById('cw-start').value;
-    const days  = parseInt(document.querySelector('input[name="cw_days"]:checked')?.value || 90);
-    if (!start) return;
+    const days  = parseInt(document.getElementById('cw-days').value, 10);
+    const disp  = document.getElementById('cw-end-disp');
+    if (!start || !(days > 0)) { disp.value = '-'; return; }
     const d = new Date(start);
     d.setDate(d.getDate() + days);
-    document.getElementById('cw-end-disp').value =
+    disp.value =
         d.toLocaleDateString('th-TH', {day:'2-digit', month:'2-digit', year:'numeric'});
 }
 
@@ -677,8 +693,14 @@ async function cwSubmit() {
 
     const cname  = document.getElementById('cw-cname').value.trim();
     const device = document.getElementById('cw-device').value.trim();
+    const days   = document.getElementById('cw-days').value.trim();
     if (!cname || !device) {
         document.getElementById('cw-err-txt').textContent = 'กรุณากรอกชื่อลูกค้าและรุ่นเครื่อง';
+        errBox.style.display = 'flex';
+        return;
+    }
+    if (!/^\d+$/.test(days) || +days < 1 || +days > <?= w_days_max() ?>) {
+        document.getElementById('cw-err-txt').textContent = 'จำนวนวันรับประกันต้องเป็นตัวเลข 1–<?= w_days_max() ?> วัน';
         errBox.style.display = 'flex';
         return;
     }
@@ -694,7 +716,7 @@ async function cwSubmit() {
         device_model:   device,
         serial_no:      document.getElementById('cw-serial').value.trim(),
         repair_summary: document.getElementById('cw-summary').value.trim(),
-        warranty_days:  document.querySelector('input[name="cw_days"]:checked')?.value || 90,
+        warranty_days:  days,
         start_date:     document.getElementById('cw-start').value,
     });
 
