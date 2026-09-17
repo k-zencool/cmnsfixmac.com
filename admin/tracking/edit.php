@@ -817,14 +817,15 @@ window.addEventListener('load', function() {
                 <label class="cmns-label" style="margin-bottom:10px; display:block;">ระยะเวลารับประกัน</label>
                 <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:8px;">
                     <?php foreach ([30=>'1 เดือน',60=>'2 เดือน',90=>'3 เดือน',180=>'6 เดือน',365=>'1 ปี'] as $d=>$lbl): ?>
-                    <div>
-                        <input type="radio" name="wm_days" id="wmd_<?= $d ?>" value="<?= $d ?>" <?= $d===90?'checked':'' ?>
-                               style="display:none;" onchange="wmRecalc()">
-                        <label for="wmd_<?= $d ?>" class="wm-days-lbl">
-                            <?= $d ?><span style="display:block;font-size:0.7rem;font-weight:400;opacity:.7;"><?= $lbl ?></span>
-                        </label>
-                    </div>
+                    <button type="button" class="wm-days-lbl<?= $d===90?' is-on':'' ?>" data-days="<?= $d ?>" onclick="wmSetDays(<?= $d ?>)">
+                        <?= $d ?><span style="display:block;font-size:0.7rem;font-weight:400;opacity:.7;"><?= $lbl ?></span>
+                    </button>
                     <?php endforeach; ?>
+                </div>
+                <div class="wm-days-input" style="margin-top:10px;">
+                    <input type="number" id="wm-days" class="cmns-input" min="1" max="3650" step="1" inputmode="numeric"
+                           value="90" placeholder="หรือกรอกจำนวนวันเอง" oninput="wmSyncDays()">
+                    <span>วัน</span>
                 </div>
             </div>
 
@@ -863,16 +864,23 @@ textarea.cmns-input { resize:vertical; min-height:72px; }
     border-radius: 10px;
     text-align: center;
     cursor: pointer;
+    width: 100%;
+    background: var(--bg-surface);
+    color: var(--text-main);
+    font-family: inherit;
     font-size: 0.9rem;
     font-weight: 700;
     transition: .15s;
 }
-input[name="wm_days"]:checked + .wm-days-lbl {
+.wm-days-lbl.is-on {
     border-color: #f59e0b;
     background: rgba(245,158,11,.1);
     color: #b45309;
 }
 .wm-days-lbl:hover { border-color: #f59e0b; }
+.wm-days-input { position: relative; }
+.wm-days-input .cmns-input { padding-right: 44px; }
+.wm-days-input span { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); font-size: 0.85rem; color: var(--text-muted); pointer-events: none; }
 </style>
 
 <script>
@@ -894,7 +902,7 @@ function openWarrantyModal() {
     document.getElementById('war-modal-form').style.display = '';
     document.getElementById('war-modal-success').style.display = 'none';
     document.getElementById('war-modal-err').style.display = 'none';
-    wmRecalc();
+    wmSetDays(90);
     document.getElementById('modal-warranty').classList.add('show');
 }
 
@@ -902,13 +910,25 @@ function closeWarrantyModal() {
     document.getElementById('modal-warranty').classList.remove('show');
 }
 
+function wmSetDays(d) {
+    document.getElementById('wm-days').value = d;
+    wmSyncDays();
+}
+
+function wmSyncDays() {
+    const v = parseInt(document.getElementById('wm-days').value, 10);
+    document.querySelectorAll('.wm-days-lbl').forEach(b => b.classList.toggle('is-on', +b.dataset.days === v));
+    wmRecalc();
+}
+
 function wmRecalc() {
     const start = document.getElementById('wm-start').value;
-    const days  = parseInt(document.querySelector('input[name="wm_days"]:checked')?.value || 90);
-    if (!start) return;
+    const days  = parseInt(document.getElementById('wm-days').value, 10);
+    const disp  = document.getElementById('wm-end-disp');
+    if (!start || !(days > 0)) { disp.value = '-'; return; }
     const d = new Date(start);
     d.setDate(d.getDate() + days);
-    document.getElementById('wm-end-disp').value = d.toLocaleDateString('th-TH', {day:'2-digit',month:'2-digit',year:'numeric'});
+    disp.value = d.toLocaleDateString('th-TH', {day:'2-digit',month:'2-digit',year:'numeric'});
 }
 
 async function submitWarranty() {
@@ -918,8 +938,14 @@ async function submitWarranty() {
 
     const cname  = document.getElementById('wm-cname').value.trim();
     const device = document.getElementById('wm-device').value.trim();
+    const days   = document.getElementById('wm-days').value.trim();
     if (!cname || !device) {
         document.getElementById('war-modal-err-txt').textContent = 'กรุณากรอกชื่อลูกค้าและรุ่นเครื่อง';
+        errBox.style.display = 'flex';
+        return;
+    }
+    if (!/^\d+$/.test(days) || +days < 1 || +days > 3650) {
+        document.getElementById('war-modal-err-txt').textContent = 'จำนวนวันรับประกันต้องเป็นตัวเลข 1–3650 วัน';
         errBox.style.display = 'flex';
         return;
     }
@@ -935,7 +961,7 @@ async function submitWarranty() {
         device_model:   device,
         serial_no:      document.getElementById('wm-serial').value.trim(),
         repair_summary: document.getElementById('wm-summary').value.trim(),
-        warranty_days:  document.querySelector('input[name="wm_days"]:checked')?.value || 90,
+        warranty_days:  days,
         start_date:     document.getElementById('wm-start').value,
     });
 
