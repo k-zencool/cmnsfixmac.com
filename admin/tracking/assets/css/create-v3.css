@@ -515,3 +515,14 @@
     padding: 18px; text-align: center;
     font-size: 12.5px; color: var(--text-muted);
 }
+
+/* phone: the floating tab bar (admin-mobile.css) covers the viewport bottom —
+   lift sticky action bars clear of the pill and the raised scan chip, or
+   save hides behind it until the very end of the page. Covers create.php and
+   edit.php. Must follow the 640px rule above. */
+@media (max-width: 991px) {
+    .cr3-actionbar {
+        bottom: calc(var(--tabbar-h, 66px) + var(--tab-inset-b, 12px)
+                     + var(--safe-bottom, 0px) + var(--scan-lift, 18px) + 6px);
+    }
+}
