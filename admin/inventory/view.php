@@ -139,7 +139,7 @@ include '../templates/header_admin.php';
 <link rel="stylesheet" href="../templates/assets/css/inventory-logs.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-logs.css') ?>">
 <link rel="stylesheet" href="assets/css/inventory-v2.css?v=<?= asset_ver('/admin/inventory/assets/css/inventory-v2.css') ?>">
 
-<div class="cmns-wrapper">
+<div class="cmns-wrapper inv-view">
     
     <?php $back_link = ($category && $category['parent_id']) ? "view.php?id={$category['parent_id']}" : "index.php"; ?>
     <div style="margin-bottom:16px;">
@@ -166,7 +166,7 @@ include '../templates/header_admin.php';
         </div>
         <div class="cmns-action-buttons">
             <?php if (can('parts.manage')): ?>
-            <button onclick="openAddModal()" class="cmns-btn cmns-btn-primary">
+            <button onclick="openAddModal()" class="cmns-btn cmns-btn-primary" aria-label="เพิ่มสินค้า">
                 <span class="material-symbols-rounded">add_circle</span> เพิ่มสินค้า
             </button>
             <?php endif; ?>
@@ -201,7 +201,7 @@ include '../templates/header_admin.php';
             <div class="inv-stat-icon"><span class="material-symbols-rounded">payments</span></div>
             <div>
                 <div class="inv-stat-val">฿<?= number_format($stat_value) ?></div>
-                <div class="inv-stat-lbl">มูลค่าสต็อก (ราคาขาย)</div>
+                <div class="inv-stat-lbl">มูลค่าสต็อก<span class="inv-idx-long"> (ราคาขาย)</span></div>
             </div>
         </div>
         <?php endif; ?>
@@ -398,7 +398,7 @@ include '../templates/header_admin.php';
                             </td>
 
                             <?php if($it === 'new'): ?>
-                                <td>
+                                <td class="col-name">
                                     <div style="font-weight:700; color:var(--text-main); font-size:14px; line-height:1.3;"><?= htmlspecialchars($item['name']) ?></div>
                                     <div style="font-size:11px; color:var(--text-muted); margin-top:3px;">
                                         <code style="background:var(--bg-surface-alt); padding:1px 5px; border-radius:4px;"><?= htmlspecialchars($item['sku'] ?: '—') ?></code>
@@ -422,7 +422,7 @@ include '../templates/header_admin.php';
                                     'stripped'           => ['check_circle','#6b7280','Stripped'],
                                 ][$item['disassembly_status'] ?? ''] ?? ['','#888','—'];
                             ?>
-                                <td>
+                                <td class="col-name">
                                     <div style="font-weight:700; font-size:14px; line-height:1.3;"><?= htmlspecialchars($item['name']) ?></div>
                                     <div style="font-size:11px; margin-top:3px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
                                         <?php if($item['asset_tag']): ?>
@@ -473,7 +473,7 @@ include '../templates/header_admin.php';
                                     $apple_days = (int)((strtotime($item['apple_warranty_date']) - time()) / 86400);
                                 }
                             ?>
-                                <td>
+                                <td class="col-name">
                                     <div style="font-weight:700; color:var(--text-main); font-size:14px; line-height:1.3;"><?= htmlspecialchars($item['name']) ?></div>
                                     <div style="font-size:11px; margin-top:3px; display:flex; gap:6px; align-items:center;">
                                         <?php if($item['asset_tag']): ?>
@@ -530,7 +530,7 @@ include '../templates/header_admin.php';
                                     <?php endif; ?>
                                 </td>
                             <?php elseif($it === 'used'): ?>
-                                <td>
+                                <td class="col-name">
                                     <div style="font-weight:700; color:var(--text-main); font-size:14px; line-height:1.3;"><?= htmlspecialchars($item['name']) ?></div>
                                     <div style="font-size:11px; color:var(--text-muted); margin-top:3px; display:flex; gap:6px; align-items:center;">
                                         <code style="background:rgba(245,158,11,.1); color:#f59e0b; border:1px solid rgba(245,158,11,.3); padding:1px 5px; border-radius:4px;"><?= htmlspecialchars($item['sku'] ?: '—') ?></code>
@@ -551,7 +551,7 @@ include '../templates/header_admin.php';
                                     <?php endif; ?>
                                 </td>
                             <?php else: ?>
-                                <td>
+                                <td class="col-name">
                                     <div style="font-weight:700; font-size:14px;"><?= htmlspecialchars($item['name']) ?></div>
                                     <div style="font-size:11px; color:var(--text-muted);">SKU: <code><?= htmlspecialchars($item['sku'] ?: '-') ?></code></div>
                                     <div class="fold fold-d"><?= htmlspecialchars(implode(' · ', array_filter([strtoupper($it), $item['location']]))) ?></div>
@@ -565,7 +565,7 @@ include '../templates/header_admin.php';
 
                             <!-- QTY: ซ่อนใน machine tab / แสดง — ใน all tab -->
                             <?php if(!$isMachine || $current_type === 'all'): ?>
-                            <td style="text-align:center;">
+                            <td class="col-qty" style="text-align:center;">
                                 <?php if($isMachine): ?>
                                     <span style="color:var(--text-muted); opacity:.3; font-size:13px;">—</span>
                                 <?php else: ?>
@@ -580,7 +580,7 @@ include '../templates/header_admin.php';
                             <?php endif; ?>
 
                             <!-- STATUS -->
-                            <td style="text-align:center;">
+                            <td class="col-status" style="text-align:center;">
                                 <span class="status-indicator <?= $st_class ?>"><?= $st ?: '—' ?></span>
                                 <?php if($item['nearest_warranty']):
                                     $wDays = (strtotime($item['nearest_warranty']) - time()) / 86400;
@@ -598,7 +598,7 @@ include '../templates/header_admin.php';
                             </td>
 
                             <!-- ACTIONS -->
-                            <td style="text-align:center;" onclick="event.stopPropagation()">
+                            <td class="col-act" style="text-align:center;" onclick="event.stopPropagation()">
                                 <div style="display:flex; justify-content:center; gap:4px;">
                                     <?php if($it === 'new'): ?>
                                         <?php if (can('parts.consume')): ?>

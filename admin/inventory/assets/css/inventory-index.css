@@ -58,3 +58,66 @@
     .cmns-container.view-list .cmns-folder-icon { font-size: 32px; margin-right: 14px; }
     .cmns-container.view-list .cmns-stats-container { width: 100%; justify-content: flex-start; margin-top: 8px; }
 }
+
+/* ── Phone/tablet (<992px): search first, compact header ──
+   Order: title + icon buttons → search → stats strip → tabs → folders.
+   Desktop (≥992px) untouched. */
+@media (max-width: 991px) {
+    .cmns-wrapper { display: flex; flex-direction: column; }
+    .cmns-wrapper > .cmns-header-bar  { order: 0; }
+    .cmns-wrapper > .cmns-search-bar  { order: 1; }
+    .cmns-wrapper > .inv-stats        { order: 2; }
+    .cmns-wrapper > .cmns-controls-bar{ order: 3; }
+    .cmns-wrapper > #folder-container { order: 4; }
+
+    /* title left, three icon-only buttons right (labels stay as aria-label) */
+    .cmns-header-bar { flex-direction: row !important; flex-wrap: nowrap; align-items: center !important; gap: 10px; margin-bottom: 14px; }
+    .cmns-header-bar > div:first-child { min-width: 0; }
+    /* long names ("INVENTORY / ALL ITEMS") wrap to two lines rather than get cut */
+    .cmns-page-title { font-size: 17px; line-height: 1.25; }
+    .cmns-page-title .material-symbols-rounded { display: none; }
+    .inv-idx-sub { display: none; }
+    .cmns-action-buttons { flex-direction: row !important; flex-shrink: 0; gap: 6px; margin-left: auto; }
+    .cmns-action-buttons .cmns-btn {
+        width: 40px !important; height: 40px; padding: 0 !important;
+        justify-content: center; border-radius: 12px;
+        font-size: 0; gap: 0;
+    }
+    .cmns-action-buttons .cmns-btn .material-symbols-rounded { font-size: 21px; margin: 0; }
+
+    .cmns-search-bar { margin-bottom: 12px; }
+
+    /* stats: one slim strip — number over label, hairline dividers, no icons */
+    .inv-stats {
+        display: grid !important; grid-template-columns: repeat(4, 1fr) !important; gap: 0 !important;
+        margin-bottom: 14px; padding: 10px 0;
+        background: var(--bg-surface); border: 1px solid var(--border); border-radius: 14px;
+    }
+    .inv-stat-card {
+        padding: 0 6px !important; gap: 0; justify-content: center; text-align: center;
+        background: none !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important;
+        min-width: 0;
+    }
+    .inv-stat-card + .inv-stat-card { border-left: 1px solid var(--border) !important; }
+    .inv-stat-card > div:last-child { min-width: 0; }
+    .inv-stat-icon { display: none !important; }
+    .inv-stat-val { font-size: 16px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .inv-stat-lbl {
+        margin-top: 2px; font-size: 10.5px; font-weight: 600; letter-spacing: 0; text-transform: none;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+
+    .inv-idx-long { display: none; }
+
+    /* folder filter chips repeat the type tabs — dropped on phones */
+    .cmns-filter-group { display: none !important; }
+
+    /* tabs: text only, and the grid/list toggle shares the tabs' last row
+       instead of taking a row of its own. Still wraps — every tab stays visible. */
+    .cmns-controls-bar { margin-bottom: 14px; padding-bottom: 10px; row-gap: 6px !important; column-gap: 4px; align-items: center; }
+    .cmns-tabs { flex: 1 1 auto !important; gap: 4px; }
+    .cmns-tab { padding: 6px 11px !important; font-size: 13.5px !important; }
+    .cmns-tab .material-symbols-rounded { display: none; }
+    .cmns-view-btn { padding: 5px 9px; }
+    .cmns-view-btn .material-symbols-rounded { font-size: 20px; }
+}

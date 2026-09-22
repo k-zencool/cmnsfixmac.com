@@ -121,19 +121,19 @@ foreach ($root_categories as $key => $cat) {
                 <span class="material-symbols-rounded" style="font-size: 32px;"><?= $header_icon ?></span>
                 <?= $header_title ?>
             </h1>
-            <p style="color: var(--text-muted); margin-top: 5px; font-size: 14px;">
+            <p class="inv-idx-sub" style="color: var(--text-muted); margin-top: 5px; font-size: 14px;">
                 ทั้งหมด <b><?= number_format($total_items) ?></b> รายการในหมวดนี้
             </p>
         </div>
         <div class="cmns-action-buttons">
-            <a href="logs.php" class="cmns-btn cmns-btn-secondary">
+            <a href="logs.php" class="cmns-btn cmns-btn-secondary" aria-label="ประวัติสต็อก">
                 <span class="material-symbols-rounded">receipt_long</span> ประวัติสต็อก
             </a>
-            <a href="categories.php" class="cmns-btn cmns-btn-secondary">
+            <a href="categories.php" class="cmns-btn cmns-btn-secondary" aria-label="หมวดหมู่">
                 <span class="material-symbols-rounded">account_tree</span> หมวดหมู่
             </a>
             <?php if (can('parts.manage')): ?>
-            <button onclick="openAddModal()" class="cmns-btn cmns-btn-primary">
+            <button onclick="openAddModal()" class="cmns-btn cmns-btn-primary" aria-label="เพิ่มสินค้า">
                 <span class="material-symbols-rounded">add_circle</span> เพิ่มสินค้า
             </button>
             <?php endif; ?>
@@ -168,7 +168,7 @@ foreach ($root_categories as $key => $cat) {
             <div class="inv-stat-icon"><span class="material-symbols-rounded">payments</span></div>
             <div>
                 <div class="inv-stat-val">฿<?= number_format($stat_value) ?></div>
-                <div class="inv-stat-lbl">มูลค่าสต็อก (ราคาขาย)</div>
+                <div class="inv-stat-lbl">มูลค่าสต็อก<span class="inv-idx-long"> (ราคาขาย)</span></div>
             </div>
         </div>
         <?php endif; ?>

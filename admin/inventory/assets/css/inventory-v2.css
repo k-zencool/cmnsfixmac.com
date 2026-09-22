@@ -525,3 +525,116 @@
     .inv-stat-card { padding: 12px 14px; }
     .inv-stat-val { font-size: 19px; }
 }
+
+/* =========================================================
+   view.php, phone/tablet (<992px) — scoped to .inv-view.
+   Compact header + one-strip stats + one search row; below 768px
+   every table row becomes a card. Desktop (≥992px) untouched.
+   ========================================================= */
+@media (max-width: 991px) {
+    /* header: title left, icon-only add button right */
+    .inv-view .cmns-header-bar { flex-wrap: nowrap; align-items: center; gap: 10px; margin-bottom: 14px; }
+    .inv-view .cmns-header-bar > div:first-child { min-width: 0; }
+    .inv-view .cmns-page-title { font-size: 19px; gap: 8px; line-height: 1.25; }
+    .inv-view .cmns-page-title .material-symbols-rounded { font-size: 24px !important; }
+    .inv-view .cmns-header-bar p { font-size: 12.5px !important; margin-top: 2px !important; }
+    .inv-view .cmns-action-buttons { flex-shrink: 0; margin-left: auto; }
+    .inv-view .cmns-action-buttons .cmns-btn {
+        width: 40px; height: 40px; padding: 0; justify-content: center;
+        border-radius: 12px; font-size: 0; gap: 0;
+    }
+    .inv-view .cmns-action-buttons .cmns-btn .material-symbols-rounded { font-size: 21px; margin: 0; }
+
+    /* stats: one slim strip, same as the index page */
+    .inv-view .inv-stats {
+        grid-template-columns: repeat(4, 1fr); gap: 0;
+        margin-bottom: 12px; padding: 10px 0;
+        background: var(--bg-surface); border: 1px solid var(--border); border-radius: 14px;
+    }
+    .inv-view .inv-stat-card {
+        padding: 0 6px; gap: 0; justify-content: center; text-align: center; min-width: 0;
+        background: none; border: 0; border-radius: 0; box-shadow: none;
+    }
+    .inv-view .inv-stat-card + .inv-stat-card { border-left: 1px solid var(--border); }
+    .inv-view .inv-stat-card > div:last-child { min-width: 0; }
+    .inv-view .inv-stat-icon { display: none; }
+    .inv-view .inv-stat-val { font-size: 16px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .inv-view .inv-stat-lbl {
+        margin-top: 2px; font-size: 10.5px; font-weight: 600; letter-spacing: 0; text-transform: none;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .inv-view .inv-idx-long { display: none; }
+
+    /* search: input + filter + search (+ reset) on one row, no card around it */
+    .inv-view .log-filter-bar {
+        display: flex; flex-wrap: nowrap; align-items: center; gap: 6px;
+        margin-bottom: 12px !important; padding: 0; background: none; border: 0;
+    }
+    .inv-view .log-filter-bar .log-filter-group { min-width: 0 !important; margin: 0; }
+    .inv-view .log-filter-bar .log-filter-group > label { display: none; }
+    .inv-view .log-filter-bar > * { align-self: center !important; flex-shrink: 0; }
+    .inv-view .log-filter-bar > .log-filter-group { flex: 1 1 auto; flex-shrink: 1; }
+
+    /* the list sits on the page, not inside another card */
+    .inv-view .cmns-view-card { padding: 0; background: none; border: 0; box-shadow: none; }
+
+    /* sub-folders: two per row, no "View Inside" line */
+    .inv-view .sub-folder-item { padding: 11px 12px !important; gap: 10px !important; }
+    .inv-view .sub-folder-item > .material-symbols-rounded { font-size: 24px !important; width: 24px !important; }
+    .inv-view .sub-folder-item div div:last-child { display: none; }
+    .inv-view div:has(> .sub-folder-item) { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+
+    /* tabs: text only */
+    .inv-view .cmns-tabs { gap: 4px; flex-wrap: wrap; }
+    .inv-view .cmns-tab { padding: 6px 11px; font-size: 13.5px; }
+    .inv-view .cmns-tab .material-symbols-rounded { display: none; }
+}
+
+@media (max-width: 767px) {
+    /* table → one card per row:
+         name ............ qty
+         status  price   [actions] */
+    .inv-view .cmns-table,
+    .inv-view .cmns-table tbody { display: block; }
+    .inv-view .cmns-table thead { display: none !important; }
+    .inv-view .cmns-table tr { display: block; }
+    .inv-view .cmns-table td { display: block; }
+
+    .inv-view .cmns-table tr.inventory-row {
+        display: grid;
+        grid-template-columns: 82px auto 1fr;   /* fixed status column keeps prices aligned card to card */
+        grid-template-areas: "name name qty" "status price act";
+        align-items: center; column-gap: 10px; row-gap: 8px;
+        margin-top: 8px; padding: 12px 12px 10px;
+        background: var(--bg-surface); border: 1px solid var(--border); border-radius: 14px;
+    }
+    .inv-view .cmns-table tr.inventory-row.active { border-color: var(--primary); }
+    .inv-view .cmns-table tr.inventory-row > td { padding: 0; border: 0; background: none !important; }
+    .inv-view .cmns-table tr.inventory-row > .col-num,
+    .inv-view .cmns-table tr.inventory-row > .col-img,
+    .inv-view .cmns-table tr.inventory-row > .col-d1,
+    .inv-view .cmns-table tr.inventory-row > .col-d2 { display: none; }
+    .inv-view .cmns-table .col-name { grid-area: name; min-width: 0; }
+    .inv-view .cmns-table .col-name .fold-price { display: none; }
+    .inv-view .cmns-table .col-qty { grid-area: qty; justify-self: end; text-align: right !important; }
+    .inv-view .cmns-table .col-status { grid-area: status; text-align: left !important; }
+    .inv-view .cmns-table .col-price {
+        grid-area: price; display: block !important;
+        text-align: left !important; font-size: 13.5px !important;
+    }
+    .inv-view .cmns-table .col-act { grid-area: act; justify-self: end; }
+    .inv-view .cmns-table .col-act > div { justify-content: flex-end !important; }
+
+    /* group headers (ALL tab) + empty state: plain full-width blocks */
+    .inv-view .cmns-table tr:not(.inventory-row):not(.lot-detail-row) { margin-top: 14px; border-radius: 10px; }
+    .inv-view .cmns-table tr:not(.inventory-row) > td { padding-left: 12px; padding-right: 12px; }
+
+    /* lot details open under their card (JS sets display:table-row inline) */
+    .inv-view .cmns-table tr.lot-detail-row[style*="table-row"] {
+        display: block !important;
+        margin-top: -6px; padding-top: 6px;
+        border: 1px solid var(--primary); border-top: 0; border-radius: 0 0 14px 14px;
+        overflow: hidden;
+    }
+    .inv-view .cmns-table tr.lot-detail-row > td { padding: 0; }
+}
