@@ -6,6 +6,7 @@
    printed formats are routed; resolve.php does the lookup and redirect:
      - warranty slip  → /warranty/?q=<warranty_no>  (admin/warranty/print.php)
      - number sticker → CMNS:<ticket>, not a URL — only this scanner opens it  (admin/tracking/stickers.php)
+     - part label     → CMNS:P-<inventory id>, opens the part sheet here      (admin/inventory/print_labels.php)
 
    Anything else just shows its decoded value.
 
@@ -30,7 +31,7 @@ $pageTitle = "สแกน QR";
    useless when the slip is in your hand. */
 $scan_err_map = [
     'empty'        => 'อ่าน QR ไม่ได้ ลองสแกนใหม่อีกครั้ง',
-    'format'       => 'QR นี้ไม่ใช่ใบประกันหรือสติ๊กเกอร์งานซ่อมของร้าน',
+    'format'       => 'QR นี้ไม่ใช่ใบประกัน สติ๊กเกอร์งานซ่อม หรือฉลากอะไหล่ของร้าน',
     'notfound'     => 'ไม่พบใบประกันนี้ในระบบ',
     'ticket_unused'   => 'เลขที่ซ่อมนี้ยังไม่ถูกใช้งาน',
     'ticket_notfound' => 'ไม่พบเลขที่ซ่อมนี้ในระบบ',
@@ -51,6 +52,9 @@ include '../templates/header_admin.php';
 
 <link rel="stylesheet" href="<?= $assets_base ?>css/scan.css?v=<?= asset_ver('/admin/templates/assets/css/scan.css') ?>">
 <link rel="stylesheet" href="/admin/tracking/assets/css/job-view.css?v=<?= asset_ver('/admin/tracking/assets/css/job-view.css') ?>">
+<?php if (can('parts.consume')): ?>
+<link rel="stylesheet" href="<?= $assets_base ?>css/modal.css?v=<?= asset_ver('/admin/templates/assets/css/modal.css') ?>">
+<?php endif; ?>
 
 <div class="scan-page">
 
@@ -107,7 +111,7 @@ include '../templates/header_admin.php';
             <button type="button" class="scan-btn scan-btn-primary" id="scanAgain">สแกนอีกครั้ง</button>
             <button type="button" class="scan-btn scan-btn-ghost" id="scanCopy">คัดลอก</button>
         </div>
-        <p class="scan-note" id="scanNote">QR ใบประกันและสติ๊กเกอร์งานซ่อมจะเปิดให้อัตโนมัติ — ที่เห็นค่านี้แปลว่าอ่านได้แต่ไม่ใช่ของร้าน</p>
+        <p class="scan-note" id="scanNote">QR ใบประกัน สติ๊กเกอร์งานซ่อม และฉลากอะไหล่จะเปิดให้อัตโนมัติ — ที่เห็นค่านี้แปลว่าอ่านได้แต่ไม่ใช่ของร้าน</p>
     </div>
 
 </div>
@@ -116,10 +120,61 @@ include '../templates/header_admin.php';
          iOS does not ask for camera permission again between scans. */
       include __DIR__ . '/../tracking/partials/job_view_sheet.php'; ?>
 
+<!-- A scanned part label opens this sheet the same way (filled by part-view.js) -->
+<div id="partModal" class="trk-modal-overlay">
+    <div class="trk-view sheet-on-mobile">
+        <header class="trk-view-hd">
+            <div class="trk-view-hd-l">
+                <span class="trk-view-ticket pv-sku" id="pv-sku"></span>
+                <span class="status-badge" id="pv-stock"></span>
+            </div>
+            <button type="button" class="trk-view-close" data-pv-close aria-label="ปิด">
+                <span class="material-symbols-rounded">close</span>
+            </button>
+        </header>
+        <div class="trk-view-body">
+            <div class="pv-top">
+                <div class="pv-img" id="pv-img"></div>
+                <div class="pv-top-txt">
+                    <div class="pv-name" id="pv-name"></div>
+                    <div class="pv-cat" id="pv-cat"></div>
+                </div>
+            </div>
+            <div class="trk-view-meta">
+                <div><label>คงเหลือ</label><b id="pv-qty"></b></div>
+                <div><label>ราคาขาย</label><b id="pv-price" class="trk-view-cost"></b></div>
+                <div><label>ที่เก็บ</label><b id="pv-loc"></b></div>
+                <div><label>Part No.</label><b id="pv-pn"></b></div>
+            </div>
+            <section class="trk-view-sec" id="pv-sec-compat">
+                <label>ใช้กับรุ่น</label>
+                <div class="trk-view-tags" id="pv-compat"></div>
+            </section>
+            <section class="trk-view-sec" id="pv-sec-lots">
+                <label>ล็อตที่มีของ</label>
+                <div id="pv-lots"></div>
+            </section>
+        </div>
+        <footer class="trk-view-ft">
+            <a class="trk-view-cancel pv-open" id="pv-open" href="#">เปิดในคลัง</a>
+            <?php if (can('parts.consume')): ?>
+            <button type="button" class="trk-view-editbtn pv-take" id="pv-take" hidden>
+                <span class="material-symbols-rounded">output</span> เบิกเข้างาน
+            </button>
+            <?php endif; ?>
+        </footer>
+    </div>
+</div>
+<?php if (can('parts.consume')) include __DIR__ . '/../inventory/partials/_modal_requisition.php'; ?>
+
 <!-- zxing-wasm, jsQR fallback: iOS Safari has no BarcodeDetector -->
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.1.4/dist/iife/reader/index.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="/admin/tracking/assets/js/job-view.js?v=<?= asset_ver('/admin/tracking/assets/js/job-view.js') ?>"></script>
+<script src="<?= $assets_base ?>js/part-view.js?v=<?= asset_ver('/admin/templates/assets/js/part-view.js') ?>"></script>
+<?php if (can('parts.consume')): ?>
+<script src="/admin/inventory/assets/js/inventory-requisition.js?v=<?= asset_ver('/admin/inventory/assets/js/inventory-requisition.js') ?>"></script>
+<?php endif; ?>
 <script src="<?= $assets_base ?>js/scan.js?v=<?= asset_ver('/admin/templates/assets/js/scan.js') ?>"></script>
 
 <?php include '../templates/footer_admin.php'; ?>

@@ -6,7 +6,8 @@
    Decodes with zxing-wasm (ZXing C++ in WebAssembly) — iOS Safari ships no
    BarcodeDetector and the admin runs as an iOS PWA. jsQR stays as the
    fallback if the wasm cannot load; it is far weaker on a 14 mm sticker. A decode that looks like a warranty slip or a
-   repair-number sticker is handed to resolve.php, which does the lookup and
+   repair-number sticker is handed to resolve.php (a part label opens its
+   sheet via part.php), which does the lookup and
    the redirect; anything else just shows its value. The check below only
    decides whether to make that round-trip — resolve.php re-validates and
    is the real gate.
@@ -248,11 +249,21 @@
     var TICKET_RE      = /^https?:\/\/[^\/\s]+\/(?:admin\/scan\/resolve\.php\?(?:[^#\s]*&)?t=|T\/)([^&#?\/\s]{1,150})(?:[&#]|$)/i;
     var TICKET_BACK_RE = /^t=(.{1,50})$/;   // decoded, may hold spaces ("V5508 (2)")
 
+    /* A part label (inventory/print_labels.php) decodes to "CMNS:P-<id>".
+       Checked before TICKET_CODE_RE, which would otherwise take it for a
+       ticket — repair tickets are "V" + digits, never "P-". */
+    var PART_RE = /^CMNS:P-(\d{1,9})$/i;
+
     /* Where a decode should go, or null for anything we did not print.
        A printed slip decodes to the full /warranty/?q=<no> URL; the same
        slip read by a generic barcode app decodes to the bare number. */
     function routeFrom(text) {
         text = (text || '').trim();
+
+        var p = PART_RE.exec(text);
+        if (p) {
+            return { key: 'P' + p[1], part: p[1], icon: 'inventory_2', msg: 'เปิดอะไหล่…' };
+        }
 
         var j = TICKET_CODE_RE.exec(text), ticket = null;
         if (j) {
@@ -306,14 +317,16 @@
         if (noteEl) {
             noteEl.textContent = suppressed
                 ? 'QR นี้เพิ่งเปิดไม่สำเร็จ เลยไม่เปิดซ้ำให้ — เอา QR อื่นมาสแกนได้เลย'
-                : 'QR ใบประกันและสติ๊กเกอร์งานซ่อมจะเปิดให้อัตโนมัติ — ที่เห็นค่านี้แปลว่าอ่านได้แต่ไม่ใช่ของร้าน';
+                : 'QR ใบประกัน สติ๊กเกอร์งานซ่อม และฉลากอะไหล่จะเปิดให้อัตโนมัติ — ที่เห็นค่านี้แปลว่าอ่านได้แต่ไม่ใช่ของร้าน';
         }
         if (route) {
             cover.hidden = false;
             retryBtn.hidden = true;
             coverIco.textContent = route.icon;
             coverMsg.textContent = route.msg;
-            if (route.ticket && window.JobView && window.fetch) {
+            if (route.part) {
+                openPartSheet(route, text);
+            } else if (route.ticket && window.JobView && window.fetch) {
                 openJobSheet(route);
             } else {
                 leaveTo(route.href);
@@ -321,6 +334,13 @@
             return;
         }
 
+        showValue(text);
+    }
+
+    /* The "read it, but it is not ours" panel. `note` overrides the default
+       explanation (e.g. a part label whose item was deleted). */
+    function showValue(text, note) {
+        if (note && noteEl) noteEl.textContent = note;
         valueEl.textContent = text;
         result.hidden = false;
         hint.hidden = true;
@@ -364,6 +384,38 @@
         });
     }
 
+    /* A part label opens the part sheet the same way. There is no page to
+       fall back to, so a miss shows the value with the reason instead. */
+    function openPartSheet(route, text) {
+        if (!window.PartView || !window.fetch) { showValue(text); return; }
+        fetch('part.php?id=' + encodeURIComponent(route.part), { credentials: 'same-origin' })
+            .then(function (r) {
+                if (r.status === 401) { leaveTo('../login.php'); return null; }
+                return r.json();
+            })
+            .then(function (data) {
+                if (!data) return;
+                if (!data.ok) { showValue(text, 'ไม่พบอะไหล่นี้ในระบบ — อาจถูกลบไปแล้ว'); return; }
+                sheetKey = route.key;
+                PartView.open(data.part);
+            })
+            .catch(function () { showValue(text, 'โหลดข้อมูลอะไหล่ไม่สำเร็จ — เช็คอินเทอร์เน็ตแล้วสแกนใหม่'); });
+    }
+
+    if (window.PartView) {
+        PartView.onClose(function () {
+            sheetClosedAt = Date.now();
+            start();
+        });
+    }
+
+    /* Requisition done from the part sheet: inventory-requisition.js calls
+       this instead of reloading (a reload re-asks camera permission). It
+       already showed the success toast; close the sheet → camera resumes. */
+    window.onRequisitionDone = function () {
+        if (window.PartView && PartView.isOpen()) PartView.close();
+    };
+
     againBtn.addEventListener('click', function () {
         result.hidden = true;
         hint.hidden = false;
@@ -389,7 +441,8 @@
     document.addEventListener('visibilitychange', function () {
         if (document.hidden) {
             pause();   // app switch: keep the stream if iOS lets us, no new prompt on return
-        } else if (result.hidden && !(window.JobView && JobView.isOpen())) {
+        } else if (result.hidden && !(window.JobView && JobView.isOpen())
+                                  && !(window.PartView && PartView.isOpen())) {
             start();   // came back and no result on screen → resume scanning
         }
     });

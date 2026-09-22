@@ -1,4 +1,6 @@
 let _reqInventoryId = null;
+// absolute: this modal is also used by the scanner (admin/scan/index.php)
+const REQ_API = '/admin/inventory/process_requisition.php';
 let _jobSearchTimer = null;
 
 /* ── Open modal ── */
@@ -38,8 +40,8 @@ function openRequisitionModal(inventoryId, itemType = 'new') {
 
     // Load item + lots in parallel
     Promise.all([
-        fetch(`process_requisition.php?action=get_item&id=${inventoryId}`).then(r => r.json()),
-        fetch(`process_requisition.php?action=get_lots&item_id=${inventoryId}`).then(r => r.json())
+        fetch(`${REQ_API}?action=get_item&id=${inventoryId}`).then(r => r.json()),
+        fetch(`${REQ_API}?action=get_lots&item_id=${inventoryId}`).then(r => r.json())
     ]).then(([item, lots]) => {
         document.getElementById('req-item-name').textContent = item.name || '—';
         document.getElementById('req-item-sku').textContent  = item.sku  || '—';
@@ -138,7 +140,7 @@ function searchJobs(q) {
     if (q.length < 2) { results.style.display = 'none'; return; }
 
     _jobSearchTimer = setTimeout(() => {
-        fetch(`process_requisition.php?action=search_jobs&q=${encodeURIComponent(q)}`)
+        fetch(`${REQ_API}?action=search_jobs&q=${encodeURIComponent(q)}`)
             .then(r => r.json())
             .then(jobs => {
                 if (!jobs.length) {
@@ -195,7 +197,7 @@ function submitRequisition() {
     body.append('ticket_number',  document.getElementById('req-ticket-number').value);
     body.append('remarks',        document.getElementById('req-remarks').value);
 
-    fetch('process_requisition.php', { method: 'POST', body })
+    fetch(REQ_API, { method: 'POST', body })
         .then(r => r.json())
         .then(res => {
             if (res.ok) {
@@ -203,7 +205,10 @@ function submitRequisition() {
                 if (typeof Swal !== 'undefined') {
                     Swal.fire({ icon:'success', title: res.msg, toast:true, position:'top-end', showConfirmButton:false, timer:3000, timerProgressBar:true });
                 }
-                setTimeout(() => location.reload(), 500);
+                // a page may take over instead of reloading (the scanner must not:
+                // a reload in an iOS home-screen app re-asks camera permission)
+                if (typeof window.onRequisitionDone === 'function') window.onRequisitionDone(res);
+                else setTimeout(() => location.reload(), 500);
             } else {
                 err.textContent = res.msg;
                 err.style.display = 'block';

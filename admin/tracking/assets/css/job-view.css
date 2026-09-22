@@ -1,31 +1,31 @@
 /* =========================================================
    Repair job detail sheet (read-only)
    Path: admin/tracking/assets/css/job-view.css
-   Used by: admin/tracking/index.php, admin/scan/index.php
+   Used by: admin/tracking/index.php, admin/scan/index.php (also its #partModal)
    Markup: admin/tracking/partials/job_view_sheet.php
    ========================================================= */
 
 /* Overlay + status pill, scoped to the sheet: tracking-index.css has the
    page-wide versions, but the scan page does not load that file. */
-#viewModal {
+#viewModal, #partModal {
     position: fixed; inset: 0; background: rgba(0,0,0,.4);
     z-index: 1100;
     display: none; align-items: center; justify-content: center;
     opacity: 0; transition: opacity .15s;
 }
-#viewModal.show { display: flex; opacity: 1; }
+#viewModal.show, #partModal.show { display: flex; opacity: 1; }
 
-#viewModal .status-badge {
+#viewModal .status-badge, #partModal .status-badge {
     display: inline-flex; align-items: center; justify-content: center;
     padding: 5px 12px; border-radius: 20px;
     font-size: 11px; font-weight: 800; letter-spacing: .4px;
     white-space: nowrap; border: 1px solid transparent;
 }
-#viewModal .st-amber  { background: rgba(245,158,11,.12);  color: #b45309;  border-color: rgba(245,158,11,.3); }
+#viewModal .st-amber, #partModal .st-amber  { background: rgba(245,158,11,.12);  color: #b45309;  border-color: rgba(245,158,11,.3); }
 #viewModal .st-blue   { background: rgba(37,99,235,.1);    color: var(--primary); border-color: rgba(37,99,235,.25); }
 #viewModal .st-purple { background: rgba(139,92,246,.1);   color: #7c3aed; border-color: rgba(139,92,246,.25); }
-#viewModal .st-red    { background: rgba(239,68,68,.1);    color: #dc2626;  border-color: rgba(239,68,68,.25); }
-#viewModal .st-green  { background: rgba(16,185,129,.1);   color: #059669; border-color: rgba(16,185,129,.25); }
+#viewModal .st-red, #partModal .st-red    { background: rgba(239,68,68,.1);    color: #dc2626;  border-color: rgba(239,68,68,.25); }
+#viewModal .st-green, #partModal .st-green  { background: rgba(16,185,129,.1);   color: #059669; border-color: rgba(16,185,129,.25); }
 #viewModal .st-dark,
 #viewModal .st-gray   { background: var(--bg-surface-alt); color: var(--text-muted); border-color: var(--border); }
 #viewModal .time-ok     { color: #10b981; font-weight: 700; font-size: 12px; white-space: nowrap; }

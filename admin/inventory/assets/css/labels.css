@@ -1,0 +1,177 @@
+/* =========================================================
+   QR label manager — admin/inventory/labels.php
+   One centred column, plain cards (same restraint as tracking/stickers.php).
+   ========================================================= */
+
+.lbl-page {
+    width: 100%; max-width: 720px; margin: 0 auto;   /* width:100% — .content-padding is a flex column */
+    padding-bottom: 110px;                            /* room for the selection bar */
+}
+.lbl-title { margin: 10px 0 2px; font-size: 1.45rem; font-weight: 800; color: var(--text-main); }
+.lbl-stats { margin: 0 0 16px; font-size: 13.5px; color: var(--text-muted); }
+.lbl-stats b { color: var(--text-main); }
+.lbl-stats b.is-warn { color: #f59e0b; }
+.lbl-dim { color: var(--text-muted); }
+
+.lbl-alert {
+    margin-bottom: 14px; padding: 11px 14px; border-radius: 12px;
+    background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.3);
+    color: #dc2626; font-size: 13.5px; font-weight: 600;
+}
+
+/* ── Filters ── */
+.lbl-filter { display: flex; gap: 8px; margin-bottom: 10px; }
+.lbl-search { position: relative; flex: 1; min-width: 0; }
+.lbl-search .material-symbols-rounded {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    font-size: 20px; color: var(--text-muted); pointer-events: none;
+}
+.lbl-search input, .lbl-filter select {
+    width: 100%; height: 44px; padding: 0 12px;
+    border: 1px solid var(--border); border-radius: 12px;
+    background: var(--bg-surface); color: var(--text-main);
+    font: inherit; font-size: 15px; outline: none;
+}
+.lbl-search input { padding-left: 40px; }
+.lbl-search input:focus, .lbl-filter select:focus { border-color: var(--primary); }
+.lbl-filter select { width: auto; max-width: 42%; flex-shrink: 0; }
+
+.lbl-seg {
+    display: inline-flex; gap: 2px; padding: 3px; margin-bottom: 12px;
+    background: var(--bg-surface-alt); border: 1px solid var(--border); border-radius: 11px;
+}
+.lbl-seg a {
+    padding: 6px 14px; border-radius: 8px;
+    font-size: 13.5px; font-weight: 600; color: var(--text-muted); text-decoration: none;
+}
+.lbl-seg a.is-on { background: var(--bg-surface); color: var(--text-main); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+
+/* ── Cards / list ── */
+.lbl-card {
+    background: var(--bg-surface); border: 1px solid var(--border); border-radius: 14px;
+    overflow: hidden;
+}
+.lbl-listhd {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    padding: 10px 14px; border-bottom: 1px solid var(--border);
+    font-size: 13px; color: var(--text-muted);
+}
+.lbl-listhd-act { display: flex; gap: 4px; }
+.lbl-link {
+    padding: 4px 8px; background: none; border: 0; border-radius: 8px;
+    font: inherit; font-size: 13.5px; font-weight: 600; color: var(--primary); cursor: pointer;
+    white-space: nowrap;
+}
+.lbl-empty { margin: 0; padding: 36px 16px; text-align: center; color: var(--text-muted); font-size: 14px; }
+
+.lbl-row {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 14px; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+.lbl-row + .lbl-row { border-top: 1px solid var(--border); }
+.lbl-row:active { background: var(--bg-surface-alt); }
+.lbl-row input { width: 20px; height: 20px; flex-shrink: 0; accent-color: var(--primary); cursor: pointer; }
+.lbl-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.lbl-row-name { font-size: 14.5px; font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lbl-row-sub  { font-size: 12px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lbl-row-sub code { font-size: 11.5px; color: var(--primary); }
+.lbl-row-st { flex-shrink: 0; font-size: 11.5px; color: var(--text-muted); white-space: nowrap; }
+.lbl-row-st.is-new { color: #f59e0b; font-weight: 700; }
+
+.lbl-pager {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 10px 14px; border-top: 1px solid var(--border);
+    font-size: 13px; color: var(--text-muted);
+}
+.lbl-pager a { color: var(--primary); font-weight: 600; text-decoration: none; }
+
+/* ── History ── */
+.lbl-h2 { margin: 24px 0 8px; font-size: 13px; font-weight: 600; color: var(--text-muted); }
+.lbl-hist { display: flex; align-items: center; gap: 10px; padding: 10px 14px; font-size: 13.5px; }
+.lbl-hist + .lbl-hist { border-top: 1px solid var(--border); }
+.lbl-hist-main { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--text-main); }
+.lbl-hist-open {
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 34px; height: 34px; border-radius: 10px;
+    color: var(--primary); background: rgba(37,99,235,.08); text-decoration: none;
+}
+.lbl-hist-open .material-symbols-rounded { font-size: 19px; }
+
+/* ── Selection bar ── */
+.lbl-bar {
+    position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); z-index: 960;
+    display: flex; align-items: center; gap: 8px;
+    width: max-content; max-width: calc(100vw - 24px);
+    padding: 8px 8px 8px 16px; margin: 0;
+    background: var(--bg-surface); border: 1px solid var(--border); border-radius: 999px;
+    box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    font-size: 14px; color: var(--text-main);
+}
+.lbl-bar[hidden] { display: none; }
+.lbl-bar-count { white-space: nowrap; }
+.lbl-bar-copies { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; color: var(--text-muted); }
+.lbl-bar-copies input {
+    width: 46px; height: 34px; padding: 0 6px; text-align: center;
+    border: 1px solid var(--border); border-radius: 9px;
+    background: var(--bg-surface-alt); color: var(--text-main); font: inherit; font-size: 16px;
+}
+.lbl-go {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 16px; border: 0; border-radius: 999px;
+    background: var(--primary); color: #fff; font: inherit; font-weight: 700; cursor: pointer;
+}
+.lbl-go:disabled { opacity: .45; cursor: not-allowed; }
+.lbl-go .material-symbols-rounded { font-size: 18px; }
+
+@media (max-width: 991px) {
+    /* above the floating tab bar (admin-mobile.css geometry) */
+    .lbl-bar {
+        bottom: calc(var(--tabbar-h, 66px) + var(--tab-inset-b, 12px)
+                     + var(--safe-bottom, 0px) + var(--scan-lift, 18px) + 8px);
+        padding-left: 14px; gap: 6px; font-size: 13.5px;
+    }
+    .lbl-page { padding-bottom: 90px; }
+    .lbl-title { font-size: 1.25rem; }
+}
+
+/* back link — its shared style lives in inventory-dashboard.css, not loaded here */
+.lbl-page .cmns-back-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13px; font-weight: 700; letter-spacing: .5px;
+    color: var(--text-muted); text-decoration: none;
+}
+.lbl-page .cmns-back-link .material-symbols-rounded { font-size: 18px; }
+
+/* ── Name tools: rename + duplicate warning ── */
+.lbl-row-name { display: flex; align-items: center; gap: 6px; }
+.lbl-row-name [data-name] { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.lbl-row-name[hidden] { display: none; }
+.lbl-edit {
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 26px; height: 26px; padding: 0; border: 0; border-radius: 7px;
+    background: none; color: var(--text-muted); cursor: pointer;
+}
+.lbl-edit:hover { background: var(--bg-surface-alt); color: var(--primary); }
+.lbl-edit .material-symbols-rounded { font-size: 16px; }
+.lbl-dup {
+    flex-shrink: 0; padding: 1px 7px; border-radius: 6px;
+    background: rgba(239,68,68,.1); color: #ef4444;
+    font-size: 11px; font-weight: 700;
+}
+.lbl-dup[hidden] { display: none; }
+.lbl-row-models { font-size: 12px; font-weight: 600; color: var(--text-main); opacity: .8; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.lbl-rename { display: flex; align-items: center; gap: 4px; }
+.lbl-rename input {
+    flex: 1; min-width: 0; height: 36px; padding: 0 10px;
+    border: 1.5px solid var(--primary); border-radius: 9px;
+    background: var(--bg-surface-alt); color: var(--text-main);
+    font: inherit; font-size: 16px; font-weight: 600; outline: none;
+}
+.lbl-rename button {
+    display: inline-flex; align-items: center; justify-content: center; flex-shrink: 0;
+    width: 36px; height: 36px; padding: 0; border: 0; border-radius: 9px; cursor: pointer;
+}
+.lbl-rename-ok { background: var(--primary); color: #fff; }
+.lbl-rename-x  { background: var(--bg-surface-alt); color: var(--text-muted); }

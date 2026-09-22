@@ -152,6 +152,9 @@ $sb_initial = mb_strtoupper(mb_substr($sb_name, 0, 1));
                     <a href="/admin/inventory/categories.php">
                         <span class="material-symbols-rounded" style="font-size:18px;">folder_managed</span> จัดการหมวดหมู่
                     </a>
+                    <a href="/admin/inventory/labels.php">
+                        <span class="material-symbols-rounded" style="font-size:18px;">qr_code_2</span> ฉลาก QR อะไหล่
+                    </a>
                     <?php endif; ?>
                     <a href="/admin/inventory/logs.php">
                         <span class="material-symbols-rounded" style="font-size:18px;">history</span> ประวัติสต็อก

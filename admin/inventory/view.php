@@ -166,6 +166,9 @@ include '../templates/header_admin.php';
         </div>
         <div class="cmns-action-buttons">
             <?php if (can('parts.manage')): ?>
+            <a href="labels.php" class="cmns-btn cmns-btn-secondary" aria-label="ฉลาก QR">
+                <span class="material-symbols-rounded">qr_code_2</span> ฉลาก QR
+            </a>
             <button onclick="openAddModal()" class="cmns-btn cmns-btn-primary" aria-label="เพิ่มสินค้า">
                 <span class="material-symbols-rounded">add_circle</span> เพิ่มสินค้า
             </button>

@@ -206,3 +206,37 @@
     color: var(--text-muted);
     word-break: break-all;
 }
+
+/* ── Part sheet (#partModal, part-view.js) — the rest is job-view.css ── */
+.pv-sku { font-family: 'Courier New', monospace; font-size: 15px; }
+.pv-top { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
+.pv-img {
+    flex: 0 0 56px; width: 56px; height: 56px; border-radius: 12px; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--bg-surface-alt); border: 1px solid var(--border); color: var(--text-muted);
+}
+.pv-img img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pv-top-txt { min-width: 0; }
+.pv-name { font-size: 16px; font-weight: 800; color: var(--text-main); line-height: 1.3; }
+.pv-cat  { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+.pv-lot {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 0; font-size: 13px; color: var(--text-muted);
+}
+.pv-lot + .pv-lot { border-top: 1px solid var(--border); }
+.pv-lot code { color: var(--text-main); font-weight: 700; }
+.pv-lot b { margin-left: auto; color: var(--text-main); }
+.pv-open { text-decoration: none; display: inline-flex; align-items: center; }
+.trk-view-ft .pv-take { border: 0; cursor: pointer; font-family: inherit; background: #10b981; }   /* beats job-view.css, loaded after */
+
+/* requisition modal on this page — its lot picker rules live in the
+   inventory stylesheet, which this page does not load */
+#modal-requisition .lot-option {
+    display: flex; align-items: center; gap: 10px;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    padding: 10px 14px; cursor: pointer;
+}
+#modal-requisition .lot-option:has(input:checked) { border-color: #10b981; background: rgba(16,185,129,.06); }
+#modal-requisition .lot-option input[type="radio"] { accent-color: #10b981; width: 16px; height: 16px; flex-shrink: 0; }
+#modal-requisition .lot-opt-body { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: 1; min-width: 0; }
+#modal-requisition .lot-expired { opacity: .45; cursor: not-allowed; }
