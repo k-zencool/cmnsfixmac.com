@@ -9,6 +9,7 @@ date_default_timezone_set('Asia/Bangkok');
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/job_view_lib.php';
+require_once __DIR__ . '/../../includes/search_lib.php';
 require_login();
 
 /* ── Helpers ── */
@@ -67,11 +68,15 @@ $where  = [];
 $params = [];
 
 if ($q) {
-    foreach (preg_split('/\s+/', $q, -1, PREG_SPLIT_NO_EMPTY) as $idx => $word) {
-        $k = ":q{$idx}";
-        $where[]    = "(ticket_number LIKE $k OR customer_name LIKE $k OR customer_phone LIKE $k OR serial_number LIKE $k OR device_model LIKE $k OR device_series LIKE $k OR problem_details LIKE $k)";
-        $params[$k] = "%{$word}%";
-    }
+    // device_type เคยตกหล่นจากรายการนี้ — ค้น "ipad" เลยได้ 0 ทั้งที่มีงาน iPad 74 งาน
+    // (รายละเอียดกติกาการจับคู่อยู่ใน includes/search_lib.php)
+    $where = array_merge($where, srch_where(
+        $q,
+        ['ticket_number', 'customer_name', 'customer_phone', 'serial_number',
+         'device_type', 'device_model', 'device_series', 'problem_details', 'technician_note'],
+        ['device_type', 'device_model', 'device_series', 'customer_name'],
+        $params
+    ));
 }
 if (!empty($statusFilter)) {
     $in = [];
