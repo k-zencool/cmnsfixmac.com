@@ -20,7 +20,7 @@ docker compose down             # stop
 | Service    | URL                         |
 |------------|-----------------------------|
 | Website    | http://localhost:8000        |
-| phpMyAdmin | http://localhost:8081        |
+| phpMyAdmin | http://localhost:8082        |
 
 PHP Composer (no Node/npm — no build step):
 ```bash

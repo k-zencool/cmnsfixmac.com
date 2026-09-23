@@ -194,7 +194,7 @@ docker compose down         # หยุด
 | Service | URL |
 |---------|-----|
 | Website | <http://localhost:8000> |
-| phpMyAdmin | <http://localhost:8081> |
+| phpMyAdmin | <http://localhost:8082> |
 
 ติดตั้ง dependency (มีแค่ phpdotenv):
 
