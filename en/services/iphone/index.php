@@ -4,12 +4,12 @@ require_once '../../../includes/db.php';
 $page_title       = 'iPhone Repair Chiang Mai | Screen, Battery, Water Damage | CMNS FixMac';
 $page_description = 'iPhone repair in Chiang Mai. Screen replacement, battery, water damage, Face ID, camera. All models including iPhone 16. Genuine parts, up to 6-month warranty.';
 $page_keywords    = 'iPhone repair Chiang Mai, iPhone screen replacement, iPhone battery replacement, iPhone water damage, iPhone Face ID repair, iPhone 15 repair Chiang Mai';
-$page_css         = ['/assets/css/services/iphone-style.css?v=1', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
+$page_css         = ['/assets/css/services/iphone-style.css?v=2', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
 $switch_to_lang_url = '/services/iphone/';
 
 $faq_schema = [
     ['How much does iPhone screen replacement cost?',
-     'iPhone screen replacement starts from ฿1,500 depending on the model. iPhone 14 Pro Max and newer with OLED displays cost more. Free diagnosis included.'],
+     'iPhone screen replacement is priced by the model. iPhone 14 Pro Max and newer with OLED displays cost more. Free diagnosis included.'],
     ['How long does iPhone repair take?',
      'Screen and battery replacements usually take 1–2 hours. More complex repairs like water damage or logic board take 1–2 days.'],
     ['Is Face ID affected after screen replacement?',
@@ -77,23 +77,6 @@ $repairs = $pdo->query(
      ORDER BY created_at DESC LIMIT 8"
 )->fetchAll();
 
-$pricing_raw = $pdo->query(
-    "SELECT sp.device_name, sp.price, sp.price_note, sp.warranty_days,
-            pc.id AS cat_id, pc.name AS cat_name, pc.sort_order
-     FROM service_pricing sp
-     JOIN pricing_categories pc ON sp.category_id = pc.id
-     WHERE sp.device_type = 'iPhone'
-       AND sp.is_active  = 1
-       AND sp.show_on_web = 1
-     ORDER BY pc.sort_order, sp.price"
-)->fetchAll();
-
-$pricing_groups = [];
-foreach ($pricing_raw as $row) {
-    $pricing_groups[$row['cat_id']]['name'] = $row['cat_name'];
-    $pricing_groups[$row['cat_id']]['items'][] = $row;
-}
-
 include_once '../../../includes/header_en.php';
 ?>
 
@@ -117,7 +100,7 @@ include_once '../../../includes/header_en.php';
           <span class="material-symbols-rounded">call</span> Call for Free Advice
         </a>
         <a href="#sv-pricing" class="btn btn-ghost">
-          View Pricing <span class="material-symbols-rounded">arrow_downward</span>
+          Get a Quote <span class="material-symbols-rounded">arrow_downward</span>
         </a>
       </div>
       <div class="sv-trust-pills">
@@ -163,10 +146,10 @@ include_once '../../../includes/header_en.php';
     </div>
     <div class="sv-card-grid">
       <?php foreach ([
-          ['display_settings', 'Screen Replacement', 'Cracked glass, OLED lines, touch not working. Genuine OLED/LCD replacements that preserve Face ID.', 'From ฿1,500'],
-          ['battery_alert',    'Battery Replacement', 'Battery draining fast, swollen, won\'t charge. Original-grade battery with proper health restoration.', 'From ฿990'],
+          ['display_settings', 'Screen Replacement', 'Cracked glass, OLED lines, touch not working. Genuine OLED/LCD replacements that preserve Face ID.', 'Ask for a quote'],
+          ['battery_alert',    'Battery Replacement', 'Battery draining fast, swollen, won\'t charge. Original-grade battery with proper health restoration.', 'Ask for a quote'],
           ['water_drop',       'Water Damage',        'Dropped in water? Power off immediately and bring it in. Do not charge. We clean and repair the board.', 'Quote on inspection'],
-          ['photo_camera',     'Camera Repair',       'Blurry photos, camera not opening, front/rear camera failure. Replacement and module-level repair.', 'From ฿1,200'],
+          ['photo_camera',     'Camera Repair',       'Blurry photos, camera not opening, front/rear camera failure. Replacement and module-level repair.', 'Ask for a quote'],
           ['face_retouching',  'Face ID / Touch ID',  'Face ID not working, Touch ID failure, home button issues. Careful sensor transfer during repairs.', 'Quote on inspection'],
           ['memory',           'Logic Board Repair',  'No power, boot loop, short circuit, data recovery. Component-level repair by experienced technicians.', 'Quote on inspection'],
       ] as $i => [$icon, $title, $desc, $price]): ?>
@@ -201,43 +184,23 @@ include_once '../../../includes/header_en.php';
 <section class="sv-section sv-pricing" id="sv-pricing">
   <div class="sv-container">
     <div class="sv-section-head" data-aos="fade-up">
-      <span class="section-label">Pricing</span>
-      <h2>Transparent iPhone Repair Pricing</h2>
-      <p class="sv-desc">Approximate prices — varies by model and condition. <strong>Free diagnosis before every job.</strong></p>
+      <span class="section-label">Get a Quote</span>
+      <h2>Tell us the problem, get a price first</h2>
+      <p class="sv-desc">The price depends on the model and the actual condition. <strong>Free in-store diagnosis — no fix, no charge.</strong></p>
     </div>
-    <?php if ($pricing_groups): ?>
-    <div class="sv-tab-row" data-aos="fade-up">
-      <?php $first = true; foreach ($pricing_groups as $cat_id => $grp): ?>
-      <button class="sv-tab-btn<?= $first ? ' active' : '' ?>" data-tab="tp-<?= $cat_id ?>">
-        <?= htmlspecialchars($grp['name'], ENT_QUOTES, 'UTF-8') ?>
-      </button>
-      <?php $first = false; endforeach; ?>
+
+    <div class="sv-cta-btns" data-aos="fade-up">
+      <a href="tel:0841511684" class="btn btn-accent">
+        <span class="material-symbols-rounded">call</span> 084-151-1684
+      </a>
+      <a href="https://line.me/R/ti/p/@cmns" target="_blank" rel="noopener" class="btn sv-btn-line">
+        <img src="/assets/img/line-icon.png" alt="LINE" width="18" height="18"> LINE: @cmns
+      </a>
     </div>
-    <?php $first = true; foreach ($pricing_groups as $cat_id => $grp): ?>
-    <div class="sv-tab-pane<?= $first ? ' active' : '' ?>" id="tp-<?= $cat_id ?>" data-aos="fade-up">
-      <table class="sv-table">
-        <thead><tr><th>Model / Service</th><th>Approx. Price</th><th>Warranty</th></tr></thead>
-        <tbody>
-          <?php foreach ($grp['items'] as $item): ?>
-          <tr>
-            <td><?= htmlspecialchars($item['device_name'], ENT_QUOTES, 'UTF-8') ?></td>
-            <td><?= $item['price_note'] ? htmlspecialchars($item['price_note'], ENT_QUOTES, 'UTF-8') : '฿' . number_format($item['price']) ?></td>
-            <td><?= $item['warranty_days'] ? $item['warranty_days'] . ' days' : '—' ?></td>
-          </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
-    </div>
-    <?php $first = false; endforeach; ?>
-    <?php else: ?>
-    <p style="text-align:center;color:var(--text-secondary);padding:40px 0;">
-      No pricing data yet — <a href="tel:0841511684">call us for a quote</a>
-    </p>
-    <?php endif; ?>
+
     <p class="sv-price-note" data-aos="fade-up">
       <span class="material-symbols-rounded">info</span>
-      Prices are approximate and may vary by model and actual condition.
-      <a href="tel:0841511684">Call or bring your device in for a free quote.</a>
+      Send a photo or describe the fault on LINE and a technician will quote you first, free of charge.
     </p>
   </div>
 </section>

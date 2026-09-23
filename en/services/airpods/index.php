@@ -4,12 +4,12 @@ require_once '../../../includes/db.php';
 $page_title       = 'AirPods Repair Chiang Mai | Battery, Sound, Charging | CMNS FixMac';
 $page_description = 'AirPods repair in Chiang Mai. Battery replacement, sound issues, charging case repair, cleaning, Bluetooth problems, ANC fix. All models. Up to 3-month warranty.';
 $page_keywords    = 'AirPods repair Chiang Mai, AirPods battery replacement, AirPods Pro repair, AirPods charging case repair, AirPods no sound, AirPods cleaning';
-$page_css         = ['/assets/css/services/airpods-style.css?v=1', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
+$page_css         = ['/assets/css/services/airpods-style.css?v=2', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
 $switch_to_lang_url = '/services/airpods/';
 
 $faq_schema = [
     ['How much does AirPods battery replacement cost?',
-     'AirPods battery replacement starts from ฿890 per earbud. Charging case battery replacement starts from ฿890. Free diagnosis included.'],
+     'AirPods battery replacement is priced per earbud, with the charging case quoted separately. Free diagnosis included.'],
     ['How long does AirPods repair take?',
      'Most AirPods repairs take 1–2 days. Cleaning and minor fixes can often be done same day. We update you via LINE.'],
     ['Can you fix AirPods Pro Active Noise Cancellation?',
@@ -77,23 +77,6 @@ $repairs = $pdo->query(
      ORDER BY created_at DESC LIMIT 8"
 )->fetchAll();
 
-$pricing_raw = $pdo->query(
-    "SELECT sp.device_name, sp.price, sp.price_note, sp.warranty_days,
-            pc.id AS cat_id, pc.name AS cat_name, pc.sort_order
-     FROM service_pricing sp
-     JOIN pricing_categories pc ON sp.category_id = pc.id
-     WHERE sp.device_type = 'AirPods'
-       AND sp.is_active  = 1
-       AND sp.show_on_web = 1
-     ORDER BY pc.sort_order, sp.price"
-)->fetchAll();
-
-$pricing_groups = [];
-foreach ($pricing_raw as $row) {
-    $pricing_groups[$row['cat_id']]['name'] = $row['cat_name'];
-    $pricing_groups[$row['cat_id']]['items'][] = $row;
-}
-
 include_once '../../../includes/header_en.php';
 ?>
 
@@ -117,7 +100,7 @@ include_once '../../../includes/header_en.php';
           <span class="material-symbols-rounded">call</span> Call for Free Advice
         </a>
         <a href="#sv-pricing" class="btn btn-ghost">
-          View Pricing <span class="material-symbols-rounded">arrow_downward</span>
+          Get a Quote <span class="material-symbols-rounded">arrow_downward</span>
         </a>
       </div>
       <div class="sv-trust-pills">
@@ -163,10 +146,10 @@ include_once '../../../includes/header_en.php';
     </div>
     <div class="sv-card-grid">
       <?php foreach ([
-          ['battery_alert',   'Battery Replacement', 'Earbuds or case battery draining too fast. We replace with proper capacity cells to restore full use time.', 'From ฿890'],
+          ['battery_alert',   'Battery Replacement', 'Earbuds or case battery draining too fast. We replace with proper capacity cells to restore full use time.', 'Ask for a quote'],
           ['volume_off',      'Sound Issues',         'No sound, low volume on one side, crackling audio. We diagnose and repair or replace the speaker driver.', 'Quote on inspection'],
-          ['cleaning_services','Deep Cleaning',       'Earwax and dust blocking sound or mic mesh. Professional ultrasonic cleaning to restore audio quality.', 'From ฿290'],
-          ['battery_charging_full', 'Charging Case Repair', 'Case won\'t charge, charging port damaged, lid hinge broken. Battery and port replacement available.', 'From ฿1,200'],
+          ['cleaning_services','Deep Cleaning',       'Earwax and dust blocking sound or mic mesh. Professional ultrasonic cleaning to restore audio quality.', 'Ask for a quote'],
+          ['battery_charging_full', 'Charging Case Repair', 'Case won\'t charge, charging port damaged, lid hinge broken. Battery and port replacement available.', 'Ask for a quote'],
           ['bluetooth',       'Bluetooth Issues',     'AirPods dropping connection, pairing fails, stuttering audio. We diagnose firmware and hardware faults.', 'Quote on inspection'],
           ['noise_control_off','ANC / Transparency',  'Active Noise Cancellation or Transparency mode not working on AirPods Pro. Mesh cleaning and sensor calibration.', 'Quote on inspection'],
       ] as $i => [$icon, $title, $desc, $price]): ?>
@@ -201,43 +184,23 @@ include_once '../../../includes/header_en.php';
 <section class="sv-section sv-pricing" id="sv-pricing">
   <div class="sv-container">
     <div class="sv-section-head" data-aos="fade-up">
-      <span class="section-label">Pricing</span>
-      <h2>Transparent AirPods Repair Pricing</h2>
-      <p class="sv-desc">Approximate prices — varies by model and condition. <strong>Free diagnosis before every job.</strong></p>
+      <span class="section-label">Get a Quote</span>
+      <h2>Tell us the problem, get a price first</h2>
+      <p class="sv-desc">The price depends on the model and the actual condition. <strong>Free in-store diagnosis — no fix, no charge.</strong></p>
     </div>
-    <?php if ($pricing_groups): ?>
-    <div class="sv-tab-row" data-aos="fade-up">
-      <?php $first = true; foreach ($pricing_groups as $cat_id => $grp): ?>
-      <button class="sv-tab-btn<?= $first ? ' active' : '' ?>" data-tab="tp-<?= $cat_id ?>">
-        <?= htmlspecialchars($grp['name'], ENT_QUOTES, 'UTF-8') ?>
-      </button>
-      <?php $first = false; endforeach; ?>
+
+    <div class="sv-cta-btns" data-aos="fade-up">
+      <a href="tel:0841511684" class="btn btn-accent">
+        <span class="material-symbols-rounded">call</span> 084-151-1684
+      </a>
+      <a href="https://line.me/R/ti/p/@cmns" target="_blank" rel="noopener" class="btn sv-btn-line">
+        <img src="/assets/img/line-icon.png" alt="LINE" width="18" height="18"> LINE: @cmns
+      </a>
     </div>
-    <?php $first = true; foreach ($pricing_groups as $cat_id => $grp): ?>
-    <div class="sv-tab-pane<?= $first ? ' active' : '' ?>" id="tp-<?= $cat_id ?>" data-aos="fade-up">
-      <table class="sv-table">
-        <thead><tr><th>Model / Service</th><th>Approx. Price</th><th>Warranty</th></tr></thead>
-        <tbody>
-          <?php foreach ($grp['items'] as $item): ?>
-          <tr>
-            <td><?= htmlspecialchars($item['device_name'], ENT_QUOTES, 'UTF-8') ?></td>
-            <td><?= $item['price_note'] ? htmlspecialchars($item['price_note'], ENT_QUOTES, 'UTF-8') : '฿' . number_format($item['price']) ?></td>
-            <td><?= $item['warranty_days'] ? $item['warranty_days'] . ' days' : '—' ?></td>
-          </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
-    </div>
-    <?php $first = false; endforeach; ?>
-    <?php else: ?>
-    <p style="text-align:center;color:var(--text-secondary);padding:40px 0;">
-      No pricing data yet — <a href="tel:0841511684">call us for a quote</a>
-    </p>
-    <?php endif; ?>
+
     <p class="sv-price-note" data-aos="fade-up">
       <span class="material-symbols-rounded">info</span>
-      Prices are approximate and may vary by model and actual condition.
-      <a href="tel:0841511684">Call or bring your device in for a free quote.</a>
+      Send a photo or describe the fault on LINE and a technician will quote you first, free of charge.
     </p>
   </div>
 </section>

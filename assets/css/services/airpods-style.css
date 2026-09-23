@@ -432,6 +432,8 @@
 .sv-price-note {
   display: flex;
   align-items: center;
+  justify-content: center;   /* เซ็กชั่นนี้กลางทั้งก้อนแล้ว หมายเหตุต้องกลางตาม */
+  text-align: center;
   gap: 8px;
   margin-top: 20px;
   font-size: var(--text-sm);

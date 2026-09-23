@@ -4,12 +4,12 @@ require_once '../../../includes/db.php';
 $page_title       = 'Mac Software & OS Service Chiang Mai | macOS, Data Recovery | CMNS FixMac';
 $page_description = 'Mac software service in Chiang Mai. macOS reinstall, Windows Boot Camp/VM, malware removal, software setup, data recovery, fix slow Mac. Same-day service available.';
 $page_keywords    = 'Mac software service Chiang Mai, macOS reinstall Chiang Mai, Mac slow fix, Mac data recovery, Windows Boot Camp Mac, Mac malware removal';
-$page_css         = ['/assets/css/services/software-style.css?v=1', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
+$page_css         = ['/assets/css/services/software-style.css?v=2', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
 $switch_to_lang_url = '/services/software/';
 
 $faq_schema = [
     ['How much does macOS reinstall cost?',
-     'Clean macOS reinstall starts from ฿500. This includes a backup of your data (if the drive is accessible), a fresh install, and software setup.'],
+     'A clean macOS reinstall includes a backup of your data (if the drive is accessible), a fresh install, and software setup.'],
     ['How long does Mac software service take?',
      'Most software jobs are done same day. Data recovery and complex malware removal may take 1–2 days depending on severity.'],
     ['Can you install Windows on a Mac?',
@@ -19,7 +19,7 @@ $faq_schema = [
     ['Can you recover data from a dead Mac?',
      'Often yes, depending on the failure type. We extract data from damaged drives and dead logic boards. Come in for a free assessment.'],
     ['My Mac is very slow — can you fix it?',
-     'Yes. Common causes include too little RAM, a nearly full SSD, or background processes. We diagnose and optimize your system for ฿400+.'],
+     'Yes. Common causes include too little RAM, a nearly full SSD, or background processes. We diagnose and optimize your system — ask us for a quote.'],
 ];
 
 ob_start(); ?>
@@ -71,23 +71,6 @@ ob_start(); ?>
 <?php
 $page_head_extra = ob_get_clean();
 
-$pricing_raw = $pdo->query(
-    "SELECT sp.device_name, sp.price, sp.price_note, sp.warranty_days,
-            pc.id AS cat_id, pc.name AS cat_name, pc.sort_order
-     FROM service_pricing sp
-     JOIN pricing_categories pc ON sp.category_id = pc.id
-     WHERE sp.device_type = 'Software'
-       AND sp.is_active  = 1
-       AND sp.show_on_web = 1
-     ORDER BY pc.sort_order, sp.price"
-)->fetchAll();
-
-$pricing_groups = [];
-foreach ($pricing_raw as $row) {
-    $pricing_groups[$row['cat_id']]['name'] = $row['cat_name'];
-    $pricing_groups[$row['cat_id']]['items'][] = $row;
-}
-
 include_once '../../../includes/header_en.php';
 ?>
 
@@ -111,7 +94,7 @@ include_once '../../../includes/header_en.php';
           <span class="material-symbols-rounded">call</span> Call for Free Advice
         </a>
         <a href="#sv-pricing" class="btn btn-ghost">
-          View Pricing <span class="material-symbols-rounded">arrow_downward</span>
+          Get a Quote <span class="material-symbols-rounded">arrow_downward</span>
         </a>
       </div>
       <div class="sv-trust-pills">
@@ -157,12 +140,12 @@ include_once '../../../includes/header_en.php';
     </div>
     <div class="sv-card-grid">
       <?php foreach ([
-          ['terminal',    'macOS Reinstall',           'Clean install, upgrade, or downgrade macOS. Data backup included. Restore your Mac to factory-fresh performance.', 'From ฿500'],
-          ['window',      'Windows Boot Camp / VM',    'Run Windows natively via Boot Camp (Intel) or virtualized via Parallels/VMware (all models including M-series).', 'From ฿800'],
-          ['security',    'Malware Removal',           'Adware, ransomware, rogue software removed completely. We also check for data exposure and harden your settings.', 'From ฿500'],
-          ['apps',        'Software Setup',            'Install and configure Office 365, Adobe CC, AutoCAD, Final Cut, or any other app you need — properly licensed.', 'From ฿300'],
+          ['terminal',    'macOS Reinstall',           'Clean install, upgrade, or downgrade macOS. Data backup included. Restore your Mac to factory-fresh performance.', 'Ask for a quote'],
+          ['window',      'Windows Boot Camp / VM',    'Run Windows natively via Boot Camp (Intel) or virtualized via Parallels/VMware (all models including M-series).', 'Ask for a quote'],
+          ['security',    'Malware Removal',           'Adware, ransomware, rogue software removed completely. We also check for data exposure and harden your settings.', 'Ask for a quote'],
+          ['apps',        'Software Setup',            'Install and configure Office 365, Adobe CC, AutoCAD, Final Cut, or any other app you need — properly licensed.', 'Ask for a quote'],
           ['save',        'Data Recovery',             'Deleted files, dead drive, or corrupted macOS. We extract your data using professional recovery tools.', 'Quote on inspection'],
-          ['speed',       'Fix Slow Mac',              'Optimize startup, clear cache, fix background processes, and tune your Mac for maximum performance.', 'From ฿400'],
+          ['speed',       'Fix Slow Mac',              'Optimize startup, clear cache, fix background processes, and tune your Mac for maximum performance.', 'Ask for a quote'],
       ] as $i => [$icon, $title, $desc, $price]): ?>
       <div class="sv-card" data-aos="fade-up" data-aos-delay="<?= ($i % 3) * 80 ?>">
         <div class="sv-card-icon"><span class="material-symbols-rounded"><?= $icon ?></span></div>
@@ -195,43 +178,23 @@ include_once '../../../includes/header_en.php';
 <section class="sv-section sv-pricing" id="sv-pricing">
   <div class="sv-container">
     <div class="sv-section-head" data-aos="fade-up">
-      <span class="section-label">Pricing</span>
-      <h2>Mac Software Service Pricing</h2>
-      <p class="sv-desc">Fixed and approximate prices. <strong>Free diagnosis and consultation before every job.</strong></p>
+      <span class="section-label">Get a Quote</span>
+      <h2>Tell us the problem, get a price first</h2>
+      <p class="sv-desc">The price depends on the model and the actual condition. <strong>Free in-store diagnosis — no fix, no charge.</strong></p>
     </div>
-    <?php if ($pricing_groups): ?>
-    <div class="sv-tab-row" data-aos="fade-up">
-      <?php $first = true; foreach ($pricing_groups as $cat_id => $grp): ?>
-      <button class="sv-tab-btn<?= $first ? ' active' : '' ?>" data-tab="tp-<?= $cat_id ?>">
-        <?= htmlspecialchars($grp['name'], ENT_QUOTES, 'UTF-8') ?>
-      </button>
-      <?php $first = false; endforeach; ?>
+
+    <div class="sv-cta-btns" data-aos="fade-up">
+      <a href="tel:0841511684" class="btn btn-accent">
+        <span class="material-symbols-rounded">call</span> 084-151-1684
+      </a>
+      <a href="https://line.me/R/ti/p/@cmns" target="_blank" rel="noopener" class="btn sv-btn-line">
+        <img src="/assets/img/line-icon.png" alt="LINE" width="18" height="18"> LINE: @cmns
+      </a>
     </div>
-    <?php $first = true; foreach ($pricing_groups as $cat_id => $grp): ?>
-    <div class="sv-tab-pane<?= $first ? ' active' : '' ?>" id="tp-<?= $cat_id ?>" data-aos="fade-up">
-      <table class="sv-table">
-        <thead><tr><th>Service</th><th>Price</th><th>Note</th></tr></thead>
-        <tbody>
-          <?php foreach ($grp['items'] as $item): ?>
-          <tr>
-            <td><?= htmlspecialchars($item['device_name'], ENT_QUOTES, 'UTF-8') ?></td>
-            <td><?= $item['price_note'] ? htmlspecialchars($item['price_note'], ENT_QUOTES, 'UTF-8') : '฿' . number_format($item['price']) ?></td>
-            <td><?= $item['warranty_days'] ? $item['warranty_days'] . ' days' : '—' ?></td>
-          </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
-    </div>
-    <?php $first = false; endforeach; ?>
-    <?php else: ?>
-    <p style="text-align:center;color:var(--text-secondary);padding:40px 0;">
-      No pricing data yet — <a href="tel:0841511684">call us for a quote</a>
-    </p>
-    <?php endif; ?>
+
     <p class="sv-price-note" data-aos="fade-up">
       <span class="material-symbols-rounded">info</span>
-      Complex data recovery or multi-software setups may cost more.
-      <a href="tel:0841511684">Call or bring your Mac in for a free consultation.</a>
+      Send a photo or describe the fault on LINE and a technician will quote you first, free of charge.
     </p>
   </div>
 </section>

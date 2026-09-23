@@ -4,11 +4,11 @@ require_once '../../includes/db.php';
 $page_title       = 'ซ่อม Apple Watch เชียงใหม่ ทุกรุ่น ทุกซีรีส์ | CMNS FixMac';
 $page_description = 'ซ่อม Apple Watch ทุกรุ่น Series 1–10, Ultra จอแตก แบตเสื่อม น้ำเข้า Digital Crown พัง ช่างผู้เชี่ยวชาญเชียงใหม่ ประกันสูงสุด 3 เดือน ประเมินฟรี';
 $page_keywords    = 'ซ่อม Apple Watch เชียงใหม่, เปลี่ยนจอ Apple Watch, เปลี่ยนแบต Apple Watch, Apple Watch น้ำเข้า, ซ่อม Apple Watch Ultra, ราคาซ่อม Apple Watch เชียงใหม่';
-$page_css         = ['/assets/css/services/apple-watch-style.css?v=1', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
+$page_css         = ['/assets/css/services/apple-watch-style.css?v=2', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
 
 $faq_schema = [
     ['ซ่อม Apple Watch ที่ CMNS FixMac ราคาเท่าไหร่?',
-     'ราคาขึ้นอยู่กับรุ่นและอาการ เช่น เปลี่ยนจอ Apple Watch Series 8 เริ่มที่ 2,500 บาท เปลี่ยนแบตเริ่มที่ 1,200 บาท ทุกงานประเมินฟรีก่อนตัดสินใจ'],
+     'ราคาขึ้นอยู่กับรุ่นและอาการ ทุกงานประเมินฟรีก่อนตัดสินใจ'],
     ['ใช้เวลาซ่อม Apple Watch นานแค่ไหน?',
      'งานทั่วไปเช่น เปลี่ยนจอ เปลี่ยนแบต ใช้เวลา 2–3 วัน ขึ้นอยู่กับสต็อกอะไหล่'],
     ['Apple Watch ที่ซ่อมมีประกันไหม?',
@@ -73,23 +73,6 @@ $repairs = $pdo->query(
      ORDER BY created_at DESC LIMIT 8"
 )->fetchAll();
 
-$pricing_raw = $pdo->query(
-    "SELECT sp.device_name, sp.price, sp.price_note, sp.warranty_days,
-            pc.id AS cat_id, pc.name AS cat_name, pc.sort_order
-     FROM service_pricing sp
-     JOIN pricing_categories pc ON sp.category_id = pc.id
-     WHERE sp.device_type = 'Apple Watch'
-       AND sp.is_active  = 1
-       AND sp.show_on_web = 1
-     ORDER BY pc.sort_order, sp.price"
-)->fetchAll();
-
-$pricing_groups = [];
-foreach ($pricing_raw as $row) {
-    $pricing_groups[$row['cat_id']]['name'] = $row['cat_name'];
-    $pricing_groups[$row['cat_id']]['items'][] = $row;
-}
-
 include_once '../../includes/header.php';
 ?>
 
@@ -117,7 +100,7 @@ include_once '../../includes/header.php';
           <span class="material-symbols-rounded">call</span> โทรปรึกษาฟรี
         </a>
         <a href="#sv-pricing" class="btn btn-ghost">
-          ดูราคา <span class="material-symbols-rounded">arrow_downward</span>
+          สอบถามราคา <span class="material-symbols-rounded">arrow_downward</span>
         </a>
       </div>
       <div class="sv-trust-pills">
@@ -171,12 +154,12 @@ include_once '../../includes/header.php';
     </div>
     <div class="sv-card-grid">
       <?php foreach ([
-          ['display_settings', 'เปลี่ยนหน้าจอ',         'จอแตก จอลาย จอไม่ติด เปลี่ยนจอ OLED LTPO ทุก Series รวมถึง Ultra',     'เริ่ม 1,500 บาท'],
-          ['battery_alert',    'เปลี่ยนแบตเตอรี่',      'แบตเสื่อม ชาร์จไม่อยู่ แบตบวม รับเปลี่ยนแบตทุก Series',              'เริ่ม 1,200 บาท'],
+          ['display_settings', 'เปลี่ยนหน้าจอ',         'จอแตก จอลาย จอไม่ติด เปลี่ยนจอ OLED LTPO ทุก Series รวมถึง Ultra',     'สอบถามราคา'],
+          ['battery_alert',    'เปลี่ยนแบตเตอรี่',      'แบตเสื่อม ชาร์จไม่อยู่ แบตบวม รับเปลี่ยนแบตทุก Series',              'สอบถามราคา'],
           ['water_drop',       'ซ่อมน้ำเข้า',            'น้ำเข้าชิด หน้าจอมีไอน้ำ ซ่อม seal ล้างบอร์ดและซ่อมชิป',             'ประเมินหน้างาน'],
-          ['tune',             'เปลี่ยน Digital Crown',  'มงกุฎหมุนไม่ได้ ค้าง Side Button ไม่ตอบสนอง เปลี่ยนชิ้นส่วนใหม่',   'เริ่ม 800 บาท'],
+          ['tune',             'เปลี่ยน Digital Crown',  'มงกุฎหมุนไม่ได้ ค้าง Side Button ไม่ตอบสนอง เปลี่ยนชิ้นส่วนใหม่',   'สอบถามราคา'],
           ['power_off',        'ซ่อมเปิดไม่ติด',         'Watch ไม่เปิด ค้าง Apple Logo ชาร์จไม่ขึ้น ซ่อมระดับชิป',            'ประเมินหน้างาน'],
-          ['link',             'เปลี่ยนสาย',             'เปลี่ยนสาย Sport Band, Milanese Loop, Braided Solo Loop ทุกสี ทุกขนาด','เริ่ม 390 บาท'],
+          ['link',             'เปลี่ยนสาย',             'เปลี่ยนสาย Sport Band, Milanese Loop, Braided Solo Loop ทุกสี ทุกขนาด','สอบถามราคา'],
       ] as $i => [$icon, $title, $desc, $price]): ?>
       <div class="sv-card" data-aos="fade-up" data-aos-delay="<?= ($i % 3) * 80 ?>">
         <div class="sv-card-icon"><span class="material-symbols-rounded"><?= $icon ?></span></div>
@@ -215,43 +198,23 @@ include_once '../../includes/header.php';
 <section class="sv-section sv-pricing" id="sv-pricing">
   <div class="sv-container">
     <div class="sv-section-head" data-aos="fade-up">
-      <span class="section-label">ราคาซ่อม</span>
-      <h2>ราคาซ่อม Apple Watch โปร่งใส ไม่มีบวกเพิ่ม</h2>
-      <p class="sv-desc">ราคาโดยประมาณ ขึ้นอยู่กับรุ่นและสภาพเครื่อง <strong>ประเมินฟรีทุกครั้งก่อนเริ่มงาน</strong></p>
+      <span class="section-label">สอบถามราคา</span>
+      <h2>แจ้งอาการ รู้ราคาก่อนตัดสินใจ</h2>
+      <p class="sv-desc">ราคาขึ้นอยู่กับรุ่นและสภาพเครื่องจริง <strong>ประเมินหน้าร้านฟรี ไม่ซ่อมไม่คิดเงิน</strong></p>
     </div>
-    <?php if ($pricing_groups): ?>
-    <div class="sv-tab-row" data-aos="fade-up">
-      <?php $first = true; foreach ($pricing_groups as $cat_id => $grp): ?>
-      <button class="sv-tab-btn<?= $first ? ' active' : '' ?>" data-tab="tp-<?= $cat_id ?>">
-        <?= htmlspecialchars($grp['name'], ENT_QUOTES, 'UTF-8') ?>
-      </button>
-      <?php $first = false; endforeach; ?>
+
+    <div class="sv-cta-btns" data-aos="fade-up">
+      <a href="tel:0841511684" class="btn btn-accent">
+        <span class="material-symbols-rounded">call</span> 084-151-1684
+      </a>
+      <a href="https://line.me/R/ti/p/@cmns" target="_blank" rel="noopener" class="btn sv-btn-line">
+        <img src="/assets/img/line-icon.png" alt="LINE" width="18" height="18"> LINE: @cmns
+      </a>
     </div>
-    <?php $first = true; foreach ($pricing_groups as $cat_id => $grp): ?>
-    <div class="sv-tab-pane<?= $first ? ' active' : '' ?>" id="tp-<?= $cat_id ?>" data-aos="fade-up">
-      <table class="sv-table">
-        <thead><tr><th>รุ่น / บริการ</th><th>ราคาโดยประมาณ</th><th>รับประกัน</th></tr></thead>
-        <tbody>
-          <?php foreach ($grp['items'] as $item): ?>
-          <tr>
-            <td><?= htmlspecialchars($item['device_name'], ENT_QUOTES, 'UTF-8') ?></td>
-            <td><?= $item['price_note'] ? htmlspecialchars($item['price_note'], ENT_QUOTES, 'UTF-8') : '฿' . number_format($item['price']) . ' บาท' ?></td>
-            <td><?= $item['warranty_days'] ? $item['warranty_days'] . ' วัน' : '—' ?></td>
-          </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
-    </div>
-    <?php $first = false; endforeach; ?>
-    <?php else: ?>
-    <p style="text-align:center;color:var(--text-secondary);padding:40px 0;">
-      ยังไม่มีข้อมูลราคา — <a href="tel:0841511684">โทรสอบถามได้เลย</a>
-    </p>
-    <?php endif; ?>
+
     <p class="sv-price-note" data-aos="fade-up">
       <span class="material-symbols-rounded">info</span>
-      ราคาเป็นโดยประมาณ อาจเปลี่ยนแปลงตามรุ่นและอาการจริง
-      <a href="tel:0841511684">โทรสอบถามหรือนำเครื่องมาประเมินฟรีได้เลย</a>
+      ส่งรูปหรือบอกอาการมาทาง LINE ได้เลย ช่างประเมินให้ก่อน ไม่มีค่าใช้จ่าย
     </p>
   </div>
 </section>

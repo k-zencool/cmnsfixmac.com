@@ -4,11 +4,11 @@ require_once '../../includes/db.php';
 $page_title       = 'ซ่อม iMac เชียงใหม่ ทุกรุ่น ทุกอาการ | CMNS FixMac';
 $page_description = 'ซ่อม iMac ทุกรุ่น ทุกอาการ จอเสีย เปิดไม่ติด อัปเกรด SSD/RAM น้ำเข้า ช่างผู้เชี่ยวชาญเชียงใหม่ อะไหล่แท้ ประกันสูงสุด 1 ปี ประเมินฟรี';
 $page_keywords    = 'ซ่อม iMac เชียงใหม่, เปลี่ยนจอ iMac, อัปเกรด SSD iMac, iMac เปิดไม่ติด, ซ่อม iMac M1, ซ่อม iMac M3, ราคาซ่อม iMac เชียงใหม่';
-$page_css         = ['/assets/css/services/imac-style.css?v=1', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
+$page_css         = ['/assets/css/services/imac-style.css?v=2', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
 
 $faq_schema = [
     ['ซ่อม iMac ที่ CMNS FixMac ราคาเท่าไหร่?',
-     'ราคาขึ้นอยู่กับรุ่นและอาการ เช่น เปลี่ยนจอ iMac 27" เริ่มที่ 7,900 บาท อัปเกรด SSD เริ่มที่ 2,900 บาท ทุกงานประเมินฟรีก่อนตัดสินใจ'],
+     'ราคาขึ้นอยู่กับรุ่นและอาการ ทุกงานประเมินฟรีก่อนตัดสินใจ'],
     ['ซ่อม iMac M1 / M3 ได้ไหม?',
      'ซ่อมได้ ทีมช่างมีประสบการณ์กับ iMac ชิป Apple Silicon ทุกรุ่น ทั้งเปลี่ยนจอ ซ่อม Logic Board และลง macOS'],
     ['iMac ที่ซ่อมมีประกันไหม?',
@@ -73,23 +73,6 @@ $repairs = $pdo->query(
      ORDER BY created_at DESC LIMIT 8"
 )->fetchAll();
 
-$pricing_raw = $pdo->query(
-    "SELECT sp.device_name, sp.price, sp.price_note, sp.warranty_days,
-            pc.id AS cat_id, pc.name AS cat_name, pc.sort_order
-     FROM service_pricing sp
-     JOIN pricing_categories pc ON sp.category_id = pc.id
-     WHERE sp.device_type = 'iMac'
-       AND sp.is_active  = 1
-       AND sp.show_on_web = 1
-     ORDER BY pc.sort_order, sp.price"
-)->fetchAll();
-
-$pricing_groups = [];
-foreach ($pricing_raw as $row) {
-    $pricing_groups[$row['cat_id']]['name'] = $row['cat_name'];
-    $pricing_groups[$row['cat_id']]['items'][] = $row;
-}
-
 include_once '../../includes/header.php';
 ?>
 
@@ -117,7 +100,7 @@ include_once '../../includes/header.php';
           <span class="material-symbols-rounded">call</span> โทรปรึกษาฟรี
         </a>
         <a href="#sv-pricing" class="btn btn-ghost">
-          ดูราคา <span class="material-symbols-rounded">arrow_downward</span>
+          สอบถามราคา <span class="material-symbols-rounded">arrow_downward</span>
         </a>
       </div>
       <div class="sv-trust-pills">
@@ -171,11 +154,11 @@ include_once '../../includes/header.php';
     </div>
     <div class="sv-card-grid">
       <?php foreach ([
-          ['display_settings', 'เปลี่ยนจอ iMac',        'จอแตก จอดำ จอลาย จอเป็นเส้น ภาพไม่ขึ้น เปลี่ยน Retina / 5K ทุกขนาด', 'เริ่ม 7,900 บาท'],
-          ['memory',           'อัปเกรด SSD / RAM',      'เพิ่มพื้นที่ เพิ่มความเร็ว iMac Intel ที่ถอดเปลี่ยนได้ พร้อม Clone ข้อมูล', 'เริ่ม 2,900 บาท'],
+          ['display_settings', 'เปลี่ยนจอ iMac',        'จอแตก จอดำ จอลาย จอเป็นเส้น ภาพไม่ขึ้น เปลี่ยน Retina / 5K ทุกขนาด', 'สอบถามราคา'],
+          ['memory',           'อัปเกรด SSD / RAM',      'เพิ่มพื้นที่ เพิ่มความเร็ว iMac Intel ที่ถอดเปลี่ยนได้ พร้อม Clone ข้อมูล', 'สอบถามราคา'],
           ['power_settings_new','ซ่อมเปิดไม่ติด',        'iMac ไม่เปิด มีเสียงพัดลมแต่ไม่มีภาพ ซ่อม PSU / Logic Board ระดับชิป', 'ประเมินหน้างาน'],
           ['water_drop',       'iMac โดนน้ำ / ช็อต',    'ทำความสะอาดบอร์ด ซ่อมชิปที่เสียหาย กู้ข้อมูล', 'ประเมินหน้างาน'],
-          ['terminal',         'ลง macOS / ซ่อมซอฟต์แวร์','ลง OS ใหม่ แก้บูทช้า ลง Office Adobe Final Cut Pro AutoCAD', 'เริ่ม 500 บาท'],
+          ['terminal',         'ลง macOS / ซ่อมซอฟต์แวร์','ลง OS ใหม่ แก้บูทช้า ลง Office Adobe Final Cut Pro AutoCAD', 'สอบถามราคา'],
           ['developer_board',  'ซ่อม Logic Board',        'เปิดไม่ติด เครื่องดับ ช็อต ซ่อมระดับชิป คืนชีวิตเครื่องได้', 'ประเมินหน้างาน'],
       ] as $i => [$icon, $title, $desc, $price]): ?>
       <div class="sv-card" data-aos="fade-up" data-aos-delay="<?= ($i % 3) * 80 ?>">
@@ -215,51 +198,23 @@ include_once '../../includes/header.php';
 <section class="sv-section sv-pricing" id="sv-pricing">
   <div class="sv-container">
     <div class="sv-section-head" data-aos="fade-up">
-      <span class="section-label">ราคาซ่อม</span>
-      <h2>ราคาซ่อม iMac โปร่งใส ไม่มีบวกเพิ่ม</h2>
-      <p class="sv-desc">ราคาโดยประมาณ ขึ้นอยู่กับรุ่นและสภาพเครื่อง <strong>ประเมินฟรีทุกครั้งก่อนเริ่มงาน</strong></p>
-    </div>
-    <?php if ($pricing_groups): ?>
-    <div class="sv-tab-row" data-aos="fade-up">
-      <?php $first = true; foreach ($pricing_groups as $cat_id => $grp): ?>
-      <button class="sv-tab-btn<?= $first ? ' active' : '' ?>"
-              data-tab="tp-<?= $cat_id ?>">
-        <?= htmlspecialchars($grp['name'], ENT_QUOTES, 'UTF-8') ?>
-      </button>
-      <?php $first = false; endforeach; ?>
+      <span class="section-label">สอบถามราคา</span>
+      <h2>แจ้งอาการ รู้ราคาก่อนตัดสินใจ</h2>
+      <p class="sv-desc">ราคาขึ้นอยู่กับรุ่นและสภาพเครื่องจริง <strong>ประเมินหน้าร้านฟรี ไม่ซ่อมไม่คิดเงิน</strong></p>
     </div>
 
-    <?php $first = true; foreach ($pricing_groups as $cat_id => $grp): ?>
-    <div class="sv-tab-pane<?= $first ? ' active' : '' ?>" id="tp-<?= $cat_id ?>" data-aos="fade-up">
-      <table class="sv-table">
-        <thead>
-          <tr><th>รุ่น / บริการ</th><th>ราคาโดยประมาณ</th><th>รับประกัน</th></tr>
-        </thead>
-        <tbody>
-          <?php foreach ($grp['items'] as $item): ?>
-          <tr>
-            <td><?= htmlspecialchars($item['device_name'], ENT_QUOTES, 'UTF-8') ?></td>
-            <td><?= $item['price_note']
-                  ? htmlspecialchars($item['price_note'], ENT_QUOTES, 'UTF-8')
-                  : '฿' . number_format($item['price']) . ' บาท' ?></td>
-            <td><?= $item['warranty_days'] ? $item['warranty_days'] . ' วัน' : '—' ?></td>
-          </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
+    <div class="sv-cta-btns" data-aos="fade-up">
+      <a href="tel:0841511684" class="btn btn-accent">
+        <span class="material-symbols-rounded">call</span> 084-151-1684
+      </a>
+      <a href="https://line.me/R/ti/p/@cmns" target="_blank" rel="noopener" class="btn sv-btn-line">
+        <img src="/assets/img/line-icon.png" alt="LINE" width="18" height="18"> LINE: @cmns
+      </a>
     </div>
-    <?php $first = false; endforeach; ?>
-
-    <?php else: ?>
-    <p style="text-align:center;color:var(--text-secondary);padding:40px 0;">
-      ยังไม่มีข้อมูลราคา — <a href="tel:0841511684">โทรสอบถามได้เลย</a>
-    </p>
-    <?php endif; ?>
 
     <p class="sv-price-note" data-aos="fade-up">
       <span class="material-symbols-rounded">info</span>
-      ราคาเป็นโดยประมาณ อาจเปลี่ยนแปลงตามรุ่นและอาการจริง
-      <a href="tel:0841511684">โทรสอบถามหรือนำเครื่องมาประเมินฟรีได้เลย</a>
+      ส่งรูปหรือบอกอาการมาทาง LINE ได้เลย ช่างประเมินให้ก่อน ไม่มีค่าใช้จ่าย
     </p>
   </div>
 </section>

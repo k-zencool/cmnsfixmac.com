@@ -4,12 +4,12 @@ require_once '../../../includes/db.php';
 $page_title       = 'MacBook Repair Chiang Mai | All Models, All Issues | CMNS FixMac';
 $page_description = 'MacBook repair in Chiang Mai. Screen, battery, water damage, logic board. All models incl. M1/M2/M3/M4. Genuine parts, up to 1-year warranty. Free diagnosis every time.';
 $page_keywords    = 'MacBook repair Chiang Mai, MacBook screen replacement, MacBook battery replacement, MacBook water damage, MacBook M1 repair, MacBook M3 repair';
-$page_css         = ['/assets/css/services/macbook-style.css?v=3', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
+$page_css         = ['/assets/css/services/macbook-style.css?v=4', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
 $switch_to_lang_url = '/services/macbook/';
 
 $faq_schema = [
     ['How much does MacBook repair cost?',
-     'Prices vary by model and issue. Screen replacement starts from ฿5,900, battery replacement from ฿2,900. Every job includes a free diagnosis before we start.'],
+     'Prices vary by model and issue. Every job includes a free diagnosis before we start.'],
     ['How long does MacBook repair take?',
      'Common repairs like screen or battery replacement take 1–3 days. Some jobs can be done same day depending on parts availability.'],
     ['Is the repair covered by warranty?',
@@ -77,23 +77,6 @@ $repairs = $pdo->query(
      ORDER BY created_at DESC LIMIT 8"
 )->fetchAll();
 
-$pricing_raw = $pdo->query(
-    "SELECT sp.device_name, sp.price, sp.price_note, sp.warranty_days,
-            pc.id AS cat_id, pc.name AS cat_name, pc.sort_order
-     FROM service_pricing sp
-     JOIN pricing_categories pc ON sp.category_id = pc.id
-     WHERE sp.device_type = 'MacBook'
-       AND sp.is_active  = 1
-       AND sp.show_on_web = 1
-     ORDER BY pc.sort_order, sp.price"
-)->fetchAll();
-
-$pricing_groups = [];
-foreach ($pricing_raw as $row) {
-    $pricing_groups[$row['cat_id']]['name'] = $row['cat_name'];
-    $pricing_groups[$row['cat_id']]['items'][] = $row;
-}
-
 include_once '../../../includes/header_en.php';
 ?>
 
@@ -117,7 +100,7 @@ include_once '../../../includes/header_en.php';
           <span class="material-symbols-rounded">call</span> Call for Free Advice
         </a>
         <a href="#sv-pricing" class="btn btn-ghost">
-          View Pricing <span class="material-symbols-rounded">arrow_downward</span>
+          Get a Quote <span class="material-symbols-rounded">arrow_downward</span>
         </a>
       </div>
       <div class="sv-trust-pills">
@@ -163,12 +146,12 @@ include_once '../../../includes/header_en.php';
     </div>
     <div class="sv-card-grid">
       <?php foreach ([
-          ['display_settings', 'Screen Replacement',       'Cracked, lines, dead pixels, no image. We replace Retina / Liquid Retina displays for all sizes.', 'From ฿5,900'],
-          ['battery_alert',    'Battery Replacement',       'Degraded battery, won\'t charge, swollen. Genuine battery replacement for all models with warranty.', 'From ฿2,900'],
+          ['display_settings', 'Screen Replacement',       'Cracked, lines, dead pixels, no image. We replace Retina / Liquid Retina displays for all sizes.', 'Ask for a quote'],
+          ['battery_alert',    'Battery Replacement',       'Degraded battery, won\'t charge, swollen. Genuine battery replacement for all models with warranty.', 'Ask for a quote'],
           ['memory',           'Logic Board Repair',        'Won\'t power on, shuts down, short circuit, water damage. Component-level board repair.', 'Quote on inspection'],
           ['water_drop',       'Water Damage',              'Spilled liquid, board cleaning, chip repair, data recovery. Bring it in immediately — do not power on.', 'Quote on inspection'],
-          ['storage',          'SSD / RAM Upgrade',         'More storage, faster performance. Available for Intel MacBooks with user-upgradeable components.', 'From ฿2,500'],
-          ['terminal',         'macOS & Software',          'Clean macOS install, fix slow boot, install Office, Adobe, AutoCAD and other software.', 'From ฿500'],
+          ['storage',          'SSD / RAM Upgrade',         'More storage, faster performance. Available for Intel MacBooks with user-upgradeable components.', 'Ask for a quote'],
+          ['terminal',         'macOS & Software',          'Clean macOS install, fix slow boot, install Office, Adobe, AutoCAD and other software.', 'Ask for a quote'],
       ] as $i => [$icon, $title, $desc, $price]): ?>
       <div class="sv-card" data-aos="fade-up" data-aos-delay="<?= ($i % 3) * 80 ?>">
         <div class="sv-card-icon"><span class="material-symbols-rounded"><?= $icon ?></span></div>
@@ -201,43 +184,23 @@ include_once '../../../includes/header_en.php';
 <section class="sv-section sv-pricing" id="sv-pricing">
   <div class="sv-container">
     <div class="sv-section-head" data-aos="fade-up">
-      <span class="section-label">Pricing</span>
-      <h2>Transparent MacBook Repair Pricing</h2>
-      <p class="sv-desc">Approximate prices — varies by model and condition. <strong>Free diagnosis before every job.</strong></p>
+      <span class="section-label">Get a Quote</span>
+      <h2>Tell us the problem, get a price first</h2>
+      <p class="sv-desc">The price depends on the model and the actual condition. <strong>Free in-store diagnosis — no fix, no charge.</strong></p>
     </div>
-    <?php if ($pricing_groups): ?>
-    <div class="sv-tab-row" data-aos="fade-up">
-      <?php $first = true; foreach ($pricing_groups as $cat_id => $grp): ?>
-      <button class="sv-tab-btn<?= $first ? ' active' : '' ?>" data-tab="tp-<?= $cat_id ?>">
-        <?= htmlspecialchars($grp['name'], ENT_QUOTES, 'UTF-8') ?>
-      </button>
-      <?php $first = false; endforeach; ?>
+
+    <div class="sv-cta-btns" data-aos="fade-up">
+      <a href="tel:0841511684" class="btn btn-accent">
+        <span class="material-symbols-rounded">call</span> 084-151-1684
+      </a>
+      <a href="https://line.me/R/ti/p/@cmns" target="_blank" rel="noopener" class="btn sv-btn-line">
+        <img src="/assets/img/line-icon.png" alt="LINE" width="18" height="18"> LINE: @cmns
+      </a>
     </div>
-    <?php $first = true; foreach ($pricing_groups as $cat_id => $grp): ?>
-    <div class="sv-tab-pane<?= $first ? ' active' : '' ?>" id="tp-<?= $cat_id ?>" data-aos="fade-up">
-      <table class="sv-table">
-        <thead><tr><th>Model / Service</th><th>Approx. Price</th><th>Warranty</th></tr></thead>
-        <tbody>
-          <?php foreach ($grp['items'] as $item): ?>
-          <tr>
-            <td><?= htmlspecialchars($item['device_name'], ENT_QUOTES, 'UTF-8') ?></td>
-            <td><?= $item['price_note'] ? htmlspecialchars($item['price_note'], ENT_QUOTES, 'UTF-8') : '฿' . number_format($item['price']) ?></td>
-            <td><?= $item['warranty_days'] ? $item['warranty_days'] . ' days' : '—' ?></td>
-          </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
-    </div>
-    <?php $first = false; endforeach; ?>
-    <?php else: ?>
-    <p style="text-align:center;color:var(--text-secondary);padding:40px 0;">
-      No pricing data yet — <a href="tel:0841511684">call us for a quote</a>
-    </p>
-    <?php endif; ?>
+
     <p class="sv-price-note" data-aos="fade-up">
       <span class="material-symbols-rounded">info</span>
-      Prices are approximate and may vary by model and actual condition.
-      <a href="tel:0841511684">Call or bring your device in for a free quote.</a>
+      Send a photo or describe the fault on LINE and a technician will quote you first, free of charge.
     </p>
   </div>
 </section>

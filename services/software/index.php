@@ -2,21 +2,21 @@
 require_once '../../includes/db.php';
 
 $page_title       = 'ลงโปรแกรม Mac / ซ่อมซอฟต์แวร์ เชียงใหม่ | CMNS FixMac';
-$page_description = 'ลง macOS ลง Windows Boot Camp ลง Office Adobe AutoCAD ลบไวรัส กู้ข้อมูล แก้เครื่องช้า บริการซอฟต์แวร์ Mac ครบ เชียงใหม่ ราคาเริ่มต้น 300 บาท';
+$page_description = 'ลง macOS ลง Windows Boot Camp ลง Office Adobe AutoCAD ลบไวรัส กู้ข้อมูล แก้เครื่องช้า บริการซอฟต์แวร์ Mac ครบ เชียงใหม่ ประเมินฟรีก่อนทุกครั้ง';
 $page_keywords    = 'ลงโปรแกรม Mac เชียงใหม่, ลง macOS เชียงใหม่, ลง Office Mac, ลง Adobe Mac, ลบไวรัส Mac, กู้ข้อมูล Mac, แก้เครื่องช้า Mac เชียงใหม่';
-$page_css         = ['/assets/css/services/software-style.css?v=1', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
+$page_css         = ['/assets/css/services/software-style.css?v=2', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
 
 $faq_schema = [
     ['ลง macOS ใหม่ราคาเท่าไหร่?',
-     'ลง macOS เริ่มต้นที่ 500 บาท รวมการติดตั้ง ตั้งค่าเบื้องต้น และทดสอบระบบ ถ้าต้องการโอนข้อมูลด้วยจะมีค่าใช้จ่ายเพิ่มตามปริมาณข้อมูล'],
+     'ลง macOS รวมการติดตั้ง ตั้งค่าเบื้องต้น และทดสอบระบบ ถ้าต้องการโอนข้อมูลด้วยจะมีค่าใช้จ่ายเพิ่มตามปริมาณข้อมูล'],
     ['ใช้เวลานานแค่ไหน?',
      'งานทั่วไปเช่น ลง macOS ลงโปรแกรม ส่วนใหญ่เสร็จภายในวันเดียวกัน งานกู้ข้อมูลอาจใช้เวลา 1–3 วัน'],
     ['ลง Windows บน Mac ได้ไหม?',
-     'ได้ ทั้งแบบ Boot Camp (MacBook Intel) และแบบ Virtual Machine ผ่าน Parallels (ทั้ง Intel และ Apple Silicon) ราคาเริ่มต้นที่ 800 บาท'],
+     'ได้ ทั้งแบบ Boot Camp (MacBook Intel) และแบบ Virtual Machine ผ่าน Parallels (ทั้ง Intel และ Apple Silicon) สอบถามราคาได้ก่อนตัดสินใจ'],
     ['กู้ข้อมูลจาก Mac ที่เปิดไม่ติดได้ไหม?',
      'ได้ในหลายกรณี ขึ้นอยู่กับสาเหตุที่เปิดไม่ติด เราประเมินก่อนทุกครั้ง ถ้ากู้ได้จะแจ้งราคาก่อนดำเนินการ'],
     ['ลง Office / Adobe ได้ไหม?',
-     'ได้ รับลง Microsoft 365, Adobe Creative Cloud, Final Cut Pro, Logic Pro, AutoCAD, DaVinci Resolve และอื่นๆ ราคาเริ่มต้นที่ 300 บาท'],
+     'ได้ รับลง Microsoft 365, Adobe Creative Cloud, Final Cut Pro, Logic Pro, AutoCAD, DaVinci Resolve และอื่นๆ สอบถามราคาได้ก่อนตัดสินใจ'],
     ['ส่งเครื่องมาซ่อมทางไปรษณีย์ได้ไหม?',
      'ส่งได้ผ่าน Kerry / Grab เราบรรจุคืนอย่างดีและแจ้งสถานะทาง LINE ตลอดการซ่อม'],
 ];
@@ -67,23 +67,6 @@ ob_start(); ?>
 <?php
 $page_head_extra = ob_get_clean();
 
-$pricing_raw = $pdo->query(
-    "SELECT sp.device_name, sp.price, sp.price_note, sp.warranty_days,
-            pc.id AS cat_id, pc.name AS cat_name, pc.sort_order
-     FROM service_pricing sp
-     JOIN pricing_categories pc ON sp.category_id = pc.id
-     WHERE sp.device_type = 'Software'
-       AND sp.is_active  = 1
-       AND sp.show_on_web = 1
-     ORDER BY pc.sort_order, sp.price"
-)->fetchAll();
-
-$pricing_groups = [];
-foreach ($pricing_raw as $row) {
-    $pricing_groups[$row['cat_id']]['name'] = $row['cat_name'];
-    $pricing_groups[$row['cat_id']]['items'][] = $row;
-}
-
 include_once '../../includes/header.php';
 ?>
 
@@ -105,13 +88,13 @@ include_once '../../includes/header.php';
         CMNS FixMac · เชียงใหม่
       </span>
       <h1 class="sv-h1">ลงโปรแกรม<br><span class="sv-h1-accent">ซ่อมซอฟต์แวร์ Mac</span></h1>
-      <p class="sv-hero-sub">macOS · Windows · Office · Adobe · กู้ข้อมูล<br>บริการวันเดียวเสร็จ ราคาเริ่มต้น 300 บาท</p>
+      <p class="sv-hero-sub">macOS · Windows · Office · Adobe · กู้ข้อมูล<br>บริการวันเดียวเสร็จ ประเมินฟรีก่อนทุกครั้ง</p>
       <div class="sv-hero-cta">
         <a href="tel:0841511684" class="btn btn-accent">
           <span class="material-symbols-rounded">call</span> โทรปรึกษาฟรี
         </a>
         <a href="#sv-pricing" class="btn btn-ghost">
-          ดูราคา <span class="material-symbols-rounded">arrow_downward</span>
+          สอบถามราคา <span class="material-symbols-rounded">arrow_downward</span>
         </a>
       </div>
       <div class="sv-trust-pills">
@@ -165,12 +148,12 @@ include_once '../../includes/header.php';
     </div>
     <div class="sv-card-grid">
       <?php foreach ([
-          ['system_update',     'ลง macOS ใหม่',               'ลง macOS ทุกเวอร์ชัน ตั้งแต่ Ventura, Sonoma ถึง Sequoia พร้อมตั้งค่าและทดสอบ',       'เริ่ม 500 บาท'],
-          ['desktop_windows',   'ลง Windows (Boot Camp / VM)', 'ลง Windows 10 / 11 บน Mac ผ่าน Boot Camp (Intel) หรือ Parallels (M-chip)',             'เริ่ม 800 บาท'],
-          ['security',          'ลบไวรัส / Malware',           'สแกนและลบไวรัส Adware Malware ทำความสะอาดระบบ เพิ่มประสิทธิภาพ',                      'เริ่ม 500 บาท'],
-          ['apps',              'ลงโปรแกรม Office / Adobe',    'ลง Microsoft 365, Adobe CC, Final Cut Pro, Logic Pro, AutoCAD, DaVinci Resolve',        'เริ่ม 300 บาท'],
+          ['system_update',     'ลง macOS ใหม่',               'ลง macOS ทุกเวอร์ชัน ตั้งแต่ Ventura, Sonoma ถึง Sequoia พร้อมตั้งค่าและทดสอบ',       'สอบถามราคา'],
+          ['desktop_windows',   'ลง Windows (Boot Camp / VM)', 'ลง Windows 10 / 11 บน Mac ผ่าน Boot Camp (Intel) หรือ Parallels (M-chip)',             'สอบถามราคา'],
+          ['security',          'ลบไวรัส / Malware',           'สแกนและลบไวรัส Adware Malware ทำความสะอาดระบบ เพิ่มประสิทธิภาพ',                      'สอบถามราคา'],
+          ['apps',              'ลงโปรแกรม Office / Adobe',    'ลง Microsoft 365, Adobe CC, Final Cut Pro, Logic Pro, AutoCAD, DaVinci Resolve',        'สอบถามราคา'],
           ['restore_page',      'Recovery / กู้ข้อมูล',        'กู้ข้อมูลจาก SSD / HDD ที่เสีย หรือ Mac ที่ลง OS ใหม่โดยไม่ได้สำรองข้อมูล',           'ประเมินหน้างาน'],
-          ['speed',             'แก้เครื่องช้า / ค้าง',        'ปรับแต่ง macOS / Windows ลบโปรแกรมขยะ ทำความสะอาด startup items เพิ่มความเร็ว',       'เริ่ม 400 บาท'],
+          ['speed',             'แก้เครื่องช้า / ค้าง',        'ปรับแต่ง macOS / Windows ลบโปรแกรมขยะ ทำความสะอาด startup items เพิ่มความเร็ว',       'สอบถามราคา'],
       ] as $i => [$icon, $title, $desc, $price]): ?>
       <div class="sv-card" data-aos="fade-up" data-aos-delay="<?= ($i % 3) * 80 ?>">
         <div class="sv-card-icon"><span class="material-symbols-rounded"><?= $icon ?></span></div>
@@ -209,43 +192,23 @@ include_once '../../includes/header.php';
 <section class="sv-section sv-pricing" id="sv-pricing">
   <div class="sv-container">
     <div class="sv-section-head" data-aos="fade-up">
-      <span class="section-label">ราคาบริการ</span>
-      <h2>ราคาบริการซอฟต์แวร์ โปร่งใส ไม่มีบวกเพิ่ม</h2>
-      <p class="sv-desc">ราคาเริ่มต้น ขึ้นอยู่กับปริมาณงานจริง <strong>ปรึกษาฟรีทุกครั้งก่อนเริ่มงาน</strong></p>
+      <span class="section-label">สอบถามราคา</span>
+      <h2>แจ้งอาการ รู้ราคาก่อนตัดสินใจ</h2>
+      <p class="sv-desc">ราคาขึ้นอยู่กับรุ่นและสภาพเครื่องจริง <strong>ประเมินหน้าร้านฟรี ไม่ซ่อมไม่คิดเงิน</strong></p>
     </div>
-    <?php if ($pricing_groups): ?>
-    <div class="sv-tab-row" data-aos="fade-up">
-      <?php $first = true; foreach ($pricing_groups as $cat_id => $grp): ?>
-      <button class="sv-tab-btn<?= $first ? ' active' : '' ?>" data-tab="tp-<?= $cat_id ?>">
-        <?= htmlspecialchars($grp['name'], ENT_QUOTES, 'UTF-8') ?>
-      </button>
-      <?php $first = false; endforeach; ?>
+
+    <div class="sv-cta-btns" data-aos="fade-up">
+      <a href="tel:0841511684" class="btn btn-accent">
+        <span class="material-symbols-rounded">call</span> 084-151-1684
+      </a>
+      <a href="https://line.me/R/ti/p/@cmns" target="_blank" rel="noopener" class="btn sv-btn-line">
+        <img src="/assets/img/line-icon.png" alt="LINE" width="18" height="18"> LINE: @cmns
+      </a>
     </div>
-    <?php $first = true; foreach ($pricing_groups as $cat_id => $grp): ?>
-    <div class="sv-tab-pane<?= $first ? ' active' : '' ?>" id="tp-<?= $cat_id ?>" data-aos="fade-up">
-      <table class="sv-table">
-        <thead><tr><th>บริการ</th><th>ราคาเริ่มต้น</th><th>รับประกัน</th></tr></thead>
-        <tbody>
-          <?php foreach ($grp['items'] as $item): ?>
-          <tr>
-            <td><?= htmlspecialchars($item['device_name'], ENT_QUOTES, 'UTF-8') ?></td>
-            <td><?= $item['price_note'] ? htmlspecialchars($item['price_note'], ENT_QUOTES, 'UTF-8') : '฿' . number_format($item['price']) . ' บาท' ?></td>
-            <td><?= $item['warranty_days'] ? $item['warranty_days'] . ' วัน' : '—' ?></td>
-          </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
-    </div>
-    <?php $first = false; endforeach; ?>
-    <?php else: ?>
-    <p style="text-align:center;color:var(--text-secondary);padding:40px 0;">
-      ยังไม่มีข้อมูลราคา — <a href="tel:0841511684">โทรสอบถามได้เลย</a>
-    </p>
-    <?php endif; ?>
+
     <p class="sv-price-note" data-aos="fade-up">
       <span class="material-symbols-rounded">info</span>
-      ราคาเป็นโดยประมาณ อาจเปลี่ยนแปลงตามปริมาณงานจริง
-      <a href="tel:0841511684">โทรสอบถามหรือนำเครื่องมาปรึกษาฟรีได้เลย</a>
+      ส่งรูปหรือบอกอาการมาทาง LINE ได้เลย ช่างประเมินให้ก่อน ไม่มีค่าใช้จ่าย
     </p>
   </div>
 </section>

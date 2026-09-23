@@ -4,11 +4,11 @@ require_once '../../includes/db.php';
 $page_title       = 'ซ่อม AirPods เชียงใหม่ ทุกรุ่น ทุกปัญหา | CMNS FixMac';
 $page_description = 'ซ่อม AirPods ทุกรุ่น แบตเสื่อม เสียงหาย เคสชาร์จพัง น้ำเข้า ANC ไม่ทำงาน ช่างผู้เชี่ยวชาญเชียงใหม่ ประกันสูงสุด 3 เดือน ประเมินฟรี';
 $page_keywords    = 'ซ่อม AirPods เชียงใหม่, เปลี่ยนแบต AirPods, AirPods เสียงหาย, เคส AirPods ชาร์จไม่เข้า, ซ่อม AirPods Pro, ซ่อม AirPods Max, ราคาซ่อม AirPods เชียงใหม่';
-$page_css         = ['/assets/css/services/airpods-style.css?v=1', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
+$page_css         = ['/assets/css/services/airpods-style.css?v=2', 'https://unpkg.com/aos@2.3.4/dist/aos.css'];
 
 $faq_schema = [
     ['ซ่อม AirPods ที่ CMNS FixMac ราคาเท่าไหร่?',
-     'ราคาขึ้นอยู่กับรุ่นและอาการ เช่น เปลี่ยนแบต AirPods Pro เริ่มที่ 990 บาท ล้างทำความสะอาด 290 บาท ทุกงานประเมินฟรีก่อนตัดสินใจ'],
+     'ราคาขึ้นอยู่กับรุ่นและอาการ ทุกงานประเมินฟรีก่อนตัดสินใจ'],
     ['ใช้เวลาซ่อม AirPods นานแค่ไหน?',
      'งานทั่วไปเช่น ล้างทำความสะอาด เปลี่ยนแบต ใช้เวลา 1–2 วัน งานซ่อมชิปอาจนานกว่า'],
     ['AirPods ที่ซ่อมมีประกันไหม?',
@@ -73,23 +73,6 @@ $repairs = $pdo->query(
      ORDER BY created_at DESC LIMIT 8"
 )->fetchAll();
 
-$pricing_raw = $pdo->query(
-    "SELECT sp.device_name, sp.price, sp.price_note, sp.warranty_days,
-            pc.id AS cat_id, pc.name AS cat_name, pc.sort_order
-     FROM service_pricing sp
-     JOIN pricing_categories pc ON sp.category_id = pc.id
-     WHERE sp.device_type = 'AirPods'
-       AND sp.is_active  = 1
-       AND sp.show_on_web = 1
-     ORDER BY pc.sort_order, sp.price"
-)->fetchAll();
-
-$pricing_groups = [];
-foreach ($pricing_raw as $row) {
-    $pricing_groups[$row['cat_id']]['name'] = $row['cat_name'];
-    $pricing_groups[$row['cat_id']]['items'][] = $row;
-}
-
 include_once '../../includes/header.php';
 ?>
 
@@ -117,7 +100,7 @@ include_once '../../includes/header.php';
           <span class="material-symbols-rounded">call</span> โทรปรึกษาฟรี
         </a>
         <a href="#sv-pricing" class="btn btn-ghost">
-          ดูราคา <span class="material-symbols-rounded">arrow_downward</span>
+          สอบถามราคา <span class="material-symbols-rounded">arrow_downward</span>
         </a>
       </div>
       <div class="sv-trust-pills">
@@ -171,10 +154,10 @@ include_once '../../includes/header.php';
     </div>
     <div class="sv-card-grid">
       <?php foreach ([
-          ['battery_alert',        'เปลี่ยนแบต AirPods',       'แบตเสื่อม ใช้ได้ไม่นาน ชาร์จไม่อยู่ เปลี่ยนแบต AirPods / Pro ทุกรุ่น',          'เริ่ม 890 บาท'],
+          ['battery_alert',        'เปลี่ยนแบต AirPods',       'แบตเสื่อม ใช้ได้ไม่นาน ชาร์จไม่อยู่ เปลี่ยนแบต AirPods / Pro ทุกรุ่น',          'สอบถามราคา'],
           ['volume_off',           'เสียงหาย / เบาข้างเดียว',  'เสียงไม่ออก เสียงเบา ฟังข้างเดียว ซ่อมหรือเปลี่ยน driver unit',                   'ประเมินหน้างาน'],
-          ['cleaning_services',    'ล้างทำความสะอาด',           'ล้างเม็ดยาง ทำความสะอาดลำโพง กำจัดสิ่งอุดตัน ปรับปรุงคุณภาพเสียง',               '290 บาท'],
-          ['battery_charging_full','ซ่อม / เปลี่ยนเคสชาร์จ',   'เคสชาร์จไม่ชาร์จ ไฟ LED ไม่ติด MagSafe ไม่ทำงาน เปลี่ยนเคสชาร์จใหม่',          'เริ่ม 1,200 บาท'],
+          ['cleaning_services',    'ล้างทำความสะอาด',           'ล้างเม็ดยาง ทำความสะอาดลำโพง กำจัดสิ่งอุดตัน ปรับปรุงคุณภาพเสียง',               'สอบถามราคา'],
+          ['battery_charging_full','ซ่อม / เปลี่ยนเคสชาร์จ',   'เคสชาร์จไม่ชาร์จ ไฟ LED ไม่ติด MagSafe ไม่ทำงาน เปลี่ยนเคสชาร์จใหม่',          'สอบถามราคา'],
           ['bluetooth',            'ซ่อมเชื่อมต่อ Bluetooth',  'เชื่อมต่อไม่ได้ หลุดบ่อย จับคู่ไม่ติด ซ่อม BT chip',                              'ประเมินหน้างาน'],
           ['hearing',              'ซ่อม ANC / Transparency',   'ANC ไม่ทำงาน Transparency หาย เสียงรบกวนเข้ามา ซ่อม mic และ firmware',             'ประเมินหน้างาน'],
       ] as $i => [$icon, $title, $desc, $price]): ?>
@@ -215,43 +198,23 @@ include_once '../../includes/header.php';
 <section class="sv-section sv-pricing" id="sv-pricing">
   <div class="sv-container">
     <div class="sv-section-head" data-aos="fade-up">
-      <span class="section-label">ราคาซ่อม</span>
-      <h2>ราคาซ่อม AirPods โปร่งใส ไม่มีบวกเพิ่ม</h2>
-      <p class="sv-desc">ราคาโดยประมาณ ขึ้นอยู่กับรุ่นและอาการ <strong>ประเมินฟรีทุกครั้งก่อนเริ่มงาน</strong></p>
+      <span class="section-label">สอบถามราคา</span>
+      <h2>แจ้งอาการ รู้ราคาก่อนตัดสินใจ</h2>
+      <p class="sv-desc">ราคาขึ้นอยู่กับรุ่นและสภาพเครื่องจริง <strong>ประเมินหน้าร้านฟรี ไม่ซ่อมไม่คิดเงิน</strong></p>
     </div>
-    <?php if ($pricing_groups): ?>
-    <div class="sv-tab-row" data-aos="fade-up">
-      <?php $first = true; foreach ($pricing_groups as $cat_id => $grp): ?>
-      <button class="sv-tab-btn<?= $first ? ' active' : '' ?>" data-tab="tp-<?= $cat_id ?>">
-        <?= htmlspecialchars($grp['name'], ENT_QUOTES, 'UTF-8') ?>
-      </button>
-      <?php $first = false; endforeach; ?>
+
+    <div class="sv-cta-btns" data-aos="fade-up">
+      <a href="tel:0841511684" class="btn btn-accent">
+        <span class="material-symbols-rounded">call</span> 084-151-1684
+      </a>
+      <a href="https://line.me/R/ti/p/@cmns" target="_blank" rel="noopener" class="btn sv-btn-line">
+        <img src="/assets/img/line-icon.png" alt="LINE" width="18" height="18"> LINE: @cmns
+      </a>
     </div>
-    <?php $first = true; foreach ($pricing_groups as $cat_id => $grp): ?>
-    <div class="sv-tab-pane<?= $first ? ' active' : '' ?>" id="tp-<?= $cat_id ?>" data-aos="fade-up">
-      <table class="sv-table">
-        <thead><tr><th>รุ่น / บริการ</th><th>ราคาโดยประมาณ</th><th>รับประกัน</th></tr></thead>
-        <tbody>
-          <?php foreach ($grp['items'] as $item): ?>
-          <tr>
-            <td><?= htmlspecialchars($item['device_name'], ENT_QUOTES, 'UTF-8') ?></td>
-            <td><?= $item['price_note'] ? htmlspecialchars($item['price_note'], ENT_QUOTES, 'UTF-8') : '฿' . number_format($item['price']) . ' บาท' ?></td>
-            <td><?= $item['warranty_days'] ? $item['warranty_days'] . ' วัน' : '—' ?></td>
-          </tr>
-          <?php endforeach; ?>
-        </tbody>
-      </table>
-    </div>
-    <?php $first = false; endforeach; ?>
-    <?php else: ?>
-    <p style="text-align:center;color:var(--text-secondary);padding:40px 0;">
-      ยังไม่มีข้อมูลราคา — <a href="tel:0841511684">โทรสอบถามได้เลย</a>
-    </p>
-    <?php endif; ?>
+
     <p class="sv-price-note" data-aos="fade-up">
       <span class="material-symbols-rounded">info</span>
-      ราคาเป็นโดยประมาณ อาจเปลี่ยนแปลงตามรุ่นและอาการจริง
-      <a href="tel:0841511684">โทรสอบถามหรือนำเครื่องมาประเมินฟรีได้เลย</a>
+      ส่งรูปหรือบอกอาการมาทาง LINE ได้เลย ช่างประเมินให้ก่อน ไม่มีค่าใช้จ่าย
     </p>
   </div>
 </section>
