@@ -7,6 +7,14 @@ session_start();
 require_once '../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 
+// ค่าที่ถือว่า "ไม่มี" — ใช้ทำเครื่องหมาย data-empty ให้มือถือซ่อนบรรทัดทิ้ง
+// (desktop เป็นตาราง ต้องคงช่องไว้ให้คอลัมน์ตรงกัน เลยซ่อนด้วย CSS ไม่ใช่ไม่พิมพ์)
+if (!function_exists('inv_blank')) {
+    function inv_blank($v): bool {
+        return in_array(trim((string)$v), ['', '-', '—', 'NULL'], true);
+    }
+}
+
 // fragment endpoint — ตอบ 403 ตรงๆ ไม่ redirect (redirect จะพ่นหน้า login ลงไปในแถวตาราง)
 if (!is_logged_in() && !adm_remember_restore()) {
     http_response_code(403);
@@ -25,34 +33,34 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_lots_inline') {
         $st_color = $item_row['status'] === 'GOOD' ? '#10b981' : '#f59e0b';
         $source   = $item_row['src_name'] ? "[{$item_row['src_tag']}] {$item_row['src_name']}" : null;
         ?>
-        <div style="padding:16px 20px 16px 80px;">
+        <div class="lot-panel" style="padding:16px 20px 16px 80px;">
             <div style="font-size:11px;font-weight:800;color:var(--text-muted);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px;display:flex;align-items:center;gap:6px;">
                 <span class="material-symbols-rounded" style="font-size:16px;color:#f59e0b;">build</span> USED PART DETAILS
             </div>
-            <div style="display:flex;gap:28px;flex-wrap:wrap;">
-                <div>
-                    <div style="font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">SERIAL NO.</div>
+            <div class="lot-panel-grid" style="display:flex;gap:28px;flex-wrap:wrap;">
+                <div<?= inv_blank($item_row['serial_number']) ? ' data-empty="1"' : '' ?>>
+                    <div class="lot-field-label" style="font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">SERIAL NO.</div>
                     <code style="font-size:13px;background:var(--bg-surface-alt);padding:2px 8px;border-radius:6px;"><?= htmlspecialchars($item_row['serial_number'] ?: '—') ?></code>
                 </div>
                 <div>
-                    <div style="font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">STATUS</div>
+                    <div class="lot-field-label" style="font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">STATUS</div>
                     <span style="font-weight:800;color:<?= $st_color ?>;font-size:13px;"><?= htmlspecialchars($item_row['status']) ?></span>
                 </div>
-                <div>
-                    <div style="font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">CONDITION NOTE</div>
+                <div<?= inv_blank($item_row['condition_note']) ? ' data-empty="1"' : '' ?>>
+                    <div class="lot-field-label" style="font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">CONDITION NOTE</div>
                     <span style="font-size:13px;color:var(--text-main);"><?= htmlspecialchars($item_row['condition_note'] ?: '—') ?></span>
                 </div>
-                <div>
-                    <div style="font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">LOCATION</div>
+                <div<?= inv_blank($item_row['location']) ? ' data-empty="1"' : '' ?>>
+                    <div class="lot-field-label" style="font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">LOCATION</div>
                     <span style="font-size:13px;color:var(--text-muted);"><?= htmlspecialchars($item_row['location'] ?: '—') ?></span>
                 </div>
-                <div>
-                    <div style="font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">PART NO.</div>
+                <div<?= inv_blank($item_row['part_number']) ? ' data-empty="1"' : '' ?>>
+                    <div class="lot-field-label" style="font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">PART NO.</div>
                     <span style="font-size:13px;color:var(--text-muted);font-family:monospace;"><?= htmlspecialchars($item_row['part_number'] ?: '—') ?></span>
                 </div>
                 <?php if($source): ?>
                 <div>
-                    <div style="font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">SOURCE MACHINE</div>
+                    <div class="lot-field-label" style="font-size:10px;font-weight:800;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">SOURCE MACHINE</div>
                     <span style="font-size:12px;color:var(--text-muted);"><?= htmlspecialchars($source) ?></span>
                 </div>
                 <?php endif; ?>
@@ -176,7 +184,7 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_lots_inline') {
     $lots = $stmt_lots->fetchAll(PDO::FETCH_ASSOC);
 
     if (!$lots) {
-        echo '<div style="padding:20px 20px 20px 80px; color:var(--text-muted); font-size:13px; font-style:italic;">🚫 ไม่มีข้อมูลสต็อกในระบบล็อต</div>';
+        echo '<div class="lot-panel" style="padding:20px 20px 20px 80px; color:var(--text-muted); font-size:13px; font-style:italic;">🚫 ไม่มีข้อมูลสต็อกในระบบล็อต</div>';
     } else {
         ?>
         <div class="lot-seamless-wrapper">
@@ -201,16 +209,16 @@ if (isset($_GET['action']) && $_GET['action'] === 'get_lots_inline') {
                         $urgent = $wEnd && (strtotime($wEnd) - time() < 2592000);
                     ?>
                     <tr>
-                        <td><code><?= htmlspecialchars($l['lot_number'] ?? '—') ?></code></td>
-                        <td align="center" style="color: var(--text-main);">
+                        <td data-label="LOT"><code><?= htmlspecialchars($l['lot_number'] ?? '—') ?></code></td>
+                        <td data-label="คงเหลือ" align="center" style="color: var(--text-main);">
                             <b style="font-size: 14px;"><?= $l['qty_remaining'] ?></b>
                             <span style="color: var(--text-muted);">/ <?= $l['qty_received'] ?></span>
                         </td>
-                        <td align="center" style="color: var(--text-muted);">฿<?= number_format($l['cost_price'] ?? 0) ?></td>
-                        <td align="center" style="color: <?= $urgent ? '#ef4444' : 'var(--text-main)' ?>; font-weight: <?= $urgent ? '800' : '500' ?>;">
+                        <td data-label="ทุน" align="center" style="color: var(--text-muted);">฿<?= number_format($l['cost_price'] ?? 0) ?></td>
+                        <td data-label="ประกันหมด"<?= $wEnd ? '' : ' data-empty="1"' ?> align="center" style="color: <?= $urgent ? '#ef4444' : 'var(--text-main)' ?>; font-weight: <?= $urgent ? '800' : '500' ?>;">
                             <?= $wEnd ? date('d/m/Y', strtotime($wEnd)) : '—' ?>
                         </td>
-                        <td style="color: var(--text-muted);"><?= htmlspecialchars($l['supplier_name'] ?? '—') ?></td>
+                        <td data-label="ผู้ขาย"<?= inv_blank($l['supplier_name'] ?? '') ? ' data-empty="1"' : '' ?> style="color: var(--text-muted);"><?= htmlspecialchars($l['supplier_name'] ?? '—') ?></td>
                     </tr>
                     <?php endforeach; ?>
                 </tbody>

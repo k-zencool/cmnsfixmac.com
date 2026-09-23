@@ -608,7 +608,14 @@
         margin-top: 8px; padding: 12px 12px 10px;
         background: var(--bg-surface); border: 1px solid var(--border); border-radius: 14px;
     }
-    .inv-view .cmns-table tr.inventory-row.active { border-color: var(--primary); }
+    /* expanded: the card and the panel below must read as ONE box, so the card
+       drops its bottom rounding and hides its bottom edge for the panel to
+       continue from. Transparent rather than removed, so nothing shifts 1px. */
+    .inv-view .cmns-table tr.inventory-row.active {
+        border-color: var(--primary);
+        border-bottom-color: transparent;
+        border-radius: 14px 14px 0 0;
+    }
     .inv-view .cmns-table tr.inventory-row > td { padding: 0; border: 0; background: none !important; }
     .inv-view .cmns-table tr.inventory-row > .col-num,
     .inv-view .cmns-table tr.inventory-row > .col-img,
@@ -645,11 +652,75 @@
     /* lot details open under their card (JS sets display:table-row inline) */
     .inv-view .cmns-table tr.lot-detail-row[style*="table-row"] {
         display: block !important;
-        margin-top: -6px; padding-top: 6px;
+        /* -1px pulls the panel over the card's hidden bottom edge so the two
+           1px borders collapse into one continuous outline — no seam */
+        margin-top: -1px; padding-top: 0;
+        background: var(--bg-surface);
         border: 1px solid var(--primary); border-top: 0; border-radius: 0 0 14px 14px;
         overflow: hidden;
     }
     .inv-view .cmns-table tr.lot-detail-row > td { padding: 0; }
+
+    /* ── What opens inside that card ──────────────────────────────────
+       Everything below was drawn for the desktop table: an 80px left
+       indent for the tree connector, and a five-column lot table. Both
+       are unreadable at phone width, so the panel is re-laid out here.
+       Inline styles from ajax.php need !important to be overridden.     */
+
+    /* the connector elbow belongs to the table layout, not to a card */
+    .inv-view .lot-seamless-wrapper { padding: 12px 12px 14px !important; }
+    .inv-view .lot-seamless-wrapper::before,
+    .inv-view .lot-seamless-wrapper::after { display: none; }
+    .inv-view .lot-skeleton { padding: 14px 12px !important; }
+    .inv-view .lot-panel { padding: 12px !important; }
+
+    /* used / machine panel: two columns of label-over-value, not a wide row */
+    .inv-view .lot-panel-grid {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px 10px !important;
+    }
+    .inv-view .lot-panel-grid > div { min-width: 0; overflow-wrap: anywhere; }
+    .inv-view .lot-field-label { margin-bottom: 2px !important; }
+
+    /* a field with nothing in it is just noise on a phone — ajax.php marks
+       those with data-empty. The cells stay in the DOM so the desktop table
+       keeps its columns lined up; only the stacked layout drops them. */
+    .inv-view .lot-panel-grid > div[data-empty],
+    .inv-view .seamless-inner-table td[data-empty] { display: none !important; }
+
+    /* new-part lots: one block per lot, "label .... value" lines */
+    .inv-view .seamless-inner-table,
+    .inv-view .seamless-inner-table tbody,
+    .inv-view .seamless-inner-table tr,
+    .inv-view .seamless-inner-table td { display: block; width: auto; }
+    .inv-view .seamless-inner-table thead { display: none; }
+
+    .inv-view .seamless-inner-table tr {
+        border: 1px solid var(--border); border-radius: 10px;
+        padding: 8px 10px; margin-bottom: 8px;
+        background: var(--bg-surface-alt);   /* panel is --bg-surface; tint so it reads as nested */
+    }
+    .inv-view .seamless-inner-table tr:last-child { margin-bottom: 0; }
+
+    .inv-view .seamless-inner-table td {
+        border: 0 !important; padding: 3px 0 !important;
+        text-align: left !important;
+        display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+    }
+    /* the column name the hidden thead used to carry */
+    .inv-view .seamless-inner-table td::before {
+        content: attr(data-label);
+        font-size: 10px; font-weight: 800; letter-spacing: .5px;
+        color: var(--text-muted); text-transform: uppercase;
+        flex: none;
+    }
+    /* lot number reads as the block's title */
+    .inv-view .seamless-inner-table td[data-label="LOT"] {
+        border-bottom: 1px dashed var(--border) !important;
+        padding-bottom: 6px !important; margin-bottom: 4px;
+    }
+    .inv-view .seamless-inner-table td[data-label="LOT"] code { font-size: 13px; font-weight: 800; }
 }
 
 /* storage slot chip on machine / used rows (bins.php) */
