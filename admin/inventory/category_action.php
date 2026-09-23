@@ -9,9 +9,11 @@ if (isset($_POST['add_category'])) {
     $name        = trim($_POST['name']);
     $parent_id   = !empty($_POST['parent_id']) ? $_POST['parent_id'] : null;
     $icon        = trim($_POST['icon'] ?? 'folder') ?: 'folder';
+    // รหัสสำหรับประกอบ SKU (includes/sku_lib.php) — A-Z 0-9 เท่านั้น
+    $code        = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $_POST['code'] ?? '')) ?: null;
     $description = trim($_POST['description'] ?? '');
-    $stmt = $pdo->prepare("INSERT INTO parts_categories (name, parent_id, icon, description) VALUES (:name, :parent_id, :icon, :description)");
-    $stmt->execute([':name' => $name, ':parent_id' => $parent_id, ':icon' => $icon, ':description' => $description]);
+    $stmt = $pdo->prepare("INSERT INTO parts_categories (name, code, parent_id, icon, description) VALUES (:name, :code, :parent_id, :icon, :description)");
+    $stmt->execute([':name' => $name, ':code' => $code, ':parent_id' => $parent_id, ':icon' => $icon, ':description' => $description]);
     header("Location: categories.php");
     exit();
 }
@@ -21,10 +23,12 @@ if (isset($_POST['update_category'])) {
     $name        = trim($_POST['name']);
     $parent_id   = !empty($_POST['parent_id']) ? $_POST['parent_id'] : null;
     $icon        = trim($_POST['icon'] ?? 'folder') ?: 'folder';
+    // รหัสสำหรับประกอบ SKU (includes/sku_lib.php) — A-Z 0-9 เท่านั้น
+    $code        = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', $_POST['code'] ?? '')) ?: null;
     $description = trim($_POST['description'] ?? '');
     if ($id != $parent_id) {
-        $stmt = $pdo->prepare("UPDATE parts_categories SET name = :name, parent_id = :parent_id, icon = :icon, description = :description WHERE id = :id");
-        $stmt->execute([':name' => $name, ':parent_id' => $parent_id, ':icon' => $icon, ':description' => $description, ':id' => $id]);
+        $stmt = $pdo->prepare("UPDATE parts_categories SET name = :name, code = :code, parent_id = :parent_id, icon = :icon, description = :description WHERE id = :id");
+        $stmt->execute([':name' => $name, ':code' => $code, ':parent_id' => $parent_id, ':icon' => $icon, ':description' => $description, ':id' => $id]);
     }
     header("Location: categories.php");
     exit();

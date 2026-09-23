@@ -3,6 +3,7 @@ session_start();
 require_once '../../includes/db.php';
 require_once '../../includes/manager_lib.php';
 require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/../../includes/sku_lib.php';
 
 if (!isset($_SESSION['admin_id'])) {
     http_response_code(403);
@@ -101,7 +102,7 @@ try {
             $pdo->prepare("UPDATE inventory SET status = 'OOS' WHERE id = ?")->execute([$inventory_id]);
         }
 
-        $new_sku = 'SL-' . strtoupper(substr(uniqid(), -7));
+        $new_sku = sku_build_sale($pdo);
         $pdo->prepare("INSERT INTO inventory
             (category_id, sku, name, type, serial_number, asset_tag, color, condition_note,
              condition_grade, cpu_spec, ram_spec, storage_spec,

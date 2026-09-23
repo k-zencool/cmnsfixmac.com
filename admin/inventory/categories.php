@@ -166,6 +166,11 @@ function selectCat(data) {
                     <input type="text" name="icon" class="cmns-input" value="${escapeHtml(data.icon)}" placeholder="เช่น memory, build">
                 </div>
 
+                <div class="cmns-input-group" style="grid-column: span 2;">
+                    <label>รหัส (Code) <span style="font-weight:400; color:var(--text-muted); font-size:10px;">ใช้ประกอบ SKU — หมวดหลักใส่รหัสอุปกรณ์ (MB, IP), หมวดย่อยใส่รหัสชิ้นส่วน (SCRN, BATT)</span></label>
+                    <input type="text" name="code" class="cmns-input" value="${escapeHtml(data.code || '')}" placeholder="เช่น SCRN" maxlength="8" style="text-transform:uppercase;">
+                </div>
+
                 <div class="cmns-input-group">
                     <label>ย้ายไปอยู่ในโฟลเดอร์ (Parent)</label>
                     <select name="parent_id" class="cmns-input" id="parent-select">
@@ -217,6 +222,11 @@ function resetToAddNew() {
                 <div class="cmns-input-group">
                     <label>ไอคอน <a href="https://fonts.google.com/icons" target="_blank" style="color:var(--primary); font-size:10px; float:right;">ดูไอคอน</a></label>
                     <input type="text" name="icon" class="cmns-input" placeholder="เช่น folder">
+                </div>
+
+                <div class="cmns-input-group" style="grid-column: span 2;">
+                    <label>รหัส (Code) <span style="font-weight:400; color:var(--text-muted); font-size:10px;">ใช้ประกอบ SKU — หมวดหลักใส่รหัสอุปกรณ์ (MB, IP), หมวดย่อยใส่รหัสชิ้นส่วน (SCRN, BATT)</span></label>
+                    <input type="text" name="code" class="cmns-input" placeholder="เช่น SCRN" maxlength="8" style="text-transform:uppercase;">
                 </div>
 
                 <div class="cmns-input-group">

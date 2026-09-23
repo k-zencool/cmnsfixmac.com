@@ -3,6 +3,7 @@ session_start();
 require_once '../../includes/db.php';
 require_once __DIR__ . '/../../includes/image_lib.php';
 require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/../../includes/sku_lib.php';
 
 if (!isset($_SESSION['admin_id'])) {
     header("Location: ../login.php");
@@ -62,10 +63,13 @@ try {
 
     if (!$name || !$category_id) throw new Exception("กรุณากรอกข้อมูลให้ครบ");
 
-    // Auto-generate SKU
+    // Auto-generate SKU — <อุปกรณ์>-<ชิ้นส่วน>-<รุ่น> จากหมวดที่เลือก + ช่อง "รุ่น"
+    // เครื่องกับของขายใช้คนละแบบ (ดู includes/sku_lib.php)
     if (!$sku) {
-        $prefix = ['new'=>'NW', 'used'=>'US', 'machine'=>'MC', 'sale'=>'SL'][$type] ?? 'IT';
-        $sku = $prefix . '-' . strtoupper(substr(uniqid(), -6));
+        $model = trim($_POST['sku_model'] ?? '');
+        if ($type === 'machine')   $sku = sku_build_machine($pdo, $category_id);
+        elseif ($type === 'sale')  $sku = sku_build_sale($pdo);
+        else                       $sku = sku_build($pdo, $category_id, $model, $type);
     }
 
     // Upload image

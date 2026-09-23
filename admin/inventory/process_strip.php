@@ -5,6 +5,7 @@ require_once '../../includes/db.php';
 require_once __DIR__ . '/../../includes/image_lib.php';
 require_once __DIR__ . '/../../includes/manager_lib.php';
 require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/../../includes/sku_lib.php';
 
 if (!isset($_SESSION['admin_id']) || $_SERVER['REQUEST_METHOD'] !== 'POST') {
     header("Location: index.php"); exit();
@@ -18,7 +19,7 @@ try {
     $source_machine_id = (int)($_POST['source_machine_id'] ?? 0);
     $name              = trim($_POST['name'] ?? '');
     $category_id       = (int)($_POST['category_id'] ?? 0);
-    $sku               = trim($_POST['sku'] ?? '') ?: ('US-' . strtoupper(substr(uniqid(), -7)));
+    $sku               = trim($_POST['sku'] ?? '');
     $part_number       = trim($_POST['part_number'] ?? '');
     $serial_number     = trim($_POST['serial_number'] ?? '');
     $status            = strtoupper(trim($_POST['status'] ?? 'GOOD'));
@@ -29,6 +30,16 @@ try {
 
     if (!$name || !$category_id || !$source_machine_id) {
         throw new Exception("กรุณากรอกข้อมูลให้ครบ");
+    }
+
+    // SKU ของอะไหล่ที่แกะออกมา: เอารุ่นจากเครื่องต้นทางมาใส่ให้เลย
+    // ("MacBook Air A2337" -> A2337) จะได้ไม่ออกมาเป็น MB-SCRN-U ลอย ๆ แบบเมื่อก่อน
+    if (!$sku) {
+        $src = $pdo->prepare("SELECT name FROM inventory WHERE id = ?");
+        $src->execute([$source_machine_id]);
+        $src_name = (string)$src->fetchColumn();
+        $model = preg_match('/\bA[0-9]{4}\b/', $src_name, $m) ? $m[0] : '';
+        $sku = sku_build($pdo, $category_id, $model, 'used');
     }
 
     if (!in_array($status, ['GOOD','TEST','DEAD'])) $status = 'GOOD';

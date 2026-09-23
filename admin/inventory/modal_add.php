@@ -1,5 +1,5 @@
 <?php
-$stmt_cats = $pdo->query("SELECT id, name, parent_id FROM parts_categories ORDER BY name ASC");
+$stmt_cats = $pdo->query("SELECT id, name, code, parent_id FROM parts_categories ORDER BY name ASC");
 $all_categories_raw = $stmt_cats->fetchAll(PDO::FETCH_ASSOC);
 $main_cats = []; $sub_cats = [];
 foreach($all_categories_raw as $c) {
@@ -313,7 +313,7 @@ if ($modal_cat_id) {
                         </div>
                         <div>
                             <label class="cmns-label">รหัส SKU</label>
-                            <input type="text" name="sku" class="cmns-input" placeholder="เว้นว่างเพื่อออโต้">
+                            <input type="text" name="sku" class="cmns-input" placeholder="เว้นว่างเพื่อออโต้" oninput="updateSkuPreview()">
                         </div>
                     </div>
 
@@ -328,7 +328,7 @@ if ($modal_cat_id) {
                             <select id="main_cat_select" class="cmns-input" required onchange="updateSubCategory()">
                                 <option value="">-- เลือกอุปกรณ์ --</option>
                                 <?php foreach($main_cats as $mc): ?>
-                                    <option value="<?= $mc['id'] ?>"><?= htmlspecialchars($mc['name']) ?></option>
+                                    <option value="<?= $mc['id'] ?>" data-code="<?= htmlspecialchars($mc['code'] ?? '') ?>"><?= htmlspecialchars($mc['name']) ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
@@ -341,8 +341,18 @@ if ($modal_cat_id) {
                     </div>
 
                     <div style="margin-bottom: 15px;">
+                        <label class="cmns-label">3. รุ่น (Model) <span style="font-weight:400; color:var(--text-muted);">— ใช้ประกอบ SKU</span></label>
+                        <input type="text" name="sku_model" id="input-sku-model" class="cmns-input"
+                               placeholder="เช่น A2338, 15PM, IPAD2 WH" oninput="updateSkuPreview()" autocomplete="off">
+                        <div id="sku-preview-wrap" style="margin-top:8px; font-size:12px; color:var(--text-muted); display:none;">
+                            SKU ที่จะได้: <code id="sku-preview" style="background:var(--bg-surface-alt); padding:2px 8px; border-radius:5px; font-weight:800; color:var(--primary);"></code>
+                            <span id="sku-preview-note"></span>
+                        </div>
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
                         <label class="cmns-label" style="color: var(--primary);">ประเภทสินค้า (Item Type) <span style="color:red">*</span></label>
-                        <select name="type" id="add-type-select" class="cmns-input" onchange="toggleTypeFields()" style="border-color: var(--primary); font-weight: 700; color: var(--primary);" required>
+                        <select name="type" id="add-type-select" class="cmns-input" onchange="toggleTypeFields(); updateSkuPreview();" style="border-color: var(--primary); font-weight: 700; color: var(--primary);" required>
                             <option value="new" <?= ($auto_type == 'new') ? 'selected' : '' ?>>NEW (อะไหล่มือ 1)</option>
                             <option value="used" <?= ($auto_type == 'used') ? 'selected' : '' ?>>USED (อะไหล่ถอด / มือ 2)</option>
                             <option value="machine" <?= ($auto_type == 'machine') ? 'selected' : '' ?>>MACHINE (ซาก / เครื่องรอแกะ)</option>
@@ -630,6 +640,50 @@ function updateSubCategory() {
         filtered.forEach(c => { subCatSelect.innerHTML += `<option value="${c.id}">${c.name}</option>`; });
         subCatSelect.innerHTML += `<option value="${mainCatId}" style="color:var(--primary); font-weight:bold;">📍 วางไว้ในตู้หลัก</option>`;
     } else { subCatSelect.innerHTML = `<option value="${mainCatId}" selected>📍 วางไว้ในตู้หลัก</option>`; }
+    updateSkuPreview();
+}
+
+/* Live SKU preview — ต้องให้ตรงกับ sku_build() ใน includes/sku_lib.php
+   ฝั่ง server เป็นคนตัดสินจริง (มันเช็คซ้ำแล้วต่อ -2 ให้) อันนี้แค่ให้เห็นก่อนเซฟ */
+function skuToken(s) {
+    return String(s || '').toUpperCase()
+        .replace(/[^A-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').replace(/-{2,}/g, '-').slice(0, 24);
+}
+function updateSkuPreview() {
+    const wrap = document.getElementById('sku-preview-wrap');
+    if (!wrap) return;
+    const manual = document.querySelector('#section-new-item input[name="sku"]');
+    const mainSel = document.getElementById('main_cat_select');
+    const subId   = document.getElementById('sub_cat_select').value;
+    const typeSel = document.getElementById('add-type-select');
+    const type    = typeSel ? typeSel.value : 'new';
+
+    // กรอก SKU เองแล้ว ไม่ต้องเดา
+    if (manual && manual.value.trim() !== '') { wrap.style.display = 'none'; return; }
+
+    const devOpt = mainSel.options[mainSel.selectedIndex];
+    const dev    = devOpt ? (devOpt.dataset.code || '') : '';
+    if (!dev) { wrap.style.display = 'none'; return; }
+
+    let note = '';
+    let sku;
+    if (type === 'machine') {
+        sku = dev + '-' + new Date().toISOString().slice(0, 7).replace('-', '') + '-A####';
+        note = ' (เครื่องใช้เลขรันอัตโนมัติ)';
+    } else if (type === 'sale') {
+        sku = 'SL-' + new Date().toISOString().slice(0, 7).replace('-', '') + '-####';
+        note = ' (ของขายใช้เลขรันอัตโนมัติ)';
+    } else {
+        const sub  = allSubCats.find(c => String(c.id) === String(subId));
+        const part = sub ? (sub.code || '') : '';
+        const model = skuToken(document.getElementById('input-sku-model').value);
+        sku = [dev, part, model].filter(Boolean).join('-');
+        if (type === 'used') sku += '-U';
+        if (sub && !part) note = ' — หมวดนี้ยังไม่มีรหัส ไปตั้งที่หน้าจัดการหมวดหมู่';
+    }
+    document.getElementById('sku-preview').textContent = sku;
+    document.getElementById('sku-preview-note').textContent = note;
+    wrap.style.display = '';
 }
 
 function toggleAddMode(mode) {
