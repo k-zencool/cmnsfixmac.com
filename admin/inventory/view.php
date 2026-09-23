@@ -376,13 +376,13 @@ include '../templates/header_admin.php';
                             $tm = $type_meta[$it] ?? ['label'=>strtoupper($it),'color'=>'#888','icon'=>'inventory_2','cols'=>['NAME','','']];
                             $prev_type = $it;
                     ?>
-                        <tr style="background:<?= $tm['color'] ?>12; border-top:2px solid <?= $tm['color'] ?>33; pointer-events:none;">
+                        <tr class="inv-group-row" style="background:<?= $tm['color'] ?>12; border-top:2px solid <?= $tm['color'] ?>33; pointer-events:none;">
                             <!-- cell เดียว colspan เต็มแถว — ไม่งั้น column folding บนมือถือจะทำให้แถวเบี้ยว -->
                             <td colspan="9" style="padding:8px 14px;">
-                                <div style="display:flex; align-items:center; gap:7px;">
+                                <div style="display:flex; align-items:center; gap:7px; flex-wrap:wrap; min-width:0;">
                                     <span class="material-symbols-rounded" style="font-size:16px; color:<?= $tm['color'] ?>;"><?= $tm['icon'] ?></span>
                                     <span style="font-size:11px; font-weight:900; letter-spacing:1.5px; color:<?= $tm['color'] ?>; text-transform:uppercase;"><?= $tm['label'] ?></span>
-                                    <span style="font-size:10px; font-weight:700; color:<?= $tm['color'] ?>88; margin-left:6px;"><?= implode(' · ', array_filter($tm['cols'])) ?></span>
+                                    <span class="inv-group-cols" style="font-size:10px; font-weight:700; color:<?= $tm['color'] ?>88; margin-left:6px;"><?= implode(' · ', array_filter($tm['cols'])) ?></span>
                                 </div>
                             </td>
                         </tr>

@@ -629,6 +629,19 @@
     .inv-view .cmns-table tr:not(.inventory-row):not(.lot-detail-row) { margin-top: 14px; border-radius: 10px; }
     .inv-view .cmns-table tr:not(.inventory-row) > td { padding-left: 12px; padding-right: 12px; }
 
+    /* The group header used to list the table's column names. There are no
+       columns in the card layout, and the strip is one long unbreakable flex
+       line, so it pushed the table wider than the screen — which made the
+       whole scroller slide sideways and clipped every card's left edge. */
+    .inv-view .inv-group-cols { display: none; }
+
+    /* nothing in the card layout may force the table wider than the phone */
+    .inv-view .cmns-table-responsive { overflow-x: hidden; }
+    .inv-view .cmns-table,
+    .inv-view .cmns-table tr,
+    .inv-view .cmns-table td { max-width: 100%; }
+    .inv-view .cmns-table td { overflow-wrap: anywhere; }
+
     /* lot details open under their card (JS sets display:table-row inline) */
     .inv-view .cmns-table tr.lot-detail-row[style*="table-row"] {
         display: block !important;
