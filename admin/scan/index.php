@@ -145,6 +145,7 @@ include '../templates/header_admin.php';
                 <div class="pv-img" id="pv-img"></div>
                 <div class="pv-top-txt">
                     <div class="pv-name" id="pv-name"></div>
+                    <div class="pv-name-th" id="pv-name-th"></div>
                     <div class="pv-cat" id="pv-cat"></div>
                 </div>
             </div>

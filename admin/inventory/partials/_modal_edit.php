@@ -62,13 +62,17 @@
                     <div style="flex:1; min-width: 280px;">
                         <div style="display:grid; grid-template-columns: 2fr 1fr; gap:12px; margin-bottom:12px;">
                             <div>
-                                <label class="cmns-label">ชื่อสินค้า <span style="color:red">*</span></label>
+                                <label class="cmns-label">ชื่อสินค้า (อังกฤษ) <span style="color:red">*</span></label>
                                 <input type="text" name="name" id="edit-name" class="cmns-input" required>
                             </div>
                             <div>
                                 <label class="cmns-label">SKU</label>
                                 <input type="text" name="sku" id="edit-sku" class="cmns-input">
                             </div>
+                        </div>
+                        <div style="margin-bottom:12px;">
+                            <label class="cmns-label">คำอธิบายภาษาไทย</label>
+                            <input type="text" name="name_th" id="edit-name-th" class="cmns-input" placeholder="เช่น ฟิล์มกันรอย iPhone 15 Pro Max">
                         </div>
                         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:12px;">
                             <div>

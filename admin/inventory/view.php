@@ -406,6 +406,7 @@ include '../templates/header_admin.php';
                             <?php if($it === 'new'): ?>
                                 <td class="col-name">
                                     <div style="font-weight:700; color:var(--text-main); font-size:14px; line-height:1.3;"><?= htmlspecialchars($item['name']) ?></div>
+                                    <?php if(!empty($item['name_th'])): ?><div class="inv-name-th"><?= htmlspecialchars($item['name_th']) ?></div><?php endif; ?>
                                     <div style="font-size:11px; color:var(--text-muted); margin-top:3px;">
                                         <code style="background:var(--bg-surface-alt); padding:1px 5px; border-radius:4px;"><?= htmlspecialchars($item['sku'] ?: '—') ?></code>
                                     </div>
@@ -430,6 +431,7 @@ include '../templates/header_admin.php';
                             ?>
                                 <td class="col-name">
                                     <div style="font-weight:700; font-size:14px; line-height:1.3;"><?= htmlspecialchars($item['name']) ?></div>
+                                    <?php if(!empty($item['name_th'])): ?><div class="inv-name-th"><?= htmlspecialchars($item['name_th']) ?></div><?php endif; ?>
                                     <div style="font-size:11px; margin-top:3px; display:flex; gap:6px; flex-wrap:wrap; align-items:center;">
                                         <?php if($item['asset_tag']): ?>
                                             <code style="background:rgba(139,92,246,.1); color:#8b5cf6; border:1px solid rgba(139,92,246,.3); padding:1px 5px; border-radius:4px;"><?= htmlspecialchars($item['asset_tag']) ?></code>
@@ -484,6 +486,7 @@ include '../templates/header_admin.php';
                             ?>
                                 <td class="col-name">
                                     <div style="font-weight:700; color:var(--text-main); font-size:14px; line-height:1.3;"><?= htmlspecialchars($item['name']) ?></div>
+                                    <?php if(!empty($item['name_th'])): ?><div class="inv-name-th"><?= htmlspecialchars($item['name_th']) ?></div><?php endif; ?>
                                     <div style="font-size:11px; margin-top:3px; display:flex; gap:6px; align-items:center;">
                                         <?php if($item['asset_tag']): ?>
                                             <code style="background:rgba(239,68,68,.1); color:#ef4444; border:1px solid rgba(239,68,68,.3); padding:1px 5px; border-radius:4px;"><?= htmlspecialchars($item['asset_tag']) ?></code>
@@ -541,6 +544,7 @@ include '../templates/header_admin.php';
                             <?php elseif($it === 'used'): ?>
                                 <td class="col-name">
                                     <div style="font-weight:700; color:var(--text-main); font-size:14px; line-height:1.3;"><?= htmlspecialchars($item['name']) ?></div>
+                                    <?php if(!empty($item['name_th'])): ?><div class="inv-name-th"><?= htmlspecialchars($item['name_th']) ?></div><?php endif; ?>
                                     <div style="font-size:11px; color:var(--text-muted); margin-top:3px; display:flex; gap:6px; align-items:center;">
                                         <code style="background:rgba(245,158,11,.1); color:#f59e0b; border:1px solid rgba(245,158,11,.3); padding:1px 5px; border-radius:4px;"><?= htmlspecialchars($item['sku'] ?: '—') ?></code>
                                         <?php if($item['part_number']): ?><span style="opacity:.5;"><?= htmlspecialchars($item['part_number']) ?></span><?php endif; ?>
@@ -565,6 +569,7 @@ include '../templates/header_admin.php';
                             <?php else: ?>
                                 <td class="col-name">
                                     <div style="font-weight:700; font-size:14px;"><?= htmlspecialchars($item['name']) ?></div>
+                                    <?php if(!empty($item['name_th'])): ?><div class="inv-name-th"><?= htmlspecialchars($item['name_th']) ?></div><?php endif; ?>
                                     <div style="font-size:11px; color:var(--text-muted);">SKU: <code><?= htmlspecialchars($item['sku'] ?: '-') ?></code></div>
                                     <div class="fold fold-d"><?= htmlspecialchars(implode(' · ', array_filter([strtoupper($it), $item['location']]))) ?></div>
                                     <div class="fold fold-price">฿<?= number_format($item['sell_price']) ?></div>

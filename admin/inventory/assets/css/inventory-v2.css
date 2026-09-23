@@ -647,3 +647,9 @@
     font-family: 'Courier New', monospace; font-weight: 800;
 }
 .inv-bin .material-symbols-rounded { font-size: 12px; }
+
+/* Thai description under the English part name (inventory.name_th) */
+.inv-name-th {
+    font-size: 12px; color: var(--text-muted);
+    line-height: 1.35; margin-top: 1px;
+}

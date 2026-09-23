@@ -308,13 +308,18 @@ if ($modal_cat_id) {
                 <div style="flex: 2; min-width: 300px;">
                     <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 15px; margin-bottom: 15px;">
                         <div>
-                            <label class="cmns-label">ชื่อสินค้า <span style="color:red">*</span></label>
-                            <input type="text" name="name" id="input-name" class="cmns-input" placeholder="กรอกชื่อสินค้า..." required>
+                            <label class="cmns-label">ชื่อสินค้า (อังกฤษ) <span style="color:red">*</span></label>
+                            <input type="text" name="name" id="input-name" class="cmns-input" placeholder="เช่น Screen Protector iPhone 15 Pro Max" required>
                         </div>
                         <div>
                             <label class="cmns-label">รหัส SKU</label>
                             <input type="text" name="sku" class="cmns-input" placeholder="เว้นว่างเพื่อออโต้">
                         </div>
+                    </div>
+
+                    <div style="margin-bottom: 15px;">
+                        <label class="cmns-label">คำอธิบายภาษาไทย</label>
+                        <input type="text" name="name_th" id="input-name-th" class="cmns-input" placeholder="เช่น ฟิล์มกันรอย iPhone 15 Pro Max">
                     </div>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">

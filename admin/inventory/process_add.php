@@ -55,6 +55,7 @@ try {
 
     // ---- MODE: สร้างโปรไฟล์ใหม่ ----
     $name        = trim($_POST['name'] ?? '');
+    $name_th     = trim($_POST['name_th'] ?? '');   // Thai description shown under the name
     $sku         = trim($_POST['sku'] ?? '');
     $category_id = (int)($_POST['category_id'] ?? 0);
     $type        = $_POST['type'] ?? 'new';
@@ -117,15 +118,15 @@ try {
     $sell_price = (float)($_POST['sell_price'] ?? 0);
 
     $stmt = $pdo->prepare("INSERT INTO inventory
-        (category_id, sku, name, image, type, asset_tag, serial_number,
+        (category_id, sku, name, name_th, image, type, asset_tag, serial_number,
          part_number, compatible_models, location, min_qty, source_machine_id,
          disassembly_status, condition_note, status, sell_price,
          color, condition_grade, cpu_spec, ram_spec, storage_spec, gpu_spec,
          apple_warranty_date, store_warranty_days, battery_health, battery_cycles)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
     $stmt->execute([
-        $category_id, $sku, $name, $image_filename, $type,
+        $category_id, $sku, $name, $name_th ?: null, $image_filename, $type,
         $asset_tag ?: null, $serial_number ?: null,
         $part_number ?: null, $compatible_models ?: null,
         $location ?: null, $min_qty, $source_machine_id,

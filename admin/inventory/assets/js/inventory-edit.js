@@ -26,6 +26,7 @@ function openEditModal(id) {
 
             document.getElementById('edit-id').value         = item.id;
             document.getElementById('edit-name').value       = item.name || '';
+            document.getElementById('edit-name-th').value    = item.name_th || '';
             document.getElementById('edit-sku').value        = item.sku || '';
             document.getElementById('edit-sell-price').value = item.sell_price || '';
             document.getElementById('edit-location').value   = item.location || '';

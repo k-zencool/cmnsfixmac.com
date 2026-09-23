@@ -116,9 +116,9 @@ $cats = $pdo->query("SELECT id, name FROM parts_categories WHERE parent_id IS NU
 $where  = ["i.type = ?", "i.status NOT IN ('sold','SOLD')"];
 $params = [$kind];
 if ($q !== '') {
-    $where[] = "(i.name LIKE ? OR i.sku LIKE ? OR i.part_number LIKE ? OR i.asset_tag LIKE ? OR i.serial_number LIKE ?)";
+    $where[] = "(i.name LIKE ? OR i.name_th LIKE ? OR i.sku LIKE ? OR i.part_number LIKE ? OR i.asset_tag LIKE ? OR i.serial_number LIKE ?)";
     $like = "%$q%";
-    array_push($params, $like, $like, $like, $like, $like);
+    array_push($params, $like, $like, $like, $like, $like, $like);
 }
 if ($cat > 0) {
     // category tree is two levels deep (see index.php stats)
@@ -148,7 +148,7 @@ $pages = max(1, (int)ceil($total / $perPage));
 $page  = min($page, $pages);
 
 $st = $pdo->prepare("
-    SELECT i.id, i.name, i.sku, i.asset_tag, i.serial_number, i.status, i.compatible_models, c.name AS cat_name, lp.last_at, lp.times,
+    SELECT i.id, i.name, i.name_th, i.sku, i.asset_tag, i.serial_number, i.status, i.compatible_models, c.name AS cat_name, lp.last_at, lp.times,
            COALESCE((SELECT SUM(l.qty_remaining) FROM inventory_lots l
                      WHERE l.inventory_id = i.id AND l.qty_remaining > 0), 0) AS qty
     $from
@@ -258,6 +258,9 @@ require_once __DIR__ . '/../templates/header_admin.php';
                     <?php endif; ?>
                     <b class="lbl-dup" data-dup <?= $isDup ? '' : 'hidden' ?> title="มีรายการอื่นชื่อเดียวกัน — ฉลากจะดูเหมือนกัน">ชื่อซ้ำ</b>
                 </span>
+                <?php if (!empty($r['name_th'])): ?>
+                <span class="lbl-row-th"><?= h($r['name_th']) ?></span>
+                <?php endif; ?>
                 <?php if ($models !== ''): ?>
                 <span class="lbl-row-models">ใช้กับ <?= h($models) ?></span>
                 <?php endif; ?>

@@ -31,7 +31,7 @@ touch_admin_session();
 $id = (int)($_GET['id'] ?? 0);
 
 $st = $pdo->prepare("
-    SELECT i.id, i.name, i.sku, i.asset_tag, i.serial_number, i.disassembly_status, i.image, i.type, i.status, i.part_number, i.compatible_models,
+    SELECT i.id, i.name, i.name_th, i.sku, i.asset_tag, i.serial_number, i.disassembly_status, i.image, i.type, i.status, i.part_number, i.compatible_models,
            i.location, i.min_qty, i.sell_price, i.category_id, c.name AS category_name,
            CONCAT(ss.code, '-', LPAD(sb.slot, 2, '0')) AS bin_code,
            COALESCE((SELECT SUM(l.qty_remaining) FROM inventory_lots l
@@ -63,6 +63,7 @@ $viewUrl = '/admin/inventory/view.php?type=' . rawurlencode($row['type']) . '&q=
 echo json_encode(['ok' => true, 'part' => [
     'id'          => (int)$row['id'],
     'name'        => $row['name'],
+    'name_th'     => $row['name_th'],
     'sku'         => $row['asset_tag'] ?: $row['sku'],
     'serial'      => $row['serial_number'],
     // a machine / sale unit is one piece: no lots or quantity, a status instead

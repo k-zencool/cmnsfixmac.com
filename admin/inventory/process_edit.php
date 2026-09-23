@@ -47,6 +47,7 @@ try {
     if (!$existing) throw new Exception("ไม่พบสินค้าในระบบ");
 
     $name              = trim($_POST['name'] ?? '');
+    $name_th           = trim($_POST['name_th'] ?? '');   // Thai description shown under the name
     $sku               = trim($_POST['sku'] ?? $existing['sku']);
     $category_id       = (int)($_POST['category_id'] ?? $existing['category_id']);
     $type              = $_POST['type'] ?? $existing['type'];
@@ -101,7 +102,7 @@ try {
     }
 
     $pdo->prepare("UPDATE inventory SET
-        name = ?, sku = ?, category_id = ?, type = ?, status = ?,
+        name = ?, name_th = ?, sku = ?, category_id = ?, type = ?, status = ?,
         part_number = ?, compatible_models = ?, location = ?, min_qty = ?,
         asset_tag = ?, serial_number = ?, source_machine_id = ?, condition_note = ?,
         disassembly_status = ?, sell_price = ?, image = ?,
@@ -109,7 +110,7 @@ try {
         apple_warranty_date = ?, store_warranty_days = ?, battery_health = ?, battery_cycles = ?
         WHERE id = ?")
         ->execute([
-            $name, $sku, $category_id, $type, $status,
+            $name, $name_th ?: null, $sku, $category_id, $type, $status,
             $part_number ?: null, $compatible_models ?: null, $location ?: null, $min_qty,
             $asset_tag ?: null, $serial_number ?: null, $source_machine_id, $condition_note ?: null,
             $disassembly_status, $sell_price, $image_filename,

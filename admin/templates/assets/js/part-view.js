@@ -38,6 +38,8 @@
         current = p;
         text('pv-sku', p.sku || ('#' + p.id));
         text('pv-name', p.name || '—');
+        text('pv-name-th', p.name_th || '');
+        $('pv-name-th').style.display = p.name_th ? '' : 'none';
         text('pv-cat', p.category || '');
 
         var st = $('pv-stock'), unitLabel = '';
