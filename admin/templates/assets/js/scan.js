@@ -7,7 +7,7 @@
    BarcodeDetector and the admin runs as an iOS PWA. jsQR stays as the
    fallback if the wasm cannot load; it is far weaker on a 14 mm sticker. A decode that looks like a warranty slip or a
    repair-number sticker is handed to resolve.php (a part label opens its
-   sheet via part.php), which does the lookup and
+   sheet via part.php, a slot label via inventory/bin_api.php), which does the lookup and
    the redirect; anything else just shows its value. The check below only
    decides whether to make that round-trip — resolve.php re-validates and
    is the real gate.
@@ -254,6 +254,10 @@
        ticket — repair tickets are "V" + digits, never "P-". */
     var PART_RE = /^CMNS:P-(\d{1,9})$/i;
 
+    /* A storage slot label (inventory/print_bins.php) decodes to
+       "CMNS:B-<id>" — same reason to check it first. */
+    var BIN_RE = /^CMNS:B-(\d{1,9})$/i;
+
     /* Where a decode should go, or null for anything we did not print.
        A printed slip decodes to the full /warranty/?q=<no> URL; the same
        slip read by a generic barcode app decodes to the bare number. */
@@ -263,6 +267,10 @@
         var p = PART_RE.exec(text);
         if (p) {
             return { key: 'P' + p[1], part: p[1], icon: 'inventory_2', msg: 'เปิดอะไหล่…' };
+        }
+        var b = BIN_RE.exec(text);
+        if (b) {
+            return { key: 'B' + b[1], bin: b[1], icon: 'shelves', msg: 'เปิดช่องเก็บของ…' };
         }
 
         var j = TICKET_CODE_RE.exec(text), ticket = null;
@@ -302,6 +310,7 @@
             lastRead = '';   // same sticker still in frame after its sheet closed — keep scanning
             return;
         }
+        if (addBin) { addScanned(route); return; }
 
         pause();
         if (navigator.vibrate) navigator.vibrate(60);
@@ -317,7 +326,7 @@
         if (noteEl) {
             noteEl.textContent = suppressed
                 ? 'QR นี้เพิ่งเปิดไม่สำเร็จ เลยไม่เปิดซ้ำให้ — เอา QR อื่นมาสแกนได้เลย'
-                : 'QR ใบประกัน สติ๊กเกอร์งานซ่อม และฉลากอะไหล่จะเปิดให้อัตโนมัติ — ที่เห็นค่านี้แปลว่าอ่านได้แต่ไม่ใช่ของร้าน';
+                : 'QR ใบประกัน สติ๊กเกอร์งานซ่อม ฉลากอะไหล่ และฉลากช่องเก็บของจะเปิดให้อัตโนมัติ — ที่เห็นค่านี้แปลว่าอ่านได้แต่ไม่ใช่ของร้าน';
         }
         if (route) {
             cover.hidden = false;
@@ -326,6 +335,8 @@
             coverMsg.textContent = route.msg;
             if (route.part) {
                 openPartSheet(route, text);
+            } else if (route.bin) {
+                openBinSheet(route, text);
             } else if (route.ticket && window.JobView && window.fetch) {
                 openJobSheet(route);
             } else {
@@ -405,9 +416,188 @@
     if (window.PartView) {
         PartView.onClose(function () {
             sheetClosedAt = Date.now();
+            // opened from a slot sheet's row: back to that sheet, camera stays paused
+            if (window.BinView && BinView.isOpen()) return;
             start();
         });
     }
+
+    /* A slot label opens the slot sheet: what is in the box, and (with
+       parts.manage) putting things in or taking them out. */
+    function openBinSheet(route, text) {
+        if (!window.BinView || !window.fetch) { showValue(text); return; }
+        fetch(BinView.API + '?action=get&id=' + encodeURIComponent(route.bin), { credentials: 'same-origin' })
+            .then(function (r) {
+                if (r.status === 401) { leaveTo('../login.php'); return null; }
+                return r.json();
+            })
+            .then(function (data) {
+                if (!data) return;
+                if (!data.ok) { showValue(text, 'ไม่พบช่องนี้ในระบบ — อาจถูกลบไปแล้ว'); return; }
+                sheetKey = route.key;
+                BinView.open(data);
+            })
+            .catch(function () { showValue(text, 'โหลดข้อมูลช่องไม่สำเร็จ — เช็คอินเทอร์เน็ตแล้วสแกนใหม่'); });
+    }
+
+    if (window.BinView) {
+        BinView.onClose(function () {
+            sheetClosedAt = Date.now();
+            start();
+        });
+        BinView.onScanAdd(enterAddMode);
+    }
+
+    /* ── "Scan to add": the slot sheet's สแกนใส่ keeps the camera running;
+       each item label read shows a confirm card (what it is, where it is
+       now, whether it fits) and goes in only on ใส่. Another slot label
+       switches the target (sort a whole shelf in one go); anything else
+       is ignored. เสร็จ goes back to the slot sheet. ── */
+    var addBin = null, addCount = 0;
+    var addBar = document.getElementById('scanAddBar');
+
+    function toast(icon, title) {
+        if (window.Swal) Swal.fire({ icon: icon, title: title, toast: true, position: 'top', showConfirmButton: false, timer: icon === 'error' ? 3500 : 1500 });
+    }
+    function addBarText() {
+        document.getElementById('scanAddCode').textContent = addBin.code;
+        document.getElementById('scanAddCount').textContent = addCount ? '· ใส่แล้ว ' + addCount : '· สแกนฉลากของทีละชิ้น';
+    }
+    function enterAddMode(bin) {
+        addBin = bin;
+        addCount = 0;
+        addBarText();
+        addBar.hidden = false;
+        hint.textContent = 'สแกนฉลากของที่จะใส่เข้า ' + bin.code;
+    }
+    function exitAddMode() {
+        addBin = null;
+        addBar.hidden = true;
+        hint.textContent = 'เล็ง QR ให้อยู่ในกรอบ';
+    }
+    /* back to scanning after a read in add mode; the same label stays in
+       frame for a moment, so it is held off like a just-closed sheet */
+    function resumeAdd(key) {
+        sheetKey = key || '';
+        sheetClosedAt = Date.now();
+        start();
+    }
+
+    function addScanned(route) {
+        pause();
+        if (navigator.vibrate) navigator.vibrate(60);
+
+        if (route && route.bin) {
+            if (String(route.bin) === String(addBin.id)) { resumeAdd(route.key); return; }
+            fetch(BinView.API + '?action=get&id=' + encodeURIComponent(route.bin), { credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (data) {
+                    if (!data.ok) { toast('error', 'ไม่พบช่องนี้ในระบบ'); }
+                    else if (!data.bin.ready) { toast('error', 'ช่อง ' + data.bin.code + ' ยังไม่ได้ตั้งหมวด'); }
+                    else { enterAddMode(data.bin); toast('info', 'เปลี่ยนเป็นใส่เข้า ' + data.bin.code); }
+                    resumeAdd(route.key);
+                })
+                .catch(function () { toast('error', 'โหลดข้อมูลช่องไม่สำเร็จ'); resumeAdd(route.key); });
+            return;
+        }
+        if (!route || !route.part) {
+            toast('warning', 'ตอนนี้สแกนได้เฉพาะฉลากของ — กด “เสร็จ” เพื่อออก');
+            resumeAdd(route ? route.key : '');
+            return;
+        }
+
+        fetch(BinView.API + '?action=check&id=' + encodeURIComponent(addBin.id) + '&item=' + encodeURIComponent(route.part),
+              { credentials: 'same-origin' })
+            .then(function (r) { return r.json(); })
+            .then(function (res) {
+                if (!res.ok) {
+                    toast('error', res.reason === 'notfound' ? 'ไม่พบรายการนี้ในคลัง' : (res.msg || 'เช็คไม่สำเร็จ'));
+                    resumeAdd(route.key);
+                    return;
+                }
+                showConfirm(res, route.key);
+            })
+            .catch(function () { toast('error', 'โหลดข้อมูลไม่สำเร็จ — เช็คอินเทอร์เน็ต'); resumeAdd(route.key); });
+    }
+
+    /* The confirm card. Closing it any way but ใส่ (✕, ข้าม, backdrop,
+       Escape, dragged away) skips the item and goes back to scanning. */
+    var ac = document.getElementById('addModal'), acOpen = false, acItem = null, acKey = '';
+    function acText(id, v) { document.getElementById(id).textContent = v; }
+
+    function showConfirm(res, key) {
+        var it = res.item;
+        acItem = it; acKey = key;
+        acText('ac-tag', it.tag || ('#' + it.id));
+        acText('ac-kind', it.kind);
+        acText('ac-name', it.name);
+        acText('ac-serial', it.serial || '—');
+        acText('ac-status', (it.status || '—') + (it.stripped ? ' · ถูกแกะแล้ว' : ''));
+        acText('ac-from', it.from);
+        acText('ac-to', addBin.code);
+
+        var msg = document.getElementById('ac-msg'), go = document.getElementById('ac-go');
+        msg.hidden = !(res.refusal || res.already);
+        msg.className = 'ac-msg' + (res.already ? ' is-info' : '');
+        msg.textContent = res.already ? 'อยู่ใน ' + addBin.code + ' แล้ว' : (res.refusal || '');
+        if (res.refusal && navigator.vibrate) navigator.vibrate([80, 60, 80]);
+        go.hidden = !!(res.refusal || res.already);
+        go.disabled = false;
+        acText('ac-go-txt', it.in_bin ? 'ย้ายเข้า ' + addBin.code : 'ใส่เข้า ' + addBin.code);
+
+        ac.style.display = 'flex';
+        acOpen = true;
+        requestAnimationFrame(function () { ac.classList.add('show'); });
+    }
+    function acClosed() {
+        if (!acOpen) return;
+        acOpen = false;
+        resumeAdd(acKey);
+    }
+    function acClose() {
+        ac.classList.remove('show');
+        setTimeout(function () { ac.style.display = 'none'; }, 150);
+        acClosed();
+    }
+    if (ac) {
+        ac.addEventListener('click', function (e) {
+            if (e.target === ac || e.target.closest('[data-ac-close]')) acClose();
+        });
+        document.addEventListener('keydown', function (e) {
+            if (e.key === 'Escape' && acOpen) acClose();
+        });
+        ac.addEventListener('sheetdismiss', function () {
+            ac.classList.remove('show');
+            ac.style.display = 'none';
+            acClosed();
+        });
+        document.getElementById('ac-go').addEventListener('click', function () {
+            var go = this;
+            go.disabled = true;
+            var body = new FormData();
+            body.append('action', 'add');
+            body.append('id', addBin.id);
+            body.append('item', acItem.id);
+            fetch(BinView.API, { method: 'POST', body: body, credentials: 'same-origin' })
+                .then(function (r) { return r.json(); })
+                .then(function (res) {
+                    if (!res.ok) { go.disabled = false; toast('error', res.msg || 'ใส่ไม่สำเร็จ'); return; }
+                    addCount++;
+                    addBarText();
+                    toast('success', (res.moved || 'ใส่แล้ว') + ' → ' + addBin.code);
+                    acClose();
+                })
+                .catch(function () { go.disabled = false; toast('error', 'ใส่ไม่สำเร็จ — เช็คอินเทอร์เน็ต'); });
+        });
+    }
+
+    if (addBar) document.getElementById('scanAddDone').addEventListener('click', function () {
+        var id = addBin && addBin.id;
+        exitAddMode();
+        if (!id) return;
+        pause();
+        openBinSheet({ key: 'B' + id, bin: id }, 'CMNS:B-' + id);
+    });
 
     /* Requisition done from the part sheet: inventory-requisition.js calls
        this instead of reloading (a reload re-asks camera permission). It
@@ -442,7 +632,8 @@
         if (document.hidden) {
             pause();   // app switch: keep the stream if iOS lets us, no new prompt on return
         } else if (result.hidden && !(window.JobView && JobView.isOpen())
-                                  && !(window.PartView && PartView.isOpen())) {
+                                  && !(window.PartView && PartView.isOpen())
+                                  && !(window.BinView && BinView.isOpen()) && !acOpen) {
             start();   // came back and no result on screen → resume scanning
         }
     });

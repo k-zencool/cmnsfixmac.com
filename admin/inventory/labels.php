@@ -2,10 +2,11 @@
 /********************************************************************
  * admin/inventory/labels.php  –  QR label manager for parts
  *
- * Pick NEW parts (search / category / "never printed"), print their QR
+ * Pick items (search / category / "never printed"), print their QR
  * labels (CMNS:P-<id>, scanned by admin/scan) on A4 sticker paper, and
  * keep a history so the whole stock can be labelled over several days
- * without losing track. One label per item (per SKU), not per piece.
+ * without losing track. One label per inventory row: per SKU for NEW /
+ * USED parts, per unit for donor machines (asset tag on the label).
  *
  * Everything here needs parts.manage. Printing logs a run, then hands
  * off to print_labels.php?run= — a refresh there re-renders, never
@@ -100,6 +101,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 /* ── Filters ── */
+$kinds = ['new' => 'ของใหม่', 'machine' => 'เครื่องซาก', 'used' => 'มือสอง'];
+$kind  = isset($kinds[$_GET['kind'] ?? '']) ? $_GET['kind'] : 'new';
+$isUnit = $kind === 'machine';   // one physical unit per row — no qty, has asset tag
 $q     = trim((string)($_GET['q'] ?? ''));
 $cat   = (int)($_GET['cat'] ?? 0);
 $show  = ($_GET['show'] ?? 'unprinted') === 'all' ? 'all' : 'unprinted';
@@ -108,12 +112,13 @@ $perPage = 50;
 
 $cats = $pdo->query("SELECT id, name FROM parts_categories WHERE parent_id IS NULL ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 
-$where  = ["i.type = 'new'"];
-$params = [];
+// a sold machine has left the shop — nothing to stick a label on
+$where  = ["i.type = ?", "i.status NOT IN ('sold','SOLD')"];
+$params = [$kind];
 if ($q !== '') {
-    $where[] = "(i.name LIKE ? OR i.sku LIKE ? OR i.part_number LIKE ?)";
+    $where[] = "(i.name LIKE ? OR i.sku LIKE ? OR i.part_number LIKE ? OR i.asset_tag LIKE ? OR i.serial_number LIKE ?)";
     $like = "%$q%";
-    array_push($params, $like, $like, $like);
+    array_push($params, $like, $like, $like, $like, $like);
 }
 if ($cat > 0) {
     // category tree is two levels deep (see index.php stats)
@@ -143,7 +148,7 @@ $pages = max(1, (int)ceil($total / $perPage));
 $page  = min($page, $pages);
 
 $st = $pdo->prepare("
-    SELECT i.id, i.name, i.sku, i.compatible_models, c.name AS cat_name, lp.last_at, lp.times,
+    SELECT i.id, i.name, i.sku, i.asset_tag, i.serial_number, i.status, i.compatible_models, c.name AS cat_name, lp.last_at, lp.times,
            COALESCE((SELECT SUM(l.qty_remaining) FROM inventory_lots l
                      WHERE l.inventory_id = i.id AND l.qty_remaining > 0), 0) AS qty
     $from
@@ -153,25 +158,29 @@ $st->execute($params);
 $rows = $st->fetchAll(PDO::FETCH_ASSOC);
 $dupNames = lbl_dup_names($pdo);
 
-/* One-line stats (all NEW parts, not the current filter) */
-$statNew = (int)$pdo->query("SELECT COUNT(*) FROM inventory WHERE type = 'new'")->fetchColumn();
+/* One-line stats (the whole tab, not the current filter) */
+$st = $pdo->prepare("SELECT COUNT(*) FROM inventory WHERE type = ? AND status NOT IN ('sold','SOLD')");
+$st->execute([$kind]);
+$statNew = (int)$st->fetchColumn();
 $statUnprinted = $statNew;
 $history = [];
 if ($hasLog) {
-    $statUnprinted = (int)$pdo->query("
+    $st = $pdo->prepare("
         SELECT COUNT(*) FROM inventory i
-        WHERE i.type = 'new'
+        WHERE i.type = ? AND i.status NOT IN ('sold','SOLD')
           AND NOT EXISTS (SELECT 1 FROM part_label_run_items ri WHERE ri.inventory_id = i.id)
-    ")->fetchColumn();
+    ");
+    $st->execute([$kind]);
+    $statUnprinted = (int)$st->fetchColumn();
     $history = $pdo->query("SELECT * FROM part_label_runs ORDER BY id DESC LIMIT 8")->fetchAll(PDO::FETCH_ASSOC);
 }
 
 function qs(array $over): string {
-    $base = ['q' => $_GET['q'] ?? '', 'cat' => $_GET['cat'] ?? '', 'show' => $_GET['show'] ?? 'unprinted', 'page' => $_GET['page'] ?? ''];
+    $base = ['kind' => $_GET['kind'] ?? '', 'q' => $_GET['q'] ?? '', 'cat' => $_GET['cat'] ?? '', 'show' => $_GET['show'] ?? 'unprinted', 'page' => $_GET['page'] ?? ''];
     return 'labels.php?' . http_build_query(array_filter(array_merge($base, $over), fn($v) => $v !== '' && $v !== null && $v !== 0));
 }
 
-$pageTitle = 'ฉลาก QR อะไหล่';
+$pageTitle = 'ฉลาก QR';
 require_once __DIR__ . '/../templates/header_admin.php';
 ?>
 
@@ -180,9 +189,14 @@ require_once __DIR__ . '/../templates/header_admin.php';
 <div class="lbl-page">
 
     <a href="index.php" class="cmns-back-link"><span class="material-symbols-rounded">arrow_back</span> คลังอะไหล่</a>
-    <h1 class="lbl-title">ฉลาก QR อะไหล่</h1>
+    <h1 class="lbl-title">ฉลาก QR</h1>
+    <div class="lbl-seg lbl-kinds" role="tablist">
+        <?php foreach ($kinds as $k => $label): ?>
+        <a href="<?= h(qs(['kind' => $k === 'new' ? '' : $k, 'q' => '', 'cat' => '', 'page' => ''])) ?>" class="<?= $kind === $k ? 'is-on' : '' ?>"><?= $label ?></a>
+        <?php endforeach; ?>
+    </div>
     <p class="lbl-stats">
-        ของใหม่ <b><?= number_format($statNew) ?></b> รายการ ·
+        <?= $kinds[$kind] ?> <b><?= number_format($statNew) ?></b> <?= $isUnit ? 'เครื่อง' : 'รายการ' ?> ·
         ยังไม่เคยพิมพ์ <b class="<?= $statUnprinted ? 'is-warn' : '' ?>"><?= number_format($statUnprinted) ?></b>
     </p>
 
@@ -197,7 +211,7 @@ require_once __DIR__ . '/../templates/header_admin.php';
     <form method="get" class="lbl-filter">
         <div class="lbl-search">
             <span class="material-symbols-rounded">search</span>
-            <input type="search" name="q" value="<?= h($q) ?>" placeholder="ชื่อ, SKU, Part No." autocomplete="off">
+            <input type="search" name="q" value="<?= h($q) ?>" placeholder="<?= $isUnit ? 'ชื่อ, asset tag, serial' : 'ชื่อ, SKU, Part No.' ?>" autocomplete="off">
         </div>
         <select name="cat" onchange="this.form.submit()" aria-label="หมวดหมู่">
             <option value="">ทุกหมวด</option>
@@ -206,6 +220,7 @@ require_once __DIR__ . '/../templates/header_admin.php';
             <?php endforeach; ?>
         </select>
         <input type="hidden" name="show" value="<?= $show ?>">
+        <?php if ($kind !== 'new'): ?><input type="hidden" name="kind" value="<?= $kind ?>"><?php endif; ?>
     </form>
     <div class="lbl-seg" role="tablist">
         <a href="<?= h(qs(['show' => 'unprinted', 'page' => ''])) ?>" class="<?= $show === 'unprinted' ? 'is-on' : '' ?>">ยังไม่เคยพิมพ์</a>
@@ -231,20 +246,26 @@ require_once __DIR__ . '/../templates/header_admin.php';
         <?php endif; ?>
 
         <?php foreach ($rows as $r): ?>
-        <?php $isDup = isset($dupNames[mb_strtolower(trim($r['name']))]);
+        <?php $isDup = $kind === 'new' && isset($dupNames[mb_strtolower(trim($r['name']))]);
               $models = plb_models_line($r['name'], $r['compatible_models']); ?>
         <label class="lbl-row" data-id="<?= (int)$r['id'] ?>">
             <input type="checkbox" value="<?= (int)$r['id'] ?>" data-pick>
             <span class="lbl-row-main">
                 <span class="lbl-row-name">
                     <span data-name><?= h($r['name']) ?></span>
+                    <?php if ($kind === 'new'): ?>
                     <button type="button" class="lbl-edit" data-rename aria-label="แก้ชื่อ"><span class="material-symbols-rounded">edit</span></button>
+                    <?php endif; ?>
                     <b class="lbl-dup" data-dup <?= $isDup ? '' : 'hidden' ?> title="มีรายการอื่นชื่อเดียวกัน — ฉลากจะดูเหมือนกัน">ชื่อซ้ำ</b>
                 </span>
                 <?php if ($models !== ''): ?>
                 <span class="lbl-row-models">ใช้กับ <?= h($models) ?></span>
                 <?php endif; ?>
+                <?php if ($isUnit): ?>
+                <span class="lbl-row-sub"><code><?= h($r['asset_tag'] ?: ($r['sku'] ?: '—')) ?></code><?= $r['serial_number'] ? ' · ' . h($r['serial_number']) : '' ?> · <?= h($r['status']) ?></span>
+                <?php else: ?>
                 <span class="lbl-row-sub"><code><?= h($r['sku'] ?: '—') ?></code> · <?= h($r['cat_name'] ?: '—') ?> · คงเหลือ <?= (int)$r['qty'] ?></span>
+                <?php endif; ?>
             </span>
             <?php if ($r['last_at']): ?>
             <span class="lbl-row-st" title="พิมพ์แล้ว <?= (int)$r['times'] ?> ครั้ง">พิมพ์ <?= date('d/m/y', strtotime($r['last_at'])) ?></span>

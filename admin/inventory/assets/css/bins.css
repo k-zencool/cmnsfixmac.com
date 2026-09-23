@@ -1,0 +1,128 @@
+/* =========================================================
+   Shelves & slots — admin/inventory/bins.php
+   One centred column, plain cards (same restraint as labels.css).
+   ========================================================= */
+
+.bn-page {
+    width: 100%; max-width: 760px; margin: 0 auto;   /* width:100% — .content-padding is a flex column */
+    padding-bottom: 40px;
+}
+.bn-title { margin: 10px 0 2px; font-size: 1.45rem; font-weight: 800; color: var(--text-main); }
+.bn-stats, .bn-sub { margin: 0 0 16px; font-size: 13.5px; color: var(--text-muted); }
+.bn-stats b, .bn-sub b { color: var(--text-main); }
+.bn-page .is-warn, .bn-stats b.is-warn { color: #f59e0b; }
+.bn-dim { font-size: 12.5px; color: var(--text-muted); }
+.bn-hint { margin: 6px 2px 10px; font-size: 12.5px; color: var(--text-muted); }
+.bn-note { margin: -10px 0 14px; font-size: 13px; color: var(--text-main); }
+
+.bn-flash {
+    margin-bottom: 14px; padding: 11px 14px; border-radius: 12px;
+    background: rgba(16,185,129,.08); border: 1px solid rgba(16,185,129,.3);
+    color: #059669; font-size: 13.5px; font-weight: 600;
+}
+.bn-flash.is-err { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.3); color: #dc2626; }
+
+.bn-h2 { margin: 22px 0 8px; font-size: 13px; font-weight: 600; color: var(--text-muted); }
+
+.bn-card {
+    background: var(--bg-surface); border: 1px solid var(--border); border-radius: 14px;
+    overflow: hidden;
+}
+.bn-empty { margin: 0; padding: 28px 16px; text-align: center; color: var(--text-muted); font-size: 14px; }
+
+.bn-btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex-shrink: 0;
+    height: 38px; padding: 0 14px; border-radius: 10px;
+    border: 1px solid var(--border); background: var(--bg-surface); color: var(--text-main);
+    font: inherit; font-size: 13.5px; font-weight: 700; text-decoration: none; cursor: pointer;
+}
+.bn-btn .material-symbols-rounded { font-size: 18px; }
+.bn-btn.is-primary { background: var(--primary); border-color: var(--primary); color: #fff; }
+.bn-link {
+    padding: 6px 10px; background: none; border: 0; border-radius: 8px;
+    font: inherit; font-size: 13.5px; font-weight: 700; color: var(--primary); cursor: pointer;
+    white-space: nowrap;
+}
+.bn-link:hover { background: var(--bg-surface-alt); }
+.bn-link.is-danger { color: #ef4444; }
+
+/* ── Shelf + slot grid ── */
+.bn-shelf { margin-bottom: 18px; }
+.bn-shelf-hd {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    margin-bottom: 8px;
+}
+.bn-shelf-hd h2 { margin: 0; font-size: 16px; font-weight: 800; color: var(--text-main); }
+.bn-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.bn-slot {
+    display: flex; flex-direction: column; gap: 3px; min-width: 0;
+    padding: 10px 11px; border-radius: 12px;
+    background: var(--bg-surface); border: 1px solid var(--border);
+    text-decoration: none; color: var(--text-main);
+    -webkit-tap-highlight-color: transparent;
+}
+.bn-slot:hover { border-color: var(--primary); }
+.bn-slot.is-unset { border-style: dashed; }
+.bn-slot-code { font-family: 'Courier New', monospace; font-size: 17px; font-weight: 800; }
+.bn-slot-kind { font-size: 11px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bn-slot.is-unset .bn-slot-kind { color: #f59e0b; }
+.bn-slot-n { font-size: 12.5px; font-weight: 700; }
+
+.bn-more { margin-top: 8px; font-size: 13px; }
+.bn-more summary { cursor: pointer; color: var(--text-muted); padding: 4px 2px; }
+.bn-more .bn-form { margin-top: 8px; padding: 12px; background: var(--bg-surface); border: 1px solid var(--border); border-radius: 12px; }
+
+/* ── One slot ── */
+.bn-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-top: 10px; }
+.bn-code { margin: 0; font-family: 'Courier New', monospace; font-size: 2.2rem; font-weight: 800; color: var(--text-main); line-height: 1.1; }
+
+.bn-row { display: flex; align-items: center; gap: 10px; padding: 10px 14px; }
+.bn-row + .bn-row { border-top: 1px solid var(--border); }
+.bn-row-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.bn-row-name { font-size: 14.5px; font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bn-row-sub  { font-size: 12px; color: var(--text-muted); }
+.bn-row-sub code { font-size: 11.5px; color: var(--primary); }
+.bn-row-act { margin: 0; flex-shrink: 0; }
+.bn-chip { padding: 1px 6px; border-radius: 6px; background: var(--bg-surface-alt); font-weight: 700; }
+.bn-chip.is-err { background: rgba(239,68,68,.1); color: #ef4444; }
+
+.bn-search { position: relative; }
+.bn-search .material-symbols-rounded {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    font-size: 20px; color: var(--text-muted); pointer-events: none;
+}
+
+/* ── Forms ── */
+.bn-form { display: flex; flex-direction: column; gap: 10px; padding: 14px; }
+.bn-form-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.bn-form label { display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; color: var(--text-muted); }
+.bn-page input[type="text"], .bn-page input[type="number"], .bn-page input[type="search"], .bn-page select {
+    height: 42px; padding: 0 12px;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: var(--bg-surface-alt); color: var(--text-main);
+    font: inherit; font-size: 16px; outline: none;   /* 16px: no iOS focus zoom */
+}
+.bn-page input:focus, .bn-page select:focus { border-color: var(--primary); }
+.bn-page input[type="number"] { width: 76px; }
+.bn-in-code { width: 64px; text-transform: uppercase; text-align: center; font-weight: 800; }
+.bn-form-row select { flex: 1; min-width: 140px; }
+.bn-search input { width: 100%; padding-left: 40px; background: var(--bg-surface); }
+.bn-form .bn-btn { align-self: flex-start; }
+.bn-del { margin: 10px 0 0; }
+
+@media (max-width: 991px) {
+    .bn-title { font-size: 1.25rem; }
+    .bn-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .bn-code { font-size: 1.8rem; }
+}
+@media (max-width: 380px) {
+    .bn-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* back link — its shared style lives in inventory-dashboard.css, not loaded here */
+.bn-page .cmns-back-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13px; font-weight: 700; letter-spacing: .5px;
+    color: var(--text-muted); text-decoration: none;
+}
+.bn-page .cmns-back-link .material-symbols-rounded { font-size: 18px; }

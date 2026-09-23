@@ -240,3 +240,79 @@
 #modal-requisition .lot-option input[type="radio"] { accent-color: #10b981; width: 16px; height: 16px; flex-shrink: 0; }
 #modal-requisition .lot-opt-body { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: 1; min-width: 0; }
 #modal-requisition .lot-expired { opacity: .45; cursor: not-allowed; }
+
+/* ── Slot sheet (#binModal, bin-view.js) — the rest is job-view.css ── */
+.bv-code { font-family: 'Courier New', monospace; font-size: 20px; font-weight: 800; }
+.bv-where { margin: 12px 0 0; font-size: 13px; color: var(--text-muted); }
+.bv-empty { margin: 0; padding: 14px 0; font-size: 13.5px; color: var(--text-muted); }
+.bv-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; }
+.bv-row + .bv-row { border-top: 1px solid var(--border); }
+.bv-row-main { flex: 1; min-width: 0; }
+.bv-row-name { font-size: 14px; font-weight: 700; color: var(--text-main); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bv-row-sub  { font-size: 12px; color: var(--text-muted); display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.bv-row-sub code { font-size: 11.5px; color: var(--primary); }
+.bv-chip { padding: 0 6px; border-radius: 6px; background: var(--bg-surface-alt); font-weight: 700; }
+.bv-chip.is-err { background: rgba(239,68,68,.1); color: #ef4444; }
+.bv-link {
+    flex-shrink: 0; padding: 7px 10px; border: 0; border-radius: 8px; background: rgba(37,99,235,.08);
+    font: inherit; font-size: 13px; font-weight: 700; color: var(--primary); cursor: pointer;
+}
+.bv-link.is-danger { background: rgba(239,68,68,.08); color: #ef4444; }
+.bv-link:disabled { opacity: .45; }
+.bv-q {
+    width: 100%; height: 42px; margin: 4px 0 4px; padding: 0 12px;
+    border: 1px solid var(--border); border-radius: 10px;
+    background: var(--bg-surface-alt); color: var(--text-main);
+    font: inherit; font-size: 16px; outline: none;   /* 16px: no iOS focus zoom */
+}
+.bv-q:focus { border-color: var(--primary); }
+.bv-open { text-decoration: none; display: inline-flex; align-items: center; margin-right: auto; }
+.bv-btn { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; font-family: inherit; }
+.bv-btn .material-symbols-rounded { font-size: 17px; }
+.bv-open[hidden], .bv-btn[hidden], .bv-scanadd[hidden] { display: none; }
+.trk-view-ft .bv-scanadd { border: 0; cursor: pointer; font-family: inherit; }
+
+/* ── "Scan to add" bar, over the top of the camera ── */
+.scan-addbar {
+    position: absolute; top: 10px; left: 10px; right: 10px; z-index: 3;
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 8px 8px 12px; border-radius: 12px;
+    background: rgba(16,185,129,.92); color: #fff;
+    font-size: 14px; box-shadow: 0 4px 14px rgba(0,0,0,.3);
+}
+.scan-addbar[hidden] { display: none; }
+.scan-addbar .material-symbols-rounded { font-size: 20px; }
+.scan-addbar-txt { flex: 1; min-width: 0; }
+.scan-addbar-txt b { font-family: 'Courier New', monospace; font-size: 16px; }
+.scan-addbar-txt small { margin-left: 6px; opacity: .9; }
+.scan-addbar-done {
+    flex-shrink: 0; padding: 7px 14px; border: 0; border-radius: 9px;
+    background: #fff; color: #047857; font: inherit; font-weight: 800; cursor: pointer;
+}
+
+/* ── Confirm before "scan to add" (#addModal, scan.js) ── */
+.ac-tag { font-family: 'Courier New', monospace; font-size: 15px; }
+.ac-name { padding: 12px 0 4px; font-size: 17px; font-weight: 800; color: var(--text-main); line-height: 1.3; }
+.ac-to { font-family: 'Courier New', monospace; font-size: 16px; color: #059669; }
+.ac-msg {
+    margin: 12px 0 0; padding: 10px 12px; border-radius: 10px;
+    background: rgba(239,68,68,.08); border: 1px solid rgba(239,68,68,.3);
+    color: #dc2626; font-size: 13.5px; font-weight: 700;
+}
+.ac-msg.is-info { background: rgba(37,99,235,.08); border-color: rgba(37,99,235,.25); color: var(--primary); }
+.ac-msg[hidden] { display: none; }
+.trk-view-ft .ac-go { border: 0; cursor: pointer; font-family: inherit; background: #10b981; }
+.ac-go[hidden] { display: none; }
+.ac-go:disabled { opacity: .5; }
+
+/* slot sheet rows open the part sheet, which sits over it */
+.bv-row-main.is-link {
+    display: block; padding: 0; border: 0; background: none; text-align: left;
+    font: inherit; color: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.bv-chev { flex-shrink: 0; font-size: 20px; color: var(--text-muted); margin-left: -6px; }
+body #partModal { z-index: 1110; }   /* job-view.css gives every sheet 1100 */
+.pv-act { gap: 4px; }
+.pv-act .material-symbols-rounded { font-size: 17px; }
+.pv-act[hidden] { display: none; }
+.trk-view-ft { flex-wrap: wrap; }

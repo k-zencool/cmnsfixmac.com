@@ -74,9 +74,12 @@ $total_items = $stmt_count->fetchColumn();
 $total_pages = ceil($total_items / $per_page);
 
 $sql = "SELECT i.*, COALESCE(SUM(l.qty_remaining), 0) as total_qty,
-        MIN(CASE WHEN l.qty_remaining > 0 THEN l.warranty_end END) as nearest_warranty 
+        MIN(CASE WHEN l.qty_remaining > 0 THEN l.warranty_end END) as nearest_warranty,
+        MAX(CONCAT(ss.code, '-', LPAD(sb.slot, 2, '0'))) AS bin_code
         FROM inventory i 
         LEFT JOIN inventory_lots l ON i.id = l.inventory_id 
+        LEFT JOIN storage_bins sb ON sb.id = i.bin_id
+        LEFT JOIN storage_shelves ss ON ss.id = sb.shelf_id
         WHERE $where_sql 
         GROUP BY i.id 
         $order_sql 
@@ -431,6 +434,9 @@ include '../templates/header_admin.php';
                                         <?php if($item['asset_tag']): ?>
                                             <code style="background:rgba(139,92,246,.1); color:#8b5cf6; border:1px solid rgba(139,92,246,.3); padding:1px 5px; border-radius:4px;"><?= htmlspecialchars($item['asset_tag']) ?></code>
                                         <?php endif; ?>
+                                        <?php if($item['bin_code']): ?>
+                                            <span class="inv-bin" title="ช่องเก็บ"><span class="material-symbols-rounded">shelves</span><?= htmlspecialchars($item['bin_code']) ?></span>
+                                        <?php endif; ?>
                                         <?php if($item['serial_number']): ?>
                                             <span style="color:var(--text-muted); font-family:monospace;"><?= htmlspecialchars($item['serial_number']) ?></span>
                                         <?php endif; ?>
@@ -538,6 +544,9 @@ include '../templates/header_admin.php';
                                     <div style="font-size:11px; color:var(--text-muted); margin-top:3px; display:flex; gap:6px; align-items:center;">
                                         <code style="background:rgba(245,158,11,.1); color:#f59e0b; border:1px solid rgba(245,158,11,.3); padding:1px 5px; border-radius:4px;"><?= htmlspecialchars($item['sku'] ?: '—') ?></code>
                                         <?php if($item['part_number']): ?><span style="opacity:.5;"><?= htmlspecialchars($item['part_number']) ?></span><?php endif; ?>
+                                        <?php if($item['bin_code']): ?>
+                                            <span class="inv-bin" title="ช่องเก็บ"><span class="material-symbols-rounded">shelves</span><?= htmlspecialchars($item['bin_code']) ?></span>
+                                        <?php endif; ?>
                                     </div>
                                     <div class="fold fold-d"><?= htmlspecialchars(implode(' · ', array_filter([$item['serial_number'], $item['condition_note']]))) ?></div>
                                     <div class="fold fold-price">฿<?= number_format($item['sell_price']) ?></div>
@@ -787,6 +796,23 @@ const _stripSubCats = <?= json_encode(array_values($sub_cats), JSON_UNESCAPED_UN
 </script>
 <script src="assets/js/inventory-edit.js?v=<?= asset_ver('/admin/inventory/assets/js/inventory-edit.js') ?>"></script>
 <script src="assets/js/inventory-strip.js?v=<?= asset_ver('/admin/inventory/assets/js/inventory-strip.js') ?>"></script>
+<?php
+/* ?edit=<id> / ?strip=<id> — the scanner's part sheet (แก้ไข / แยกอะไหล่) lands here
+   with that item's modal already open */
+$deep_edit  = (int)($_GET['edit'] ?? 0);
+$deep_strip = null;
+if (!empty($_GET['strip'])) {
+    $st = $pdo->prepare("SELECT id, name, asset_tag FROM inventory WHERE id = ? AND type = 'machine'");
+    $st->execute([(int)$_GET['strip']]);
+    $deep_strip = $st->fetch(PDO::FETCH_ASSOC) ?: null;
+}
+?>
+<?php if ($deep_edit || $deep_strip): ?>
+<script>
+<?php if ($deep_edit): ?>openEditModal(<?= $deep_edit ?>);<?php endif; ?>
+<?php if ($deep_strip): ?>openStripModal(<?= (int)$deep_strip['id'] ?>, <?= json_encode($deep_strip['name'], JSON_UNESCAPED_UNICODE) ?>, <?= json_encode($deep_strip['asset_tag'] ?? '', JSON_UNESCAPED_UNICODE) ?>);<?php endif; ?>
+</script>
+<?php endif; ?>
 <?php endif; ?>
 <?php if ($can_hard_delete): ?><script src="assets/js/inventory-danger.js?v=<?= asset_ver('/admin/inventory/assets/js/inventory-danger.js') ?>"></script><?php endif; ?>
 

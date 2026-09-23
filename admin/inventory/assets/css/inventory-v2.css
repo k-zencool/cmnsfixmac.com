@@ -638,3 +638,12 @@
     }
     .inv-view .cmns-table tr.lot-detail-row > td { padding: 0; }
 }
+
+/* storage slot chip on machine / used rows (bins.php) */
+.inv-bin {
+    display: inline-flex; align-items: center; gap: 2px;
+    padding: 1px 6px; border-radius: 4px;
+    background: rgba(16,185,129,.1); color: #059669; border: 1px solid rgba(16,185,129,.3);
+    font-family: 'Courier New', monospace; font-weight: 800;
+}
+.inv-bin .material-symbols-rounded { font-size: 12px; }

@@ -33,7 +33,7 @@ $slot0  = max(1, min($per, (int)($_GET['start'] ?? $run['start_slot'])));
 
 // picked order; an item deleted since the run just drops out
 $st = $pdo->prepare("
-    SELECT i.id, i.name, i.sku, i.part_number, i.asset_tag, i.compatible_models
+    SELECT i.id, i.name, i.type, i.sku, i.part_number, i.asset_tag, i.compatible_models
     FROM part_label_run_items ri JOIN inventory i ON i.id = ri.inventory_id
     WHERE ri.run_id = ? ORDER BY ri.sort
 ");
@@ -62,7 +62,7 @@ $sheet = plb_sheet();
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ฉลาก QR อะไหล่ · <?= count($items) ?> รายการ</title>
+<title>ฉลาก QR · <?= count($items) ?> รายการ</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@500;700;800&display=swap" rel="stylesheet">
@@ -143,6 +143,7 @@ body { font-family: 'Sarabun', sans-serif; color: #000; }
     font-size: 5pt; line-height: 1; letter-spacing: -.15pt;
     white-space: nowrap; overflow: hidden; text-overflow: clip;
 }
+.sku.is-unit { font-size: 6pt; letter-spacing: -.3pt; }   /* a machine's asset tag — the only thing telling two "MacBook Air A1466" apart */
 .brand { font-size: 3.8pt; font-weight: 800; letter-spacing: .3pt; line-height: 1; color: #444; }
 
 body.is-test .label > * { visibility: hidden; }
@@ -198,7 +199,11 @@ body.is-test .label > * { visibility: hidden; }
                     <?php if (($ml = plb_models_line($l['name'], $l['compatible_models'])) !== ''): ?>
                     <div class="models"><?= h($ml) ?></div>
                     <?php endif; ?>
+                    <?php if ($l['type'] === 'machine'): ?>
+                    <div class="sku is-unit"><?= h($l['asset_tag'] ?: $l['sku']) ?></div>
+                    <?php else: ?>
                     <div class="sku"><?= h($l['sku'] ?: ($l['asset_tag'] ?: $l['part_number'])) ?></div>
+                    <?php endif; ?>
                     <div class="brand">CMNS FIX MAC</div>
                 </div>
             </div>

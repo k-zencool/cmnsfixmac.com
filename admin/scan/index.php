@@ -7,6 +7,7 @@
      - warranty slip  → /warranty/?q=<warranty_no>  (admin/warranty/print.php)
      - number sticker → CMNS:<ticket>, not a URL — only this scanner opens it  (admin/tracking/stickers.php)
      - part label     → CMNS:P-<inventory id>, opens the part sheet here      (admin/inventory/print_labels.php)
+     - slot label     → CMNS:B-<storage_bins id>, opens the slot sheet here   (admin/inventory/print_bins.php)
 
    Anything else just shows its decoded value.
 
@@ -31,7 +32,7 @@ $pageTitle = "สแกน QR";
    useless when the slip is in your hand. */
 $scan_err_map = [
     'empty'        => 'อ่าน QR ไม่ได้ ลองสแกนใหม่อีกครั้ง',
-    'format'       => 'QR นี้ไม่ใช่ใบประกัน สติ๊กเกอร์งานซ่อม หรือฉลากอะไหล่ของร้าน',
+    'format'       => 'QR นี้ไม่ใช่ใบประกัน สติ๊กเกอร์งานซ่อม ฉลากอะไหล่ หรือฉลากช่องเก็บของของร้าน',
     'notfound'     => 'ไม่พบใบประกันนี้ในระบบ',
     'ticket_unused'   => 'เลขที่ซ่อมนี้ยังไม่ถูกใช้งาน',
     'ticket_notfound' => 'ไม่พบเลขที่ซ่อมนี้ในระบบ',
@@ -83,6 +84,13 @@ include '../templates/header_admin.php';
     <div class="scan-stage" id="scanStage" data-last-fail="<?= htmlspecialchars($scan_err !== '' ? $scan_err_raw : '', ENT_QUOTES, 'UTF-8') ?>">
         <video id="scanVideo" playsinline muted autoplay></video>
 
+        <!-- "Scan to add" mode (slot sheet → สแกนใส่): every item label read goes into this slot -->
+        <div class="scan-addbar" id="scanAddBar" hidden>
+            <span class="material-symbols-rounded">move_to_inbox</span>
+            <span class="scan-addbar-txt">ใส่ของเข้า <b id="scanAddCode"></b><small id="scanAddCount"></small></span>
+            <button type="button" class="scan-addbar-done" id="scanAddDone">เสร็จ</button>
+        </div>
+
         <!-- Reticle: four corner brackets over a dimmed surround -->
         <div class="scan-reticle" aria-hidden="true">
             <span class="c tl"></span><span class="c tr"></span>
@@ -111,7 +119,7 @@ include '../templates/header_admin.php';
             <button type="button" class="scan-btn scan-btn-primary" id="scanAgain">สแกนอีกครั้ง</button>
             <button type="button" class="scan-btn scan-btn-ghost" id="scanCopy">คัดลอก</button>
         </div>
-        <p class="scan-note" id="scanNote">QR ใบประกัน สติ๊กเกอร์งานซ่อม และฉลากอะไหล่จะเปิดให้อัตโนมัติ — ที่เห็นค่านี้แปลว่าอ่านได้แต่ไม่ใช่ของร้าน</p>
+        <p class="scan-note" id="scanNote">QR ใบประกัน สติ๊กเกอร์งานซ่อม ฉลากอะไหล่ และฉลากช่องเก็บของจะเปิดให้อัตโนมัติ — ที่เห็นค่านี้แปลว่าอ่านได้แต่ไม่ใช่ของร้าน</p>
     </div>
 
 </div>
@@ -141,10 +149,10 @@ include '../templates/header_admin.php';
                 </div>
             </div>
             <div class="trk-view-meta">
-                <div><label>คงเหลือ</label><b id="pv-qty"></b></div>
+                <div><label id="pv-qty-lbl">คงเหลือ</label><b id="pv-qty"></b></div>
                 <div><label>ราคาขาย</label><b id="pv-price" class="trk-view-cost"></b></div>
                 <div><label>ที่เก็บ</label><b id="pv-loc"></b></div>
-                <div><label>Part No.</label><b id="pv-pn"></b></div>
+                <div><label id="pv-pn-lbl">Part No.</label><b id="pv-pn"></b></div>
             </div>
             <section class="trk-view-sec" id="pv-sec-compat">
                 <label>ใช้กับรุ่น</label>
@@ -157,9 +165,15 @@ include '../templates/header_admin.php';
         </div>
         <footer class="trk-view-ft">
             <a class="trk-view-cancel pv-open" id="pv-open" href="#">เปิดในคลัง</a>
+            <a class="trk-view-cancel pv-open pv-act" id="pv-edit" href="#" hidden>
+                <span class="material-symbols-rounded">edit</span> แก้ไข
+            </a>
+            <a class="trk-view-cancel pv-open pv-act" id="pv-strip" href="#" hidden>
+                <span class="material-symbols-rounded">content_cut</span> แยกอะไหล่
+            </a>
             <?php if (can('parts.consume')): ?>
             <button type="button" class="trk-view-editbtn pv-take" id="pv-take" hidden>
-                <span class="material-symbols-rounded">output</span> เบิกเข้างาน
+                <span class="material-symbols-rounded">output</span> <span id="pv-take-txt">เบิกเข้างาน</span>
             </button>
             <?php endif; ?>
         </footer>
@@ -167,11 +181,79 @@ include '../templates/header_admin.php';
 </div>
 <?php if (can('parts.consume')) include __DIR__ . '/../inventory/partials/_modal_requisition.php'; ?>
 
+<!-- "Scan to add": each scanned item shows here first, and goes in only on confirm (scan.js) -->
+<div id="addModal" class="trk-modal-overlay">
+    <div class="trk-view sheet-on-mobile">
+        <header class="trk-view-hd">
+            <div class="trk-view-hd-l">
+                <span class="trk-view-ticket ac-tag" id="ac-tag"></span>
+                <span class="status-badge st-blue" id="ac-kind"></span>
+            </div>
+            <button type="button" class="trk-view-close" data-ac-close aria-label="ข้าม">
+                <span class="material-symbols-rounded">close</span>
+            </button>
+        </header>
+        <div class="trk-view-body">
+            <div class="ac-name" id="ac-name"></div>
+            <div class="trk-view-meta">
+                <div><label>Serial</label><b id="ac-serial"></b></div>
+                <div><label>สถานะ</label><b id="ac-status"></b></div>
+                <div><label>ตอนนี้อยู่</label><b id="ac-from"></b></div>
+                <div><label>จะใส่เข้า</label><b id="ac-to" class="ac-to"></b></div>
+            </div>
+            <p class="ac-msg" id="ac-msg" hidden></p>
+        </div>
+        <footer class="trk-view-ft">
+            <button type="button" class="trk-view-cancel bv-btn" data-ac-close>ข้าม</button>
+            <button type="button" class="trk-view-editbtn ac-go" id="ac-go">
+                <span class="material-symbols-rounded">move_to_inbox</span> <span id="ac-go-txt">ใส่</span>
+            </button>
+        </footer>
+    </div>
+</div>
+
+<!-- A scanned slot label (box on a shelf) opens this sheet (filled by bin-view.js) -->
+<div id="binModal" class="trk-modal-overlay">
+    <div class="trk-view sheet-on-mobile">
+        <header class="trk-view-hd">
+            <div class="trk-view-hd-l">
+                <span class="trk-view-ticket bv-code" id="bv-code"></span>
+                <span class="status-badge" id="bv-kind"></span>
+            </div>
+            <button type="button" class="trk-view-close" data-bv-close aria-label="ปิด">
+                <span class="material-symbols-rounded">close</span>
+            </button>
+        </header>
+        <div class="trk-view-body">
+            <p class="bv-where" id="bv-where"></p>
+            <section class="trk-view-sec">
+                <label id="bv-count"></label>
+                <div id="bv-items"></div>
+            </section>
+            <section class="trk-view-sec" id="bv-find" hidden>
+                <label>ใส่ของเข้าช่องนี้</label>
+                <input type="search" class="bv-q" id="bv-q" placeholder="ชื่อ, asset tag, serial" autocomplete="off" enterkeyhint="search">
+                <div id="bv-results"></div>
+            </section>
+        </div>
+        <footer class="trk-view-ft">
+            <a class="trk-view-cancel bv-open" id="bv-open" href="#">หน้าช่อง</a>
+            <button type="button" class="trk-view-cancel bv-btn" id="bv-add" hidden>
+                <span class="material-symbols-rounded">search</span> ค้นใส่
+            </button>
+            <button type="button" class="trk-view-editbtn bv-scanadd" id="bv-scanadd" hidden>
+                <span class="material-symbols-rounded">qr_code_scanner</span> สแกนใส่
+            </button>
+        </footer>
+    </div>
+</div>
+
 <!-- zxing-wasm, jsQR fallback: iOS Safari has no BarcodeDetector -->
 <script src="https://cdn.jsdelivr.net/npm/zxing-wasm@3.1.4/dist/iife/reader/index.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="/admin/tracking/assets/js/job-view.js?v=<?= asset_ver('/admin/tracking/assets/js/job-view.js') ?>"></script>
 <script src="<?= $assets_base ?>js/part-view.js?v=<?= asset_ver('/admin/templates/assets/js/part-view.js') ?>"></script>
+<script src="<?= $assets_base ?>js/bin-view.js?v=<?= asset_ver('/admin/templates/assets/js/bin-view.js') ?>"></script>
 <?php if (can('parts.consume')): ?>
 <script src="/admin/inventory/assets/js/inventory-requisition.js?v=<?= asset_ver('/admin/inventory/assets/js/inventory-requisition.js') ?>"></script>
 <?php endif; ?>
