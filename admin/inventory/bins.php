@@ -73,6 +73,55 @@ if ($ready && $_SERVER['REQUEST_METHOD'] === 'POST') {
         bins_back("สร้างชั้น $code แล้ว — " . sbin_code($code, 1) . ' ถึง ' . sbin_code($code, $slots));
     }
 
+    if ($action === 'rename_shelf') {
+        $shelfId = (int)($_POST['shelf_id'] ?? 0);
+        $code    = strtoupper(trim((string)($_POST['code'] ?? '')));
+        $name    = trim((string)($_POST['name'] ?? ''));
+        if (!preg_match('/^[A-Z]{1,2}$/', $code)) bins_back('รหัสชั้นต้องเป็นตัวอักษรอังกฤษ 1–2 ตัว (A, B, … AA)', true);
+        $st = $pdo->prepare("SELECT code FROM storage_shelves WHERE id = ?");
+        $st->execute([$shelfId]);
+        $old = $st->fetchColumn();
+        if ($old === false) bins_back('ไม่พบชั้นนี้', true);
+        $st = $pdo->prepare("SELECT 1 FROM storage_shelves WHERE code = ? AND id <> ?");
+        $st->execute([$code, $shelfId]);
+        if ($st->fetch()) bins_back("มีชั้น $code อยู่แล้ว", true);
+        // QR carries the slot id, so labels still scan — only the printed code goes stale
+        $pdo->prepare("UPDATE storage_shelves SET code = ?, name = ? WHERE id = ?")
+            ->execute([$code, $name !== '' ? mb_substr($name, 0, 100) : null, $shelfId]);
+        bins_back($code !== $old
+            ? "เปลี่ยนชั้น $old เป็น $code แล้ว — QR เดิมยังสแกนได้ แต่ตัวหนังสือบนฉลากเป็น $old ควรพิมพ์ใหม่"
+            : "บันทึกชั้น $code แล้ว");
+    }
+
+    if ($action === 'shelf_kind') {
+        $shelfId = (int)($_POST['shelf_id'] ?? 0);
+        [$t, $c] = bins_kind($types, $rootCats);
+        if ($t === null || $c === null) bins_back('เลือกทั้งชนิดของและหมวด', true);
+        $st = $pdo->prepare("SELECT code FROM storage_shelves WHERE id = ?");
+        $st->execute([$shelfId]);
+        $code = $st->fetchColumn();
+        if ($code === false) bins_back('ไม่พบชั้นนี้', true);
+        // same rule as update_bin: a slot with items keeps the kind they were checked against
+        $st = $pdo->prepare("
+            SELECT b.slot FROM storage_bins b
+            WHERE b.shelf_id = ? AND EXISTS (SELECT 1 FROM inventory i WHERE i.bin_id = b.id)
+              AND NOT (b.item_type <=> ? AND b.category_id <=> ?)
+            ORDER BY b.slot
+        ");
+        $st->execute([$shelfId, $t, $c]);
+        $skipped = $st->fetchAll(PDO::FETCH_COLUMN);
+        $pdo->prepare("
+            UPDATE storage_bins b SET item_type = ?, category_id = ?
+            WHERE b.shelf_id = ? AND NOT EXISTS (SELECT 1 FROM inventory i WHERE i.bin_id = b.id)
+        ")->execute([$t, $c, $shelfId]);
+        $msg = "ตั้งหมวดชั้น $code เป็น {$types[$t]} · {$rootCats[$c]} แล้ว";
+        if ($skipped) {
+            $msg .= ' — ข้าม ' . implode(', ', array_map(fn($s) => sbin_code($code, (int)$s), $skipped))
+                  . ' เพราะมีของอยู่ (เอาออกก่อนถึงจะเปลี่ยนได้)';
+        }
+        bins_back($msg, (bool)$skipped);
+    }
+
     if ($action === 'add_slots') {
         $shelfId = (int)($_POST['shelf_id'] ?? 0);
         $n       = (int)($_POST['count'] ?? 0);
@@ -372,8 +421,34 @@ require_once __DIR__ . '/../templates/header_admin.php';
             </a>
             <?php endforeach; ?>
         </div>
+        <?php
+            // pre-pick the kind when every slot already shares one
+            $kinds = array_unique(array_map(fn($b) => $b['item_type'] . ':' . $b['category_id'], $s['bins']));
+            [$kt, $kc] = count($kinds) === 1 ? explode(':', reset($kinds)) + [null, null] : [null, null];
+        ?>
         <details class="bn-more">
-            <summary>เพิ่มช่อง / ลบชั้น</summary>
+            <summary>แก้ไขชั้น / เพิ่มช่อง / ลบชั้น</summary>
+            <form method="post" class="bn-form"
+                  onsubmit="return this.code.value.trim().toUpperCase() === this.code.defaultValue || confirm('เปลี่ยนรหัสชั้นจาก <?= h($s['code']) ?>? QR เดิมยังสแกนได้ แต่ตัวหนังสือบนฉลากจะไม่ตรง ต้องพิมพ์ใหม่')">
+                <input type="hidden" name="action" value="rename_shelf">
+                <input type="hidden" name="shelf_id" value="<?= $s['id'] ?>">
+                <div class="bn-form-row">
+                    <label>รหัสชั้น <input type="text" name="code" value="<?= h($s['code']) ?>" maxlength="2" pattern="[A-Za-z]{1,2}" required class="bn-in-code"></label>
+                </div>
+                <input type="text" name="name" value="<?= h($s['name']) ?>" maxlength="100" placeholder="ชื่อเรียกชั้น (ไม่บังคับ) เช่น ชั้นหลังร้าน">
+                <button type="submit" class="bn-btn">บันทึกชื่อชั้น</button>
+            </form>
+            <?php if ($s['bins']): ?>
+            <form method="post" class="bn-form">
+                <input type="hidden" name="action" value="shelf_kind">
+                <input type="hidden" name="shelf_id" value="<?= $s['id'] ?>">
+                <div class="bn-form-row">
+                    <?= kind_select($types, $rootCats, $kt ?: null, $kc ?: null, true) ?>
+                </div>
+                <p class="bn-hint">ตั้งให้ทุกช่องในชั้นพร้อมกัน — ช่องที่มีของอยู่จะถูกข้าม</p>
+                <button type="submit" class="bn-btn">ตั้งหมวดทั้งชั้น</button>
+            </form>
+            <?php endif; ?>
             <form method="post" class="bn-form">
                 <input type="hidden" name="action" value="add_slots">
                 <input type="hidden" name="shelf_id" value="<?= $s['id'] ?>">
