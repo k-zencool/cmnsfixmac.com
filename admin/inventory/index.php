@@ -133,6 +133,12 @@ foreach ($root_categories as $key => $cat) {
                 <span class="material-symbols-rounded">account_tree</span> หมวดหมู่
             </a>
             <?php if (can('parts.manage')): ?>
+            <a href="labels.php" class="cmns-btn cmns-btn-secondary inv-btn-desk" aria-label="ฉลาก QR">
+                <span class="material-symbols-rounded">qr_code_2</span> ฉลาก QR
+            </a>
+            <a href="bins.php" class="cmns-btn cmns-btn-secondary inv-btn-desk" aria-label="ชั้นเก็บของ">
+                <span class="material-symbols-rounded">shelves</span> ชั้นเก็บของ
+            </a>
             <button onclick="openAddModal()" class="cmns-btn cmns-btn-primary" aria-label="เพิ่มสินค้า">
                 <span class="material-symbols-rounded">add_circle</span> เพิ่มสินค้า
             </button>

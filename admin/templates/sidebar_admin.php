@@ -120,51 +120,12 @@ $sb_initial = mb_strtoupper(mb_substr($sb_name, 0, 1));
         </a>
         <?php endif; ?>
 
-        <div class="has-sub">
-            <div class="sub-head" onclick="toggleSubmenu(this)">
-                <div class="sub-link">
-                    <span class="material-symbols-rounded">inventory_2</span>
-                    <span class="link-text">คลังอะไหล่</span>
-                </div>
-                <span class="material-symbols-rounded sub-toggle">keyboard_arrow_down</span>
-            </div>
-            <div class="submenu-wrapper">
-                <div class="submenu-inner">
-                    <a href="/admin/inventory/index.php?type=all">
-                        <span class="material-symbols-rounded" style="font-size:18px;">dashboard</span> ภาพรวมทั้งหมด
-                    </a>
-                    <a href="/admin/inventory/index.php?type=new">
-                        <span class="material-symbols-rounded" style="font-size:18px;">new_releases</span> อะไหล่มือ 1
-                    </a>
-                    <a href="/admin/inventory/index.php?type=used">
-                        <span class="material-symbols-rounded" style="font-size:18px;">recycling</span> อะไหล่มือ 2
-                    </a>
-                    <a href="/admin/inventory/index.php?type=machine">
-                        <span class="material-symbols-rounded" style="font-size:18px;">devices_other</span> เครื่องอะไหล่
-                    </a>
-                    <a href="/admin/inventory/index.php?type=sale">
-                        <span class="material-symbols-rounded" style="font-size:18px;">sell</span> เครื่องกำลังขาย
-                    </a>
-
-                    <div class="dropdown-divider" style="margin: 5px 0; border-top: 1px solid var(--border); opacity: 0.3;"></div>
-                    
-                    <?php if (can('parts.manage')): ?>
-                    <a href="/admin/inventory/categories.php">
-                        <span class="material-symbols-rounded" style="font-size:18px;">folder_managed</span> จัดการหมวดหมู่
-                    </a>
-                    <a href="/admin/inventory/labels.php">
-                        <span class="material-symbols-rounded" style="font-size:18px;">qr_code_2</span> ฉลาก QR
-                    </a>
-                    <a href="/admin/inventory/bins.php">
-                        <span class="material-symbols-rounded" style="font-size:18px;">shelves</span> ชั้นเก็บของ
-                    </a>
-                    <?php endif; ?>
-                    <a href="/admin/inventory/logs.php">
-                        <span class="material-symbols-rounded" style="font-size:18px;">history</span> ประวัติสต็อก
-                    </a>
-                </div>
-            </div>
-        </div>
+        <!-- one entry: type tabs and the tools (categories, labels, slots, log) live on the page.
+             Directory href so every /admin/inventory/* page keeps it highlighted. -->
+        <a href="/admin/inventory/" title="คลังอะไหล่">
+            <span class="material-symbols-rounded">inventory_2</span>
+            <span class="link-text">คลังอะไหล่</span>
+        </a>
 
         <?php if (function_exists('can') && can('manager.center')): ?>
         <span class="nav-section">ผู้จัดการ</span>

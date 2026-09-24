@@ -55,10 +55,6 @@ $mr_groups = [
     [
         'label' => 'คลังอะไหล่',
         'items' => [
-            ['icon' => 'new_releases',   'label' => 'อะไหล่มือ 1',   'desc' => 'ของใหม่',              'href' => '/admin/inventory/index.php?type=new',     'show' => true],
-            ['icon' => 'recycling',      'label' => 'อะไหล่มือ 2',   'desc' => 'ของถอด / มือสอง',      'href' => '/admin/inventory/index.php?type=used',    'show' => true],
-            ['icon' => 'devices_other',  'label' => 'เครื่องอะไหล่',  'desc' => 'เครื่องซากไว้ถอดอะไหล่', 'href' => '/admin/inventory/index.php?type=machine', 'show' => true],
-            ['icon' => 'sell',           'label' => 'เครื่องกำลังขาย', 'desc' => 'ตั้งขายหน้าร้าน',      'href' => '/admin/inventory/index.php?type=sale',    'show' => true],
             ['icon' => 'folder_managed', 'label' => 'จัดการหมวดหมู่', 'desc' => 'โฟลเดอร์อะไหล่',       'href' => '/admin/inventory/categories.php',         'show' => can('parts.manage')],
             ['icon' => 'qr_code_2',      'label' => 'ฉลาก QR',       'desc' => 'อะไหล่ / เครื่องซาก',   'href' => '/admin/inventory/labels.php',             'show' => can('parts.manage')],
             ['icon' => 'shelves',        'label' => 'ชั้นเก็บของ',    'desc' => 'ช่อง A-01… + ฉลาก QR',   'href' => '/admin/inventory/bins.php',               'show' => can('parts.manage')],

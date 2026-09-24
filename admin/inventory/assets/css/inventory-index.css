@@ -18,6 +18,9 @@
     .cmns-search-form-row { min-width: 0; }
 }
 
+/* five buttons since the sidebar lost its inventory submenu — wrap, never overflow */
+.cmns-action-buttons { flex-wrap: wrap; justify-content: flex-end; }
+
 /* ── Header action buttons: บีบเป็นเต็มแถวตอนจอแคบ แทนที่จะเบียดกันเป็นแถวเดียว ── */
 @media (max-width: 480px) {
     .cmns-header-bar { flex-direction: column; align-items: stretch; }
@@ -84,6 +87,8 @@
         font-size: 0; gap: 0;
     }
     .cmns-action-buttons .cmns-btn .material-symbols-rounded { font-size: 21px; margin: 0; }
+    /* no room for five icons beside the title — these two sit on the More page */
+    .cmns-action-buttons .inv-btn-desk { display: none !important; }
 
     .cmns-search-bar { margin-bottom: 12px; }
 
