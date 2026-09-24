@@ -195,6 +195,7 @@ body.is-test .label > * { visibility: hidden; }
             <div class="frame">
                 <div class="qr" data-id="<?= (int)$l['id'] ?>"></div>
                 <div class="txt">
+                    <div class="brand">CMNS FIX MAC</div>
                     <div class="name"><?= h($l['name']) ?></div>
                     <?php if (($ml = plb_models_line($l['name'], $l['compatible_models'])) !== ''): ?>
                     <div class="models"><?= h($ml) ?></div>
@@ -204,7 +205,6 @@ body.is-test .label > * { visibility: hidden; }
                     <?php else: ?>
                     <div class="sku"><?= h($l['sku'] ?: ($l['asset_tag'] ?: $l['part_number'])) ?></div>
                     <?php endif; ?>
-                    <div class="brand">CMNS FIX MAC</div>
                 </div>
             </div>
         </div>

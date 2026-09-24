@@ -101,7 +101,7 @@ body { font-family: 'Sarabun', sans-serif; color: #000; }
     font-family: 'Courier New', monospace; font-weight: 800;
     font-size: 36pt; line-height: 1; letter-spacing: -1pt;
 }
-.brand { margin-top: 1mm; font-size: 6pt; font-weight: 800; letter-spacing: .6pt; color: #444; line-height: 1; }
+.brand { margin-bottom: 1mm; font-size: 6pt; font-weight: 800; letter-spacing: .6pt; color: #444; line-height: 1; }
 
 body.is-test .label > * { visibility: hidden; }
 
@@ -137,9 +137,9 @@ body.is-test .label > * { visibility: hidden; }
         $top  = $sheet['top'] + intdiv($i, $sheet['cols']) * $sheet['h'];
     ?>
         <div class="label" style="left:<?= $left ?>mm; top:<?= $top ?>mm;">
+            <div class="brand">CMNS FIX MAC</div>
             <div class="qr" data-id="<?= (int)$b['id'] ?>"></div>
             <div class="code"><?= h(sbin_code($b['shelf_code'], (int)$b['slot'])) ?></div>
-            <div class="brand">CMNS FIX MAC</div>
         </div>
     <?php endforeach; ?>
     </section>
