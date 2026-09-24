@@ -271,220 +271,330 @@ $pageTitle = $bin ? 'ช่อง ' . $bin['code'] : 'ชั้นเก็บ�
 require_once __DIR__ . '/../templates/header_admin.php';
 ?>
 
+
 <link rel="stylesheet" href="assets/css/bins.css?v=<?= asset_ver('/admin/inventory/assets/css/bins.css') ?>">
 
 <div class="bn-page">
 
 <?php if (!$ready): ?>
-    <a href="index.php" class="cmns-back-link"><span class="material-symbols-rounded">arrow_back</span> คลังอะไหล่</a>
+    <a href="index.php" class="bn-back"><span class="material-symbols-rounded">arrow_back</span> คลังอะไหล่</a>
     <h1 class="bn-title">ชั้นเก็บของ</h1>
     <div class="bn-flash is-err">ยังไม่ได้รัน <code>migration_storage_bins.sql</code> บนเซิร์ฟเวอร์นี้</div>
 
 <?php elseif ($bin): ?>
     <!-- ════════ One slot ════════ -->
-    <a href="bins.php" class="cmns-back-link"><span class="material-symbols-rounded">arrow_back</span> ชั้นเก็บของ</a>
-    <div class="bn-head">
-        <div>
-            <h1 class="bn-code"><?= h($bin['code']) ?></h1>
-            <p class="bn-sub">
-                <?= h($bin['shelf_name'] ?: 'ชั้น ' . $bin['shelf_code']) ?> · ช่อง <?= (int)$bin['slot'] ?>
-                <?php if ($bin['item_type'] && $bin['category_id']): ?>
-                · <b><?= h($types[$bin['item_type']]) ?> · <?= h($bin['category_name']) ?></b>
-                <?php else: ?>
-                · <b class="is-warn">ยังไม่ตั้งหมวด</b>
-                <?php endif; ?>
-            </p>
-            <?php if ($bin['note']): ?><p class="bn-note"><?= h($bin['note']) ?></p><?php endif; ?>
+    <?php $binSet = $bin['item_type'] && $bin['category_id']; ?>
+    <a href="bins.php" class="bn-back"><span class="material-symbols-rounded">arrow_back</span> ชั้นเก็บของ</a>
+
+    <header class="bn-hero">
+        <div class="bn-hero-code"><?= h($bin['code']) ?></div>
+        <div class="bn-hero-info">
+            <div class="bn-hero-where"><?= h($bin['shelf_name'] ?: 'ชั้น ' . $bin['shelf_code']) ?> · ช่อง <?= (int)$bin['slot'] ?></div>
+            <?php if ($binSet): ?>
+            <span class="bn-kind"><?= h($types[$bin['item_type']]) ?> · <?= h($bin['category_name']) ?></span>
+            <?php else: ?>
+            <span class="bn-kind is-unset">ยังไม่ตั้งหมวด</span>
+            <?php endif; ?>
+            <?php if ($bin['note']): ?><p class="bn-hero-note"><?= h($bin['note']) ?></p><?php endif; ?>
         </div>
-        <a class="bn-btn" href="print_bins.php?ids=<?= (int)$bin['id'] ?>" target="_blank">
-            <span class="material-symbols-rounded">print</span> พิมพ์ฉลาก
-        </a>
-    </div>
+        <div class="bn-hero-act">
+            <a class="bn-btn" href="print_bins.php?ids=<?= (int)$bin['id'] ?>" target="_blank">
+                <span class="material-symbols-rounded">print</span><span class="bn-btn-t">พิมพ์ฉลาก</span>
+            </a>
+            <button type="button" class="bn-btn" data-open="dlgBin">
+                <span class="material-symbols-rounded">tune</span><span class="bn-btn-t">ตั้งค่าช่อง</span>
+            </button>
+        </div>
+    </header>
 
     <?php if ($flash): ?><div class="bn-flash<?= $flash['err'] ? ' is-err' : '' ?>"><?= h($flash['msg']) ?></div><?php endif; ?>
 
-    <h2 class="bn-h2">ในช่องนี้ · <?= count($binItems) ?> ชิ้น</h2>
-    <div class="bn-card">
-        <?php if (!$binItems): ?><p class="bn-empty">ช่องว่าง</p><?php endif; ?>
-        <?php foreach ($binItems as $it): ?>
-        <div class="bn-row">
-            <span class="bn-row-main">
-                <span class="bn-row-name"><?= h($it['name']) ?></span>
-                <span class="bn-row-sub">
-                    <code><?= h($it['tag'] ?: '—') ?></code> · <?= h($it['status']) ?>
-                    <?php if ($it['stripped']): ?> · <span class="bn-chip">ถูกแกะแล้ว</span><?php endif; ?>
-                    <?php if ($it['mismatch']): ?> · <span class="bn-chip is-err">ไม่ตรงหมวดช่อง</span><?php endif; ?>
-                </span>
-            </span>
-            <form method="post" class="bn-row-act">
-                <input type="hidden" name="action" value="remove_item">
-                <input type="hidden" name="id" value="<?= (int)$bin['id'] ?>">
-                <input type="hidden" name="item" value="<?= $it['id'] ?>">
-                <button type="submit" class="bn-link is-danger">เอาออก</button>
+    <div class="bn-split">
+        <section class="bn-panel">
+            <h2 class="bn-panel-hd">ในช่องนี้ <span class="bn-count"><?= count($binItems) ?></span></h2>
+            <div class="bn-card">
+                <?php if (!$binItems): ?>
+                <div class="bn-empty">
+                    <span class="material-symbols-rounded">inbox</span>
+                    ช่องว่าง<?= $binSet ? ' — ค้นหาแล้วกด “ใส่” หรือสแกนฉลากของเข้าช่อง' : '' ?>
+                </div>
+                <?php endif; ?>
+                <?php foreach ($binItems as $it): ?>
+                <div class="bn-row">
+                    <span class="bn-row-main">
+                        <span class="bn-row-name"><?= h($it['name']) ?></span>
+                        <span class="bn-row-sub">
+                            <code><?= h($it['tag'] ?: '—') ?></code><span><?= h($it['status']) ?></span>
+                            <?php if ($it['stripped']): ?><span class="bn-chip">ถูกแกะแล้ว</span><?php endif; ?>
+                            <?php if ($it['mismatch']): ?><span class="bn-chip is-err">ไม่ตรงหมวดช่อง</span><?php endif; ?>
+                        </span>
+                    </span>
+                    <form method="post" class="bn-row-act">
+                        <input type="hidden" name="action" value="remove_item">
+                        <input type="hidden" name="id" value="<?= (int)$bin['id'] ?>">
+                        <input type="hidden" name="item" value="<?= $it['id'] ?>">
+                        <button type="submit" class="bn-pill is-danger">เอาออก</button>
+                    </form>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </section>
+
+        <section class="bn-panel">
+            <h2 class="bn-panel-hd">ใส่ของเข้าช่องนี้</h2>
+            <?php if (!$binSet): ?>
+            <div class="bn-card">
+                <div class="bn-empty">
+                    <span class="material-symbols-rounded">rule</span>
+                    ตั้งชนิดของและหมวดให้ช่องนี้ก่อน ถึงจะใส่ของได้
+                    <button type="button" class="bn-btn is-primary" data-open="dlgBin">ตั้งค่าช่อง</button>
+                </div>
+            </div>
+            <?php else: ?>
+            <form method="get" class="bn-search">
+                <input type="hidden" name="bin" value="<?= (int)$bin['id'] ?>">
+                <span class="material-symbols-rounded">search</span>
+                <input type="search" name="q" value="<?= h($q) ?>" placeholder="ชื่อ, asset tag, SKU, serial" autocomplete="off" enterkeyhint="search">
             </form>
-        </div>
-        <?php endforeach; ?>
+            <p class="bn-hint">เฉพาะ<?= h($types[$bin['item_type']]) ?> หมวด <?= h($bin['category_name']) ?> · ของที่ยังไม่เข้าช่องขึ้นก่อน</p>
+            <div class="bn-card bn-results">
+                <?php if (!$results): ?><div class="bn-empty">ไม่พบรายการ</div><?php endif; ?>
+                <?php foreach ($results as $r): ?>
+                <div class="bn-row">
+                    <span class="bn-row-main">
+                        <span class="bn-row-name"><?= h($r['name']) ?></span>
+                        <span class="bn-row-sub">
+                            <code><?= h($r['asset_tag'] ?: ($r['sku'] ?: '—')) ?></code>
+                            <?php if ($r['shelf_code']): ?>
+                            <span>อยู่ <b><?= h(sbin_code($r['shelf_code'], (int)$r['slot'])) ?></b></span>
+                            <?php else: ?>
+                            <span class="is-warn">ยังไม่เข้าช่อง<?= $r['location'] ? ' · เดิม ' . h($r['location']) : '' ?></span>
+                            <?php endif; ?>
+                        </span>
+                    </span>
+                    <form method="post" class="bn-row-act">
+                        <input type="hidden" name="action" value="add_item">
+                        <input type="hidden" name="id" value="<?= (int)$bin['id'] ?>">
+                        <input type="hidden" name="item" value="<?= (int)$r['id'] ?>">
+                        <input type="hidden" name="q" value="<?= h($q) ?>">
+                        <button type="submit" class="bn-pill<?= $r['shelf_code'] ? '' : ' is-primary' ?>"><?= $r['shelf_code'] ? 'ย้ายมา' : 'ใส่' ?></button>
+                    </form>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
+        </section>
     </div>
 
-    <?php if ($bin['item_type'] && $bin['category_id']): ?>
-    <h2 class="bn-h2">ใส่ของเข้าช่องนี้</h2>
-    <form method="get" class="bn-search">
-        <input type="hidden" name="bin" value="<?= (int)$bin['id'] ?>">
-        <span class="material-symbols-rounded">search</span>
-        <input type="search" name="q" value="<?= h($q) ?>" placeholder="ชื่อ, asset tag, SKU, serial" autocomplete="off">
-    </form>
-    <p class="bn-hint">แสดงเฉพาะ<?= h($types[$bin['item_type']]) ?> หมวด <?= h($bin['category_name']) ?> · ของที่ยังไม่เข้าช่องขึ้นก่อน</p>
-    <div class="bn-card">
-        <?php if (!$results): ?><p class="bn-empty">ไม่พบรายการ</p><?php endif; ?>
-        <?php foreach ($results as $r): ?>
-        <div class="bn-row">
-            <span class="bn-row-main">
-                <span class="bn-row-name"><?= h($r['name']) ?></span>
-                <span class="bn-row-sub">
-                    <code><?= h($r['asset_tag'] ?: ($r['sku'] ?: '—')) ?></code>
-                    <?php if ($r['shelf_code']): ?>
-                    · อยู่ <b><?= h(sbin_code($r['shelf_code'], (int)$r['slot'])) ?></b>
-                    <?php else: ?>
-                    · <span class="is-warn">ยังไม่เข้าช่อง</span><?= $r['location'] ? ' (เดิม: ' . h($r['location']) . ')' : '' ?>
-                    <?php endif; ?>
-                </span>
-            </span>
-            <form method="post" class="bn-row-act">
-                <input type="hidden" name="action" value="add_item">
+    <!-- slot settings -->
+    <dialog class="bn-dlg" id="dlgBin">
+        <div class="bn-dlg-hd">
+            <h2>ตั้งค่าช่อง <?= h($bin['code']) ?></h2>
+            <button type="button" class="bn-x" data-close aria-label="ปิด"><span class="material-symbols-rounded">close</span></button>
+        </div>
+        <form method="post" class="bn-dlg-sec">
+            <input type="hidden" name="action" value="update_bin">
+            <input type="hidden" name="id" value="<?= (int)$bin['id'] ?>">
+            <label class="bn-lbl">ของที่ใส่ช่องนี้ได้</label>
+            <div class="bn-2col"><?= kind_select($types, $rootCats, $bin['item_type'], $bin['category_id'], true) ?></div>
+            <?php if ((int)$bin['item_count'] > 0): ?>
+            <p class="bn-hint">มีของอยู่ <?= (int)$bin['item_count'] ?> ชิ้น — เปลี่ยนชนิด/หมวดได้เมื่อช่องว่างเท่านั้น</p>
+            <?php endif; ?>
+            <label class="bn-lbl" for="binNote">โน้ต</label>
+            <input type="text" id="binNote" name="note" value="<?= h($bin['note']) ?>" maxlength="200" placeholder="ไม่บังคับ">
+            <button type="submit" class="bn-btn is-primary is-block">บันทึก</button>
+        </form>
+        <div class="bn-dlg-sec is-danger">
+            <?php if ((int)$bin['item_count'] === 0): ?>
+            <form method="post" onsubmit="return confirm('ลบช่อง <?= h($bin['code']) ?>? ฉลากที่ติดอยู่จะสแกนไม่เจอ')">
+                <input type="hidden" name="action" value="delete_bin">
                 <input type="hidden" name="id" value="<?= (int)$bin['id'] ?>">
-                <input type="hidden" name="item" value="<?= (int)$r['id'] ?>">
-                <input type="hidden" name="q" value="<?= h($q) ?>">
-                <button type="submit" class="bn-link"><?= $r['shelf_code'] ? 'ย้ายมา' : 'ใส่' ?></button>
+                <button type="submit" class="bn-btn is-danger is-block">
+                    <span class="material-symbols-rounded">delete</span> ลบช่องนี้
+                </button>
             </form>
+            <?php else: ?>
+            <p class="bn-hint">ลบช่องได้เมื่อช่องว่าง — เอาของออกก่อน</p>
+            <?php endif; ?>
         </div>
-        <?php endforeach; ?>
-    </div>
-    <?php endif; ?>
-
-    <h2 class="bn-h2">ตั้งค่าช่อง</h2>
-    <form method="post" class="bn-card bn-form">
-        <input type="hidden" name="action" value="update_bin">
-        <input type="hidden" name="id" value="<?= (int)$bin['id'] ?>">
-        <div class="bn-form-row">
-            <?= kind_select($types, $rootCats, $bin['item_type'], $bin['category_id'], true) ?>
-        </div>
-        <?php if ((int)$bin['item_count'] > 0): ?>
-        <p class="bn-hint">เปลี่ยนชนิด/หมวดได้เมื่อช่องว่างเท่านั้น</p>
-        <?php endif; ?>
-        <input type="text" name="note" value="<?= h($bin['note']) ?>" maxlength="200" placeholder="โน้ต (ไม่บังคับ)">
-        <button type="submit" class="bn-btn is-primary">บันทึก</button>
-    </form>
-    <?php if ((int)$bin['item_count'] === 0): ?>
-    <form method="post" class="bn-del" onsubmit="return confirm('ลบช่อง <?= h($bin['code']) ?>? ฉลากที่ติดอยู่จะสแกนไม่เจอ')">
-        <input type="hidden" name="action" value="delete_bin">
-        <input type="hidden" name="id" value="<?= (int)$bin['id'] ?>">
-        <button type="submit" class="bn-link is-danger">ลบช่องนี้</button>
-    </form>
-    <?php endif; ?>
+    </dialog>
 
 <?php else: ?>
     <!-- ════════ All shelves ════════ -->
-    <a href="index.php" class="cmns-back-link"><span class="material-symbols-rounded">arrow_back</span> คลังอะไหล่</a>
-    <h1 class="bn-title">ชั้นเก็บของ</h1>
-    <p class="bn-stats">
-        ยังไม่เข้าช่อง: เครื่องซาก <b class="<?= !empty($unshelved['machine']) ? 'is-warn' : '' ?>"><?= number_format((int)($unshelved['machine'] ?? 0)) ?></b>
-        · อะไหล่มือสอง <b><?= number_format((int)($unshelved['used'] ?? 0)) ?></b>
-    </p>
+    <a href="index.php" class="bn-back"><span class="material-symbols-rounded">arrow_back</span> คลังอะไหล่</a>
+    <header class="bn-top">
+        <div>
+            <h1 class="bn-title">ชั้นเก็บของ</h1>
+            <p class="bn-stats">
+                ยังไม่เข้าช่อง · เครื่องซาก <b class="<?= !empty($unshelved['machine']) ? 'is-warn' : '' ?>"><?= number_format((int)($unshelved['machine'] ?? 0)) ?></b>
+                · มือสอง <b><?= number_format((int)($unshelved['used'] ?? 0)) ?></b>
+            </p>
+        </div>
+        <?php if ($shelves): ?>
+        <button type="button" class="bn-btn is-primary" data-open="dlgCreate">
+            <span class="material-symbols-rounded">add</span><span class="bn-btn-t">สร้างชั้นใหม่</span>
+        </button>
+        <?php endif; ?>
+    </header>
 
     <?php if ($flash): ?><div class="bn-flash<?= $flash['err'] ? ' is-err' : '' ?>"><?= h($flash['msg']) ?></div><?php endif; ?>
 
     <?php if (!$shelves): ?>
-    <p class="bn-hint">ยังไม่มีชั้น — สร้างชั้นแรกด้านล่าง ช่องจะชื่อ <?= h(sbin_code($nextCode, 1)) ?>, <?= h(sbin_code($nextCode, 2)) ?>, …</p>
+    <div class="bn-card bn-empty is-big">
+        <span class="material-symbols-rounded">shelves</span>
+        <b>ยังไม่มีชั้นเก็บของ</b>
+        ช่องจะชื่อ <?= h(sbin_code($nextCode, 1)) ?>, <?= h(sbin_code($nextCode, 2)) ?>, … ติดฉลาก QR หน้ากล่องแล้วสแกนใส่ของได้เลย
+        <button type="button" class="bn-btn is-primary" data-open="dlgCreate"><span class="material-symbols-rounded">add</span> สร้างชั้นแรก</button>
+    </div>
     <?php endif; ?>
 
-    <?php foreach ($shelves as $s): ?>
+    <?php foreach ($shelves as $s):
+        // one kind for the whole shelf? say it once in the header, not on every tile
+        $kinds = array_unique(array_map(fn($b) => $b['item_type'] . ':' . $b['category_id'], $s['bins']));
+        $common = null;
+        if (count($kinds) === 1 && $s['bins'][0]['item_type'] && $s['bins'][0]['category_id']) $common = $s['bins'][0];
+        [$kt, $kc] = count($kinds) === 1 ? explode(':', reset($kinds)) + [null, null] : [null, null];
+        $filled = count(array_filter($s['bins'], fn($b) => (int)$b['item_count'] > 0));
+    ?>
     <section class="bn-shelf">
         <div class="bn-shelf-hd">
-            <div>
-                <h2>ชั้น <?= h($s['code']) ?><?= $s['name'] ? ' · ' . h($s['name']) : '' ?></h2>
-                <span class="bn-dim"><?= count($s['bins']) ?> ช่อง · <?= $s['items'] ?> ชิ้น</span>
-            </div>
-            <?php if ($s['bins']): ?>
-            <a class="bn-btn" href="print_bins.php?ids=<?= h(implode(',', array_column($s['bins'], 'id'))) ?>" target="_blank">
-                <span class="material-symbols-rounded">print</span> ฉลากทั้งชั้น
-            </a>
-            <?php endif; ?>
-        </div>
-        <div class="bn-grid">
-            <?php foreach ($s['bins'] as $b): ?>
-            <a class="bn-slot<?= (!$b['item_type'] || !$b['category_id']) ? ' is-unset' : '' ?>" href="bins.php?bin=<?= (int)$b['id'] ?>">
-                <span class="bn-slot-code"><?= h(sbin_code($s['code'], (int)$b['slot'])) ?></span>
-                <span class="bn-slot-kind">
-                    <?= ($b['item_type'] && $b['category_id']) ? h($types[$b['item_type']] . ' · ' . $b['category_name']) : 'ยังไม่ตั้งหมวด' ?>
+            <span class="bn-shelf-badge"><?= h($s['code']) ?></span>
+            <div class="bn-shelf-info">
+                <h2><?= $s['name'] ? h($s['name']) : 'ชั้น ' . h($s['code']) ?></h2>
+                <span class="bn-dim">
+                    <?= count($s['bins']) ?> ช่อง · ใช้แล้ว <?= $filled ?> · <?= $s['items'] ?> ชิ้น
+                    <?php if ($common): ?> · <?= h($types[$common['item_type']] . ' · ' . $common['category_name']) ?><?php endif; ?>
                 </span>
-                <span class="bn-slot-n"><?= (int)$b['item_count'] ?> ชิ้น</span>
+            </div>
+            <div class="bn-shelf-act">
+                <?php if ($s['bins']): ?>
+                <a class="bn-btn" href="print_bins.php?ids=<?= h(implode(',', array_column($s['bins'], 'id'))) ?>" target="_blank" aria-label="พิมพ์ฉลากทั้งชั้น">
+                    <span class="material-symbols-rounded">print</span><span class="bn-btn-t">ฉลากทั้งชั้น</span>
+                </a>
+                <?php endif; ?>
+                <button type="button" class="bn-btn" data-open="dlgShelf<?= $s['id'] ?>" aria-label="ตั้งค่าชั้น">
+                    <span class="material-symbols-rounded">tune</span><span class="bn-btn-t">ตั้งค่าชั้น</span>
+                </button>
+            </div>
+        </div>
+        <?php if ($s['bins']): ?>
+        <div class="bn-grid">
+            <?php foreach ($s['bins'] as $b):
+                $set = $b['item_type'] && $b['category_id'];
+                $n = (int)$b['item_count'];
+            ?>
+            <a class="bn-slot<?= !$set ? ' is-unset' : '' ?><?= $n ? ' is-used' : '' ?>" href="bins.php?bin=<?= (int)$b['id'] ?>">
+                <span class="bn-slot-code"><?= h(sbin_code($s['code'], (int)$b['slot'])) ?></span>
+                <span class="bn-slot-n"><?= $n ? $n . ' ชิ้น' : 'ว่าง' ?></span>
+                <?php if (!$set): ?>
+                <span class="bn-slot-kind">ยังไม่ตั้งหมวด</span>
+                <?php elseif (!$common): ?>
+                <span class="bn-slot-kind"><?= h($types[$b['item_type']] . ' · ' . $b['category_name']) ?></span>
+                <?php endif; ?>
             </a>
             <?php endforeach; ?>
         </div>
-        <?php
-            // pre-pick the kind when every slot already shares one
-            $kinds = array_unique(array_map(fn($b) => $b['item_type'] . ':' . $b['category_id'], $s['bins']));
-            [$kt, $kc] = count($kinds) === 1 ? explode(':', reset($kinds)) + [null, null] : [null, null];
-        ?>
-        <details class="bn-more">
-            <summary>แก้ไขชั้น / เพิ่มช่อง / ลบชั้น</summary>
-            <form method="post" class="bn-form"
-                  onsubmit="return this.code.value.trim().toUpperCase() === this.code.defaultValue || confirm('เปลี่ยนรหัสชั้นจาก <?= h($s['code']) ?>? QR เดิมยังสแกนได้ แต่ตัวหนังสือบนฉลากจะไม่ตรง ต้องพิมพ์ใหม่')">
-                <input type="hidden" name="action" value="rename_shelf">
-                <input type="hidden" name="shelf_id" value="<?= $s['id'] ?>">
-                <div class="bn-form-row">
-                    <label>รหัสชั้น <input type="text" name="code" value="<?= h($s['code']) ?>" maxlength="2" pattern="[A-Za-z]{1,2}" required class="bn-in-code"></label>
-                </div>
-                <input type="text" name="name" value="<?= h($s['name']) ?>" maxlength="100" placeholder="ชื่อเรียกชั้น (ไม่บังคับ) เช่น ชั้นหลังร้าน">
-                <button type="submit" class="bn-btn">บันทึกชื่อชั้น</button>
-            </form>
-            <?php if ($s['bins']): ?>
-            <form method="post" class="bn-form">
-                <input type="hidden" name="action" value="shelf_kind">
-                <input type="hidden" name="shelf_id" value="<?= $s['id'] ?>">
-                <div class="bn-form-row">
-                    <?= kind_select($types, $rootCats, $kt ?: null, $kc ?: null, true) ?>
-                </div>
-                <p class="bn-hint">ตั้งให้ทุกช่องในชั้นพร้อมกัน — ช่องที่มีของอยู่จะถูกข้าม</p>
-                <button type="submit" class="bn-btn">ตั้งหมวดทั้งชั้น</button>
-            </form>
-            <?php endif; ?>
-            <form method="post" class="bn-form">
-                <input type="hidden" name="action" value="add_slots">
-                <input type="hidden" name="shelf_id" value="<?= $s['id'] ?>">
-                <div class="bn-form-row">
-                    <label>เพิ่ม <input type="number" name="count" value="1" min="1" max="99" inputmode="numeric"> ช่อง</label>
-                    <?= kind_select($types, $rootCats, null, null, true) ?>
-                </div>
-                <button type="submit" class="bn-btn">เพิ่มช่อง</button>
-            </form>
+        <?php else: ?>
+        <div class="bn-card bn-empty">ชั้นนี้ยังไม่มีช่อง — เพิ่มจาก “ตั้งค่าชั้น”</div>
+        <?php endif; ?>
+    </section>
+
+    <!-- shelf settings -->
+    <dialog class="bn-dlg" id="dlgShelf<?= $s['id'] ?>">
+        <div class="bn-dlg-hd">
+            <h2>ตั้งค่าชั้น <?= h($s['code']) ?></h2>
+            <button type="button" class="bn-x" data-close aria-label="ปิด"><span class="material-symbols-rounded">close</span></button>
+        </div>
+
+        <form method="post" class="bn-dlg-sec"
+              onsubmit="return this.code.value.trim().toUpperCase() === this.code.defaultValue || confirm('เปลี่ยนรหัสชั้นจาก <?= h($s['code']) ?>? QR เดิมยังสแกนได้ แต่ตัวหนังสือบนฉลากจะไม่ตรง ต้องพิมพ์ใหม่')">
+            <input type="hidden" name="action" value="rename_shelf">
+            <input type="hidden" name="shelf_id" value="<?= $s['id'] ?>">
+            <h3>ชื่อชั้น</h3>
+            <div class="bn-codename">
+                <input type="text" name="code" value="<?= h($s['code']) ?>" maxlength="2" pattern="[A-Za-z]{1,2}" required class="bn-in-code" aria-label="รหัสชั้น">
+                <input type="text" name="name" value="<?= h($s['name']) ?>" maxlength="100" placeholder="ชื่อเรียก เช่น ชั้นหลังร้าน" aria-label="ชื่อเรียกชั้น">
+            </div>
+            <p class="bn-hint">เปลี่ยนรหัส (A → B) แล้ว QR เดิมยังสแกนได้ แต่ต้องพิมพ์ฉลากใหม่ให้ตัวหนังสือตรง</p>
+            <button type="submit" class="bn-btn is-block">บันทึกชื่อ</button>
+        </form>
+
+        <?php if ($s['bins']): ?>
+        <form method="post" class="bn-dlg-sec">
+            <input type="hidden" name="action" value="shelf_kind">
+            <input type="hidden" name="shelf_id" value="<?= $s['id'] ?>">
+            <h3>หมวดทุกช่อง</h3>
+            <div class="bn-2col"><?= kind_select($types, $rootCats, $kt ?: null, $kc ?: null, true) ?></div>
+            <p class="bn-hint">ตั้งให้ทุกช่องพร้อมกัน — ช่องที่มีของอยู่จะถูกข้าม</p>
+            <button type="submit" class="bn-btn is-block">ตั้งหมวดทั้งชั้น</button>
+        </form>
+        <?php endif; ?>
+
+        <form method="post" class="bn-dlg-sec">
+            <input type="hidden" name="action" value="add_slots">
+            <input type="hidden" name="shelf_id" value="<?= $s['id'] ?>">
+            <h3>เพิ่มช่อง</h3>
+            <div class="bn-addrow">
+                <label>จำนวน <input type="number" name="count" value="1" min="1" max="99" inputmode="numeric"></label>
+            </div>
+            <div class="bn-2col"><?= kind_select($types, $rootCats, $kt ?: null, $kc ?: null, true) ?></div>
+            <button type="submit" class="bn-btn is-block">เพิ่มช่อง</button>
+        </form>
+
+        <div class="bn-dlg-sec is-danger">
             <?php if ($s['items'] === 0): ?>
-            <form method="post" class="bn-del" onsubmit="return confirm('ลบชั้น <?= h($s['code']) ?> และทุกช่อง? ฉลากที่ติดอยู่จะสแกนไม่เจอ')">
+            <form method="post" onsubmit="return confirm('ลบชั้น <?= h($s['code']) ?> และทุกช่อง? ฉลากที่ติดอยู่จะสแกนไม่เจอ')">
                 <input type="hidden" name="action" value="delete_shelf">
                 <input type="hidden" name="shelf_id" value="<?= $s['id'] ?>">
-                <button type="submit" class="bn-link is-danger">ลบชั้น <?= h($s['code']) ?></button>
+                <button type="submit" class="bn-btn is-danger is-block">
+                    <span class="material-symbols-rounded">delete</span> ลบชั้น <?= h($s['code']) ?> ทั้งชั้น
+                </button>
             </form>
+            <?php else: ?>
+            <p class="bn-hint">ลบชั้นได้เมื่อทุกช่องว่าง — ตอนนี้มีของอยู่ <?= $s['items'] ?> ชิ้น</p>
             <?php endif; ?>
-        </details>
-    </section>
+        </div>
+    </dialog>
     <?php endforeach; ?>
 
-    <h2 class="bn-h2">สร้างชั้นใหม่</h2>
-    <form method="post" class="bn-card bn-form">
-        <input type="hidden" name="action" value="create_shelf">
-        <div class="bn-form-row">
-            <label>รหัสชั้น <input type="text" name="code" value="<?= h($nextCode) ?>" maxlength="2" pattern="[A-Za-z]{1,2}" required class="bn-in-code"></label>
-            <label>จำนวนช่อง <input type="number" name="slots" value="10" min="1" max="99" inputmode="numeric" required></label>
+    <!-- new shelf -->
+    <dialog class="bn-dlg" id="dlgCreate">
+        <div class="bn-dlg-hd">
+            <h2>สร้างชั้นใหม่</h2>
+            <button type="button" class="bn-x" data-close aria-label="ปิด"><span class="material-symbols-rounded">close</span></button>
         </div>
-        <input type="text" name="name" maxlength="100" placeholder="ชื่อเรียกชั้น (ไม่บังคับ) เช่น ชั้นหลังร้าน">
-        <div class="bn-form-row">
-            <?= kind_select($types, $rootCats, 'machine', null, true) ?>
-        </div>
-        <p class="bn-hint">ชนิด/หมวดตั้งให้ทุกช่องพร้อมกัน แก้รายช่องทีหลังได้</p>
-        <button type="submit" class="bn-btn is-primary">สร้างชั้น</button>
-    </form>
+        <form method="post" class="bn-dlg-sec">
+            <input type="hidden" name="action" value="create_shelf">
+            <div class="bn-addrow">
+                <label>รหัสชั้น <input type="text" name="code" value="<?= h($nextCode) ?>" maxlength="2" pattern="[A-Za-z]{1,2}" required class="bn-in-code"></label>
+                <label>จำนวนช่อง <input type="number" name="slots" value="10" min="1" max="99" inputmode="numeric" required></label>
+            </div>
+            <input type="text" name="name" maxlength="100" placeholder="ชื่อเรียกชั้น (ไม่บังคับ) เช่น ชั้นหลังร้าน" aria-label="ชื่อเรียกชั้น">
+            <label class="bn-lbl">ของที่ใส่ได้</label>
+            <div class="bn-2col"><?= kind_select($types, $rootCats, 'machine', null, true) ?></div>
+            <p class="bn-hint">ตั้งให้ทุกช่องพร้อมกัน แก้รายช่องทีหลังได้</p>
+            <button type="submit" class="bn-btn is-primary is-block">สร้างชั้น</button>
+        </form>
+    </dialog>
 <?php endif; ?>
 
 </div>
+
+<script>
+/* dialogs: [data-open=<id>] opens, [data-close] or a tap on the backdrop closes */
+(function () {
+    document.querySelectorAll('[data-open]').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var d = document.getElementById(b.dataset.open);
+            if (d && d.showModal) d.showModal();
+        });
+    });
+    document.querySelectorAll('.bn-dlg').forEach(function (d) {
+        d.addEventListener('click', function (e) {
+            if (e.target === d || e.target.closest('[data-close]')) d.close();
+        });
+    });
+})();
+</script>
 
 <?php include '../templates/footer_admin.php'; ?>

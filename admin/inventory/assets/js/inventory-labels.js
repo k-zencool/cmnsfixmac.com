@@ -14,6 +14,7 @@
     if (!bar) return;
     var idsIn = document.getElementById('lblIds');
     var count = document.getElementById('lblCount');
+    var go    = document.getElementById('lblGo');
     var boxes = [].slice.call(document.querySelectorAll('[data-pick]'));
 
     function load() {
@@ -29,7 +30,9 @@
         boxes.forEach(function (cb) { cb.checked = ids.indexOf(Number(cb.value)) !== -1; });
         count.textContent = ids.length;
         idsIn.value = ids.join(',');
-        bar.hidden = ids.length === 0;
+        // wide screens keep the panel on show; narrow ones hide the bar while empty (CSS)
+        bar.classList.toggle('is-empty', ids.length === 0);
+        go.disabled = ids.length === 0 || !window.LBL_CAN_PRINT;
         document.body.classList.toggle('lbl-picking', ids.length > 0);
     }
     function add(list) {
@@ -55,6 +58,15 @@
         add(window.LBL_ALL_IDS || []);
     });
     bar.querySelector('[data-pick-clear]').addEventListener('click', function () { save([]); });
+
+    /* copies stepper: − / + around the number, clamped to its min/max */
+    var copies = document.getElementById('lblCopies');
+    bar.querySelectorAll('[data-step]').forEach(function (b) {
+        b.addEventListener('click', function () {
+            var v = (parseInt(copies.value, 10) || 1) + Number(b.dataset.step);
+            copies.value = Math.max(Number(copies.min) || 1, Math.min(Number(copies.max) || 10, v));
+        });
+    });
 
     /* ── Inline rename: ✎ turns the name into an input; Enter saves,
        Escape cancels. The row is a <label>, so every click in here must

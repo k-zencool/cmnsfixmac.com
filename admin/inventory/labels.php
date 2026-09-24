@@ -188,17 +188,16 @@ require_once __DIR__ . '/../templates/header_admin.php';
 
 <div class="lbl-page">
 
-    <a href="index.php" class="cmns-back-link"><span class="material-symbols-rounded">arrow_back</span> คลังอะไหล่</a>
-    <h1 class="lbl-title">ฉลาก QR</h1>
-    <div class="lbl-seg lbl-kinds" role="tablist">
-        <?php foreach ($kinds as $k => $label): ?>
-        <a href="<?= h(qs(['kind' => $k === 'new' ? '' : $k, 'q' => '', 'cat' => '', 'page' => ''])) ?>" class="<?= $kind === $k ? 'is-on' : '' ?>"><?= $label ?></a>
-        <?php endforeach; ?>
-    </div>
-    <p class="lbl-stats">
-        <?= $kinds[$kind] ?> <b><?= number_format($statNew) ?></b> <?= $isUnit ? 'เครื่อง' : 'รายการ' ?> ·
-        ยังไม่เคยพิมพ์ <b class="<?= $statUnprinted ? 'is-warn' : '' ?>"><?= number_format($statUnprinted) ?></b>
-    </p>
+    <a href="index.php" class="lbl-back"><span class="material-symbols-rounded">arrow_back</span> คลังอะไหล่</a>
+    <header class="lbl-top">
+        <div>
+            <h1 class="lbl-title">ฉลาก QR</h1>
+            <p class="lbl-stats">
+                <?= $kinds[$kind] ?> <b><?= number_format($statNew) ?></b> <?= $isUnit ? 'เครื่อง' : 'รายการ' ?> ·
+                ยังไม่เคยพิมพ์ <b class="<?= $statUnprinted ? 'is-warn' : '' ?>"><?= number_format($statUnprinted) ?></b>
+            </p>
+        </div>
+    </header>
 
     <?php if (!$hasLog): ?>
     <div class="lbl-alert">ยังไม่ได้รัน <code>migration_part_label_prints.sql</code> — ดูรายการได้ แต่พิมพ์ไม่ได้จนกว่าจะรัน</div>
@@ -207,120 +206,152 @@ require_once __DIR__ . '/../templates/header_admin.php';
     <div class="lbl-alert"><?= h($errorMsg) ?></div>
     <?php endif; ?>
 
-    <!-- ── Filters ── -->
-    <form method="get" class="lbl-filter">
-        <div class="lbl-search">
-            <span class="material-symbols-rounded">search</span>
-            <input type="search" name="q" value="<?= h($q) ?>" placeholder="<?= $isUnit ? 'ชื่อ, asset tag, serial' : 'ชื่อ, SKU, Part No.' ?>" autocomplete="off">
-        </div>
-        <select name="cat" onchange="this.form.submit()" aria-label="หมวดหมู่">
-            <option value="">ทุกหมวด</option>
-            <?php foreach ($cats as $c): ?>
-            <option value="<?= (int)$c['id'] ?>" <?= $cat === (int)$c['id'] ? 'selected' : '' ?>><?= h($c['name']) ?></option>
+    <div class="lbl-layout">
+    <main class="lbl-main">
+
+        <!-- ── Kind + filters ── -->
+        <nav class="lbl-seg lbl-kinds" role="tablist">
+            <?php foreach ($kinds as $k => $label): ?>
+            <a href="<?= h(qs(['kind' => $k === 'new' ? '' : $k, 'q' => '', 'cat' => '', 'page' => ''])) ?>" class="<?= $kind === $k ? 'is-on' : '' ?>" role="tab"><?= $label ?></a>
             <?php endforeach; ?>
-        </select>
-        <input type="hidden" name="show" value="<?= $show ?>">
-        <?php if ($kind !== 'new'): ?><input type="hidden" name="kind" value="<?= $kind ?>"><?php endif; ?>
-    </form>
-    <div class="lbl-seg" role="tablist">
-        <a href="<?= h(qs(['show' => 'unprinted', 'page' => ''])) ?>" class="<?= $show === 'unprinted' ? 'is-on' : '' ?>">ยังไม่เคยพิมพ์</a>
-        <a href="<?= h(qs(['show' => 'all', 'page' => ''])) ?>" class="<?= $show === 'all' ? 'is-on' : '' ?>">ทั้งหมด</a>
-    </div>
-
-    <!-- ── List ── -->
-    <div class="lbl-card">
-        <div class="lbl-listhd">
-            <span><?= number_format($total) ?> รายการ</span>
-            <?php if ($allIds): ?>
-            <span class="lbl-listhd-act">
-                <button type="button" class="lbl-link" data-pick-page>เลือกทั้งหน้า</button>
-                <?php if ($total > count($rows)): ?>
-                <button type="button" class="lbl-link" data-pick-all>เลือกทั้งหมด <?= number_format(count($allIds)) ?></button>
-                <?php endif; ?>
-            </span>
-            <?php endif; ?>
-        </div>
-
-        <?php if (!$rows): ?>
-            <p class="lbl-empty"><?= $show === 'unprinted' && $q === '' && !$cat ? 'ติดฉลากครบทุกรายการแล้ว' : 'ไม่พบรายการ' ?></p>
-        <?php endif; ?>
-
-        <?php foreach ($rows as $r): ?>
-        <?php $isDup = $kind === 'new' && isset($dupNames[mb_strtolower(trim($r['name']))]);
-              $models = plb_models_line($r['name'], $r['compatible_models']); ?>
-        <label class="lbl-row" data-id="<?= (int)$r['id'] ?>">
-            <input type="checkbox" value="<?= (int)$r['id'] ?>" data-pick>
-            <span class="lbl-row-main">
-                <span class="lbl-row-name">
-                    <span data-name><?= h($r['name']) ?></span>
-                    <?php if ($kind === 'new'): ?>
-                    <button type="button" class="lbl-edit" data-rename aria-label="แก้ชื่อ"><span class="material-symbols-rounded">edit</span></button>
-                    <?php endif; ?>
-                    <b class="lbl-dup" data-dup <?= $isDup ? '' : 'hidden' ?> title="มีรายการอื่นชื่อเดียวกัน — ฉลากจะดูเหมือนกัน">ชื่อซ้ำ</b>
-                </span>
-                <?php if (!empty($r['name_th'])): ?>
-                <span class="lbl-row-th"><?= h($r['name_th']) ?></span>
-                <?php endif; ?>
-                <?php if ($models !== ''): ?>
-                <span class="lbl-row-models">ใช้กับ <?= h($models) ?></span>
-                <?php endif; ?>
-                <?php if ($isUnit): ?>
-                <span class="lbl-row-sub"><code><?= h($r['asset_tag'] ?: ($r['sku'] ?: '—')) ?></code><?= $r['serial_number'] ? ' · ' . h($r['serial_number']) : '' ?> · <?= h($r['status']) ?></span>
-                <?php else: ?>
-                <span class="lbl-row-sub"><code><?= h($r['sku'] ?: '—') ?></code> · <?= h($r['cat_name'] ?: '—') ?> · คงเหลือ <?= (int)$r['qty'] ?></span>
-                <?php endif; ?>
-            </span>
-            <?php if ($r['last_at']): ?>
-            <span class="lbl-row-st" title="พิมพ์แล้ว <?= (int)$r['times'] ?> ครั้ง">พิมพ์ <?= date('d/m/y', strtotime($r['last_at'])) ?></span>
-            <?php else: ?>
-            <span class="lbl-row-st is-new">ยังไม่พิมพ์</span>
-            <?php endif; ?>
-        </label>
-        <?php endforeach; ?>
-
-        <?php if ($pages > 1): ?>
-        <nav class="lbl-pager">
-            <?php if ($page > 1): ?><a href="<?= h(qs(['page' => $page - 1])) ?>">‹ ก่อนหน้า</a><?php else: ?><span></span><?php endif; ?>
-            <span>หน้า <?= $page ?> / <?= $pages ?></span>
-            <?php if ($page < $pages): ?><a href="<?= h(qs(['page' => $page + 1])) ?>">ถัดไป ›</a><?php else: ?><span></span><?php endif; ?>
         </nav>
-        <?php endif; ?>
-    </div>
 
-    <!-- ── History ── -->
-    <?php if ($history): ?>
-    <h2 class="lbl-h2">พิมพ์ล่าสุด</h2>
-    <div class="lbl-card">
-        <?php foreach ($history as $hr): ?>
-        <div class="lbl-hist">
-            <span class="lbl-hist-main">
-                <b><?= (int)$hr['item_count'] ?> รายการ</b>
-                <span class="lbl-dim">· <?= (int)$hr['item_count'] * (int)$hr['copies'] ?> ดวง · <?= date('d/m/y H:i', strtotime($hr['created_at'])) ?><?= $hr['admin_name'] ? ' · ' . h($hr['admin_name']) : '' ?></span>
-            </span>
-            <a class="lbl-hist-open" href="print_labels.php?run=<?= (int)$hr['id'] ?>" title="เปิดแผ่นนี้อีกครั้ง" aria-label="เปิดแผ่นนี้อีกครั้ง">
-                <span class="material-symbols-rounded">print</span>
-            </a>
+        <div class="lbl-filters">
+            <form method="get" class="lbl-filter">
+                <div class="lbl-search">
+                    <span class="material-symbols-rounded">search</span>
+                    <input type="search" name="q" value="<?= h($q) ?>" placeholder="<?= $isUnit ? 'ชื่อ, asset tag, serial' : 'ชื่อ, SKU, Part No.' ?>" autocomplete="off" enterkeyhint="search">
+                </div>
+                <select name="cat" onchange="this.form.submit()" aria-label="หมวดหมู่">
+                    <option value="">ทุกหมวด</option>
+                    <?php foreach ($cats as $c): ?>
+                    <option value="<?= (int)$c['id'] ?>" <?= $cat === (int)$c['id'] ? 'selected' : '' ?>><?= h($c['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+                <input type="hidden" name="show" value="<?= $show ?>">
+                <?php if ($kind !== 'new'): ?><input type="hidden" name="kind" value="<?= $kind ?>"><?php endif; ?>
+            </form>
+            <nav class="lbl-seg lbl-show" role="tablist">
+                <a href="<?= h(qs(['show' => 'unprinted', 'page' => ''])) ?>" class="<?= $show === 'unprinted' ? 'is-on' : '' ?>" role="tab">ยังไม่พิมพ์</a>
+                <a href="<?= h(qs(['show' => 'all', 'page' => ''])) ?>" class="<?= $show === 'all' ? 'is-on' : '' ?>" role="tab">ทั้งหมด</a>
+            </nav>
         </div>
-        <?php endforeach; ?>
-    </div>
-    <?php endif; ?>
-</div>
 
-<!-- ── Selection bar: appears once something is picked ── -->
-<form method="post" class="lbl-bar" id="lblBar" hidden>
-    <input type="hidden" name="ids" id="lblIds">
-    <span class="lbl-bar-count"><b id="lblCount">0</b> รายการ</span>
-    <label class="lbl-bar-copies" title="ดวงต่อรายการ">
-        ดวงละ <input type="number" name="copies" value="1" min="1" max="<?= $maxCopies ?>" inputmode="numeric">
-    </label>
-    <button type="button" class="lbl-link" data-pick-clear>ล้าง</button>
-    <button type="submit" class="lbl-go" <?= $hasLog ? '' : 'disabled' ?>>
-        <span class="material-symbols-rounded">print</span> พิมพ์
-    </button>
-</form>
+        <!-- ── List ── -->
+        <div class="lbl-card">
+            <div class="lbl-listhd">
+                <span><b><?= number_format($total) ?></b> รายการ<?= $pages > 1 ? ' · หน้า ' . $page . '/' . $pages : '' ?></span>
+                <?php if ($allIds): ?>
+                <span class="lbl-listhd-act">
+                    <button type="button" class="lbl-link" data-pick-page>เลือกทั้งหน้า</button>
+                    <?php if ($total > count($rows)): ?>
+                    <button type="button" class="lbl-link" data-pick-all>ทั้งหมด <?= number_format(count($allIds)) ?></button>
+                    <?php endif; ?>
+                </span>
+                <?php endif; ?>
+            </div>
+
+            <?php if (!$rows): ?>
+            <div class="lbl-empty">
+                <span class="material-symbols-rounded"><?= $show === 'unprinted' && $q === '' && !$cat ? 'task_alt' : 'search_off' ?></span>
+                <?= $show === 'unprinted' && $q === '' && !$cat ? 'ติดฉลากครบทุกรายการแล้ว' : 'ไม่พบรายการ' ?>
+            </div>
+            <?php endif; ?>
+
+            <?php foreach ($rows as $r): ?>
+            <?php $isDup = $kind === 'new' && isset($dupNames[mb_strtolower(trim($r['name']))]);
+                  $models = plb_models_line($r['name'], $r['compatible_models']); ?>
+            <label class="lbl-row" data-id="<?= (int)$r['id'] ?>">
+                <input type="checkbox" value="<?= (int)$r['id'] ?>" data-pick>
+                <span class="lbl-row-main">
+                    <span class="lbl-row-name">
+                        <span data-name><?= h($r['name']) ?></span>
+                        <?php if ($kind === 'new'): ?>
+                        <button type="button" class="lbl-edit" data-rename aria-label="แก้ชื่อ"><span class="material-symbols-rounded">edit</span></button>
+                        <?php endif; ?>
+                        <b class="lbl-dup" data-dup <?= $isDup ? '' : 'hidden' ?> title="มีรายการอื่นชื่อเดียวกัน — ฉลากจะดูเหมือนกัน">ชื่อซ้ำ</b>
+                    </span>
+                    <?php if (!empty($r['name_th'])): ?>
+                    <span class="lbl-row-th"><?= h($r['name_th']) ?></span>
+                    <?php endif; ?>
+                    <?php if ($models !== ''): ?>
+                    <span class="lbl-row-models">ใช้กับ <?= h($models) ?></span>
+                    <?php endif; ?>
+                </span>
+                <span class="lbl-row-meta">
+                    <?php if ($isUnit): ?>
+                    <code><?= h($r['asset_tag'] ?: ($r['sku'] ?: '—')) ?></code>
+                    <span class="lbl-row-cat"><?= h($r['serial_number'] ?: '—') ?></span>
+                    <span class="lbl-row-qty"><?= h($r['status']) ?></span>
+                    <?php else: ?>
+                    <code><?= h($r['sku'] ?: '—') ?></code>
+                    <span class="lbl-row-cat"><?= h($r['cat_name'] ?: '—') ?></span>
+                    <span class="lbl-row-qty">เหลือ <?= (int)$r['qty'] ?></span>
+                    <?php endif; ?>
+                </span>
+                <?php if ($r['last_at']): ?>
+                <span class="lbl-row-st" title="พิมพ์แล้ว <?= (int)$r['times'] ?> ครั้ง">พิมพ์ <?= date('d/m/y', strtotime($r['last_at'])) ?></span>
+                <?php else: ?>
+                <span class="lbl-row-st is-new">ยังไม่พิมพ์</span>
+                <?php endif; ?>
+            </label>
+            <?php endforeach; ?>
+
+            <?php if ($pages > 1): ?>
+            <nav class="lbl-pager">
+                <?php if ($page > 1): ?><a href="<?= h(qs(['page' => $page - 1])) ?>"><span class="material-symbols-rounded">chevron_left</span> ก่อนหน้า</a><?php else: ?><span></span><?php endif; ?>
+                <span>หน้า <?= $page ?> / <?= $pages ?></span>
+                <?php if ($page < $pages): ?><a href="<?= h(qs(['page' => $page + 1])) ?>">ถัดไป <span class="material-symbols-rounded">chevron_right</span></a><?php else: ?><span></span><?php endif; ?>
+            </nav>
+            <?php endif; ?>
+        </div>
+    </main>
+
+    <aside class="lbl-aside">
+        <!-- ── Print panel: a side card on wide screens, a floating bar on narrow ones ── -->
+        <form method="post" class="lbl-bar is-empty" id="lblBar">
+            <input type="hidden" name="ids" id="lblIds">
+            <div class="lbl-bar-sum">
+                <span class="lbl-bar-count"><b id="lblCount">0</b> <span>รายการที่เลือก</span></span>
+                <span class="lbl-bar-hint">ติ๊กรายการทางซ้าย เลือกข้ามหน้า/หมวดได้</span>
+            </div>
+            <div class="lbl-bar-copies" title="ดวงต่อรายการ">
+                <span>ดวงละ</span>
+                <button type="button" class="lbl-step" data-step="-1" aria-label="ลด">−</button>
+                <input type="number" name="copies" id="lblCopies" value="1" min="1" max="<?= $maxCopies ?>" inputmode="numeric" aria-label="ดวงต่อรายการ">
+                <button type="button" class="lbl-step" data-step="1" aria-label="เพิ่ม">+</button>
+            </div>
+            <div class="lbl-bar-act">
+                <button type="button" class="lbl-clear" data-pick-clear>ล้าง</button>
+                <button type="submit" class="lbl-go" id="lblGo" disabled>
+                    <span class="material-symbols-rounded">print</span> พิมพ์
+                </button>
+            </div>
+        </form>
+
+        <?php if ($history): ?>
+        <section class="lbl-hist-card">
+            <h2 class="lbl-h2">พิมพ์ล่าสุด</h2>
+            <div class="lbl-card">
+                <?php foreach ($history as $hr): ?>
+                <a class="lbl-hist" href="print_labels.php?run=<?= (int)$hr['id'] ?>" title="เปิดแผ่นนี้อีกครั้ง">
+                    <span class="lbl-hist-main">
+                        <b><?= (int)$hr['item_count'] ?> รายการ · <?= (int)$hr['item_count'] * (int)$hr['copies'] ?> ดวง</b>
+                        <span class="lbl-dim"><?= date('d/m/y H:i', strtotime($hr['created_at'])) ?><?= $hr['admin_name'] ? ' · ' . h($hr['admin_name']) : '' ?></span>
+                    </span>
+                    <span class="material-symbols-rounded lbl-hist-ic">print</span>
+                </a>
+                <?php endforeach; ?>
+            </div>
+        </section>
+        <?php endif; ?>
+    </aside>
+    </div>
+</div>
 
 <script>
 window.LBL_ALL_IDS = <?= json_encode($allIds) ?>;
+window.LBL_CAN_PRINT = <?= $hasLog ? 'true' : 'false' ?>;
 </script>
 <script src="assets/js/inventory-labels.js?v=<?= asset_ver('/admin/inventory/assets/js/inventory-labels.js') ?>"></script>
 
