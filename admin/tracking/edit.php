@@ -348,11 +348,88 @@ require_once __DIR__ . '/../templates/header_admin.php';
     </div>
     <?php endif; ?>
 
-    <form method="post" id="editForm" class="cr3-form">
+    <form method="post" id="editForm" class="cr3-form cr3e-form">
       <div class="cr3-main">
 
+        <!-- ── Phone (<992px): job summary, edit in place. Tapping a row opens
+             the matching [data-sheet] form block right under it (edit-page JS
+             moves each block into its slot). Desktop never shows this and keeps
+             the normal form layout — same inputs, same <form>. ── -->
+        <div class="jc">
+            <div class="jc-hero">
+                <div class="jc-hero-top">
+                    <code class="jc-ticket" data-val="job"></code>
+                    <span class="jc-status" data-val="status"></span>
+                </div>
+                <div class="jc-cust">
+                    <b data-val="cname"></b>
+                    <a class="jc-tel" id="jcTel" href="#">
+                        <span class="material-symbols-rounded">call</span><span data-val="phone"></span>
+                    </a>
+                </div>
+                <div class="jc-dev" data-val="device"></div>
+            </div>
+
+            <button type="button" class="jc-next" data-next-status hidden>
+                <span class="material-symbols-rounded">arrow_forward</span>
+                <span>เปลี่ยนเป็น <b data-next-label></b></span>
+            </button>
+            <button type="button" class="jc-link" data-open="status">
+                <span class="material-symbols-rounded">swap_vert</span> เปลี่ยนสถานะอื่น
+            </button>
+            <div class="jc-slot" data-slot="status"></div>
+
+            <div class="jc-tiles">
+                <button type="button" class="jc-tile" data-open="price">
+                    <small>ราคาประเมิน</small><b data-val="price"></b>
+                </button>
+                <button type="button" class="jc-tile" data-open="price">
+                    <small>นัดแจ้งผล</small><b data-val="appt"></b>
+                </button>
+            </div>
+            <div class="jc-slot" data-slot="price"></div>
+
+            <div class="jc-list">
+                <?php foreach ([
+                    'customer' => ['person',       'ลูกค้า'],
+                    'device'   => ['devices',      'อุปกรณ์'],
+                    'symptoms' => ['report',       'อาการเสีย'],
+                    'checkin'  => ['fact_check',   'ตรวจรับ'],
+                    'pickup'   => ['handshake',    'รับเครื่องคืน'],
+                    'job'      => ['receipt_long', 'ใบรับซ่อม'],
+                ] as $key => [$ico, $lbl]): ?>
+                <button type="button" class="jc-row" data-open="<?= $key ?>">
+                    <span class="material-symbols-rounded jc-row-ico"><?= $ico ?></span>
+                    <span class="jc-row-lbl"><?= $lbl ?></span>
+                    <span class="jc-row-val" data-val="<?= $key === 'job' ? 'jobdate' : $key ?>"></span>
+                    <span class="material-symbols-rounded jc-row-edit">edit</span>
+                </button>
+                <div class="jc-slot" data-slot="<?= $key ?>"></div>
+                <?php endforeach; ?>
+            </div>
+
+            <div class="jc-sec">ใบรับประกัน</div>
+            <div class="jc-list">
+                <?php foreach ($linkedWarranties as $lw):
+                    $wTone = $lw['status'] === 'active' ? '#10b981' : ($lw['status'] === 'voided' ? '#ef4444' : '#94a3b8');
+                    $wIcon = $lw['status'] === 'active' ? 'verified' : ($lw['status'] === 'voided' ? 'block' : 'schedule');
+                ?>
+                <a href="../warranty/view.php?id=<?= $lw['id'] ?>" target="_blank" class="jc-row">
+                    <span class="material-symbols-rounded jc-row-ico" style="color:<?= $wTone ?>;"><?= $wIcon ?></span>
+                    <span class="jc-row-lbl jc-mono"><?= h($lw['warranty_no']) ?></span>
+                    <span class="jc-row-val">หมด <?= date('d/m/y', strtotime($lw['end_date'])) ?></span>
+                    <span class="material-symbols-rounded jc-row-edit">open_in_new</span>
+                </a>
+                <?php endforeach; ?>
+                <button type="button" class="jc-row jc-row-add" onclick="openWarrantyModal()">
+                    <span class="material-symbols-rounded jc-row-ico">add_circle</span>
+                    <span class="jc-row-lbl">ออกใบประกัน</span>
+                </button>
+            </div>
+        </div>
+
         <!-- ── Job slip: no. + received date ── -->
-        <section class="cr3-card cr3-job">
+        <section class="cr3-card cr3-job" data-sheet="job" data-title="ใบรับซ่อม">
             <div class="cr3-job-badge">
                 <span class="material-symbols-rounded">receipt_long</span> ใบรับซ่อม · JOB SLIP
             </div>
@@ -380,11 +457,73 @@ require_once __DIR__ . '/../templates/header_admin.php';
             </div>
         </section>
 
+        <!-- ── Price / appointment / status ── -->
+        <section class="cr3-card cr3e-primary">
+            <header class="cr3-hd cr3-hd-amber">
+                <span class="cr3-hd-ico material-symbols-rounded">payments</span>
+                <div class="cr3-hd-txt">
+                    <div class="cr3-hd-title">ราคา · นัดหมาย · สถานะ</div>
+                    <div class="cr3-hd-sub">ที่แก้บ่อยสุด — อยู่บนสุด</div>
+                </div>
+            </header>
+            <div class="cr3-body">
+
+                <div class="cr3e-sheetwrap" data-sheet="price" data-title="ราคา · วันนัด">
+                <div class="cr3-grid2">
+                    <div class="cr3-field">
+                        <label class="cr3-label">ราคาประเมิน (บาท)</label>
+                        <div class="cr3-money">
+                            <span class="cr3-money-sign">฿</span>
+                            <input type="number" name="estimated_cost" class="cr3-input" value="<?= (float)$job['estimated_cost'] ?>" min="0" step="any" inputmode="numeric">
+                        </div>
+                    </div>
+                    <div class="cr3-field">
+                        <label class="cr3-label">วันที่นัดหมาย (แจ้งผล)</label>
+                        <input type="date" name="appointment_date" id="appDateInput" class="cr3-input"
+                               value="<?= $appVal ?>" oninput="calcDaysFromDate()">
+                    </div>
+                </div>
+
+                <div class="cr3-field">
+                    <label class="cr3-label">นัดอีกกี่วัน (ข้ามวันอาทิตย์)</label>
+                    <div class="cr3-quickdays">
+                        <?php foreach ([1, 2, 3, 5, 7] as $d): ?>
+                        <button type="button" class="cr3-qd" onclick="setDays(<?= $d ?>)">+<?= $d ?> วัน</button>
+                        <?php endforeach; ?>
+                        <input type="number" id="daysToFinish" class="cr3-input cr3-qd-input" placeholder="วัน" min="0" oninput="calcWorkDate()">
+                    </div>
+                </div>
+                </div>
+
+                <div class="cr3-field" data-sheet="pickup" data-title="วันรับเครื่องคืน">
+                    <label class="cr3-label" style="color:#059669;">วันที่ลูกค้ารับเครื่องคืน (ถ้ารับแล้ว)</label>
+                    <input type="datetime-local" name="pickup_date" class="cr3-input" value="<?= $pickupVal ?>">
+                </div>
+
+                <div class="cr3-field cr3e-status" data-sheet="status" data-title="สถานะงาน">
+                    <label class="cr3-label">สถานะงาน</label>
+                    <button type="button" class="cr3e-next" data-next-status hidden>
+                        <span class="material-symbols-rounded">arrow_forward</span>
+                        <span>เปลี่ยนเป็น <b data-next-label></b></span>
+                    </button>
+                    <div class="cr3-chips">
+                        <?php foreach ($statusList as $code => [$label, $color]): ?>
+                        <label class="cr3-chip cr3-chip-status">
+                            <input type="radio" name="status" value="<?= $code ?>" <?= $job['status'] === $code ? 'checked' : '' ?>>
+                            <span><i class="cr3-dot" style="background:<?= $color ?>;"></i><?= h($label) ?></span>
+                        </label>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
         <div class="cr3-cols">
             <div class="cr3-col">
 
                 <!-- ── Customer ── -->
-                <section class="cr3-card">
+                <section class="cr3-card" data-sheet="customer" data-title="ข้อมูลลูกค้า">
                     <header class="cr3-hd cr3-hd-blue">
                         <span class="cr3-hd-ico material-symbols-rounded">person</span>
                         <div class="cr3-hd-txt">
@@ -409,7 +548,7 @@ require_once __DIR__ . '/../templates/header_admin.php';
                 </section>
 
                 <!-- ── Device ── -->
-                <section class="cr3-card">
+                <section class="cr3-card" data-sheet="device" data-title="ข้อมูลอุปกรณ์">
                     <header class="cr3-hd cr3-hd-violet">
                         <span class="cr3-hd-ico material-symbols-rounded">devices</span>
                         <div class="cr3-hd-txt">
@@ -459,7 +598,7 @@ require_once __DIR__ . '/../templates/header_admin.php';
                 </section>
 
                 <!-- ── Symptoms ── -->
-                <section class="cr3-card">
+                <section class="cr3-card" data-sheet="symptoms" data-title="อาการเสีย">
                     <header class="cr3-hd cr3-hd-red">
                         <span class="cr3-hd-ico material-symbols-rounded">report</span>
                         <div class="cr3-hd-txt">
@@ -489,7 +628,7 @@ require_once __DIR__ . '/../templates/header_admin.php';
             <div class="cr3-col">
 
                 <!-- ── Check-in checklist ── -->
-                <section class="cr3-card">
+                <section class="cr3-card" data-sheet="checkin" data-title="ตรวจรับเครื่อง">
                     <header class="cr3-hd cr3-hd-teal">
                         <span class="cr3-hd-ico material-symbols-rounded">fact_check</span>
                         <div class="cr3-hd-txt">
@@ -535,63 +674,6 @@ require_once __DIR__ . '/../templates/header_admin.php';
                     </div>
                 </section>
 
-                <!-- ── Price / appointment / status ── -->
-                <section class="cr3-card">
-                    <header class="cr3-hd cr3-hd-amber">
-                        <span class="cr3-hd-ico material-symbols-rounded">payments</span>
-                        <div class="cr3-hd-txt">
-                            <div class="cr3-hd-title">ราคา · นัดหมาย · สถานะ</div>
-                            <div class="cr3-hd-sub">ประเมินราคา วันนัด และสถานะงาน</div>
-                        </div>
-                        <span class="cr3-step">5</span>
-                    </header>
-                    <div class="cr3-body">
-
-                        <div class="cr3-grid2">
-                            <div class="cr3-field">
-                                <label class="cr3-label">ราคาประเมิน (บาท)</label>
-                                <div class="cr3-money">
-                                    <span class="cr3-money-sign">฿</span>
-                                    <input type="number" name="estimated_cost" class="cr3-input" value="<?= (float)$job['estimated_cost'] ?>" min="0" step="any" inputmode="numeric">
-                                </div>
-                            </div>
-                            <div class="cr3-field">
-                                <label class="cr3-label">วันที่นัดหมาย (แจ้งผล)</label>
-                                <input type="date" name="appointment_date" id="appDateInput" class="cr3-input"
-                                       value="<?= $appVal ?>" oninput="calcDaysFromDate()">
-                            </div>
-                        </div>
-
-                        <div class="cr3-field">
-                            <label class="cr3-label">นัดอีกกี่วัน (ข้ามวันอาทิตย์)</label>
-                            <div class="cr3-quickdays">
-                                <?php foreach ([1, 2, 3, 5, 7] as $d): ?>
-                                <button type="button" class="cr3-qd" onclick="setDays(<?= $d ?>)">+<?= $d ?> วัน</button>
-                                <?php endforeach; ?>
-                                <input type="number" id="daysToFinish" class="cr3-input cr3-qd-input" placeholder="วัน" min="0" oninput="calcWorkDate()">
-                            </div>
-                        </div>
-
-                        <div class="cr3-field">
-                            <label class="cr3-label" style="color:#059669;">วันที่ลูกค้ารับเครื่องคืน (ถ้ารับแล้ว)</label>
-                            <input type="datetime-local" name="pickup_date" class="cr3-input" value="<?= $pickupVal ?>">
-                        </div>
-
-                        <div class="cr3-field">
-                            <label class="cr3-label">สถานะงาน</label>
-                            <div class="cr3-chips">
-                                <?php foreach ($statusList as $code => [$label, $color]): ?>
-                                <label class="cr3-chip cr3-chip-status">
-                                    <input type="radio" name="status" value="<?= $code ?>" <?= $job['status'] === $code ? 'checked' : '' ?>>
-                                    <span><i class="cr3-dot" style="background:<?= $color ?>;"></i><?= h($label) ?></span>
-                                </label>
-                                <?php endforeach; ?>
-                            </div>
-                        </div>
-
-                    </div>
-                </section>
-
             </div>
         </div>
 
@@ -616,13 +698,12 @@ require_once __DIR__ . '/../templates/header_admin.php';
                 <a href="index.php" class="cr3-btn cr3-btn-ghost">
                     <span class="material-symbols-rounded">close</span> ยกเลิก
                 </a>
-                <button type="button" id="btnToggleLock" onclick="toggleFormLock()" class="cr3-btn cr3-btn-ghost">
-                    <span class="material-symbols-rounded" id="lockIcon">lock</span>
-                    <span id="lockLabel">ปลดล็อกแก้ไข</span>
+                <button type="button" id="jcDiscard" class="cr3-btn cr3-btn-ghost jc-discard">
+                    <span class="material-symbols-rounded">undo</span> ยกเลิก
                 </button>
                 <button type="submit" id="btnSave" class="cr3-btn cr3-btn-save" disabled
-                        onclick="if(document.getElementById('editForm').checkValidity()) showLoader()">
-                    <span class="material-symbols-rounded">save</span> บันทึกการแก้ไข
+                        onclick="if(document.getElementById('editForm').checkValidity()) window.showLoader && showLoader()">
+                    <span class="material-symbols-rounded">save</span> บันทึก
                 </button>
             </div>
         </div>
@@ -644,7 +725,7 @@ require_once __DIR__ . '/../templates/header_admin.php';
                 <?php if (!empty($job['updated_at'])): ?>
                 <div class="cr3-tip"><span class="material-symbols-rounded">update</span> แก้ไขล่าสุด <?= date('d/m/Y H:i', strtotime($job['updated_at'])) ?></div>
                 <?php endif; ?>
-                <div class="cr3-tip"><span class="material-symbols-rounded">lock</span> ฟอร์มถูกล็อกไว้ — กด "ปลดล็อกแก้ไข" ก่อนแก้ข้อมูล</div>
+                <div class="cr3-tip"><span class="material-symbols-rounded">edit_note</span> แก้ได้เลย — ปุ่มบันทึกจะนับให้ว่าแก้ไปกี่จุด</div>
             </div>
         </div>
 
@@ -676,7 +757,7 @@ require_once __DIR__ . '/../templates/header_admin.php';
                 </div>
                 <?php endforeach; ?>
             </div>
-            <a href="history.php" class="cr3-recent-all" onclick="showLoader()">
+            <a href="history.php" class="cr3-recent-all" onclick="window.showLoader && showLoader()">
                 ประวัติทั้งหมด <span class="material-symbols-rounded">arrow_forward</span>
             </a>
         </div>
@@ -686,29 +767,6 @@ require_once __DIR__ . '/../templates/header_admin.php';
 </div>
 
 <script>
-/* ── Lock / unlock editing ── */
-let isLocked = true;
-
-function setFormState(locked) {
-    isLocked = locked;
-
-    const icon  = document.getElementById('lockIcon');
-    const label = document.getElementById('lockLabel');
-    const btn   = document.getElementById('btnToggleLock');
-    icon.textContent  = locked ? 'lock' : 'lock_open';
-    label.textContent = locked ? 'ปลดล็อกแก้ไข' : 'ล็อกการแก้ไข';
-    btn.classList.toggle('cr3e-unlocked', !locked);
-
-    const save = document.getElementById('btnSave');
-    save.disabled = locked;
-
-    document.querySelectorAll('#editForm input:not([type="hidden"]), #editForm textarea, #editForm .cr3-qd')
-        .forEach(el => { el.disabled = locked; });
-
-    document.getElementById('editForm').classList.toggle('cr3e-locked', locked);
-}
-function toggleFormLock() { setFormState(!isLocked); }
-
 /* ── Appointment day calculator (skips Sundays — shop closed) ── */
 function setDays(n) {
     const el = document.getElementById('daysToFinish');
@@ -743,9 +801,185 @@ document.querySelectorAll('.cr3-textarea').forEach(t => {
     t.addEventListener('input', grow); grow();
 });
 
-window.addEventListener('load', function() {
+/* ── No edit lock (phone or desktop): the save button counts what changed,
+   stays off until something did, and leaving with unsaved edits asks first. ── */
+const isPhone = window.matchMedia('(max-width: 991px)').matches;
+const form    = document.getElementById('editForm');
+const saveBtn = document.getElementById('btnSave');
+
+/* every [data-sheet] block is one "จุด" (spot) of the form */
+const sheets = {};
+form.querySelectorAll('[data-sheet]').forEach(el => { sheets[el.dataset.sheet] = el; });
+
+/* ── the next step most jobs take from each status ── */
+const NEXT = { QS: 'WC', WC: 'OK', OK: 'FN', RW: 'FN', FN: 'DV' };
+const statusInput = code => form.querySelector(`input[name="status"][value="${code}"]`);
+const statusMeta  = input => {
+    const span = input.nextElementSibling;
+    return { label: span.textContent.trim(), color: span.querySelector('.cr3-dot').style.background };
+};
+function paintNext() {
+    const cur = form.querySelector('input[name="status"]:checked');
+    const nx  = cur && statusInput(NEXT[cur.value]);
+    form.querySelectorAll('[data-next-status]').forEach(btn => {
+        btn.hidden = !nx;
+        if (!nx) return;
+        const m = statusMeta(nx);
+        btn.querySelector('[data-next-label]').textContent = m.label;
+        btn.style.setProperty('--next', m.color);
+    });
+}
+form.querySelectorAll('[data-next-status]').forEach(btn => btn.addEventListener('click', () => {
+    const cur = form.querySelector('input[name="status"]:checked');
+    const nx  = cur && statusInput(NEXT[cur.value]);
+    if (!nx) return;
+    nx.checked = true;
+    nx.dispatchEvent(new Event('change', { bubbles: true }));
+}));
+
+/* ── what changed since the page loaded ── */
+let snapshot = null, submitting = false;
+const fieldsOf = el => [...new Set([...el.querySelectorAll('[name]')].map(i => i.name))];
+const sig = el => { const fd = new FormData(form); return fieldsOf(el).map(n => n + '=' + fd.getAll(n).join('|')).join('&'); };
+function markChanged() {
+    if (!snapshot) return;
+    let n = 0;
+    const cards = new Map();
+    for (const key in sheets) {
+        const changed = sig(sheets[key]) !== snapshot[key];
+        if (changed) n++;
+        // phone: the summary row/tile · desktop: the card the block sits in
+        form.querySelectorAll(`[data-open="${key}"]`).forEach(b => b.classList.toggle('is-changed', changed));
+        const card = sheets[key].closest('.cr3-card');
+        if (card) cards.set(card, (cards.get(card) || false) || changed);
+    }
+    cards.forEach((changed, card) => card.classList.toggle('is-changed', changed));
+    form.classList.toggle('is-dirty', n > 0);
+    saveBtn.disabled = n === 0;
+    saveBtn.innerHTML = '<span class="material-symbols-rounded">save</span> บันทึก' + (n ? ` (${n} จุด)` : '');
+}
+let phoneRefresh = null;
+const update = () => { paintNext(); if (phoneRefresh) phoneRefresh(); markChanged(); };
+form.addEventListener('input', update);
+form.addEventListener('change', update);
+form.addEventListener('submit', () => { submitting = true; });
+window.addEventListener('beforeunload', e => {
+    if (!submitting && form.classList.contains('is-dirty')) { e.preventDefault(); e.returnValue = ''; }
+});
+document.getElementById('jcDiscard')?.addEventListener('click', () => {
+    submitting = true;   // throwing the edits away is the point — no "leave page?" prompt
+    location.reload();
+});
+
+/* ── Phone (<992px): job summary, edit in place ──
+   Every [data-sheet] block is a normal part of the form on desktop. On a
+   phone it is moved into the slot under its summary row and stays folded
+   until that row is tapped. Inputs never leave the <form>, so submitting
+   is unchanged. */
+(function () {
+    if (!isPhone) return;
+    const blocks = {};
+    let openKey = null;
+
+    for (const key in sheets) {
+        const el   = sheets[key];
+        const slot = form.querySelector(`.jc-slot[data-slot="${key}"]`);
+        if (!slot) continue;
+        const done = document.createElement('button');
+        done.type = 'button';
+        done.className = 'jc-done';
+        done.innerHTML = '<span class="material-symbols-rounded">check</span> เสร็จ';
+        done.addEventListener('click', close);
+        el.appendChild(done);
+        slot.appendChild(el);
+        blocks[key] = slot;
+    }
+
+    const growAll = root => root.querySelectorAll('.cr3-textarea').forEach(t => {
+        t.style.height = 'auto'; t.style.height = (t.scrollHeight + 2) + 'px';
+    });
+    function open(key) {
+        if (openKey === key) { close(); return; }
+        close();
+        const slot = blocks[key];
+        if (!slot) return;
+        openKey = key;
+        slot.classList.add('is-open');
+        form.querySelectorAll(`[data-open="${key}"]`).forEach(b => b.classList.add('is-active'));
+        growAll(slot);
+        const anchor = form.querySelector(`[data-open="${key}"]`);
+        setTimeout(() => anchor.scrollIntoView({ behavior: 'smooth', block: 'start' }), 30);
+    }
+    function close() {
+        if (!openKey) return;
+        blocks[openKey].classList.remove('is-open');
+        form.querySelectorAll('[data-open].is-active').forEach(b => b.classList.remove('is-active'));
+        openKey = null;
+        update();
+    }
+    form.querySelectorAll('[data-open]').forEach(b => b.addEventListener('click', () => open(b.dataset.open)));
+
+    // picking a status is the whole job of that block — fold it right away
+    form.querySelectorAll('input[name="status"]').forEach(i =>
+        i.addEventListener('change', () => setTimeout(close, 180)));
+
+    // a required field in a folded block can't take focus — unfold it
+    form.addEventListener('invalid', e => {
+        const el = e.target.closest('[data-sheet]');
+        if (el && openKey !== el.dataset.sheet) open(el.dataset.sheet);
+    }, true);
+
+    /* ── summary values, read live from the form ── */
+    const val    = n => (form.elements[n]?.value || '').trim();
+    const picked = n => [...form.querySelectorAll(`input[name="${n}"]:checked`)].map(i => i.value);
+    const withOther = (n, o) => picked(n).concat(val(o) ? [val(o)] : []).join(', ');
+    const esc = t => t.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const thDate = (v, time) => {
+        if (!v) return '';
+        const d = new Date(v);
+        if (isNaN(d)) return '';
+        const s = d.toLocaleDateString('th-TH', { weekday: 'short', day: 'numeric', month: 'short' });
+        return time ? `${s} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')} น.` : s;
+    };
+    const values = {
+        status() {
+            const c = form.querySelector('input[name="status"]:checked');
+            if (!c) return '';
+            const m = statusMeta(c);
+            return `<i style="background:${m.color}"></i>${esc(m.label)}`;
+        },
+        price:    () => { const n = parseFloat(val('estimated_cost')); return n > 0 ? '฿' + n.toLocaleString('th-TH') : ''; },
+        appt:     () => thDate(val('appointment_date')),
+        pickup:   () => thDate(val('pickup_date'), true),
+        job:      () => val('ticket_number'),
+        jobdate:  () => [val('ticket_number'), thDate(val('job_date'), true)].filter(Boolean).join(' · '),
+        cname:    () => val('customer_name'),
+        phone:    () => val('customer_phone'),
+        customer: () => [val('customer_name'), val('customer_phone')].filter(Boolean).join(' · '),
+        device:   () => [picked('device_type')[0], val('device_model'), val('device_series')].filter(Boolean).join(' '),
+        symptoms: () => [picked('symptoms[]').join(', '), val('problem_details')].filter(Boolean).join(' — '),
+        checkin:  () => withOther('items[]', 'items_other'),
+    };
+    const EMPTY = { status: 'ยังไม่ได้เลือก', price: 'แตะเพื่อใส่', appt: 'แตะเพื่อนัด', pickup: 'ยังไม่รับ' };
+    phoneRefresh = function () {
+        form.querySelectorAll('[data-val]').forEach(el => {
+            const k = el.dataset.val, v = values[k]?.() || '';
+            el.classList.toggle('is-empty', !v);
+            if (k === 'status') el.innerHTML = v || EMPTY.status;
+            else el.textContent = v || EMPTY[k] || '—';
+        });
+        const tel = document.getElementById('jcTel');
+        const ph  = val('customer_phone').replace(/[^\d+]/g, '');
+        tel.hidden = !ph;
+        tel.href = 'tel:' + ph;
+    };
+})();
+
+window.addEventListener('load', function () {
     calcDaysFromDate();
-    setFormState(true);
+    snapshot = {};
+    for (const key in sheets) snapshot[key] = sig(sheets[key]);
+    update();
 });
 </script>
 
@@ -1013,7 +1247,7 @@ wmRecalc();
         <code class="cr3e-qrm-no"><?= h($job['ticket_number']) ?></code>
         <div class="cr3e-qrm-name"><?= h($job['customer_name']) ?></div>
         <p class="cr3e-qrm-hint">สแกนด้วยเมนู “สแกน” ในแอป admin เพื่อเปิดงานนี้</p>
-        <a href="stickers.php?reprint=<?= urlencode($job['ticket_number']) ?>#reprint" class="cr3-btn cr3-btn-save cr3e-qrm-print" onclick="showLoader()">
+        <a href="stickers.php?reprint=<?= urlencode($job['ticket_number']) ?>#reprint" class="cr3-btn cr3-btn-save cr3e-qrm-print" onclick="window.showLoader && showLoader()">
             <span class="material-symbols-rounded">print</span> พิมพ์สติ๊กเกอร์ซ้ำ
         </a>
     </div>

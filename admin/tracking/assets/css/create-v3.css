@@ -503,12 +503,8 @@
     .cr3e-wty .material-symbols-rounded { font-size: 16px; }
 }
 
-/* lock state */
-#btnToggleLock.cr3e-unlocked { border-color: #ef4444; color: #ef4444; }
+/* save stays off until something changed (edit.php counts the edits) */
 .cr3-btn-save:disabled { opacity: .45; cursor: not-allowed; transform: none !important; filter: none !important; }
-.cr3e-locked .cr3-input:disabled,
-.cr3e-locked .cr3-qd:disabled { opacity: .6; cursor: not-allowed; }
-.cr3e-locked .cr3-chip input:disabled + span { opacity: .6; cursor: not-allowed; }
 
 /* history empty state */
 .cr3e-hist-empty {
@@ -526,3 +522,224 @@
                      + var(--safe-bottom, 0px) + var(--scan-lift, 18px) + 6px);
     }
 }
+
+/* =========================================================
+   Edit page, phone (<992px): job summary, edit in place.
+   The summary (.jc) is the page; each [data-sheet] form block is moved
+   by edit.php's JS into the .jc-slot under its row and unfolds there.
+   Desktop only ever sees the two display rules right below.
+   ========================================================= */
+.jc { display: none; }
+.cr3e-sheetwrap { display: contents; }
+
+@media (max-width: 991px) {
+    /* the summary replaces the desktop header and cards */
+    .cr3e-form .cr3-cols,
+    .cr3e-form .cr3-col,
+    .cr3e-form .cr3e-primary,
+    .cr3e-form .cr3e-primary > .cr3-body { display: contents; }
+    .cr3e-form .cr3e-primary > .cr3-hd { display: none; }
+    .cr3-wrap:has(.cr3e-form) .cr3e-titlebar { display: none; }
+
+    .jc { display: flex; flex-direction: column; gap: 10px; }
+
+    /* ── hero: who, what, where it stands ── */
+    .jc-hero {
+        padding: 16px 16px 14px;
+        border-radius: 18px;
+        background: var(--bg-surface);
+        border: 1px solid var(--border);
+        box-shadow: var(--shadow);
+    }
+    .jc-hero-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+    .jc-ticket {
+        font-family: 'Courier New', monospace; font-size: 24px; font-weight: 900;
+        color: var(--primary); letter-spacing: .5px; background: none; padding: 0;
+    }
+    .jc-status {
+        display: inline-flex; align-items: center; gap: 7px;
+        padding: 6px 12px; border-radius: 999px;
+        background: var(--bg-surface-alt); border: 1px solid var(--border);
+        font-size: 13.5px; font-weight: 700; color: var(--text-main); white-space: nowrap;
+    }
+    .jc-status i { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .jc-cust { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+    .jc-cust b { font-size: 18px; font-weight: 800; color: var(--text-main); }
+    .jc-tel {
+        display: inline-flex; align-items: center; gap: 5px;
+        padding: 5px 11px 5px 8px; border-radius: 999px;
+        background: rgba(16,185,129,.12); color: #059669 !important;
+        font-size: 14px; font-weight: 700; text-decoration: none;
+    }
+    [data-theme="dark"] .jc-tel { color: #34d399 !important; }
+    .jc-tel[hidden] { display: none; }
+    .jc-tel .material-symbols-rounded { font-size: 17px; }
+    .jc-dev { margin-top: 6px; font-size: 14.5px; color: var(--text-muted); }
+
+    /* ── status: one big "next step" button, the rest behind a link ── */
+    .jc-next {
+        --next: var(--primary);
+        display: flex; align-items: center; justify-content: center; gap: 8px;
+        min-height: 52px; padding: 0 16px; border: 0; border-radius: 14px;
+        background: var(--next); color: #fff;
+        font: inherit; font-size: 16px; font-weight: 700; cursor: pointer;
+        box-shadow: 0 6px 18px color-mix(in srgb, var(--next) 35%, transparent);
+    }
+    .jc-next[hidden] { display: none; }
+    .jc-next:active { filter: brightness(.92); }
+    .jc-next b { font-weight: 800; }
+    .jc-link {
+        align-self: center; display: inline-flex; align-items: center; gap: 4px;
+        margin-top: -2px; padding: 4px 10px; border: 0; background: none;
+        font: inherit; font-size: 14px; font-weight: 600; color: var(--primary); cursor: pointer;
+    }
+    .jc-link .material-symbols-rounded { font-size: 18px; }
+
+    /* ── price + appointment: the two numbers asked about most ── */
+    .jc-tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .jc-tile {
+        position: relative;
+        display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+        padding: 12px 14px; border-radius: 14px;
+        background: var(--bg-surface); border: 1px solid var(--border);
+        font: inherit; color: var(--text-main); text-align: left; cursor: pointer;
+    }
+    .jc-tile small { font-size: 12.5px; font-weight: 600; color: var(--text-muted); }
+    .jc-tile b { font-size: 19px; font-weight: 800; }
+    .jc-tile b.is-empty { font-size: 15px; font-weight: 600; color: var(--primary); }
+    .jc-tile.is-active { border-color: var(--primary); box-shadow: 0 0 0 3px rgba(37,99,235,.12); }
+
+    /* ── detail rows ── */
+    .jc-sec { margin: 10px 4px -4px; font-size: 13px; font-weight: 700; color: var(--text-muted); }
+    .jc-list {
+        display: flex; flex-direction: column;
+        border-radius: 16px; overflow: hidden;
+        background: var(--bg-surface); border: 1px solid var(--border);
+    }
+    .jc-row {
+        position: relative;
+        display: flex; align-items: center; gap: 12px;
+        width: 100%; min-height: 54px; margin: 0; padding: 10px 12px 10px 14px;
+        background: none; border: 0; border-top: 1px solid var(--border);
+        font: inherit; color: var(--text-main); text-align: left; text-decoration: none;
+        cursor: pointer; -webkit-tap-highlight-color: transparent;
+    }
+    .jc-list > .jc-row:first-child { border-top: 0; }
+    .jc-row:active, .jc-row.is-active { background: var(--bg-surface-alt); }
+    .jc-row-ico { font-size: 21px; color: var(--text-muted); flex-shrink: 0; }
+    .jc-row-lbl { font-size: 14px; font-weight: 600; color: var(--text-muted); white-space: nowrap; width: 88px; flex-shrink: 0; }
+    .jc-mono { font-family: 'Courier New', monospace; font-weight: 800; color: var(--text-main); width: auto; }
+    .jc-row-val {
+        flex: 1; min-width: 0;
+        font-size: 15px; font-weight: 600; color: var(--text-main);
+        overflow: hidden; text-overflow: ellipsis;
+        display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    }
+    .jc-row-val.is-empty { color: var(--text-muted); font-weight: 500; opacity: .7; }
+    .jc-row-edit { font-size: 18px; color: var(--text-muted); opacity: .45; flex-shrink: 0; }
+    .jc-row.is-active .jc-row-edit { color: var(--primary); opacity: 1; }
+    .jc-row-add .jc-row-ico, .jc-row-add .jc-row-lbl { color: var(--primary); }
+    .jc-row-add .jc-row-lbl { width: auto; }
+
+    /* edited, not saved yet */
+    .jc-row.is-changed::after, .jc-tile.is-changed::after, .jc-link.is-changed::after {
+        content: ''; position: absolute; left: 5px; top: 50%; transform: translateY(-50%);
+        width: 5px; height: 22px; border-radius: 3px; background: #f59e0b;
+    }
+    .jc-tile.is-changed::after { left: auto; right: 10px; top: 12px; transform: none; width: 8px; height: 8px; border-radius: 50%; }
+    .jc-link { position: relative; }
+    .jc-link.is-changed::after { left: -4px; width: 7px; height: 7px; border-radius: 50%; }
+
+    /* ── the form block unfolds in place ── */
+    .jc-slot:not(.is-open) { display: none; }
+    .jc-slot.is-open { animation: jc-open .22s ease; }
+    .jc-list > .jc-slot.is-open { border-top: 1px solid var(--border); background: var(--bg-surface-alt); }
+    .jc-slot > [data-sheet] {
+        display: flex; flex-direction: column; gap: 14px;
+        margin: 0; padding: 14px;
+        background: none; border: 0; border-radius: 0; box-shadow: none;
+    }
+    .jc > .jc-slot.is-open {
+        border-radius: 16px; overflow: hidden;
+        background: var(--bg-surface); border: 1px solid var(--primary);
+    }
+    .jc-slot [data-sheet]::before { display: none; }
+    .jc-slot .cr3-card > .cr3-hd { display: none; }
+    .jc-slot [data-sheet] > .cr3-body { padding: 0; }
+    .jc-slot .cr3-job .cr3-job-badge,
+    .jc-slot .cr3-job .cr3-job-logo { display: none; }
+    .jc-slot .cr3-job .cr3-job-grid { padding: 0; }
+    .jc-done {
+        align-self: flex-end; display: inline-flex; align-items: center; gap: 4px;
+        padding: 8px 16px; border-radius: 10px; border: 0;
+        background: var(--primary); color: #fff;
+        font: inherit; font-size: 14.5px; font-weight: 700; cursor: pointer;
+    }
+    .jc-done .material-symbols-rounded { font-size: 18px; }
+
+    /* status: a plain checklist, not tiles */
+    .cr3e-status > .cr3-label { display: none; }
+    .cr3e-status .cr3-chips { grid-template-columns: 1fr; gap: 0; }
+    .cr3e-status .cr3-chip span,
+    .cr3e-status .cr3-chip input:checked + span {
+        padding: 13px 4px; gap: 12px;
+        background: none; border: 0; border-radius: 0;
+        border-bottom: 1px solid var(--border);
+        color: var(--text-main); font-size: 15.5px; font-weight: 500;
+    }
+    .cr3e-status .cr3-chip:last-child span { border-bottom: 0; }
+    .cr3e-status .cr3-chip input:checked + span { font-weight: 700; }
+    .cr3e-status .cr3-chip input:checked + span::after {
+        content: 'check'; margin-left: auto;
+        font-family: 'Material Symbols Rounded'; font-size: 22px; font-weight: 400;
+        color: var(--primary);
+    }
+    .cr3e-status .jc-done { display: none; }   /* picking one folds it */
+
+    /* ── save bar: only once something changed; no lock on phones ── */
+    .cr3e-form .cr3e-actionbar { display: none; }
+    .cr3e-form.is-dirty .cr3e-actionbar { display: flex; flex-wrap: nowrap; animation: jc-up .25s ease; }
+    .cr3e-form .cr3e-bar-left,
+    .cr3e-form .cr3e-bar-right a.cr3-btn-ghost,
+    .cr3e-form .cr3e-bar-right { flex: 1 1 100%; flex-wrap: nowrap; }
+    .cr3e-form .jc-discard { flex: 0 0 auto; }
+    .cr3e-form #btnSave { flex: 1; padding: 13px; font-size: 15px; white-space: nowrap; }
+}
+@media (min-width: 992px) {
+    .jc-discard { display: none; }
+
+    /* price / appointment / status: first card under the job slip, two columns —
+       numbers on the left, status on the right */
+    .cr3e-form .cr3e-primary > .cr3-body {
+        display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+        column-gap: 24px; row-gap: 14px; align-items: start;
+    }
+    .cr3e-form .cr3e-primary .cr3e-status { grid-column: 2; grid-row: 1 / span 3; margin: 0; }
+    .cr3e-form .cr3e-primary .cr3e-sheetwrap > *,
+    .cr3e-form .cr3e-primary [data-sheet="pickup"] { grid-column: 1; margin: 0; }
+    .cr3e-form .cr3e-primary .cr3e-status .cr3-chips { grid-template-columns: 1fr 1fr; }
+
+    /* edited, not saved yet */
+    .cr3e-form .cr3-card { position: relative; }
+    .cr3e-form .cr3-card.is-changed { border-color: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,.14); }
+    .cr3e-form .cr3-card.is-changed > .cr3-hd .cr3-hd-title::after {
+        content: 'แก้แล้ว'; margin-left: 8px; padding: 1px 8px; border-radius: 999px;
+        background: rgba(245,158,11,.15); color: #d97706;
+        font-size: 11px; font-weight: 700; vertical-align: 2px;
+    }
+}
+/* the "next status" shortcut above the status chips (desktop; the phone has .jc-next) */
+.cr3e-next {
+    --next: var(--primary);
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    width: 100%; min-height: 46px; margin: 2px 0 12px; padding: 0 14px;
+    border: 0; border-radius: 12px; background: var(--next); color: #fff;
+    font: inherit; font-size: 15px; font-weight: 700; cursor: pointer;
+    box-shadow: 0 6px 16px color-mix(in srgb, var(--next) 30%, transparent);
+}
+.cr3e-next[hidden] { display: none; }
+.cr3e-next:hover { filter: brightness(1.06); }
+.cr3e-next .material-symbols-rounded { font-size: 20px; }
+@media (max-width: 991px) { .cr3e-next { display: none !important; } }
+@keyframes jc-up   { from { transform: translateY(100%); } }
+@keyframes jc-open { from { opacity: 0; transform: translateY(-6px); } }
