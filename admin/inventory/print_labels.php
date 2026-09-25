@@ -2,10 +2,12 @@
 /* =========================================================
    admin/inventory/print_labels.php — A4 QR label sheet for parts
 
-   GET ?run=<part_label_runs.id> [&start=S]
+   GET ?run=<part_label_runs.id> [&start=S] [&size=s|m|l|xl]
      run    a run logged by labels.php (items in picked order + copies)
-     start  first slot on the first sheet (1–70), overrides the logged one
+     start  first slot on the first sheet, overrides the logged one
             — for reprinting a run onto a part-used sheet
+     size   label/QR size (plb_sizes()); the last one used is remembered
+            per device and re-applied when the URL has none
 
    Same paper and layout rules as tracking/stickers_print.php: each .sheet
    IS one A4 page, labels are absolutely placed in mm, packed edge to edge,
@@ -27,7 +29,9 @@ $st->execute([(int)($_GET['run'] ?? 0)]);
 $run = $st->fetch(PDO::FETCH_ASSOC);
 if (!$run) { header('Location: labels.php'); exit; }
 
-$per    = plb_per_sheet();
+$sizes  = plb_sizes();
+$size   = isset($sizes[$_GET['size'] ?? '']) ? $_GET['size'] : 's';
+$per    = plb_per_sheet($size);
 $copies = max(1, (int)$run['copies']);
 $slot0  = max(1, min($per, (int)($_GET['start'] ?? $run['start_slot'])));
 
@@ -55,7 +59,7 @@ foreach ($labels as $l) {
 $qrPayload = [];
 foreach ($items as $it) $qrPayload[$it['id']] = plb_qr_payload((int)$it['id']);
 
-$sheet = plb_sheet();
+$sheet = plb_sheet($size);
 ?>
 <!DOCTYPE html>
 <html lang="th">
@@ -95,7 +99,11 @@ body { font-family: 'Sarabun', sans-serif; color: #000; }
     width: 64px; padding: 7px 8px; border: 1px solid #cbd5e1; border-radius: 8px;
     font: 600 14px 'Sarabun', sans-serif;
 }
-.toolbar form { display: inline-flex; align-items: center; gap: 8px; }
+.toolbar form { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.toolbar select {
+    padding: 7px 8px; border: 1px solid #cbd5e1; border-radius: 8px; background: #fff;
+    font: 600 14px 'Sarabun', sans-serif; color: #0f172a;
+}
 .hint { text-align: center; font-size: 13px; color: #475569; padding: 10px 16px 0; }
 .empty { text-align: center; padding: 60px 16px; font-size: 16px; color: #334155; }
 
@@ -107,6 +115,13 @@ body { font-family: 'Sarabun', sans-serif; color: #000; }
     background: #fff;
     overflow: hidden;
     box-shadow: 0 2px 10px rgba(0,0,0,.2);
+}
+:root {
+    --qr: <?= $sheet['qr'] ?>mm;
+    --fs-name: <?= $sheet['name'] ?>pt; --fs-models: <?= $sheet['models'] ?>pt;
+    --fs-sku: <?= $sheet['sku'] ?>pt;   --fs-brand: <?= $sheet['brand'] ?>pt;
+    --lines: <?= (int)$sheet['lines'] ?>;
+    --k: <?= round($sheet['qr'] / 14, 3) ?>;   /* spacing grows with the QR */
 }
 .label {
     position: absolute;
@@ -121,30 +136,30 @@ body { font-family: 'Sarabun', sans-serif; color: #000; }
 /* QR left, text right */
 .frame {
     position: absolute; inset: 0;
-    display: flex; align-items: center; gap: 1.2mm;
-    padding: 0 1.8mm 0 1.4mm;
+    display: flex; align-items: center; gap: calc(1.2mm * var(--k));
+    padding: 0 calc(1.8mm * var(--k)) 0 calc(1.4mm * var(--k));
 }
-.qr { flex: 0 0 14mm; width: 14mm; height: 14mm; }
+.qr { flex: 0 0 var(--qr); width: var(--qr); height: var(--qr); }
 .qr svg { display: block; width: 100%; height: 100%; }
-.txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: .5mm; }
+.txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: calc(.5mm * var(--k)); }
 .name {
-    font-size: 6.6pt; font-weight: 800; line-height: 1.15;
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+    font-size: var(--fs-name); font-weight: 800; line-height: 1.15;
+    display: -webkit-box; -webkit-line-clamp: var(--lines); -webkit-box-orient: vertical; overflow: hidden;
     word-break: break-word;
 }
 /* which model it fits — tells apart two items with the same name */
 .models {
-    font-size: 5.6pt; font-weight: 700; line-height: 1.1;
+    font-size: var(--fs-models); font-weight: 700; line-height: 1.1;
     display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
     word-break: break-word;
 }
 .sku {
     font-family: 'Courier New', monospace; font-weight: 800;
-    font-size: 5pt; line-height: 1; letter-spacing: -.15pt;
+    font-size: var(--fs-sku); line-height: 1; letter-spacing: -.15pt;
     white-space: nowrap; overflow: hidden; text-overflow: clip;
 }
-.sku.is-unit { font-size: 6pt; letter-spacing: -.3pt; }   /* a machine's asset tag — the only thing telling two "MacBook Air A1466" apart */
-.brand { font-size: 3.8pt; font-weight: 800; letter-spacing: .3pt; line-height: 1; color: #444; }
+.sku.is-unit { font-size: calc(var(--fs-sku) * 1.2); letter-spacing: -.3pt; }   /* a machine's asset tag — the only thing telling two "MacBook Air A1466" apart */
+.brand { font-size: var(--fs-brand); font-weight: 800; letter-spacing: .3pt; line-height: 1; color: #444; }
 
 body.is-test .label > * { visibility: hidden; }
 
@@ -165,6 +180,13 @@ body.is-test .label > * { visibility: hidden; }
     <span class="info"><?= count($items) ?> รายการ · ดวงละ <?= $copies ?> · <?= count($labels) ?> ดวง · <?= count($pages) ?> แผ่น</span>
     <form method="get" action="print_labels.php">
         <input type="hidden" name="run" value="<?= (int)$run['id'] ?>">
+        <label title="ขนาดฉลาก / QR — เครื่องนี้จะจำไว้ใช้ครั้งหน้า">ขนาด
+            <select name="size" id="sizeSel" onchange="this.form.submit()">
+                <?php foreach ($sizes as $k => $z): ?>
+                <option value="<?= $k ?>" <?= $k === $size ? 'selected' : '' ?>><?= h($z['label']) ?> · QR <?= $z['qr'] ?> มม. · <?= $z['w'] ?>×<?= $z['h'] ?> · <?= $z['cols'] * $z['rows'] ?> ดวง/แผ่น</option>
+                <?php endforeach; ?>
+            </select>
+        </label>
         <label title="เริ่มพิมพ์ที่ช่องที่เท่าไหร่ของแผ่นแรก (ใช้แผ่นที่เหลือจากคราวก่อน)">เริ่มช่อง <input type="number" name="start" min="1" max="<?= $per ?>" value="<?= $slot0 ?>"></label>
         <button type="submit">ใช้</button>
     </form>
@@ -222,6 +244,20 @@ body.is-test .label > * { visibility: hidden; }
     var btn = document.getElementById('btnPrint');
     // this batch is logged — labels.php starts the next one with nothing picked
     try { sessionStorage.removeItem('cmns.plbPick'); } catch (e) {}
+
+    /* ── label size, remembered per device: a URL without ?size= gets the
+       last one used here (labels.php links here without it) ── */
+    var SIZE_KEY = 'cmns.partLabelSize', cur = <?= json_encode($size) ?>;
+    var params = new URLSearchParams(location.search);
+    try {
+        var want = localStorage.getItem(SIZE_KEY);
+        if (!params.has('size') && want && want !== cur && document.querySelector('#sizeSel option[value="' + want + '"]')) {
+            params.set('size', want);
+            location.replace('?' + params.toString());
+            return;
+        }
+        localStorage.setItem(SIZE_KEY, cur);
+    } catch (e) {}
     var payload = <?= json_encode((object)$qrPayload, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 
     /* ── Calibration, remembered per device — separate from the job-sticker
@@ -253,11 +289,28 @@ body.is-test .label > * { visibility: hidden; }
         return;
     }
     var svgs = {}, pending = keys.length, failed = 0;
+    /* The SKU / asset tag is the one line that tells two same-named items
+       apart, so it must never be clipped: shrink it to fit its column.
+       Runs after the web font is in, since that changes the width. */
+    function fitSku() {
+        document.querySelectorAll('.sku').forEach(function (el) {
+            el.style.fontSize = '';
+            var w = el.clientWidth, sw = el.scrollWidth;
+            if (w && sw > w) {
+                var px = parseFloat(getComputedStyle(el).fontSize);
+                el.style.fontSize = Math.max(px * 0.55, px * w / sw * 0.98) + 'px';
+            }
+        });
+    }
     function finish() {
         if (failed) { btn.textContent = 'สร้าง QR ไม่ครบ (' + failed + ')'; return; }
         document.querySelectorAll('.qr[data-id]').forEach(function (b) { b.innerHTML = svgs[b.dataset.id]; });
-        btn.disabled = false;
-        btn.textContent = 'พิมพ์';
+        var ready = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+        ready.then(function () {
+            fitSku();
+            btn.disabled = false;
+            btn.textContent = 'พิมพ์';
+        });
     }
     keys.forEach(function (id) {
         QRCode.toString(payload[id], {

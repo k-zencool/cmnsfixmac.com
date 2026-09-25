@@ -30,26 +30,42 @@ if (!function_exists('plb_parse_payload')) {
 }
 
 /* Plain A4 sticker paper, cut by hand (same approach as sticker_lib.php):
-   5 × 14 cells of 38 × 19 mm packed edge to edge, so one cut line serves
-   both neighbours. QR on the left, name + SKU on the right. Block centred:
-   10 mm side, 15.5 mm top margins. Offsets from the sheet's top-left. */
-if (!function_exists('plb_sheet')) {
-    function plb_sheet(): array {
+   cells packed edge to edge, so one cut line serves both neighbours. QR on
+   the left, name + SKU on the right; the block is centred on the sheet.
+   Offsets from the sheet's top-left, all in mm.
+
+   Several sizes, picked on the print page (?size=) and remembered per
+   device: small for bags and small bins, bigger for boxes and shelves or
+   when the QR has to read from further away. Each carries its own type
+   scale so the text grows with the QR. */
+if (!function_exists('plb_sizes')) {
+    function plb_sizes(): array {
         return [
-            'cols'   => 5,
-            'rows'   => 14,
-            'w'      => 38,
-            'h'      => 19,
-            'pitchX' => 38,
-            'pitchY' => 19,
-            'top'    => 15.5,
-            'left'   => 10,
+            's'  => ['label' => 'เล็ก',      'cols' => 5, 'rows' => 14, 'w' => 38,   'h' => 19, 'top' => 15.5, 'left' => 10,
+                     'qr' => 14, 'name' => 6.6,  'models' => 5.6, 'sku' => 5,    'brand' => 3.8, 'lines' => 2],
+            'm'  => ['label' => 'กลาง',      'cols' => 4, 'rows' => 11, 'w' => 47.5, 'h' => 25, 'top' => 11,   'left' => 10,
+                     'qr' => 20, 'name' => 8,    'models' => 6.8, 'sku' => 6.2,  'brand' => 4.6, 'lines' => 2],
+            'l'  => ['label' => 'ใหญ่',      'cols' => 3, 'rows' => 7,  'w' => 63,   'h' => 38, 'top' => 15.5, 'left' => 10.5,
+                     'qr' => 30, 'name' => 10.5, 'models' => 9,   'sku' => 8,    'brand' => 5.5, 'lines' => 3],
+            'xl' => ['label' => 'ใหญ่มาก',   'cols' => 2, 'rows' => 5,  'w' => 95,   'h' => 54, 'top' => 13.5, 'left' => 10,
+                     'qr' => 44, 'name' => 14,   'models' => 12,  'sku' => 10.5, 'brand' => 7,   'lines' => 3],
         ];
     }
 }
 
+/* one size's grid; unknown keys fall back to the small (original) size */
+if (!function_exists('plb_sheet')) {
+    function plb_sheet(string $size = 's'): array {
+        $all = plb_sizes();
+        $s = $all[$size] ?? $all['s'];
+        $s['pitchX'] = $s['w'];
+        $s['pitchY'] = $s['h'];
+        return $s;
+    }
+}
+
 if (!function_exists('plb_per_sheet')) {
-    function plb_per_sheet(): int { $s = plb_sheet(); return $s['cols'] * $s['rows']; }
+    function plb_per_sheet(string $size = 's'): int { $s = plb_sheet($size); return $s['cols'] * $s['rows']; }
 }
 
 /* The "fits which model" line under the name, so two items both named
