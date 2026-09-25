@@ -90,6 +90,37 @@ if (!function_exists('plb_models_line')) {
     }
 }
 
+/* A label's name split into lines that read at a glance, instead of one
+   block that wraps model codes across lines:
+     title  what the part is      "LCD Panel MacBook Air 13""
+     codes  Apple models it fits  ["A2681","A3113","A3240"]  (name + compatible_models)
+     tags   what was in brackets  ["M2","M3","M4"]
+   Nothing is dropped — every word of the name lands on one of the lines.
+   A name that is nothing but codes keeps itself as the title. */
+if (!function_exists('plb_label_parts')) {
+    function plb_label_parts(string $name, ?string $compat): array {
+        $codes = [];
+        foreach ([$name, (string)$compat] as $src) {
+            if (preg_match_all('/\bA\d{4}\b/i', $src, $m)) {
+                foreach ($m[0] as $c) $codes[strtoupper($c)] = strtoupper($c);
+            }
+        }
+        $tags = [];
+        $title = preg_replace_callback('/\(([^()]*)\)/u', function ($m) use (&$tags) {
+            foreach (preg_split('/\s*[\/,]\s*/u', trim($m[1])) as $t) if ($t !== '') $tags[] = $t;
+            return ' ';
+        }, $name);
+        // drop the codes and whatever joined them ("A2681/A3113", "A1706 - A1708")
+        $title = preg_replace('/\bA\d{4}\b(?:\s*[\/,\-]\s*\bA\d{4}\b)*/i', ' ', $title);
+        $title = trim(preg_replace(['/\s*\/\s*(?=\s|$)/u', '/\s{2,}/u'], [' ', ' '], $title), " \t/-,");
+        if ($title === '') { $title = $name; $codes = []; }
+        // no Apple codes: a free-text compatible_models line still says something new
+        $extra = '';
+        if (!$codes && ($c = trim((string)$compat)) !== '' && stripos($name, $c) === false) $extra = $c;
+        return ['title' => $title, 'codes' => array_values($codes), 'tags' => $tags, 'extra' => $extra];
+    }
+}
+
 /* "1,2,x,2,3" → [1,2,3] — positive ints, de-duplicated, order kept, capped */
 if (!function_exists('plb_parse_ids')) {
     function plb_parse_ids(string $csv, int $max = 500): array {

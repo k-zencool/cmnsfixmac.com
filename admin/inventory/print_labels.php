@@ -145,7 +145,14 @@ body { font-family: 'Sarabun', sans-serif; color: #000; }
     font-size: var(--fs-name); font-weight: 800; line-height: 1.15;
     word-break: break-word;   /* never clipped — fitLabels() shrinks it until the whole name fits */
 }
-/* which model it fits — tells apart two items with the same name */
+/* which Apple models it fits — one line of codes, wrapping only between codes */
+.codes {
+    font-size: calc(var(--fs-models) * 1.12); font-weight: 800; line-height: 1.15;
+    letter-spacing: .1pt;
+}
+/* what was in brackets: chip generation, (Used), year … */
+.tags { font-size: calc(var(--fs-models) * .92); font-weight: 700; line-height: 1.1; color: #333; }
+/* free-text compatible_models (no Apple codes in it) */
 .models {
     font-size: var(--fs-models); font-weight: 700; line-height: 1.1;
     word-break: break-word;
@@ -215,9 +222,16 @@ body.is-test .label > * { visibility: hidden; }
                 <div class="qr" data-id="<?= (int)$l['id'] ?>"></div>
                 <div class="txt">
                     <div class="brand">CMNS FIX MAC</div>
-                    <div class="name"><?= str_replace('/', '/<wbr>', h($l['name'])) ?></div>
-                    <?php if (($ml = plb_models_line($l['name'], $l['compatible_models'])) !== ''): ?>
-                    <div class="models"><?= h($ml) ?></div>
+                    <?php $lp = plb_label_parts($l['name'], $l['compatible_models']); ?>
+                    <div class="name"><?= str_replace('/', '/<wbr>', h($lp['title'])) ?></div>
+                    <?php if ($lp['codes']): ?>
+                    <div class="codes"><?= implode(' · ', array_map('h', $lp['codes'])) ?></div>
+                    <?php endif; ?>
+                    <?php if ($lp['tags']): ?>
+                    <div class="tags"><?= implode(' · ', array_map('h', $lp['tags'])) ?></div>
+                    <?php endif; ?>
+                    <?php if ($lp['extra'] !== ''): ?>
+                    <div class="models"><?= h($lp['extra']) ?></div>
                     <?php endif; ?>
                     <?php if ($l['type'] === 'machine'): ?>
                     <div class="sku is-unit"><?= h($l['asset_tag'] ?: $l['sku']) ?></div>
@@ -302,7 +316,7 @@ body.is-test .label > * { visibility: hidden; }
         document.querySelectorAll('.label .txt').forEach(function (txt) {
             var lab = txt.closest('.label');
             var box = lab.clientHeight - 2 * (lab.clientHeight / <?= $sheet['h'] ?>) * 0.8;   // 0.8 mm clear of each cut line
-            var parts = [txt.querySelector('.name'), txt.querySelector('.models')].filter(Boolean);
+            var parts = [].slice.call(txt.querySelectorAll('.name, .codes, .tags, .models'));
             var base = parts.map(function (el) { el.style.fontSize = ''; return parseFloat(getComputedStyle(el).fontSize); });
             txt.querySelectorAll('.sku').forEach(fitSku);
             for (var f = 1; txt.scrollHeight > box && f > 0.4; f -= 0.04) {
