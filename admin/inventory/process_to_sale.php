@@ -15,6 +15,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 // GET: ดึงข้อมูล item สำหรับ pre-fill modal
 if ($_SERVER['REQUEST_METHOD'] === 'GET' && ($_GET['action'] ?? '') === 'get_item') {
+    require_perms_json(['shop.finance']); // same gate as the to-sale POST
     $id   = (int)($_GET['id'] ?? 0);
     $stmt = $pdo->prepare("
         SELECT i.*, COALESCE(SUM(l.qty_remaining), 0) AS total_qty
@@ -38,7 +39,9 @@ require_perms_json(['shop.finance']); // เอาขึ้นขาย: หน�
 $source_type  = $_POST['source_type'] ?? '';
 $inventory_id = (int)($_POST['inventory_id'] ?? 0);
 $lot_id       = (int)($_POST['lot_id'] ?? 0) ?: null;
-$qty_transfer = max(1, (int)($_POST['qty'] ?? 1));
+// 1 SALE record = 1 physical unit; revert also gives back exactly 1.
+// Anything above 1 would deduct N from the lot but create only one sale item.
+$qty_transfer = 1;
 $admin_id     = $_SESSION['admin_id'] ?? null;
 $admin_name   = $_SESSION['admin_username'] ?? null;
 
@@ -133,8 +136,8 @@ try {
         // Audit log
         $pdo->prepare("INSERT INTO inventory_status_log
             (inventory_id, action, from_type, to_type, from_status, to_status, reference_id, created_by, admin_name)
-            VALUES (?, 'to_sale', 'new', 'sale', ?, 'READY', ?, ?, ?)")
-            ->execute([$new_sale_id, $status, $inventory_id, $admin_id, $admin_name]);
+            VALUES (?, 'to_sale', 'new', 'sale', ?, ?, ?, ?, ?)")
+            ->execute([$new_sale_id, $src_item['status'], $status, $inventory_id, $admin_id, $admin_name]);
 
     // ──────────────────────────────────────────────────
     // USED / MACHINE → SALE: convert in place

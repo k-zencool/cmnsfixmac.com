@@ -140,7 +140,7 @@ function tsOnLotChange(radio) {
 
 function tsSetQtyMax(max) {
     const inp = document.getElementById('ts-qty');
-    if (!inp) return;
+    if (!inp || inp.type === 'hidden') return;  // qty fixed at 1 (see _modal_to_sale.php)
     inp.max = max;
     if (parseInt(inp.value) > max) inp.value = max;
     const label = document.getElementById('ts-qty-max-label');

@@ -19,6 +19,11 @@ header('Content-Type: application/json; charset=utf-8');
 
 $action = $_GET['action'] ?? $_POST['action'] ?? '';
 
+// every action here (lots incl. cost, job search, item) is for people who can
+// pull parts; the to-sale modal also reads get_lots, and shop.finance roles
+// (manager/admin) all hold parts.consume too
+require_perms_json(['parts.consume']);
+
 /* ── GET LOTS ── */
 if ($action === 'get_lots') {
     $id   = (int)($_GET['item_id'] ?? 0);
@@ -70,7 +75,6 @@ if ($action === 'get_item') {
 
 /* ── REQUISITION ── */
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'requisition') {
-    require_perms_json(['parts.consume']); // เบิกอะไหล่: ช่าง+ ขึ้นไป
     $inventory_id = (int)($_POST['inventory_id'] ?? 0);
     $qty_req      = max(1, (int)($_POST['qty'] ?? 1));
     $tracking_id  = (int)($_POST['tracking_id'] ?? 0) ?: null;
@@ -93,46 +97,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'requisition') {
         exit;
     }
 
-    // Check total available
-    $avail_stmt = $pdo->prepare("SELECT COALESCE(SUM(qty_remaining),0) FROM inventory_lots WHERE inventory_id = ?");
-    $avail_stmt->execute([$inventory_id]);
-    $total_avail = (int)$avail_stmt->fetchColumn();
-
-    if ($qty_req > $total_avail) {
-        echo json_encode(['ok' => false, 'msg' => "สต็อกไม่พอ (มีแค่ $total_avail ชิ้น)"]);
-        exit;
-    }
-
     // กรณีเลือก lot เฉพาะ
     $specific_lot_id = (int)($_POST['lot_id'] ?? 0) ?: null;
 
-    if ($specific_lot_id) {
-        // ตรวจสอบ lot ที่เลือก
-        $lot_chk = $pdo->prepare("SELECT * FROM inventory_lots WHERE id = ? AND inventory_id = ? AND qty_remaining > 0");
-        $lot_chk->execute([$specific_lot_id, $inventory_id]);
-        $lot_row = $lot_chk->fetch(PDO::FETCH_ASSOC);
-        if (!$lot_row) {
-            echo json_encode(['ok' => false, 'msg' => 'Lot ที่เลือกไม่มีสต็อกเพียงพอ']);
-            exit;
-        }
-        if ($qty_req > $lot_row['qty_remaining']) {
-            echo json_encode(['ok' => false, 'msg' => "Lot นี้มีแค่ {$lot_row['qty_remaining']} ชิ้น"]);
-            exit;
-        }
-        $lots = [$lot_row];
-    } else {
-        // FIFO — deduct from oldest lots first
+    // check + deduct in one transaction with the lots locked (FOR UPDATE):
+    // two people pulling the last unit at once must not both pass the check
+    $pdo->beginTransaction();
+    try {
         $lots_stmt = $pdo->prepare("
             SELECT * FROM inventory_lots
             WHERE inventory_id = ? AND qty_remaining > 0
             ORDER BY warranty_end ASC, created_at ASC
+            FOR UPDATE
         ");
         $lots_stmt->execute([$inventory_id]);
         $lots = $lots_stmt->fetchAll(PDO::FETCH_ASSOC);
-    }
 
-    $pdo->beginTransaction();
-    try {
+        $total_avail = (int)array_sum(array_column($lots, 'qty_remaining'));
+        if ($qty_req > $total_avail) {
+            $pdo->rollBack();
+            echo json_encode(['ok' => false, 'msg' => "สต็อกไม่พอ (มีแค่ $total_avail ชิ้น)"]);
+            exit;
+        }
+
+        if ($specific_lot_id) {
+            // ตรวจสอบ lot ที่เลือก
+            $lot_row = null;
+            foreach ($lots as $l) {
+                if ((int)$l['id'] === $specific_lot_id) { $lot_row = $l; break; }
+            }
+            if (!$lot_row) {
+                $pdo->rollBack();
+                echo json_encode(['ok' => false, 'msg' => 'Lot ที่เลือกไม่มีสต็อกเพียงพอ']);
+                exit;
+            }
+            if ($qty_req > $lot_row['qty_remaining']) {
+                $pdo->rollBack();
+                echo json_encode(['ok' => false, 'msg' => "Lot นี้มีแค่ {$lot_row['qty_remaining']} ชิ้น"]);
+                exit;
+            }
+            $lots = [$lot_row];
+        }
+
         $remaining_to_deduct = $qty_req;
         $first_lot_id   = null;
         $avg_cost       = 0;

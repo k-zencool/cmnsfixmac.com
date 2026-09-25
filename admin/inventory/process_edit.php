@@ -4,6 +4,7 @@ require_once '../../includes/db.php';
 require_once __DIR__ . '/../../includes/image_lib.php';
 require_once __DIR__ . '/../../includes/manager_lib.php';
 require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/_helpers.php';
 
 if (!isset($_SESSION['admin_id'])) {
     header("Location: ../login.php");
@@ -93,13 +94,12 @@ try {
         $image_filename = $sku . '-' . time() . '.webp';
         if (!img_save_webp($_FILES['image']['tmp_name'], $upload_dir . $image_filename)) {
             $image_filename = $existing['image'];
-        } else {
-            // ลบรูปเก่า
-            if ($existing['image'] && file_exists($upload_dir . $existing['image'])) {
-                unlink($upload_dir . $existing['image']);
-            }
         }
     }
+
+    // DB writes are all-or-nothing: a failure halfway must not leave the row
+    // updated but the stock adjustment missing
+    $pdo->beginTransaction();
 
     $pdo->prepare("UPDATE inventory SET
         name = ?, name_th = ?, sku = ?, category_id = ?, type = ?, status = ?,
@@ -157,6 +157,9 @@ try {
                 $diff = $adj_qty - $cur_sum;
                 if ($diff > 0 && $lot_rows) {
                     $pdo->prepare("UPDATE inventory_lots SET qty_remaining = qty_remaining + ? WHERE id = ?")->execute([$diff, $lot_rows[0]['id']]);
+                } elseif ($diff > 0) {
+                    // empty profile with no lot yet → create one, same as the 'add' mode
+                    $pdo->prepare("INSERT INTO inventory_lots (inventory_id,lot_number,qty_received,qty_remaining,cost_price) VALUES (?,?,?,?,0)")->execute([$id,'LOT-ADJ-'.strtoupper(substr(uniqid(),-5)),$diff,$diff]);
                 } elseif ($diff < 0) {
                     $rem = abs($diff);
                     $lots_fifo2 = $pdo->prepare("SELECT id, qty_remaining FROM inventory_lots WHERE inventory_id = ? AND qty_remaining > 0 ORDER BY created_at ASC");
@@ -170,14 +173,6 @@ try {
                 }
             }
         }
-    }
-
-    // Re-sync status สำหรับ NEW type ทุกครั้งที่ save
-    if ($type === 'new') {
-        $qty_after = $pdo->prepare("SELECT COALESCE(SUM(qty_remaining),0) FROM inventory_lots WHERE inventory_id = ?");
-        $qty_after->execute([$id]);
-        $status_after = (int)$qty_after->fetchColumn() > 0 ? 'STOCK' : 'OOS';
-        $pdo->prepare("UPDATE inventory SET status = ? WHERE id = ?")->execute([$status_after, $id]);
     }
 
     // ── เพิ่ม Lot ใหม่ถ้ากรอก qty_received ──
@@ -194,10 +189,19 @@ try {
             VALUES (?,?,?,?,?,?,?)
         ")->execute([$id, $lot_number, $rs_qty, $rs_qty, $cost_price, $warranty, $supplier ?: null]);
 
-        // update status เป็น STOCK ถ้าเคย OOS
-        if ($status === 'OOS' || $existing['status'] === 'OOS') {
+        // non-NEW types: ของเคย OOS แล้วเติม lot → กลับเป็น STOCK (NEW re-sync ข้างล่าง)
+        if ($type !== 'new' && ($status === 'OOS' || $existing['status'] === 'OOS')) {
             $pdo->prepare("UPDATE inventory SET status = 'STOCK' WHERE id = ?")->execute([$id]);
         }
+    }
+
+    // Re-sync status สำหรับ NEW type — ต้องอยู่หลังทั้ง adjust และ lot ใหม่
+    // (เดิมอยู่ก่อน lot ใหม่ → set 0 + เติม lot ในรอบเดียวกันจบที่ OOS ทั้งที่มีของ)
+    if ($type === 'new') {
+        $qty_after = $pdo->prepare("SELECT COALESCE(SUM(qty_remaining),0) FROM inventory_lots WHERE inventory_id = ?");
+        $qty_after->execute([$id]);
+        $status_after = (int)$qty_after->fetchColumn() > 0 ? 'STOCK' : 'OOS';
+        $pdo->prepare("UPDATE inventory SET status = ? WHERE id = ?")->execute([$status_after, $id]);
     }
 
     // ── log ให้ manager center เห็น (แก้ field/ปรับสต็อก reverse อัตโนมัติไม่ได้) ──
@@ -212,11 +216,17 @@ try {
         ]],
     ]);
 
-    header("Location: $redirect_back");
-    exit();
+    $pdo->commit();
+
+    // ลบรูปเก่าหลัง commit เท่านั้น — ถ้า DB พัง row ยังชี้รูปเก่าอยู่
+    $upload_dir = '../../uploads/inventory/';
+    if ($image_filename !== $existing['image'] && $existing['image'] && file_exists($upload_dir . $existing['image'])) {
+        unlink($upload_dir . $existing['image']);
+    }
+
+    inv_redirect_ok($redirect_back);
 
 } catch (Exception $e) {
-    $err = urlencode($e->getMessage());
-    header("Location: $redirect_back&err=$err");
-    exit();
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    inv_redirect_err($redirect_back, $e->getMessage());
 }

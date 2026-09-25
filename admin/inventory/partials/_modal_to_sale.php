@@ -28,14 +28,8 @@
                     <span class="material-symbols-rounded" style="font-size:16px;">account_tree</span>
                     เลือก LOT
                 </div>
-                <div style="display:flex; align-items:center; gap:8px;">
-                    <label style="font-size:11px; font-weight:800; color:var(--primary); text-transform:uppercase; letter-spacing:.8px;">จำนวน</label>
-                    <button type="button" onclick="tsAdjQty(-1)" style="width:28px;height:28px;border-radius:6px;border:1px solid rgba(37,99,235,.35);background:rgba(37,99,235,.08);color:var(--primary);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">−</button>
-                    <input type="number" id="ts-qty" name="qty" value="1" min="1" max="1"
-                           style="width:56px;text-align:center;padding:5px 6px;border:1.5px solid rgba(37,99,235,.4);border-radius:8px;background:var(--bg-surface);color:var(--text-main);font-size:15px;font-weight:800;outline:none;">
-                    <button type="button" onclick="tsAdjQty(1)" style="width:28px;height:28px;border-radius:6px;border:1px solid rgba(37,99,235,.35);background:rgba(37,99,235,.08);color:var(--primary);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;line-height:1;">+</button>
-                    <span id="ts-qty-max-label" style="font-size:11px;color:var(--text-muted);"></span>
-                </div>
+                <!-- one SALE record = one physical unit, so the transfer is always 1 -->
+                <input type="hidden" id="ts-qty" name="qty" value="1">
             </div>
             <div id="ts-lots-wrap"></div>
             <input type="hidden" id="ts-lot-id" value="">

@@ -114,6 +114,7 @@ foreach ($root_categories as $key => $cat) {
 <link rel="stylesheet" href="../templates/assets/css/modal.css?v=<?= asset_ver('/admin/templates/assets/css/modal.css') ?>">
 
 <div class="cmns-wrapper" style="--active-theme-color: <?= $header_color ?>;">
+    <?= inv_err_banner() ?>
     
     <div class="cmns-header-bar">
         <div>

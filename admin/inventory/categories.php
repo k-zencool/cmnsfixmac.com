@@ -3,6 +3,7 @@ session_start();
 require_once '../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_login();
+require_once __DIR__ . '/_helpers.php';
 
 $pageTitle = "จัดการโครงสร้างคลังอะไหล่";
 include '../templates/header_admin.php';
@@ -31,6 +32,7 @@ foreach ($all_cats as $cat) {
 <link rel="stylesheet" href="assets/css/inventory-categories.css?v=<?= asset_ver('/admin/inventory/assets/css/inventory-categories.css') ?>">
 
 <div class="cmns-wrapper">
+    <?= inv_err_banner() ?>
     <div style="margin-bottom: 20px;">
         <a href="index.php" class="cmns-back-link">
             <span class="material-symbols-rounded" style="font-size:18px;">arrow_back</span> BACK TO INVENTORY
@@ -252,18 +254,28 @@ function resetToAddNew() {
     `;
 }
 
+// ลบผ่าน POST (GET ลบได้แค่เปิดลิงก์ — โดนลิงก์/พรีโหลดยิงก็หาย)
+function postDeleteCategory(id) {
+    const f = document.createElement('form');
+    f.method = 'POST';
+    f.action = 'category_action.php';
+    f.innerHTML = `<input type="hidden" name="delete_category" value="1"><input type="hidden" name="id" value="${parseInt(id, 10)}">`;
+    document.body.appendChild(f);
+    f.submit();
+}
+
 // ฟังก์ชันลบ
 function confirmDelete(id, name) {
     if (typeof Swal === 'undefined') {
-        if (confirm(`มึงแน่ใจนะว่าจะลบโฟลเดอร์ "${name}"? \nถ้าลบแล้วของข้างในแม่งปลิวหมดนะสัส! เอาจริงดิ?`)) {
-            window.location.href = `category_action.php?delete=${id}`;
+        if (confirm(`มึงแน่ใจนะว่าจะลบโฟลเดอร์ "${name}"? \nลบได้เฉพาะโฟลเดอร์ว่าง (ไม่มีสินค้า/โฟลเดอร์ย่อย) กู้คืนไม่ได้นะ`)) {
+            postDeleteCategory(id);
         }
         return;
     }
     Swal.fire({
         icon: 'warning',
         title: `ลบโฟลเดอร์ "${name}"?`,
-        text: 'ของข้างในจะหลุดจากหมวดหมู่ — กู้คืนไม่ได้',
+        text: 'ลบได้เฉพาะโฟลเดอร์ว่าง (ไม่มีสินค้า/โฟลเดอร์ย่อย) — กู้คืนไม่ได้',
         showCancelButton: true,
         confirmButtonText: 'ลบเลย',
         cancelButtonText: 'ยกเลิก',
@@ -274,7 +286,7 @@ function confirmDelete(id, name) {
             cancelButton: 'cmns-swal-btn cmns-swal-btn-cancel',
         },
     }).then(r => {
-        if (r.isConfirmed) window.location.href = `category_action.php?delete=${id}`;
+        if (r.isConfirmed) postDeleteCategory(id);
     });
 }
 </script>

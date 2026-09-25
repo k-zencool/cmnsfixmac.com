@@ -143,6 +143,7 @@ include '../templates/header_admin.php';
 <link rel="stylesheet" href="assets/css/inventory-v2.css?v=<?= asset_ver('/admin/inventory/assets/css/inventory-v2.css') ?>">
 
 <div class="cmns-wrapper inv-view">
+    <?= inv_err_banner() ?>
     
     <?php $back_link = ($category && $category['parent_id']) ? "view.php?id={$category['parent_id']}" : "index.php"; ?>
     <div style="margin-bottom:16px;">

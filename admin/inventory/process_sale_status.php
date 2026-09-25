@@ -35,6 +35,14 @@ if (!$item) {
 
 $from_status = $item['status'];
 
+// UI hides these buttons once SOLD, but a stale tab or a second staff member
+// can still post — without this a second mark_sold writes a second SOLD row
+// (revenue counted twice) and mark_ready/pending would un-sell it.
+if ($from_status === 'SOLD') {
+    echo json_encode(['ok' => false, 'msg' => "{$item['name']} ขายไปแล้ว — รีเฟรชหน้าดูสถานะล่าสุด"]);
+    exit;
+}
+
 if ($action === 'mark_ready') {
     $pdo->prepare("UPDATE inventory SET status = 'READY' WHERE id = ?")->execute([$inventory_id]);
 
@@ -70,7 +78,13 @@ if ($action === 'mark_ready') {
 } elseif ($action === 'mark_sold') {
     $sold_price = isset($_POST['sold_price']) && $_POST['sold_price'] !== '' ? (float)$_POST['sold_price'] : (float)$item['sell_price'];
 
-    $pdo->prepare("UPDATE inventory SET status = 'SOLD', sell_price = ? WHERE id = ?")->execute([$sold_price, $inventory_id]);
+    // conditional update — if two requests race past the check above, only one wins
+    $upd = $pdo->prepare("UPDATE inventory SET status = 'SOLD', sell_price = ? WHERE id = ? AND status <> 'SOLD'");
+    $upd->execute([$sold_price, $inventory_id]);
+    if ($upd->rowCount() === 0) {
+        echo json_encode(['ok' => false, 'msg' => "{$item['name']} ขายไปแล้ว — รีเฟรชหน้าดูสถานะล่าสุด"]);
+        exit;
+    }
 
     $pdo->prepare("INSERT INTO parts_requisitions
         (inventory_id, item_name, item_sku, qty, sell_price, requisitioned_by, admin_name, remarks)

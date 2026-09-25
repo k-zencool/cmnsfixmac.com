@@ -48,7 +48,7 @@ if (!$inventory_id) {
 
 try {
     // ยืนยันว่ามีของจริงก่อนลบ
-    $chk = $pdo->prepare("SELECT id, name, sell_price FROM inventory WHERE id = ?");
+    $chk = $pdo->prepare("SELECT id, name, sell_price, image FROM inventory WHERE id = ?");
     $chk->execute([$inventory_id]);
     $del_item = $chk->fetch(PDO::FETCH_ASSOC);
     if (!$del_item) {
@@ -73,6 +73,15 @@ try {
     ]);
 
     $pdo->commit();
+
+    // รูปสินค้า — ลบหลัง commit (ถ้า DB rollback รูปต้องยังอยู่)
+    $img = __DIR__ . '/../../uploads/inventory/' . basename((string)$del_item['image']);
+    if ($del_item['image'] && is_file($img)) {
+        $shared = $pdo->prepare("SELECT 1 FROM inventory WHERE image = ? LIMIT 1");
+        $shared->execute([$del_item['image']]);
+        if (!$shared->fetchColumn()) @unlink($img);
+    }
+
     out(true, 'ลบทั้งก้อนเรียบร้อย');
 
 } catch (Exception $e) {

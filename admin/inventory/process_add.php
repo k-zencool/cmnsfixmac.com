@@ -3,6 +3,7 @@ session_start();
 require_once '../../includes/db.php';
 require_once __DIR__ . '/../../includes/image_lib.php';
 require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/_helpers.php';
 require_once __DIR__ . '/../../includes/sku_lib.php';
 
 if (!isset($_SESSION['admin_id'])) {
@@ -29,6 +30,7 @@ try {
 
         $lot_number    = 'LOT-' . strtoupper(substr(uniqid(), -6));
         $qty_received  = (int)($_POST['qty_received'] ?? 1);
+        if ($qty_received < 1) throw new Exception("จำนวนที่เติมต้องมากกว่า 0");
         $cost_price    = (float)($_POST['cost_price'] ?? 0);
         $sell_price    = (float)($_POST['sell_price'] ?? 0);
         $supplier_name = trim($_POST['supplier_name'] ?? '');
@@ -50,8 +52,7 @@ try {
             $pdo->prepare("UPDATE inventory SET sell_price = ? WHERE id = ?")->execute([$sell_price, $inventory_id]);
         }
 
-        header("Location: $redirect_back");
-        exit();
+        inv_redirect_ok($redirect_back);
     }
 
     // ---- MODE: สร้างโปรไฟล์ใหม่ ----
@@ -159,11 +160,8 @@ try {
             ->execute([$inventory_id, $lot_number, $qty_received, $qty_received, $cost_price, $warranty_end, $supplier_name]);
     }
 
-    header("Location: $redirect_back");
-    exit();
+    inv_redirect_ok($redirect_back);
 
 } catch (Exception $e) {
-    $err = urlencode($e->getMessage());
-    header("Location: $redirect_back&err=$err");
-    exit();
+    inv_redirect_err($redirect_back, $e->getMessage());
 }

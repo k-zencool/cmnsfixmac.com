@@ -5,6 +5,7 @@ require_once '../../includes/db.php';
 require_once __DIR__ . '/../../includes/image_lib.php';
 require_once __DIR__ . '/../../includes/manager_lib.php';
 require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/_helpers.php';
 require_once __DIR__ . '/../../includes/sku_lib.php';
 
 if (!isset($_SESSION['admin_id']) || $_SERVER['REQUEST_METHOD'] !== 'POST') {
@@ -99,11 +100,8 @@ try {
         ],
     ]);
 
-    header("Location: $redirect_back");
-    exit();
+    inv_redirect_ok($redirect_back);
 
 } catch (Exception $e) {
-    $err = urlencode($e->getMessage());
-    header("Location: $redirect_back&err=$err");
-    exit();
+    inv_redirect_err($redirect_back, $e->getMessage());
 }
