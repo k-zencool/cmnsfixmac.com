@@ -120,7 +120,6 @@ body { font-family: 'Sarabun', sans-serif; color: #000; }
     --qr: <?= $sheet['qr'] ?>mm;
     --fs-name: <?= $sheet['name'] ?>pt; --fs-models: <?= $sheet['models'] ?>pt;
     --fs-sku: <?= $sheet['sku'] ?>pt;   --fs-brand: <?= $sheet['brand'] ?>pt;
-    --lines: <?= (int)$sheet['lines'] ?>;
     --k: <?= round($sheet['qr'] / 14, 3) ?>;   /* spacing grows with the QR */
 }
 .label {
@@ -144,13 +143,11 @@ body { font-family: 'Sarabun', sans-serif; color: #000; }
 .txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: calc(.5mm * var(--k)); }
 .name {
     font-size: var(--fs-name); font-weight: 800; line-height: 1.15;
-    display: -webkit-box; -webkit-line-clamp: var(--lines); -webkit-box-orient: vertical; overflow: hidden;
-    word-break: break-word;
+    word-break: break-word;   /* never clipped — fitLabels() shrinks it until the whole name fits */
 }
 /* which model it fits — tells apart two items with the same name */
 .models {
     font-size: var(--fs-models); font-weight: 700; line-height: 1.1;
-    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
     word-break: break-word;
 }
 .sku {
@@ -218,7 +215,7 @@ body.is-test .label > * { visibility: hidden; }
                 <div class="qr" data-id="<?= (int)$l['id'] ?>"></div>
                 <div class="txt">
                     <div class="brand">CMNS FIX MAC</div>
-                    <div class="name"><?= h($l['name']) ?></div>
+                    <div class="name"><?= str_replace('/', '/<wbr>', h($l['name'])) ?></div>
                     <?php if (($ml = plb_models_line($l['name'], $l['compatible_models'])) !== ''): ?>
                     <div class="models"><?= h($ml) ?></div>
                     <?php endif; ?>
@@ -289,25 +286,37 @@ body.is-test .label > * { visibility: hidden; }
         return;
     }
     var svgs = {}, pending = keys.length, failed = 0;
-    /* The SKU / asset tag is the one line that tells two same-named items
-       apart, so it must never be clipped: shrink it to fit its column.
-       Runs after the web font is in, since that changes the width. */
-    function fitSku() {
-        document.querySelectorAll('.sku').forEach(function (el) {
-            el.style.fontSize = '';
-            var w = el.clientWidth, sw = el.scrollWidth;
-            if (w && sw > w) {
-                var px = parseFloat(getComputedStyle(el).fontSize);
-                el.style.fontSize = Math.max(px * 0.55, px * w / sw * 0.98) + 'px';
+    /* Nothing on a label is ever clipped. The SKU / asset tag (what tells
+       two same-named items apart) shrinks to fit its width; then the name
+       and model line shrink together until the whole text block fits the
+       label's height. Runs after the web font is in — it changes widths. */
+    function fitSku(el) {
+        el.style.fontSize = '';
+        var w = el.clientWidth, sw = el.scrollWidth;
+        if (w && sw > w) {
+            var px = parseFloat(getComputedStyle(el).fontSize);
+            el.style.fontSize = Math.max(px * 0.55, px * w / sw * 0.98) + 'px';
+        }
+    }
+    function fitLabels() {
+        document.querySelectorAll('.label .txt').forEach(function (txt) {
+            var lab = txt.closest('.label');
+            var box = lab.clientHeight - 2 * (lab.clientHeight / <?= $sheet['h'] ?>) * 0.8;   // 0.8 mm clear of each cut line
+            var parts = [txt.querySelector('.name'), txt.querySelector('.models')].filter(Boolean);
+            var base = parts.map(function (el) { el.style.fontSize = ''; return parseFloat(getComputedStyle(el).fontSize); });
+            txt.querySelectorAll('.sku').forEach(fitSku);
+            for (var f = 1; txt.scrollHeight > box && f > 0.4; f -= 0.04) {
+                parts.forEach(function (el, i) { el.style.fontSize = (base[i] * f) + 'px'; });
             }
         });
     }
+    window.fitLabels = fitLabels;
     function finish() {
         if (failed) { btn.textContent = 'สร้าง QR ไม่ครบ (' + failed + ')'; return; }
         document.querySelectorAll('.qr[data-id]').forEach(function (b) { b.innerHTML = svgs[b.dataset.id]; });
         var ready = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
         ready.then(function () {
-            fitSku();
+            fitLabels();
             btn.disabled = false;
             btn.textContent = 'พิมพ์';
         });

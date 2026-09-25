@@ -42,13 +42,13 @@ if (!function_exists('plb_sizes')) {
     function plb_sizes(): array {
         return [
             's'  => ['label' => 'เล็ก',      'cols' => 5, 'rows' => 14, 'w' => 38,   'h' => 19, 'top' => 15.5, 'left' => 10,
-                     'qr' => 14, 'name' => 6.6,  'models' => 5.6, 'sku' => 5,    'brand' => 3.8, 'lines' => 2],
+                     'qr' => 14, 'name' => 6.6,  'models' => 5.6, 'sku' => 5,    'brand' => 3.8],
             'm'  => ['label' => 'กลาง',      'cols' => 4, 'rows' => 11, 'w' => 47.5, 'h' => 25, 'top' => 11,   'left' => 10,
-                     'qr' => 20, 'name' => 8,    'models' => 6.8, 'sku' => 6.2,  'brand' => 4.6, 'lines' => 2],
+                     'qr' => 20, 'name' => 8,    'models' => 6.8, 'sku' => 6.2,  'brand' => 4.6],
             'l'  => ['label' => 'ใหญ่',      'cols' => 3, 'rows' => 7,  'w' => 63,   'h' => 38, 'top' => 15.5, 'left' => 10.5,
-                     'qr' => 30, 'name' => 10.5, 'models' => 9,   'sku' => 8,    'brand' => 5.5, 'lines' => 3],
+                     'qr' => 30, 'name' => 10.5, 'models' => 9,   'sku' => 8,    'brand' => 5.5],
             'xl' => ['label' => 'ใหญ่มาก',   'cols' => 2, 'rows' => 5,  'w' => 95,   'h' => 54, 'top' => 13.5, 'left' => 10,
-                     'qr' => 44, 'name' => 14,   'models' => 12,  'sku' => 10.5, 'brand' => 7,   'lines' => 3],
+                     'qr' => 44, 'name' => 14,   'models' => 12,  'sku' => 10.5, 'brand' => 7],
         ];
     }
 }
