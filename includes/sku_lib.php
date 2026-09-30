@@ -120,6 +120,18 @@ if (!function_exists('sku_build_machine')) {
     }
 }
 
+if (!function_exists('sku_machine_tag_taken')) {
+    /**
+     * เครื่องซากมีรหัสเดียวคือ Asset Tag (เก็บซ้ำลง sku ด้วย) — เช็คว่ารหัสนี้ถูกใช้แล้วหรือยัง
+     * ดูทั้ง sku และ asset_tag ของทุก type กันชนกับของเก่าที่สองช่องไม่ตรงกัน
+     */
+    function sku_machine_tag_taken(PDO $pdo, string $tag, int $exclude_id = 0): bool {
+        $st = $pdo->prepare("SELECT 1 FROM inventory WHERE (sku = ? OR asset_tag = ?) AND id <> ? LIMIT 1");
+        $st->execute([$tag, $tag, $exclude_id]);
+        return (bool)$st->fetchColumn();
+    }
+}
+
 if (!function_exists('sku_build_sale')) {
     /**
      * รหัสของที่เอาขึ้นขาย: SL-<YYYYMM>-####  เรียงตามเวลา ไม่สุ่ม

@@ -311,7 +311,7 @@ if ($modal_cat_id) {
                             <label class="cmns-label">ชื่อสินค้า (อังกฤษ) <span style="color:red">*</span></label>
                             <input type="text" name="name" id="input-name" class="cmns-input" placeholder="เช่น Screen Protector iPhone 15 Pro Max" required>
                         </div>
-                        <div>
+                        <div id="add-sku-wrap">
                             <label class="cmns-label">รหัส SKU</label>
                             <input type="text" name="sku" class="cmns-input" placeholder="เว้นว่างเพื่อออโต้" oninput="updateSkuPreview()">
                         </div>
@@ -340,7 +340,7 @@ if ($modal_cat_id) {
                         </div>
                     </div>
 
-                    <div style="margin-bottom: 15px;">
+                    <div id="add-model-wrap" style="margin-bottom: 15px;">
                         <label class="cmns-label">3. รุ่น (Model) <span style="font-weight:400; color:var(--text-muted);">— ใช้ประกอบ SKU</span></label>
                         <input type="text" name="sku_model" id="input-sku-model" class="cmns-input"
                                placeholder="เช่น A2338, 15PM, IPAD2 WH" oninput="updateSkuPreview()" autocomplete="off">
@@ -450,8 +450,8 @@ function toggleTypeFields() {
     else if (type === 'machine') {
         html = `
             <div>
-                <label class="cmns-label" style="color:#8b5cf6;">รหัสเครื่อง (Asset Tag) <span style="color:red">*</span></label>
-                <input type="text" name="asset_tag" class="cmns-input" placeholder="เช่น MC-001" style="border-color:#8b5cf6;">
+                <label class="cmns-label" style="color:#8b5cf6;">รหัสเครื่อง (Asset Tag) <span style="font-weight:400;text-transform:none;letter-spacing:0;">— ออกให้อัตโนมัติ แก้ได้</span></label>
+                <input type="text" name="asset_tag" id="add-asset-tag" class="cmns-input" placeholder="เลือกอุปกรณ์ก่อน" autocomplete="off" style="border-color:#8b5cf6;font-weight:800;" oninput="this.dataset.manual = this.value.trim() ? '1' : ''">
             </div>
             <div>
                 <label class="cmns-label">Serial Number</label>
@@ -570,6 +570,12 @@ function toggleTypeFields() {
     }
     container.innerHTML = html;
 
+    // เครื่องซาก: Asset Tag คือรหัสเดียว — ซ่อนช่อง SKU/รุ่น ที่ใช้กับอะไหล่
+    const isMachine = type === 'machine';
+    document.getElementById('add-sku-wrap').style.display   = isMachine ? 'none' : '';
+    document.getElementById('add-model-wrap').style.display = isMachine ? 'none' : '';
+    if (isMachine) document.querySelector('#section-new-item input[name="sku"]').value = '';
+
     // USED — ซ่อน warranty และ supplier
     const warrantyWrap = document.querySelector('input[name="warranty_end"]')?.closest('div');
     const supplierWrap = document.querySelector('input[name="supplier_name"]')?.closest('div');
@@ -658,6 +664,8 @@ function updateSkuPreview() {
     const typeSel = document.getElementById('add-type-select');
     const type    = typeSel ? typeSel.value : 'new';
 
+    if (type === 'machine') { wrap.style.display = 'none'; refreshMachineTag(); return; }
+
     // กรอก SKU เองแล้ว ไม่ต้องเดา
     if (manual && manual.value.trim() !== '') { wrap.style.display = 'none'; return; }
 
@@ -667,10 +675,7 @@ function updateSkuPreview() {
 
     let note = '';
     let sku;
-    if (type === 'machine') {
-        sku = dev + '-' + new Date().toISOString().slice(0, 7).replace('-', '') + '-A####';
-        note = ' (เครื่องใช้เลขรันอัตโนมัติ)';
-    } else if (type === 'sale') {
+    if (type === 'sale') {
         sku = 'SL-' + new Date().toISOString().slice(0, 7).replace('-', '') + '-####';
         note = ' (ของขายใช้เลขรันอัตโนมัติ)';
     } else {
@@ -684,6 +689,21 @@ function updateSkuPreview() {
     document.getElementById('sku-preview').textContent = sku;
     document.getElementById('sku-preview-note').textContent = note;
     wrap.style.display = '';
+}
+
+/* เติม Asset Tag ถัดไปของอุปกรณ์ที่เลือก (ตรงกับ sku_build_machine) — ถ้าคนพิมพ์เองแล้วไม่ทับ
+   เลขจริงตัดสินที่ server ตอนเซฟ (เว้นว่างก็ออกให้ พิมพ์ซ้ำก็เด้ง error) */
+let _tagReq = 0;
+function refreshMachineTag() {
+    const input = document.getElementById('add-asset-tag');
+    if (!input || input.dataset.manual === '1') return;
+    const catId = document.getElementById('sub_cat_select').value || document.getElementById('main_cat_select').value;
+    if (!catId) { input.value = ''; return; }
+    const req = ++_tagReq;
+    fetch('ajax.php?action=next_machine_tag&category_id=' + encodeURIComponent(catId))
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d && d.tag && req === _tagReq && input.dataset.manual !== '1') input.value = d.tag; })
+        .catch(() => {});
 }
 
 function toggleAddMode(mode) {

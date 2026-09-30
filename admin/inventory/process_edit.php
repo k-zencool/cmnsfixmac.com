@@ -82,6 +82,16 @@ try {
     $battery_health      = isset($_POST['battery_health']) && $_POST['battery_health'] !== '' ? (int)$_POST['battery_health'] : ($existing['battery_health'] ?? null);
     $battery_cycles      = isset($_POST['battery_cycles'])  && $_POST['battery_cycles']  !== '' ? (int)$_POST['battery_cycles']  : ($existing['battery_cycles']  ?? null);
 
+    // เครื่องซาก: sku ตาม Asset Tag — ซิงก์เฉพาะตอนแก้ tag (เครื่องเก่าที่สองช่องไม่ตรงกันไม่โดนแตะถ้าไม่แก้ tag)
+    if ($type === 'machine') {
+        $asset_tag = strtoupper(preg_replace('/\s+/', '', $asset_tag));
+        if ($asset_tag !== '' && $asset_tag !== (string)$existing['asset_tag']) {
+            require_once __DIR__ . '/../../includes/sku_lib.php';
+            if (sku_machine_tag_taken($pdo, $asset_tag, $id)) throw new Exception("รหัสเครื่อง {$asset_tag} ถูกใช้แล้ว");
+            $sku = $asset_tag;
+        }
+    }
+
     // Upload image ถ้ามีอัปโหลดใหม่
     $image_filename = $existing['image'];
     if (!empty($_FILES['image']['tmp_name'])) {

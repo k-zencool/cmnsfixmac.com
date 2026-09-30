@@ -66,10 +66,19 @@ try {
 
     // Auto-generate SKU — <อุปกรณ์>-<ชิ้นส่วน>-<รุ่น> จากหมวดที่เลือก + ช่อง "รุ่น"
     // เครื่องกับของขายใช้คนละแบบ (ดู includes/sku_lib.php)
+    // เครื่องซากไม่มี SKU แยก — รหัสเครื่อง (Asset Tag) คือรหัสเดียว เก็บลง sku ด้วยค่าเดียวกัน
+    // เว้นว่าง = ออกเลขรันให้ (MB-YYYYMM-A####), พิมพ์เอง = ใช้ตามนั้นถ้าไม่ซ้ำ
+    if ($type === 'machine') {
+        $tag = strtoupper(preg_replace('/\s+/', '', $_POST['asset_tag'] ?? ''));
+        if ($tag === '') $tag = sku_build_machine($pdo, $category_id);
+        if (sku_machine_tag_taken($pdo, $tag)) throw new Exception("รหัสเครื่อง {$tag} ถูกใช้แล้ว");
+        $sku = $tag;
+        $_POST['asset_tag'] = $tag;
+    }
+
     if (!$sku) {
         $model = trim($_POST['sku_model'] ?? '');
-        if ($type === 'machine')   $sku = sku_build_machine($pdo, $category_id);
-        elseif ($type === 'sale')  $sku = sku_build_sale($pdo);
+        if ($type === 'sale')      $sku = sku_build_sale($pdo);
         else                       $sku = sku_build($pdo, $category_id, $model, $type);
     }
 

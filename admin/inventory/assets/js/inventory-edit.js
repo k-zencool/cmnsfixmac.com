@@ -35,6 +35,8 @@ function openEditModal(id) {
             const typeInput = document.getElementById('edit-type');
             const typeVal   = item.type || 'new';
             typeInput.value = typeVal;
+            // เครื่องซากใช้ Asset Tag เป็นรหัสเดียว (server ซิงก์ sku ให้) — ไม่โชว์ช่อง SKU ให้สับสน
+            document.getElementById('edit-sku').parentElement.style.display = typeVal === 'machine' ? 'none' : '';
             const typeColor = {new:'#10b981', used:'#f59e0b', machine:'#8b5cf6', sale:'#ef4444'};
             const tc = typeColor[typeVal] || 'var(--primary)';
             document.getElementById('edit-type-badge').innerHTML =

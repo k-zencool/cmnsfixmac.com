@@ -21,6 +21,14 @@ if (!is_logged_in() && !adm_remember_restore()) {
     exit('forbidden');
 }
 
+// เลข Asset Tag ถัดไปของเครื่องซาก — modal เพิ่มสินค้าเอาไปเติมช่องให้ (คนแก้ทับได้)
+if (isset($_GET['action']) && $_GET['action'] === 'next_machine_tag') {
+    require_once __DIR__ . '/../../includes/sku_lib.php';
+    header('Content-Type: application/json');
+    echo json_encode(['tag' => sku_build_machine($pdo, (int)($_GET['category_id'] ?? 0))]);
+    exit;
+}
+
 if (isset($_GET['action']) && $_GET['action'] === 'get_lots_inline') {
     $item_id = (int)$_GET['item_id'];
 
