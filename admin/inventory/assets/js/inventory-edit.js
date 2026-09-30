@@ -216,7 +216,7 @@ function toggleEditTypeFields() {
         const mGradeOpts = ['A','B','C','D'].map(g =>
             `<option value="${g}" ${item.condition_grade===g?'selected':''}>${g}</option>`).join('');
         html = `
-            <div><label class="cmns-label">รหัสเครื่อง (Asset Tag)</label><input type="text" name="asset_tag" class="cmns-input" value="${esc(item.asset_tag)}"></div>
+            <div><label class="cmns-label">รหัสเครื่อง (Asset Tag) <span id="edit-tag-hint" style="display:none;color:#8b5cf6;font-weight:400;text-transform:none;letter-spacing:0;">— ออกให้ใหม่ กดบันทึกเพื่อใช้</span></label><input type="text" name="asset_tag" id="edit-asset-tag" class="cmns-input" value="${esc(item.asset_tag)}" autocomplete="off"></div>
             <div><label class="cmns-label">Serial Number</label><input type="text" name="serial_number" class="cmns-input" value="${esc(item.serial_number)}"></div>
             <div><label class="cmns-label">สี (Color)</label><input type="text" name="color" class="cmns-input" value="${esc(item.color)}" placeholder="เช่น Space Gray, Silver, Midnight"></div>
             <div>
@@ -304,6 +304,26 @@ function toggleEditTypeFields() {
         `;
     }
     container.innerHTML = html;
+
+    if (type === 'machine' && !item.asset_tag) fillMissingMachineTag(item);
+}
+
+/* เครื่องซากที่ยังไม่มี Asset Tag — เติมให้ตอนเปิด edit (บันทึกจริงเมื่อกดเซฟ, server เช็คซ้ำอีกรอบ)
+   sku เป็นแบบรหัสเครื่องอยู่แล้ว (MB-202605-A0123) ใช้อันนั้น ไม่งั้นออกเลขรันใหม่ */
+function fillMissingMachineTag(item) {
+    const input = document.getElementById('edit-asset-tag');
+    const hint  = document.getElementById('edit-tag-hint');
+    if (!input) return;
+    const show = tag => {
+        if (!tag || input.value.trim() !== '') return;
+        input.value = tag;
+        if (hint) hint.style.display = '';
+    };
+    if (/^[A-Z]{2}-\d{6}-A\d{4}$/.test(item.sku || '')) { show(item.sku); return; }
+    fetch('ajax.php?action=next_machine_tag&category_id=' + encodeURIComponent(item.category_id || 0))
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d && String(document.getElementById('edit-id').value) === String(item.id)) show(d.tag); })
+        .catch(() => {});
 }
 
 function esc(v) {
