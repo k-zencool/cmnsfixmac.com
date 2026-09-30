@@ -87,6 +87,10 @@ try {
         $asset_tag = strtoupper(preg_replace('/\s+/', '', $asset_tag));
         if ($asset_tag !== '' && $asset_tag !== (string)$existing['asset_tag']) {
             require_once __DIR__ . '/../../includes/sku_lib.php';
+            // เลขที่ระบบเติมให้ตอนเปิดฟอร์ม ถ้าโดนใช้ไปแล้วออกเลขใหม่ (เหมือน process_add)
+            if (($_POST['asset_tag_auto'] ?? '') === '1' && sku_machine_tag_taken($pdo, $asset_tag, $id)) {
+                $asset_tag = sku_build_machine($pdo, $category_id);
+            }
             if (sku_machine_tag_taken($pdo, $asset_tag, $id)) throw new Exception("รหัสเครื่อง {$asset_tag} ถูกใช้แล้ว");
             $sku = $asset_tag;
         }

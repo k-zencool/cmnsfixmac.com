@@ -102,6 +102,7 @@ if (!function_exists('sku_build_machine')) {
     /**
      * รหัสเครื่อง: <อุปกรณ์>-<YYYYMM>-A####  (แบบเดียวกับที่มีอยู่เดิม เช่น MB-202510-A0078)
      * เลขรันนับต่อจากเลขสูงสุดที่เคยออกของอุปกรณ์นั้น ไม่ใช่สุ่ม
+     * นับจากทั้ง sku และ asset_tag แล้วไล่ข้ามจนกว่าจะไม่ชนช่องไหนเลย (ดู sku_machine_tag_taken)
      */
     function sku_build_machine(PDO $pdo, int $category_id): string {
         list($dev) = sku_category_codes($pdo, $category_id);
@@ -109,14 +110,22 @@ if (!function_exists('sku_build_machine')) {
         $ym = date('Ym');
 
         $st = $pdo->prepare(
-            "SELECT MAX(CAST(SUBSTRING_INDEX(sku, '-A', -1) AS UNSIGNED))
-             FROM inventory
-             WHERE type = 'machine' AND sku LIKE CONCAT(?, '-%-A%')"
+            "SELECT MAX(n) FROM (
+                SELECT CAST(SUBSTRING_INDEX(sku, '-A', -1) AS UNSIGNED) AS n
+                FROM inventory WHERE sku LIKE CONCAT(?, '-______-A%')
+                UNION ALL
+                SELECT CAST(SUBSTRING_INDEX(asset_tag, '-A', -1) AS UNSIGNED)
+                FROM inventory WHERE asset_tag LIKE CONCAT(?, '-______-A%')
+             ) t"
         );
-        $st->execute([$dev]);
+        $st->execute([$dev, $dev]);
         $next = (int)$st->fetchColumn() + 1;
 
-        return sku_unique($pdo, sprintf('%s-%s-A%04d', $dev, $ym, $next));
+        for ($i = 0; $i < 50; $i++, $next++) {
+            $tag = sprintf('%s-%s-A%04d', $dev, $ym, $next);
+            if (!sku_machine_tag_taken($pdo, $tag)) return $tag;
+        }
+        return sku_unique($pdo, $tag);
     }
 }
 

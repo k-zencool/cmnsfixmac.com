@@ -451,7 +451,8 @@ function toggleTypeFields() {
         html = `
             <div>
                 <label class="cmns-label" style="color:#8b5cf6;">รหัสเครื่อง (Asset Tag) <span style="font-weight:400;text-transform:none;letter-spacing:0;">— ออกให้อัตโนมัติ แก้ได้</span></label>
-                <input type="text" name="asset_tag" id="add-asset-tag" class="cmns-input" placeholder="เลือกอุปกรณ์ก่อน" autocomplete="off" style="border-color:#8b5cf6;font-weight:800;" oninput="this.dataset.manual = this.value.trim() ? '1' : ''">
+                <input type="text" name="asset_tag" id="add-asset-tag" class="cmns-input" placeholder="เลือกอุปกรณ์ก่อน" autocomplete="off" style="border-color:#8b5cf6;font-weight:800;" oninput="this.dataset.manual = this.value.trim() ? '1' : ''; document.getElementById('add-tag-auto').value = '0';">
+                <input type="hidden" name="asset_tag_auto" id="add-tag-auto" value="0">
             </div>
             <div>
                 <label class="cmns-label">Serial Number</label>
@@ -702,7 +703,11 @@ function refreshMachineTag() {
     const req = ++_tagReq;
     fetch('ajax.php?action=next_machine_tag&category_id=' + encodeURIComponent(catId))
         .then(r => r.ok ? r.json() : null)
-        .then(d => { if (d && d.tag && req === _tagReq && input.dataset.manual !== '1') input.value = d.tag; })
+        .then(d => {
+            if (!d || !d.tag || req !== _tagReq || input.dataset.manual === '1') return;
+            input.value = d.tag;
+            document.getElementById('add-tag-auto').value = '1';
+        })
         .catch(() => {});
 }
 

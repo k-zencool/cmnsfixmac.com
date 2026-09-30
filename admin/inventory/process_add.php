@@ -70,7 +70,10 @@ try {
     // เว้นว่าง = ออกเลขรันให้ (MB-YYYYMM-A####), พิมพ์เอง = ใช้ตามนั้นถ้าไม่ซ้ำ
     if ($type === 'machine') {
         $tag = strtoupper(preg_replace('/\s+/', '', $_POST['asset_tag'] ?? ''));
-        if ($tag === '') $tag = sku_build_machine($pdo, $category_id);
+        // เลขที่ระบบเติมให้ (asset_tag_auto=1) โดนใช้ไประหว่างเปิดฟอร์ม → ออกเลขใหม่ให้เลย ไม่เด้ง error
+        // เลขที่คนพิมพ์เองซ้ำ → เด้ง error ไม่แอบเปลี่ยนให้
+        $tag_auto = ($_POST['asset_tag_auto'] ?? '') === '1';
+        if ($tag === '' || ($tag_auto && sku_machine_tag_taken($pdo, $tag))) $tag = sku_build_machine($pdo, $category_id);
         if (sku_machine_tag_taken($pdo, $tag)) throw new Exception("รหัสเครื่อง {$tag} ถูกใช้แล้ว");
         $sku = $tag;
         $_POST['asset_tag'] = $tag;

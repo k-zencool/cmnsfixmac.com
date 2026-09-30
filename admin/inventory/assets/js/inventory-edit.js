@@ -216,7 +216,7 @@ function toggleEditTypeFields() {
         const mGradeOpts = ['A','B','C','D'].map(g =>
             `<option value="${g}" ${item.condition_grade===g?'selected':''}>${g}</option>`).join('');
         html = `
-            <div><label class="cmns-label">รหัสเครื่อง (Asset Tag) <span id="edit-tag-hint" style="display:none;color:#8b5cf6;font-weight:400;text-transform:none;letter-spacing:0;">— ออกให้ใหม่ กดบันทึกเพื่อใช้</span></label><input type="text" name="asset_tag" id="edit-asset-tag" class="cmns-input" value="${esc(item.asset_tag)}" autocomplete="off"></div>
+            <div><label class="cmns-label">รหัสเครื่อง (Asset Tag) <span id="edit-tag-hint" style="display:none;color:#8b5cf6;font-weight:400;text-transform:none;letter-spacing:0;">— ออกให้ใหม่ กดบันทึกเพื่อใช้</span></label><input type="text" name="asset_tag" id="edit-asset-tag" class="cmns-input" value="${esc(item.asset_tag)}" autocomplete="off" oninput="document.getElementById('edit-tag-auto').value='0'"><input type="hidden" name="asset_tag_auto" id="edit-tag-auto" value="0"></div>
             <div><label class="cmns-label">Serial Number</label><input type="text" name="serial_number" class="cmns-input" value="${esc(item.serial_number)}"></div>
             <div><label class="cmns-label">สี (Color)</label><input type="text" name="color" class="cmns-input" value="${esc(item.color)}" placeholder="เช่น Space Gray, Silver, Midnight"></div>
             <div>
@@ -317,6 +317,7 @@ function fillMissingMachineTag(item) {
     const show = tag => {
         if (!tag || input.value.trim() !== '') return;
         input.value = tag;
+        document.getElementById('edit-tag-auto').value = '1';
         if (hint) hint.style.display = '';
     };
     if (/^[A-Z]{2}-\d{6}-A\d{4}$/.test(item.sku || '')) { show(item.sku); return; }
