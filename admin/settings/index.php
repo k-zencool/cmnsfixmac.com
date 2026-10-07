@@ -65,6 +65,20 @@ $connCards = [
         'href'  => '/admin/settings/notifications.php',
         'color' => '#06c755',
     ],
+    [
+        'icon'  => 'photo_library',
+        'title' => 'รูปเครื่องลูกค้า',
+        'desc'  => 'รูปจากทุกงานซ่อม ค้นหา ดู ย้ายขั้นตอน แก้หมายเหตุ โหลด และลบ',
+        'href'  => '/admin/settings/photos.php',
+        'color' => '#7c3aed',
+    ],
+    [
+        'icon'  => 'add_to_drive',
+        'title' => 'Google Drive — รูปเครื่องลูกค้า',
+        'desc'  => 'บัญชี Drive ที่เก็บรูปจากหน้างานซ่อม พื้นที่ที่ใช้ และการเชื่อมต่อ',
+        'href'  => '/admin/settings/gdrive.php',
+        'color' => '#1a73e8',
+    ],
 ];
 if ($is_super) {
     $connCards[] = [

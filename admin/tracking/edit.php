@@ -324,6 +324,7 @@ require_once __DIR__ . '/../templates/header_admin.php';
 <link rel="stylesheet" href="../templates/assets/css/inventory-dashboard.css?v=<?= asset_ver('/admin/templates/assets/css/inventory-dashboard.css') ?>">
 <link rel="stylesheet" href="../templates/assets/css/modal.css?v=<?= asset_ver('/admin/templates/assets/css/modal.css') ?>">
 <link rel="stylesheet" href="assets/css/create-v3.css?v=<?= asset_ver('/admin/tracking/assets/css/create-v3.css') ?>">
+<link rel="stylesheet" href="assets/css/job-photos.css?v=<?= asset_ver('/admin/tracking/assets/css/job-photos.css') ?>">
 
 <div class="cr3-wrap">
 
@@ -676,6 +677,52 @@ require_once __DIR__ . '/../templates/header_admin.php';
 
             </div>
         </div>
+
+        <!-- ── Device photos (Google Drive). Not a [data-sheet] and its inputs
+             have no name → uploads never count as an unsaved form change. ── -->
+        <section class="cr3-card jp" id="photos" data-job-photos="<?= (int)$job['id'] ?>"
+                 data-ticket="<?= h($job['ticket_number']) ?>"
+                 data-settings="<?= ($_SESSION['admin_role'] ?? '') === 'super_admin' ? '/admin/settings/gdrive.php' : '' ?>">
+            <header class="cr3-hd cr3-hd-blue">
+                <span class="cr3-hd-ico material-symbols-rounded">photo_camera</span>
+                <div class="cr3-hd-txt">
+                    <div class="cr3-hd-title">รูปเครื่อง</div>
+                    <div class="cr3-hd-sub">เก็บใน Google Drive ของร้าน · แยกตามขั้นตอน</div>
+                </div>
+                <a class="jp-drive" data-jp-folder hidden target="_blank" rel="noopener" title="เปิดโฟลเดอร์งานนี้ใน Drive">
+                    <span class="material-symbols-rounded">folder_open</span><span class="jp-hide-sm">Drive</span>
+                </a>
+            </header>
+            <div class="cr3-body">
+                <div class="jp-tabs" role="tablist">
+                    <?php foreach (['intake' => 'รับเครื่อง', 'repair' => 'ระหว่างซ่อม', 'return' => 'ส่งคืน'] as $sk => $sl): ?>
+                    <button type="button" class="jp-tab" data-stage="<?= $sk ?>" role="tab"><?= $sl ?> <i data-count>0</i></button>
+                    <?php endforeach; ?>
+                </div>
+
+                <div class="jp-note" data-jp-note hidden></div>
+
+                <div class="jp-actions" data-jp-actions hidden>
+                    <label class="cr3-btn jp-btn jp-btn-main">
+                        <span class="material-symbols-rounded">photo_camera</span> ถ่ายรูป
+                        <input type="file" accept="image/*" capture="environment" data-jp-input hidden>
+                    </label>
+                    <label class="cr3-btn cr3-btn-ghost jp-btn">
+                        <span class="material-symbols-rounded">add_photo_alternate</span> เลือกจากเครื่อง
+                        <input type="file" accept="image/*" multiple data-jp-input hidden>
+                    </label>
+                    <button type="button" class="cr3-btn cr3-btn-ghost jp-btn" data-jp-select hidden>
+                        <span class="material-symbols-rounded">check_circle</span> เลือก
+                    </button>
+                    <button type="button" class="cr3-btn cr3-btn-ghost jp-btn" data-jp-zip hidden>
+                        <span class="material-symbols-rounded">download</span> <span data-jp-zip-lbl>โหลดทั้งหมด</span>
+                    </button>
+                </div>
+
+                <div class="jp-grid" data-jp-grid></div>
+                <div class="jp-empty" data-jp-empty hidden>ยังไม่มีรูปในขั้นตอนนี้</div>
+            </div>
+        </section>
 
         <!-- ── Sticky action bar ── -->
         <div class="cr3-actionbar cr3e-actionbar">
@@ -1282,5 +1329,7 @@ document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') closeJobQr();
 });
 </script>
+
+<script src="assets/js/job-photos.js?v=<?= asset_ver('/admin/tracking/assets/js/job-photos.js') ?>"></script>
 
 <?php include __DIR__ . '/../templates/footer_admin.php'; ?>
