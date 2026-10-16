@@ -108,7 +108,7 @@
     var RESIST        = 0.28;   // upward drag is rubber-banded, not free
 
     var sheet = null, startY = 0, lastY = 0, lastT = 0, dy = 0, h = 0,
-        vel = 0, dragging = false, scrim = null, scrimRGB = '0,0,0', scrimA = 0.4;
+        vel = 0, dragging = false, claimed = false, scrim = null, scrimRGB = '0,0,0', scrimA = 0.4;
 
     function overlayOf(el) {
         /* The scrim is whatever fixed parent the sheet sits in; fading it
@@ -175,20 +175,39 @@
         dy       = 0;
         vel      = 0;
         dragging = true;
+        claimed  = false;
         readScrim(overlayOf(el));
         sheet.classList.remove('is-settling');
         sheet.classList.add('is-dragging');
     }
 
+    /* Hand the touch back untouched — nothing moved, nothing to settle. */
+    function release() {
+        if (sheet) sheet.classList.remove('is-dragging');
+        clearScrim();
+        dragging = false;
+        sheet = null;
+        dy = 0;
+    }
+
     function onMove(e) {
         if (!dragging || !sheet) return;
         var y = e.touches[0].clientY;
-        dy = y - startY;
-        if (dy < 0) dy *= RESIST;               // pulling up goes nowhere much
+        var raw = y - startY;
 
-        /* Only claim the gesture once it is clearly a downward drag —
-           otherwise a tap or a horizontal swipe would be swallowed. */
-        if (Math.abs(dy) > 4 && e.cancelable) e.preventDefault();
+        /* The first clear direction decides who owns the gesture. Up is the
+           sheet's content scrolling, so it goes back to the browser — claiming
+           it used to rubber-band the whole sheet up and down instead of
+           scrolling a long part / slot list. Down is a drag. */
+        if (!claimed) {
+            if (raw < -4) { release(); return; }
+            if (raw <= 4) return;
+            claimed = true;
+        }
+
+        dy = raw;
+        if (dy < 0) dy *= RESIST;               // dragged down, then back past the start
+        if (e.cancelable) e.preventDefault();
 
         sheet.style.translate = '0 ' + dy + 'px';
         dimScrim(1 - (dy / h) * 1.1);
@@ -201,6 +220,7 @@
 
     function onEnd(e) {
         if (!dragging || !sheet) return;
+        if (!claimed) { release(); return; }    // a tap, or never left the dead zone
         dragging = false;
 
         var el = sheet;

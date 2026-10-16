@@ -737,3 +737,16 @@
     font-size: 12px; color: var(--text-muted);
     line-height: 1.35; margin-top: 1px;
 }
+
+/* Inventory modals on a phone (edit / strip / …). Their inline 30px padding
+   beats modal.css's mobile 20px, and blocks with min-width 280–300px plus
+   two-column grids of inputs came out wider than a 375px screen — so the
+   modal scrolled sideways under the finger and wobbled left-right while
+   scrolling down. Grid items and fields may shrink; the box never scrolls x. */
+@media (max-width: 767px) {
+    .cmns-modal .modal-content { padding: 18px !important; overflow-x: hidden; }
+    .cmns-modal .modal-content [style*="grid-template-columns"] > * { min-width: 0; }
+    .cmns-modal .modal-content input,
+    .cmns-modal .modal-content select,
+    .cmns-modal .modal-content textarea { min-width: 0; max-width: 100%; }
+}

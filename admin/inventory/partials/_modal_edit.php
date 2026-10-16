@@ -59,7 +59,7 @@
                     </div>
 
                     <!-- Main fields -->
-                    <div style="flex:1; min-width: 280px;">
+                    <div style="flex:1; min-width: min(280px, 100%);">
                         <div style="display:grid; grid-template-columns: 2fr 1fr; gap:12px; margin-bottom:12px;">
                             <div>
                                 <label class="cmns-label">ชื่อสินค้า (อังกฤษ) <span style="color:red">*</span></label>

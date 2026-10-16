@@ -40,7 +40,7 @@
                     </div>
 
                     <!-- fields -->
-                    <div style="flex:1; min-width:300px;">
+                    <div style="flex:1; min-width:min(300px, 100%);">
                         <div style="display:grid; grid-template-columns:2fr 1fr; gap:14px; margin-bottom:14px;">
                             <div>
                                 <label class="cmns-label">ชื่ออะไหล่ <span style="color:red">*</span></label>
