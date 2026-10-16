@@ -159,6 +159,10 @@ include '../templates/header_admin.php';
                 <label>ใช้กับรุ่น</label>
                 <div class="trk-view-tags" id="pv-compat"></div>
             </section>
+            <section class="trk-view-sec" id="pv-sec-note">
+                <label>หมายเหตุ</label>
+                <div class="pv-note" id="pv-note"></div>
+            </section>
             <section class="trk-view-sec" id="pv-sec-lots">
                 <label>ล็อตที่มีของ</label>
                 <div id="pv-lots"></div>

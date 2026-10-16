@@ -31,7 +31,7 @@ touch_admin_session();
 $id = (int)($_GET['id'] ?? 0);
 
 $st = $pdo->prepare("
-    SELECT i.id, i.name, i.name_th, i.sku, i.asset_tag, i.serial_number, i.disassembly_status, i.image, i.type, i.status, i.part_number, i.compatible_models,
+    SELECT i.id, i.name, i.name_th, i.sku, i.asset_tag, i.serial_number, i.disassembly_status, i.image, i.type, i.status, i.part_number, i.compatible_models, i.condition_note,
            i.location, i.min_qty, i.sell_price, i.category_id, c.name AS category_name,
            CONCAT(ss.code, '-', LPAD(sb.slot, 2, '0')) AS bin_code,
            COALESCE((SELECT SUM(l.qty_remaining) FROM inventory_lots l
@@ -75,6 +75,7 @@ echo json_encode(['ok' => true, 'part' => [
     'part_number' => $row['part_number'],
     'compatible'  => array_values(array_filter(array_map('trim', explode(',', (string)$row['compatible_models'])))),
     'location'    => $row['bin_code'] ?: $row['location'],   // the slot, once it has one
+    'note'        => trim((string)$row['condition_note']),
     'category'    => $row['category_name'],
     'qty'         => $qty,
     'min_qty'     => (int)($row['min_qty'] ?? 0),

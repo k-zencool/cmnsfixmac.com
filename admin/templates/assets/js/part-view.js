@@ -80,6 +80,9 @@
         });
         $('pv-sec-compat').hidden = !(p.compatible || []).length;
 
+        text('pv-note', p.note || '');
+        $('pv-sec-note').hidden = !p.note;
+
         var lots = $('pv-lots');
         lots.innerHTML = '';
         (p.lots || []).forEach(function (l) {
