@@ -11,9 +11,33 @@ $STATUS = [
     'RW'  => ['label' => 'งานแก้ / เคลม',        'color' => '#ef4444', 'group' => 'todo'],
     'FN'  => ['label' => 'เสร็จ รอรับ',          'color' => '#10b981', 'group' => 'waiting'],
     'XX'  => ['label' => 'ยกเลิก รอรับคืน',      'color' => '#ef4444', 'group' => 'waiting'],
+    // not a real status: XX jobs cancelled more than MGR_XX_OLD_DAYS ago (the black box at the shop)
+    'XXO' => ['label' => 'ยกเลิก เกิน 3 เดือน',   'color' => '#111827', 'group' => 'waiting', 'ink' => true],
     'NCF' => ['label' => 'ติดต่อไม่ได้ (เสร็จ)',  'color' => '#6b7280', 'group' => 'waiting'],
     'NCS' => ['label' => 'ติดต่อไม่ได้ (เสนอ)',   'color' => '#6b7280', 'group' => 'waiting'],
 ];
+
+const MGR_XX_OLD_DAYS = 90;
+
+/**
+ * tracking + `bucket` = status, except old cancellations become XXO.
+ * Cancel date = last move INTO XX in tracking_history (edit.php logs every
+ * save with status_new, so rows XX→XX are just edits); rows from before the
+ * history log fall back to updated_at, which can only make them look newer.
+ */
+function mgr_jobs_from(): string
+{
+    return "(
+        SELECT t.*,
+               CASE WHEN t.status = 'XX' AND COALESCE(
+                        (SELECT MAX(h.changed_at) FROM tracking_history h
+                         WHERE h.tracking_id = t.id AND h.status_new = 'XX'
+                           AND (h.status_old IS NULL OR h.status_old <> 'XX')),
+                        t.updated_at) < NOW() - INTERVAL " . MGR_XX_OLD_DAYS . " DAY
+                    THEN 'XXO' ELSE t.status END AS bucket
+        FROM tracking t
+    ) j";
+}
 
 /**
  * ดึงงานค้างตาม filter เดียวกันทั้งบอร์ดและใบพิมพ์
@@ -31,11 +55,11 @@ function mgr_fetch_stuck_jobs(PDO $pdo, array $STATUS, bool $paged = false): arr
     $where  = [];
     $params = [];
     if ($st !== '') {
-        $where[] = "status = ?";
+        $where[] = "bucket = ?";
         $params[] = $st;
     } else {
         $codes = array_keys(array_filter($STATUS, function ($m) use ($group) { return $m['group'] === $group; }));
-        $where[] = "status IN ('" . implode("','", $codes) . "')";
+        $where[] = "bucket IN ('" . implode("','", $codes) . "')";
     }
     if ($dev !== '') { $where[] = "device_type = ?"; $params[] = $dev; }
     if ($q !== '') {
@@ -44,12 +68,13 @@ function mgr_fetch_stuck_jobs(PDO $pdo, array $STATUS, bool $paged = false): arr
         array_push($params, $kw, $kw, $kw, $kw, $kw, $kw);
     }
     $where_sql = implode(" AND ", $where);
+    $from = mgr_jobs_from();
 
     $per = 20; $page = 1; $total = 0; $pages = 1; $offset = 0;
     if ($paged) {
         $per    = max(5, min(200, (int)($_GET['per'] ?? 20)));
         $page   = max(1, (int)($_GET['page'] ?? 1));
-        $cnt    = $pdo->prepare("SELECT COUNT(*) FROM tracking WHERE $where_sql");
+        $cnt    = $pdo->prepare("SELECT COUNT(*) FROM $from WHERE $where_sql");
         $cnt->execute($params);
         $total  = (int)$cnt->fetchColumn();
         $pages  = max(1, (int)ceil($total / $per));
@@ -62,8 +87,8 @@ function mgr_fetch_stuck_jobs(PDO $pdo, array $STATUS, bool $paged = false): arr
 
     $stmt = $pdo->prepare("
         SELECT id, ticket_number, customer_name, customer_phone, device_type, device_model,
-               status, appointment_date, created_at, DATEDIFF(NOW(), created_at) AS days_in
-        FROM tracking WHERE $where_sql
+               bucket AS status, appointment_date, created_at, DATEDIFF(NOW(), created_at) AS days_in
+        FROM $from WHERE $where_sql
         ORDER BY created_at ASC $limit_sql");
     $stmt->execute($params);
     $jobs = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -83,12 +108,12 @@ function mgr_fetch_stuck_jobs(PDO $pdo, array $STATUS, bool $paged = false): arr
 function mgr_device_counts(PDO $pdo, array $STATUS, string $group, string $st): array
 {
     if ($st !== '') {
-        $stmt = $pdo->prepare("SELECT device_type, COUNT(*) FROM tracking WHERE status = ? AND device_type IS NOT NULL AND device_type != '' GROUP BY device_type ORDER BY device_type ASC");
+        $stmt = $pdo->prepare("SELECT device_type, COUNT(*) FROM " . mgr_jobs_from() . " WHERE bucket = ? AND device_type IS NOT NULL AND device_type != '' GROUP BY device_type ORDER BY device_type ASC");
         $stmt->execute([$st]);
     } else {
         $codes = array_keys(array_filter($STATUS, function ($m) use ($group) { return $m['group'] === $group; }));
         $in = "'" . implode("','", $codes) . "'";
-        $stmt = $pdo->query("SELECT device_type, COUNT(*) FROM tracking WHERE status IN ($in) AND device_type IS NOT NULL AND device_type != '' GROUP BY device_type ORDER BY device_type ASC");
+        $stmt = $pdo->query("SELECT device_type, COUNT(*) FROM " . mgr_jobs_from() . " WHERE bucket IN ($in) AND device_type IS NOT NULL AND device_type != '' GROUP BY device_type ORDER BY device_type ASC");
     }
     return $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
 }

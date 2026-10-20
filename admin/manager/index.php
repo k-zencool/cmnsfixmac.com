@@ -3,7 +3,7 @@
  * admin/manager/index.php
  * งานค้าง — เครื่องที่ยังอยู่ในร้าน เรียงจากค้างนานสุด (layout ตามหน้า tracking)
  *   กลุ่ม "ต้องทำ"   : QS รอเช็คราคา / WC รอคอนเฟิร์ม / OK กำลังซ่อม / RW งานแก้
- *   กลุ่ม "รอลูกค้า" : FN เสร็จรอรับ / XX ยกเลิกรอรับคืน / NCF·NCS ติดต่อไม่ได้
+ *   กลุ่ม "รอลูกค้า" : FN เสร็จรอรับ / XX ยกเลิกรอรับคืน / XXO ยกเลิกเกิน 3 เดือน / NCF·NCS ติดต่อไม่ได้
  ********************************************************************/
 session_start();
 require_once '../../includes/db.php';
@@ -25,7 +25,7 @@ $device_counts = mgr_device_counts($pdo, $STATUS, $group, $st);
 // ── นับต่อ status (chips) ──
 $all_codes = array_keys($STATUS);
 $in_all = "'" . implode("','", $all_codes) . "'";
-$counts = $pdo->query("SELECT status, COUNT(*) c FROM tracking WHERE status IN ($in_all) GROUP BY status")
+$counts = $pdo->query("SELECT bucket, COUNT(*) c FROM " . mgr_jobs_from() . " WHERE bucket IN ($in_all) GROUP BY bucket")
               ->fetchAll(PDO::FETCH_KEY_PAIR);
 $cnt_todo    = 0;
 $cnt_waiting = 0;
@@ -71,6 +71,10 @@ include '../templates/header_admin.php';
 .mgr-chip.active { border-width:1.5px; }
 .mgr-chip .dot { width:8px; height:8px; border-radius:50%; }
 .mgr-chip .n { font-weight:800; color:var(--text-main); }
+/* XXO is near-black: a hex-alpha tint would vanish on the dark theme */
+.mgr-chip .dot.is-ink { background:var(--text-main) !important; }
+.mgr-chip.active.is-ink { border-color:var(--text-main) !important; color:var(--text-main) !important; }
+.mgr-st.is-ink { background:var(--bg-surface-alt) !important; color:var(--text-main) !important; border-color:var(--text-muted) !important; }
 
 /* ── table bits ── */
 .mgr-st {
@@ -210,9 +214,9 @@ include '../templates/header_admin.php';
     <div class="mgr-chips">
         <?php foreach ($group_codes as $code): $m = $STATUS[$code]; $c = (int)($counts[$code] ?? 0); ?>
         <a href="<?= mgr_url(['st' => $st === $code ? null : $code, 'page' => null]) ?>"
-           class="mgr-chip <?= $st === $code ? 'active' : '' ?>"
+           class="mgr-chip <?= $st === $code ? 'active' : '' ?> <?= !empty($m['ink']) ? 'is-ink' : '' ?>"
            <?= $st === $code ? 'style="border-color:' . $m['color'] . '; color:' . $m['color'] . ';"' : '' ?>>
-            <span class="dot" style="background:<?= $m['color'] ?>;"></span>
+            <span class="dot <?= !empty($m['ink']) ? 'is-ink' : '' ?>" style="background:<?= $m['color'] ?>;"></span>
             <?= $m['label'] ?> <span class="n"><?= $c ?></span>
         </a>
         <?php endforeach; ?>
@@ -260,7 +264,7 @@ include '../templates/header_admin.php';
                             <?= htmlspecialchars(trim(($j['device_type'] ?: '') . ' ' . ($j['device_model'] ?: '')) ?: '—') ?>
                         </td>
                         <td>
-                            <span class="mgr-st" style="background:<?= $m['color'] ?>18; color:<?= $m['color'] ?>; border:1px solid <?= $m['color'] ?>33;">
+                            <span class="mgr-st <?= !empty($m['ink']) ? 'is-ink' : '' ?>" style="background:<?= $m['color'] ?>18; color:<?= $m['color'] ?>; border:1px solid <?= $m['color'] ?>33;">
                                 <?= $m['label'] ?>
                             </span>
                         </td>
