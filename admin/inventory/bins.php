@@ -38,6 +38,8 @@ try { $pdo->query("SELECT bin_id FROM inventory LIMIT 1"); $pdo->query("SELECT 1
 catch (PDOException $e) { $ready = false; }
 
 $types    = sbin_types();
+$sizes    = sbin_label_sizes();
+$layout   = $ready && sbin_has_layout($pdo);   // label_size / cols columns exist
 $rootCats = $pdo->query("SELECT id, name FROM parts_categories WHERE parent_id IS NULL ORDER BY name")->fetchAll(PDO::FETCH_KEY_PAIR);
 
 /* A posted type + category pair, both valid or both empty */
@@ -45,6 +47,13 @@ function bins_kind(array $types, array $rootCats): array {
     $t = $_POST['item_type'] ?? '';
     $c = (int)($_POST['category_id'] ?? 0);
     return [isset($types[$t]) ? $t : null, isset($rootCats[$c]) ? $c : null];
+}
+
+/* A posted label size + slots per row: [size, cols|null] */
+function bins_layout(array $sizes): array {
+    $size = isset($sizes[$_POST['label_size'] ?? '']) ? $_POST['label_size'] : 'box';
+    $cols = (int)($_POST['cols'] ?? 0);
+    return [$size, $cols >= 1 && $cols <= 12 ? $cols : null];
 }
 
 /* ── POST ── */
@@ -67,6 +76,10 @@ if ($ready && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->prepare("INSERT INTO storage_shelves (code, name, created_at) VALUES (?, ?, ?)")
             ->execute([$code, $name !== '' ? mb_substr($name, 0, 100) : null, $now]);
         $shelfId = (int)$pdo->lastInsertId();
+        if ($layout) {
+            [$size, $cols] = bins_layout($sizes);
+            $pdo->prepare("UPDATE storage_shelves SET label_size = ?, cols = ? WHERE id = ?")->execute([$size, $cols, $shelfId]);
+        }
         $ins = $pdo->prepare("INSERT INTO storage_bins (shelf_id, slot, item_type, category_id, created_at) VALUES (?, ?, ?, ?, ?)");
         for ($i = 1; $i <= $slots; $i++) $ins->execute([$shelfId, $i, $t, $c, $now]);
         $pdo->commit();
@@ -91,6 +104,17 @@ if ($ready && $_SERVER['REQUEST_METHOD'] === 'POST') {
         bins_back($code !== $old
             ? "เปลี่ยนชั้น $old เป็น $code แล้ว — QR เดิมยังสแกนได้ แต่ตัวหนังสือบนฉลากเป็น $old ควรพิมพ์ใหม่"
             : "บันทึกชั้น $code แล้ว");
+    }
+
+    if ($action === 'shelf_layout' && $layout) {
+        $shelfId = (int)($_POST['shelf_id'] ?? 0);
+        [$size, $cols] = bins_layout($sizes);
+        $st = $pdo->prepare("SELECT code FROM storage_shelves WHERE id = ?");
+        $st->execute([$shelfId]);
+        $code = $st->fetchColumn();
+        if ($code === false) bins_back('ไม่พบชั้นนี้', true);
+        $pdo->prepare("UPDATE storage_shelves SET label_size = ?, cols = ? WHERE id = ?")->execute([$size, $cols, $shelfId]);
+        bins_back("ชั้น $code: ฉลาก{$sizes[$size]} · " . ($cols ? "แถวละ $cols ช่อง" : 'จัดช่องอัตโนมัติ'));
     }
 
     if ($action === 'shelf_kind') {
@@ -235,6 +259,7 @@ $shelves = []; $unshelved = [];
 if ($ready && !$bin) {
     $rows = $pdo->query("
         SELECT s.id AS shelf_id, s.code AS shelf_code, s.name AS shelf_name,
+               " . ($layout ? "s.label_size, s.cols," : "'box' AS label_size, NULL AS cols,") . "
                b.id, b.slot, b.item_type, b.category_id, c.name AS category_name, b.note,
                (SELECT COUNT(*) FROM inventory i WHERE i.bin_id = b.id) AS item_count
         FROM storage_shelves s
@@ -244,7 +269,9 @@ if ($ready && !$bin) {
     ")->fetchAll(PDO::FETCH_ASSOC);
     foreach ($rows as $r) {
         $sid = (int)$r['shelf_id'];
-        $shelves[$sid] ??= ['id' => $sid, 'code' => $r['shelf_code'], 'name' => $r['shelf_name'], 'bins' => [], 'items' => 0];
+        $shelves[$sid] ??= ['id' => $sid, 'code' => $r['shelf_code'], 'name' => $r['shelf_name'],
+                            'label_size' => $r['label_size'], 'cols' => $r['cols'] !== null ? (int)$r['cols'] : null,
+                            'bins' => [], 'items' => 0];
         if ($r['id'] !== null) {
             $shelves[$sid]['bins'][] = $r;
             $shelves[$sid]['items'] += (int)$r['item_count'];
@@ -265,6 +292,13 @@ function kind_select(array $types, array $rootCats, ?string $t, $c, bool $allowE
     $o .= '</select><select name="category_id" aria-label="หมวด">' . ($allowEmpty ? '<option value="">— หมวด —</option>' : '');
     foreach ($rootCats as $k => $v) $o .= '<option value="' . (int)$k . '"' . ((int)$c === (int)$k ? ' selected' : '') . '>' . h($v) . '</option>';
     return $o . '</select>';
+}
+
+function layout_fields(array $sizes, string $size, ?int $cols): string {
+    $o = '<div class="bn-2col"><select name="label_size" aria-label="ขนาดฉลาก">';
+    foreach ($sizes as $k => $v) $o .= '<option value="' . $k . '"' . ($size === $k ? ' selected' : '') . '>' . h($v) . '</option>';
+    $o .= '</select><input type="number" name="cols" value="' . ($cols ?: '') . '" min="1" max="12" inputmode="numeric" placeholder="ช่องต่อแถว (อัตโนมัติ)" aria-label="ช่องต่อแถว"></div>';
+    return $o . '<p class="bn-hint">ช่องต่อแถว = จัดกริดให้ตรงกับชั้นจริง เช่น 7 · เว้นว่าง = อัตโนมัติ</p>';
 }
 
 $pageTitle = $bin ? 'ช่อง ' . $bin['code'] : 'ชั้นเก็บของ';
@@ -478,7 +512,7 @@ require_once __DIR__ . '/../templates/header_admin.php';
             </div>
         </div>
         <?php if ($s['bins']): ?>
-        <div class="bn-grid">
+        <div class="bn-grid<?= $s['cols'] ? ' has-cols' : '' ?>"<?= $s['cols'] ? ' style="--cols:' . $s['cols'] . '"' : '' ?>>
             <?php foreach ($s['bins'] as $b):
                 $set = $b['item_type'] && $b['category_id'];
                 $n = (int)$b['item_count'];
@@ -518,6 +552,16 @@ require_once __DIR__ . '/../templates/header_admin.php';
             <p class="bn-hint">เปลี่ยนรหัส (A → B) แล้ว QR เดิมยังสแกนได้ แต่ต้องพิมพ์ฉลากใหม่ให้ตัวหนังสือตรง</p>
             <button type="submit" class="bn-btn is-block">บันทึกชื่อ</button>
         </form>
+
+        <?php if ($layout): ?>
+        <form method="post" class="bn-dlg-sec">
+            <input type="hidden" name="action" value="shelf_layout">
+            <input type="hidden" name="shelf_id" value="<?= $s['id'] ?>">
+            <h3>ฉลาก + ช่องต่อแถว</h3>
+            <?= layout_fields($sizes, $s['label_size'], $s['cols']) ?>
+            <button type="submit" class="bn-btn is-block">บันทึก</button>
+        </form>
+        <?php endif; ?>
 
         <?php if ($s['bins']): ?>
         <form method="post" class="bn-dlg-sec">
@@ -570,6 +614,10 @@ require_once __DIR__ . '/../templates/header_admin.php';
                 <label>จำนวนช่อง <input type="number" name="slots" value="10" min="1" max="99" inputmode="numeric" required></label>
             </div>
             <input type="text" name="name" maxlength="100" placeholder="ชื่อเรียกชั้น (ไม่บังคับ) เช่น ชั้นหลังร้าน" aria-label="ชื่อเรียกชั้น">
+            <?php if ($layout): ?>
+            <label class="bn-lbl">ฉลาก + ช่องต่อแถว</label>
+            <?= layout_fields($sizes, 'box', null) ?>
+            <?php endif; ?>
             <label class="bn-lbl">ของที่ใส่ได้</label>
             <div class="bn-2col"><?= kind_select($types, $rootCats, 'machine', null, true) ?></div>
             <p class="bn-hint">ตั้งให้ทุกช่องพร้อมกัน แก้รายช่องทีหลังได้</p>

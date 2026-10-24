@@ -4,9 +4,14 @@
 
    GET ?ids=<storage_bins.id,…>
 
-   72 × 88 mm (a 66 mm QR + the code), six to an A4 page, stuck on the front of the box. Only
-   the QR (CMNS:B-<id>) and the slot code — what the slot holds is data
-   in bins.php and can change without a reprint. Same paper rules as
+   Size comes from the slot's shelf (storage_shelves.label_size):
+   box   — 72 × 88 mm (a 66 mm QR + the code), six to an A4 page, stuck
+           on the front of the box
+   strip — 126 × 20 mm, 14 to a page, slid into a drawer label holder;
+           only the middle 90 mm shows, both ends stay blank
+   A mixed selection prints each size on its own pages. Only the QR
+   (CMNS:B-<id>) and the slot code — what the slot holds is data in
+   bins.php and can change without a reprint. Same paper rules as
    print_labels.php: each .sheet IS one A4 page, labels are placed in mm,
    each draws its own cut line, X/Y nudge is remembered per device.
    ========================================================= */
@@ -25,7 +30,7 @@ $bins = [];
 if ($ids) {
     $in = implode(',', array_fill(0, count($ids), '?'));
     $st = $pdo->prepare("
-        SELECT b.id, b.slot, s.code AS shelf_code
+        SELECT b.id, b.slot, s.code AS shelf_code" . (sbin_has_layout($pdo) ? ", s.label_size" : "") . "
         FROM storage_bins b JOIN storage_shelves s ON s.id = b.shelf_id
         WHERE b.id IN ($in)
         ORDER BY LENGTH(s.code), s.code, b.slot
@@ -34,9 +39,19 @@ if ($ids) {
     $bins = $st->fetchAll(PDO::FETCH_ASSOC);
 }
 
-$sheet = sbin_sheet();
-$per   = $sheet['cols'] * $sheet['rows'];
-$pages = array_chunk($bins, $per);
+// [size => slots], box first; each size fills its own sheets
+$bySize = [];
+foreach ($bins as $b) $bySize[($b['label_size'] ?? 'box') === 'strip' ? 'strip' : 'box'][] = $b;
+ksort($bySize);
+$pages = [];   // [[size, slots], …]
+foreach ($bySize as $size => $list) {
+    $sheet = sbin_sheet($size);
+    foreach (array_chunk($list, $sheet['cols'] * $sheet['rows']) as $chunk) $pages[] = [$size, $chunk];
+}
+$sizeNote = implode(' · ', array_map(function ($size) use ($bySize) {
+    $sh = sbin_sheet($size);
+    return "{$sh['w']}×{$sh['h']} มม. แผ่นละ " . ($sh['cols'] * $sh['rows']) . ' ดวง (' . count($bySize[$size]) . ')';
+}, array_keys($bySize)));
 
 $qrPayload = [];
 foreach ($bins as $b) $qrPayload[$b['id']] = sbin_qr_payload((int)$b['id']);
@@ -87,23 +102,35 @@ body { font-family: 'Sarabun', sans-serif; color: #000; }
 }
 .label {
     position: absolute;
-    width: <?= $sheet['w'] ?>mm; height: <?= $sheet['h'] ?>mm;
     transform: translate(var(--dx), var(--dy));
     outline: .2mm solid #777; outline-offset: -.1mm;
-    display: flex; flex-direction: column; align-items: center; justify-content: flex-start;
-    padding-top: 3mm;
 }
-.qr { width: 66mm; height: 66mm; }
+.face { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; padding-top: 3mm; }
 .qr svg { display: block; width: 100%; height: 100%; }
-/* read from across the room */
-.code {
-    margin-top: .5mm;
-    font-family: 'Courier New', monospace; font-weight: 800;
-    font-size: 36pt; line-height: 1; letter-spacing: -1pt;
-}
-.brand { margin-bottom: 1mm; font-size: 6pt; font-weight: 800; letter-spacing: .6pt; color: #444; line-height: 1; }
+.code { font-family: 'Courier New', monospace; font-weight: 800; line-height: 1; letter-spacing: -1pt; }
+.brand { font-size: 6pt; font-weight: 800; letter-spacing: .6pt; color: #444; line-height: 1; }
 
-body.is-test .label > * { visibility: hidden; }
+/* box: read from across the room */
+.is-box .qr { width: 66mm; height: 66mm; }
+.is-box .code { margin-top: .5mm; font-size: 36pt; }
+.is-box .brand { margin-bottom: 1mm; }
+
+/* strip: QR left, code right, inside the visible middle only */
+.is-strip .face {
+    left: <?= sbin_sheet('strip')['hide'] ?>mm; right: <?= sbin_sheet('strip')['hide'] ?>mm;
+    flex-direction: row; gap: 3mm; padding: 0 2mm;
+}
+.is-strip .qr { width: 17mm; height: 17mm; flex: none; }
+.is-strip .txt { display: flex; flex-direction: column; justify-content: center; min-width: 0; }
+.is-strip .code { margin-top: .8mm; font-size: 30pt; }
+/* aim ticks where the visible window starts / ends */
+.tick { position: absolute; width: 0; height: 2mm; border-left: .2mm solid #999; }
+.tick.l { left: <?= sbin_sheet('strip')['hide'] ?>mm; }
+.tick.r { right: <?= sbin_sheet('strip')['hide'] ?>mm; }
+.tick.t { top: 0; }
+.tick.b { bottom: 0; }
+
+body.is-test .face { visibility: hidden; }
 
 @media print {
     html, body { background: #fff; }
@@ -124,22 +151,33 @@ body.is-test .label > * { visibility: hidden; }
     <label><input type="checkbox" id="testMode"> พิมพ์เฉพาะเส้นตัด (ทดสอบ)</label>
     <button type="button" class="primary" id="btnPrint" disabled onclick="window.print()">กำลังสร้าง QR…</button>
 </div>
-<p class="hint">ตั้งค่าพิมพ์: กระดาษ A4 · ขนาด <b>100% / Actual size</b> (ห้าม “Fit to page”) · ไม่มีขอบกระดาษ · ปิดหัว/ท้ายกระดาษ · แผ่นละ <?= $per ?> ดวง (<?= $sheet['w'] ?>×<?= $sheet['h'] ?> มม.)</p>
+<p class="hint">ตั้งค่าพิมพ์: กระดาษ A4 · ขนาด <b>100% / Actual size</b> (ห้าม “Fit to page”) · ไม่มีขอบกระดาษ · ปิดหัว/ท้ายกระดาษ · <?= h($sizeNote) ?><?php if (isset($bySize['strip'])): ?> · แถบเห็นแค่ 90 มม. กลาง ปลายสองข้างเว้นว่างไว้สอดใต้ขอบ<?php endif; ?></p>
 
 <?php if (!$bins): ?>
     <p class="empty">ไม่พบช่องที่เลือก</p>
 <?php else: ?>
 <div class="pages">
-<?php foreach ($pages as $slots): ?>
+<?php foreach ($pages as [$size, $slots]): $sheet = sbin_sheet($size); ?>
     <section class="sheet">
     <?php foreach ($slots as $i => $b):
         $left = $sheet['left'] + ($i % $sheet['cols']) * $sheet['w'];
         $top  = $sheet['top'] + intdiv($i, $sheet['cols']) * $sheet['h'];
+        $code = h(sbin_code($b['shelf_code'], (int)$b['slot']));
     ?>
-        <div class="label" style="left:<?= $left ?>mm; top:<?= $top ?>mm;">
-            <div class="brand">CMNS FIX MAC</div>
-            <div class="qr" data-id="<?= (int)$b['id'] ?>"></div>
-            <div class="code"><?= h(sbin_code($b['shelf_code'], (int)$b['slot'])) ?></div>
+        <div class="label is-<?= $size ?>" style="left:<?= $left ?>mm; top:<?= $top ?>mm; width:<?= $sheet['w'] ?>mm; height:<?= $sheet['h'] ?>mm;">
+            <?php if ($size === 'strip'): ?>
+            <span class="tick l t"></span><span class="tick l b"></span><span class="tick r t"></span><span class="tick r b"></span>
+            <div class="face">
+                <div class="qr" data-id="<?= (int)$b['id'] ?>"></div>
+                <div class="txt"><div class="brand">CMNS FIX MAC</div><div class="code"><?= $code ?></div></div>
+            </div>
+            <?php else: ?>
+            <div class="face">
+                <div class="brand">CMNS FIX MAC</div>
+                <div class="qr" data-id="<?= (int)$b['id'] ?>"></div>
+                <div class="code"><?= $code ?></div>
+            </div>
+            <?php endif; ?>
         </div>
     <?php endforeach; ?>
     </section>

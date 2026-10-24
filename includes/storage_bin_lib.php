@@ -182,11 +182,38 @@ if (!function_exists('sbin_move')) {
     }
 }
 
-/* Slot label paper: plain A4, 2 × 3 cells of 72 × 88 mm, cut by hand —
-   the cell hugs a 66 mm QR with the code under it. Block centred:
-   33 mm side, 16.5 mm top margins. */
+/* Slot label paper: plain A4, cut by hand. Two sizes, picked per shelf
+   (storage_shelves.label_size):
+   box   — 2 × 3 cells of 72 × 88 mm hugging a 66 mm QR with the code
+           under it, for a box front. Block centred: 33 mm side, 16.5 mm top.
+   strip — 1 × 14 cells of 126 × 20 mm (7 job-sticker cells) for a drawer
+           label holder. Only the middle 90 mm shows; 'hide' mm at each end
+           slides under the holder lip and stays blank. Block centred:
+           42 mm side, 8.5 mm top. */
+if (!function_exists('sbin_label_sizes')) {
+    function sbin_label_sizes(): array {
+        return ['box' => 'กล่อง 72×88 มม.', 'strip' => 'แถบ 126×20 มม. (ชั้นเล็ก)'];
+    }
+}
+
 if (!function_exists('sbin_sheet')) {
-    function sbin_sheet(): array {
-        return ['cols' => 2, 'rows' => 3, 'w' => 72, 'h' => 88, 'top' => 16.5, 'left' => 33];
+    function sbin_sheet(string $size = 'box'): array {
+        if ($size === 'strip') {
+            return ['cols' => 1, 'rows' => 14, 'w' => 126, 'h' => 20, 'top' => 8.5, 'left' => 42, 'hide' => 18];
+        }
+        return ['cols' => 2, 'rows' => 3, 'w' => 72, 'h' => 88, 'top' => 16.5, 'left' => 33, 'hide' => 0];
+    }
+}
+
+/* label_size / cols arrived in migration_shelf_layout.sql — until a server
+   has run it, everything is a box label on an auto grid */
+if (!function_exists('sbin_has_layout')) {
+    function sbin_has_layout(PDO $pdo): bool {
+        static $has = null;
+        if ($has === null) {
+            try { $pdo->query("SELECT label_size, cols FROM storage_shelves LIMIT 1"); $has = true; }
+            catch (PDOException $e) { $has = false; }
+        }
+        return $has;
     }
 }

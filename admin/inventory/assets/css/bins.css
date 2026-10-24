@@ -90,6 +90,10 @@
 
 /* up to 10 across (a 10-slot shelf on one row), never narrower than 104px */
 .bn-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(max(104px, calc((100% - 90px) / 10)), 1fr)); gap: 10px; }
+/* shelf with a set slots-per-row (storage_shelves.cols) mirrors the real shelf; phones keep 3 / 2 across */
+@media (min-width: 641px) {
+    .bn-grid.has-cols { grid-template-columns: repeat(var(--cols), minmax(0, 1fr)); }
+}
 .bn-slot {
     display: flex; flex-direction: column; gap: 4px; min-width: 0; min-height: 76px;
     padding: 12px; border-radius: 14px;
